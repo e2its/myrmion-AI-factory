@@ -914,7 +914,75 @@
      },
      "fills": [
       "DB_MIGRATION_TOOL"
-     ]
+     ],
+     "configures": {
+      "Prisma Migrate": {
+       "delivery.migrate": "npx prisma migrate deploy"
+      },
+      "Drizzle Kit": {
+       "delivery.migrate": "npx drizzle-kit migrate"
+      },
+      "Knex": {
+       "delivery.migrate": "npx knex migrate:latest"
+      },
+      "TypeORM": {
+       "delivery.migrate": "npx typeorm migration:run -d dist/data-source.js"
+      },
+      "node-pg-migrate": {
+       "delivery.migrate": "npx node-pg-migrate up"
+      },
+      "Flyway": {
+       "delivery.migrate": "flyway migrate"
+      },
+      "Alembic": {
+       "delivery.migrate": "alembic upgrade head"
+      },
+      "Liquibase": {
+       "delivery.migrate": "liquibase update"
+      },
+      "golang-migrate": {
+       "delivery.migrate": "migrate -path migrations -database \"$DATABASE_URL\" up"
+      },
+      "goose": {
+       "delivery.migrate": "goose -dir migrations up"
+      },
+      "Atlas": {
+       "delivery.migrate": "atlas migrate apply --url \"$DATABASE_URL\""
+      },
+      "EF Core migrations": {
+       "delivery.migrate": "dotnet ef database update"
+      },
+      "DbUp": {
+       "delivery.migrate": null
+      },
+      "Active Record migrations": {
+       "delivery.migrate": "bin/rails db:migrate"
+      },
+      "Sequel": {
+       "delivery.migrate": "sequel -m db/migrations \"$DATABASE_URL\""
+      },
+      "Doctrine Migrations": {
+       "delivery.migrate": "vendor/bin/doctrine-migrations migrate --no-interaction"
+      },
+      "Phinx": {
+       "delivery.migrate": "vendor/bin/phinx migrate"
+      },
+      "sqlx-cli": {
+       "delivery.migrate": "sqlx migrate run"
+      },
+      "Diesel": {
+       "delivery.migrate": "diesel migration run"
+      },
+      "refinery": {
+       "delivery.migrate": "refinery migrate -e DATABASE_URL -p migrations"
+      },
+      "Ecto migrations": {
+       "delivery.migrate": "mix ecto.migrate"
+      },
+      "Django migrations": {
+       "delivery.migrate": "python manage.py migrate --noinput"
+      }
+     }
     }
    }
   },
@@ -1018,17 +1086,189 @@
    "tier": 2,
    "since": "1.0.0",
    "keys": {
-    "hosting.iac_tool": {
-     "options": [
-      "Terraform",
-      "Pulumi",
-      "AWS CDK",
-      "Docker Compose",
-      "None"
-     ],
+    "hosting.deploy_tool": {
+     "options_by": {
+      "key": "hosting.provider",
+      "values": {
+       "AWS": [
+        "Terraform",
+        "Pulumi",
+        "AWS CDK"
+       ],
+       "GCP": [
+        "Terraform",
+        "Pulumi"
+       ],
+       "Azure": [
+        "Terraform",
+        "Pulumi"
+       ],
+       "DigitalOcean": [
+        "Terraform",
+        "Pulumi"
+       ],
+       "Self-hosted": [
+        "Docker Compose",
+        "Terraform"
+       ],
+       "Vercel": [
+        "Vercel CLI"
+       ],
+       "Railway": [
+        "Railway CLI"
+       ],
+       "Fly.io": [
+        "flyctl"
+       ],
+       "Other": [
+        "Other"
+       ]
+      }
+     },
+     "decided_by": {
+      "key": "hosting.provider",
+      "values": {
+       "Vercel": "Vercel CLI",
+       "Railway": "Railway CLI",
+       "Fly.io": "flyctl",
+       "Other": "Other"
+      }
+     },
      "fills": [
       "IAC_TOOL"
-     ]
+     ],
+     "configures": {
+      "Terraform": {
+       "delivery.adapter": {
+        "tool": "Terraform",
+        "iac": true,
+        "validate": "terraform init -input=false -backend=false && terraform validate -json",
+        "plan": "terraform init -input=false && terraform plan -input=false -out=tfplan",
+        "apply": "terraform apply -input=false tfplan",
+        "destroy": "terraform init -input=false && terraform apply -destroy -input=false -auto-approve",
+        "url_from": {
+         "kind": "command",
+         "command": "terraform output -raw url"
+        },
+        "secrets": [],
+        "rollback": "redeploy-lkg"
+       }
+      },
+      "Pulumi": {
+       "delivery.adapter": {
+        "tool": "Pulumi",
+        "iac": true,
+        "validate": "pulumi preview --non-interactive --stack {env}",
+        "plan": "pulumi preview --non-interactive --stack {env}",
+        "apply": "pulumi up --stack {env} --yes --skip-preview --non-interactive",
+        "destroy": "pulumi destroy --stack {env} --yes --non-interactive",
+        "url_from": {
+         "kind": "command",
+         "command": "pulumi stack output url --stack {env}"
+        },
+        "secrets": [
+         "PULUMI_ACCESS_TOKEN"
+        ],
+        "rollback": "redeploy-lkg"
+       }
+      },
+      "AWS CDK": {
+       "delivery.adapter": {
+        "tool": "AWS CDK",
+        "iac": true,
+        "validate": "cdk synth --quiet",
+        "plan": "cdk diff",
+        "apply": "cdk deploy --all --require-approval never --outputs-file cdk-outputs.json",
+        "destroy": "cdk destroy --all --force",
+        "url_from": {
+         "kind": "command",
+         "command": "python3 -c \"import json; print(next(v['url'] for v in json.load(open('cdk-outputs.json')).values() if 'url' in v))\""
+        },
+        "secrets": [],
+        "rollback": "redeploy-lkg"
+       }
+      },
+      "Docker Compose": {
+       "delivery.adapter": {
+        "tool": "Docker Compose",
+        "iac": false,
+        "validate": "docker compose config -q",
+        "plan": null,
+        "apply": "docker compose up -d --wait --remove-orphans",
+        "destroy": "docker compose down --remove-orphans",
+        "url_from": {
+         "kind": "config"
+        },
+        "secrets": [
+         "DEPLOY_SSH_KEY"
+        ],
+        "rollback": "redeploy-lkg"
+       }
+      },
+      "Vercel CLI": {
+       "delivery.adapter": {
+        "tool": "Vercel CLI",
+        "iac": false,
+        "validate": null,
+        "plan": "vercel pull --yes --environment=production && vercel build --prod",
+        "apply": "vercel deploy --prebuilt --prod",
+        "destroy": "vercel remove {app} --yes",
+        "url_from": {
+         "kind": "stdout"
+        },
+        "params": {
+         "app": null
+        },
+        "secrets": [
+         "VERCEL_TOKEN",
+         "VERCEL_ORG_ID",
+         "VERCEL_PROJECT_ID"
+        ],
+        "rollback": "redeploy-lkg"
+       }
+      },
+      "Railway CLI": {
+       "delivery.adapter": {
+        "tool": "Railway CLI",
+        "iac": false,
+        "validate": null,
+        "plan": null,
+        "apply": "railway up --ci --service {service}",
+        "destroy": null,
+        "url_from": {
+         "kind": "config"
+        },
+        "params": {
+         "service": null
+        },
+        "secrets": [
+         "RAILWAY_TOKEN"
+        ],
+        "rollback": "redeploy-lkg"
+       }
+      },
+      "flyctl": {
+       "delivery.adapter": {
+        "tool": "flyctl",
+        "iac": false,
+        "validate": "fly config validate --strict",
+        "plan": null,
+        "apply": "fly deploy --remote-only --app {app} --yes",
+        "destroy": "fly apps destroy {app} --yes",
+        "url_from": {
+         "kind": "template",
+         "template": "https://{app}.fly.dev"
+        },
+        "params": {
+         "app": null
+        },
+        "secrets": [
+         "FLY_API_TOKEN"
+        ],
+        "rollback": "redeploy-lkg"
+       }
+      }
+     }
     }
    }
   },
@@ -1091,7 +1331,33 @@
      ],
      "fills": [
       "CI_CD_PLATFORM"
-     ]
+     ],
+     "configures": {
+      "GitHub Actions": {
+       "delivery.execution": "ci"
+      },
+      "GitLab CI": {
+       "delivery.execution": "ci"
+      },
+      "Bitbucket Pipelines": {
+       "delivery.execution": "ci"
+      },
+      "Azure DevOps": {
+       "delivery.execution": "ci"
+      },
+      "Jenkins": {
+       "delivery.execution": "ci"
+      },
+      "AWS CodePipeline": {
+       "delivery.execution": "ci"
+      },
+      "GCP Cloud Build": {
+       "delivery.execution": "ci"
+      },
+      "None": {
+       "delivery.execution": "local"
+      }
+     }
     }
    }
   },
@@ -1951,6 +2217,34 @@
     ]
    }
   },
+  "delivery.execution": {
+   "from": "ci_cd.platform: ci when a platform is answered, local for None — gate.py discovery --resolve → configures.delivery.execution (the option's row); persisted beside delivery.mode (EVOL-081)",
+   "fills": [
+    "DELIVERY_EXECUTION"
+   ]
+  },
+  "delivery.adapter": {
+   "from": "the hosting.deploy_tool option's row — gate.py discovery --resolve → configures.delivery.adapter, JSON as is; its validate / plan / apply / destroy fill the IAC_CMD_* tokens (null → N/A); Other → the row the discovery finalisation declares by RDR (EVOL-081)",
+   "fills": [
+    "DELIVERY_ADAPTER",
+    "IAC_CMD_VALIDATE",
+    "IAC_CMD_PLAN",
+    "IAC_CMD_APPLY",
+    "IAC_CMD_DESTROY"
+   ],
+   "when": "hosting.deploy_tool exists",
+   "configures": {
+    "defect_prevention.classes": [
+     "DC-44"
+    ]
+   }
+  },
+  "delivery.migrate": {
+   "from": "the database.migrations_tool option's row — gate.py discovery --resolve → configures.delivery.migrate, a command or null (no tool, or a tool that migrates in the application: DbUp) (EVOL-081)",
+   "fills": [
+    "DELIVERY_MIGRATE"
+   ]
+  },
   "verification.gates": {
    "from": "gate.py discovery --resolve → configures.verification.gates: the configures rows of the answered backend.runtime, frontend.framework, project_scope (contract-parity, EVOL-070) and the security scan, reads = surface.runtime_surface + the test roots (EVOL-067); each row's `was` (superseded template values) stays in the registry for the upgrade merge (EVOL-116); a stack with no rows declares its rows by RDR at discovery (§ verification coverage), recorded here",
    "fills": [
@@ -2198,11 +2492,7 @@
   "I18N_SCOPE": "unsourced",
   "I18N_SUPPORTED_LOCALES": "unsourced",
   "I18N_TRANSLATION_MANAGEMENT": "unsourced",
-  "IAC_CMD_APPLY": "unsourced",
-  "IAC_CMD_DESTROY": "unsourced",
   "IAC_CMD_FORMAT": "unsourced",
-  "IAC_CMD_PLAN": "unsourced",
-  "IAC_CMD_VALIDATE": "unsourced",
   "IAC_ENTRY_POINT": "unsourced",
   "IAC_ENV_CONFIG_PATTERN": "unsourced",
   "IAC_ENV_PATTERN": "unsourced",
@@ -2423,6 +2713,24 @@
    "since": "9.1.0",
    "detect": "always",
    "apply": "browser-mcp (EVOL-077)"
+  },
+  {
+   "id": "deploy-tool (EVOL-081)",
+   "since": "10.0.0",
+   "detect": "docs/setup.md#/hosting/deploy_tool",
+   "apply": "deploy-tool (EVOL-081)"
+  },
+  {
+   "id": "delivery-execution (EVOL-081)",
+   "since": "10.0.0",
+   "detect": "config/quality.json#/delivery/execution",
+   "apply": "delivery-execution (EVOL-081)"
+  },
+  {
+   "id": "deploy-records (EVOL-081)",
+   "since": "10.0.0",
+   "detect": "always",
+   "apply": "deploy-records (EVOL-081)"
   }
  ]
 }

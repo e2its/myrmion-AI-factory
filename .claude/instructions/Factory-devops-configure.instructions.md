@@ -51,7 +51,7 @@ ELSE:
 ```yaml
 READ docs/constitution.md:
   EXTRACT:
-    cloud_provider, iac_tool, environments[], deployment_strategy,
+    cloud_provider, deploy_tool, environments[], deployment_strategy,
     observability_stack, secrets_manager (per-env with tier resolution),
     secrets_cicd, encryption, architecture.topology
   
@@ -61,8 +61,7 @@ READ docs/constitution.md:
     state_management: (e.g., terraform.backend "s3", pulumi state)
     env_config_pattern: (e.g., terraform.workspace, stack names)
     module_dir: (e.g., infra/modules/)
-    commands:
-      init, plan/preview, apply/up, destroy, validate, output
+    commands: the adapter row (config/quality.json → delivery.adapter) — never derived here
 ```
 
 ### Step 2: Load Governance Files
@@ -104,14 +103,9 @@ Before devops_plan.md is written, the **main session** spawns the read-only `fac
 ## Guardrail 1: Stack Coherence
 
 ```yaml
-VERIFY iac_descriptor has entry_point AND commands.apply:
-  IF missing: Fallback to known_tools dictionary:
-    terraform: {entry: main.tf, apply: "terraform apply", destroy: "terraform destroy"}
-    pulumi: {entry: Pulumi.yaml, apply: "pulumi up", destroy: "pulumi destroy"}
-    aws-cdk: {entry: cdk.json, apply: "cdk deploy", destroy: "cdk destroy"}
-    docker-compose: {entry: docker-compose.yml, apply: "docker compose up", destroy: "docker compose down"}
-    sam: {entry: template.yaml, apply: "sam deploy", destroy: "sam delete"}
-    localstack: {entry: docker-compose.yml, apply: "localstack start"}
+VERIFY the adapter row (config/quality.json → delivery.adapter, EVOL-081) — its one home; no fallback dictionary:
+  RUN python3 scripts/gate.py delivery --check
+  IF red (no row, no `apply`, no `url_from`): ❌ BLOCK "the deploy tool has no complete adapter row — run SETUP --upgrade, or declare the row (provider Other)"
 
 VERIFY cloud_provider compatibility:
   IF commands contain "aws" BUT cloud_provider != "AWS": ⚠️ WARN
@@ -493,6 +487,9 @@ FOR EACH secret identified:
     
     Save immediately
 
+  A secret a deploy step reads (the migration's database URL, the app's config) — its NAME joins
+  config/quality.json → delivery.secrets (EVOL-081); the CI holds the value under that name. No other name reaches a step.
+
 SECURITY RULES:
   ❌ NEVER log actual secret values
   ❌ NEVER store secrets in devops_plan.md (only ARNs/references)
@@ -525,7 +522,7 @@ FUNCTION devops_auto_approve(FEATURE_ID, devops_plan_path):
   CHECK 3: Placeholder Detection (Guardrail 7) — SCAN_ENV_FILES_FOR_PLACEHOLDERS
   CHECK 4: Cost within budget (< block_threshold)
   CHECK 5: HA for CRITICAL features (Guardrail 4)
-  CHECK 6: Governance Coherence (iac_tool + environments match constitution)
+  CHECK 6: Governance Coherence (deploy_tool + environments match constitution)
   CHECK 7: devops_plan.md has all required sections populated
 
   IF ALL checks PASS:
@@ -632,7 +629,7 @@ cascade_scope: []
 
 ## Governance (Read-Only)
 cloud_provider: {from constitution}
-iac_tool: {from constitution}
+deploy_tool: {from constitution}
 iac_descriptor: {derived}
 deployment_strategy: {from ci-cd.md or user decision}
 environments: {from ci-cd.md}

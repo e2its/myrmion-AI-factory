@@ -95,7 +95,7 @@ _This section tracks files omitted because their technology is not in the stack.
 ### Files Omitted - Technology Not in Stack
 <!-- Example:
 - **.claude/rules/postgres-guidelines.md**: Omitted. Template available but project uses MongoDB (database.primary).
-- **.claude/rules/terraform.md**: Omitted. Template available but project uses pulumi (infrastructure.iac_tool).
+- **.claude/rules/terraform.md**: Omitted. Template available but project uses pulumi (hosting.deploy_tool).
 - **.claude/rules/angular.md**: Omitted. Angular template available but stack uses Next.js (frontend.framework).
 -->
 

@@ -29,13 +29,13 @@ defects     EVOL-066 — `defect_classes.drop`: the tool-bound ids (any option's
             the answers do not select. Against a project also, per template row: `to_add` (absent, not dropped),
             `to_remove` (the same class — invariant or case title equal — and dropped), `collisions` (another class under
             the id, not dropped: {id, project, framework}). A row outside the template is never listed.
-validate    V1 schema · V2 a single option not derived · V3 a credential-named key not `free: vault_name` · V4 a key with
+validate    V1 schema · V2 a single option not derived (a one-literal row its decided_by decides is) · V3 a credential-named key not `free: vault_name` · V4 a key with
             no consumer, no `fills` and no `record_only` · V5 every condition parses and names registry keys and offered literals ·
             V6 parity with the discovery instruction · V7 parity with the setup template frontmatter · V8 the consumer
             literals (the checks of the retired test-discovery-literals.sh, read from the registry) · V9 the snapshot's
             STACK_KEYS are registry keys · V10 every UPPER_SNAKE token of a template with a target has exactly one source
             (fills | derived fills | constants | baseline), and every entry names a token some template carries · V11 every
-            migration row parses and its anchor exists · V12 every `configures` row: a key's literal is offered, a
+            migration row parses and its anchor exists · V12 every `configures` row: a key's literal is offered or decided, a
             gate row is {command, scoped?, red_link?, report?} with a command, `defect_prevention.classes` a list of
             `DC-NN`, an `mcp.servers` row {<name>: {command, args}} — pinned `pkg@x.y.z`, `--isolated`, no env, no url (EVOL-077) · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
             configured id a row, a row no option configures names no STACK_LABEL_KEYS label.
@@ -81,7 +81,7 @@ PROJECT_CATALOG = ".claude/rules/defect-prevention.md"
 PROJECT_CASES = ".claude/rules/defect-prevention-cases.md"
 # the stack and cloud vocabulary a universal row never names (V13, rules/defect-prevention.md § Promotion 1)
 STACK_LABEL_KEYS = ("backend.runtime", "frontend.framework", "database.primary.engine", "database.secondary.engine",
-                    "database.cache.engine", "hosting.provider", "hosting.iac_tool", "hosting.secrets_manager", "ci_cd.platform",
+                    "database.cache.engine", "hosting.provider", "hosting.deploy_tool", "hosting.secrets_manager", "ci_cd.platform",
                     "scm.platform", "observability.monitoring", "observability.error_tracking", "observability.tracing")
 LABEL_STOP = {"None", "Other", "Self-hosted", "In-memory", "CDN-only", ".env"}
 DETECT = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|#))([^#\s]+)#(/[^#\s]*)$")
@@ -806,8 +806,9 @@ def _v2(reg: dict) -> list[str]:
             out.append(f"V2 · `{k}` offers one option ({canon(s['options'][0])}) — a decided value is derived, never asked: move it to `derived`")
         ob = s.get("options_by")
         if isinstance(ob, dict) and isinstance(ob.get("values"), dict):
+            dec = (s.get("decided_by") or {}).get("values") if (s.get("decided_by") or {}).get("key") == ob.get("key") else None
             for lit, vals in ob["values"].items():
-                if isinstance(vals, list) and len(vals) == 1:
+                if isinstance(vals, list) and len(vals) == 1 and not (isinstance(dec, dict) and dec.get(lit) == canon(vals[0])):   # decided already (EVOL-081)
                     out.append(f"V2 · `{k}` offers one option when `{ob.get('key')}` is `{lit}` ({canon(vals[0])}) — derive it, never ask it")
     return out
 
@@ -1349,6 +1350,9 @@ def _v12(reg: dict) -> list[str]:
         if "configures" not in s:
             continue
         c, offered = s["configures"], _offered(s)
+        db = s.get("decided_by")
+        if offered is not None and isinstance(db, dict) and isinstance(db.get("values"), dict):   # a decided value carries its row too (EVOL-081)
+            offered = sorted(set(offered) | {canon(v) for v in db["values"].values()})
         if not isinstance(c, dict) or offered is None:
             out.append(f"V12 · `{k}`: configures is {{<option literal>: {{<config pointer>: value}}}} on a key with options"); continue
         for lit, rows in c.items():

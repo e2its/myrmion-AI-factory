@@ -139,7 +139,7 @@ Each finding above informational carries file, line, severity, confidence and an
 
 ### Step 5: Script-Based Validation Registry
 - Mandatory scripts: `dependency-allowlist.sh`, `security-scan.sh`
-- Conditional scripts based on stack (e.g., `validate-iac.sh` if `hosting.iac_tool != None`)
+- Conditional scripts based on stack (e.g., `validate-iac.sh` if `hosting.deploy_tool IN [Terraform, Pulumi, AWS CDK]`)
 
 ### Step 6: Defect Prevention Consultation
 
@@ -724,7 +724,7 @@ FUNCTION auto_declare_frontend_resource():
 
   # Read available constitution fields (all populated by SETUP discovery + materialization)
   cloud_provider = READ constitution.md → infrastructure.cloud_provider
-  iac_tool = READ constitution.md → infrastructure.iac_tool
+  deploy_tool = READ docs/setup.md → hosting.deploy_tool
   frontend_pattern = READ constitution.md → frontend.pattern
   meta_framework = READ constitution.md → frontend.meta_framework
 
@@ -734,7 +734,7 @@ FUNCTION auto_declare_frontend_resource():
 
   # ARCH proposes hosting engine via RDR based on constitution fields.
   # There are NO hardcoded engine mappings — the agent uses cloud_provider,
-  # iac_tool, frontend_pattern, and meta_framework as context to recommend.
+  # deploy_tool, frontend_pattern, and meta_framework as context to recommend.
   ASK via RDR:
     R: "Your project uses {frontend_framework} (pattern {frontend_pattern}) on {cloud_provider}.
         I recommend a frontend hosting setup appropriate for {'SSR' IF ssr ELSE 'SPA/static'} delivery.
@@ -987,7 +987,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       - id: "GOV-IAC"
         source: ".claude/rules/iac.md"
         constraints: ["{IaC naming}", "{module structure}", "{least privilege}"]
-        stack_conditional: "hosting.iac_tool != None"
+        stack_conditional: "hosting.deploy_tool IN [Terraform, Pulumi, AWS CDK]"
       - id: "GOV-FRONT"
         source: ".claude/rules/frontend_architecture_compatibility.md"
         constraints: ["{frontend arch rules}"]

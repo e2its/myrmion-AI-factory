@@ -94,7 +94,8 @@ jobs:
           bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json
           bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/upgrade-8.12.json
           bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/upgrade-8.12-api.json   # EVOL-072: scope answered, the product laws owed
-          for a in java go rust frontend-only; do   # EVOL-116: the per-file rows land on every stack, red sources included
+          python3 -m pip install --quiet pyyaml==6.0.3 jsonschema==4.19.2   # EVOL-081: the merged Bitbucket pipeline and the live pipeline schemas
+          for a in java go rust frontend-only bitbucket; do   # EVOL-116: the per-file rows land on every stack, red sources included; EVOL-081: the merged Bitbucket pipeline
             bash scripts/materialize-synthetic.sh --answers "scripts/fixtures/synthetic-answers/$a.json"
           done
 

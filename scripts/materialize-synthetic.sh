@@ -82,7 +82,16 @@ for key, e in m["templates"].items():
     if e.get("delivery") == "sync":
         skipped.append(key); continue
     dst = P / tgt; dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dst); landed.append(tgt)
+    if e.get("target_mode") == "merge" and dst.is_file():   # Factory-setup-materialization § target_mode: merge
+        import yaml
+        def merge(a, b):   # mapping by mapping; a list under the same key concatenates; a scalar keeps the target's
+            if isinstance(a, dict) and isinstance(b, dict):
+                return {**a, **{k: merge(a[k], v) if k in a else v for k, v in b.items()}}
+            return a + b if isinstance(a, list) and isinstance(b, list) else a
+        dst.write_text(yaml.safe_dump(merge(yaml.safe_load(dst.read_text()), yaml.safe_load(src.read_text())), sort_keys=False, allow_unicode=True))
+    else:
+        shutil.copy2(src, dst)
+    landed.append(tgt)
 # the constitution template lands as the project's index
 if (T / "constitution/constitution_template.md").is_file():
     (P / "docs").mkdir(exist_ok=True); shutil.copy2(T / "constitution/constitution_template.md", P / "docs/constitution.md"); landed.append("docs/constitution.md")
@@ -117,6 +126,9 @@ if RES["placeholders"].get("DB_MIGRATION_TOOL"):   # Q15.1, or decided by backen
 NUM["DC_ENTRIES"] = "| PDC-1 | `runtime` | sample project class. | — | `src/**` | IMPLEMENT, REVIEW | WARNING |"   # the seed, PDC-numbered (EVOL-066)
 NUM["TRACEABILITY_TEST_ROOTS"] = json.dumps(RES["configures"].get("traceability.test_roots", []))
 NUM["PERFORMANCE_THRESHOLDS"] = json.dumps(RES["configures"].get("performance.thresholds", {}))   # Q37 + Q37.1 merged (EVOL-073)
+NUM["DELIVERY_ADAPTER"] = json.dumps(RES["configures"].get("delivery.adapter"))   # the chosen deploy-tool row, or null (EVOL-081)
+NUM["DELIVERY_EXECUTION"] = str(RES["configures"].get("delivery.execution") or "local")   # ci when a platform is answered (EVOL-081)
+NUM["DELIVERY_MIGRATE"] = json.dumps(RES["configures"].get("delivery.migrate"))   # the migrations tool's deploy command, or null
 if isinstance(A.get("surface.runtime_surface"), list):
     NUM["RUNTIME_SURFACE"] = json.dumps(A["surface.runtime_surface"])
 if A.get("security.standard"):   # Q35 / Q35.1: standard `none` asks no level — the level renders `n/a` (Factory-setup-materialization)
@@ -237,7 +249,7 @@ rows = {m.group(1): m.group(0) for m in re.finditer(r"(?m)^\| (DC-\d+) \|.*$", (
 case = lambda text, i: re.search(r"(?ms)^### " + i + r" — .*?(?=^### |\Z)", text)
 tcases = (tpl / "defect-prevention-cases.md").read_text(encoding="utf-8")
 cat, cases = (proj / "defect-prevention.md").read_text(encoding="utf-8"), (proj / "defect-prevention-cases.md").read_text(encoding="utf-8")
-for i in ("DC-32", "DC-33", "DC-34", "DC-35", "DC-36", "DC-37", "DC-38", "DC-39", "DC-43"):   # rows after 8.12 (DC-36..38: EVOL-072; DC-39: EVOL-070; DC-43: EVOL-073)
+for i in ("DC-32", "DC-33", "DC-34", "DC-35", "DC-36", "DC-37", "DC-38", "DC-39", "DC-43", "DC-44"):   # rows after 8.12 (DC-36..38: EVOL-072; DC-39: EVOL-070; DC-43: EVOL-073; DC-44: EVOL-081)
     cat = cat.replace(rows[i] + "\n", "")
     cases = cases.replace(case(cases, i).group(0), "")
 cat = cat.replace(rows["DC-31"], "| DC-31 | `process` | Every login of the project names its tenant. | `—` | `src/**` | IMPLEMENT, REVIEW | WARNING |")
@@ -247,8 +259,8 @@ if "| DC-18 |" not in cat:
     cases = cases.rstrip("\n") + "\n\n" + case(tcases, "DC-18").group(0)
 (proj / "defect-prevention.md").write_text(cat, encoding="utf-8"); (proj / "defect-prevention-cases.md").write_text(cases, encoding="utf-8")
 PY
-  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data` and no `performance` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073) — their migrations are owed
-  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance` and no `delivery` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081) — their migrations are owed
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped (a `was` value — replaced), a
   # tests command the project edited (kept), no red_reads (added); no `sast` row (EVOL-074 — added), no `contract-parity` row (EVOL-070 — added where Q4.5 selects it), no `performance` row (EVOL-073 — added with a frontend)
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]
@@ -300,6 +312,17 @@ case "$WANT" in chrome-devtools|playwright) EXP="$WANT|ok" ;; *) EXP="|ok" ;; es
 [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "$EXP" ] \
   && ok "the browser-mcp anchor lands Q23.5's server (${WANT:-none}) pinned and --isolated, keeps the project's own server, and a second run changes nothing (EVOL-077)" \
   || bad "the browser-mcp anchor (rc=$RC1/$RC2, got=$GOT, want=$EXP)" "$OUT"
+# EVOL-081 — the merged Bitbucket pipeline (target_mode: merge): governance check, auto-tag and deploy in one file,
+# valid against the live schema, held by the executor's static check
+if [ -f "$P/bitbucket-pipelines.yml" ]; then
+  BB="$P/bitbucket-pipelines.yml"
+  grep -q 'gate.py profile --run' "$BB" && grep -q 'auto-tag.sh' "$BB" && grep -q 'gate.py delivery --run --env production' "$BB" \
+    && ok "bitbucket-pipelines.yml carries the governance check, the auto-tag and the deploy pipeline (merged, none overwritten)" || bad "a merged Bitbucket template was overwritten" "$(grep -n 'name:' "$BB")"
+  OUT=$(bash "$ROOT/scripts/test-pipeline-schemas.sh" "$P" 2>&1); RC=$?
+  [ "$RC" -eq 0 ] && ok "the merged bitbucket-pipelines.yml against the live schema$(printf '%s' "$OUT" | grep -q 'skipped' && echo ' (skipped — schema unreachable)')" || bad "the merged bitbucket-pipelines.yml fails its schema (rc=$RC)" "$OUT"
+  OUT=$(cd "$P" && python3 scripts/gate.py delivery --check 2>&1); RC=$?
+  [ "$RC" -eq 0 ] && ok "delivery --check holds the merged Bitbucket pipeline" || bad "delivery --check red on the merged Bitbucket pipeline (rc=$RC)" "$OUT"
+fi
 # another stack's fixture proves its selection and its map only: the toolchain checks below are written for the default stack
 if [ "$IS_DEFAULT" != "1" ]; then
   echo; echo "materialize-synthetic: $PASS passed, $FAIL failed (selection of $(basename "$ANSWERS"))"; [ "$FAIL" -eq 0 ]; exit
@@ -764,6 +787,21 @@ python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["dependencie
 python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["packages"]["node_modules/moment"]={"version":"2.30.1"}; json.dump(d,open(p,"w"))' "$D/web/package-lock.json"
 OUT=$(cd "$D" && env -u CLAUDE_PROJECT_DIR bash scripts/dependency-allowlist.sh --strict 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'moment is denied' && ok "QA-PRE-1 from the template: a denied dependency blocks (exit 1, named)" || bad "denied dependency not red (rc=$RC)" "$OUT"
+
+# EVOL-081 — CI-only delivery: the landed pipelines validate against the live schemas (RDR 3) and the executor's
+# static check holds them (production behind approval, every deploy stage through gate.py delivery)
+OUT=$(bash "$ROOT/scripts/test-pipeline-schemas.sh" "$P" 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "the landed pipelines against the live schemas: $(printf '%s' "$OUT" | grep -c '✓') valid$(printf '%s' "$OUT" | grep -q 'skipped' && echo ', some skipped — schema unreachable')" || bad "a landed pipeline fails its platform's schema (rc=$RC)" "$OUT"
+PIPE=$( [ -f "$P/.github/workflows/deploy.yml" ] && echo "$P/.github/workflows/deploy.yml" || { grep -qs 'gate.py delivery' "$P/bitbucket-pipelines.yml" && echo "$P/bitbucket-pipelines.yml"; } )
+if [ -n "$PIPE" ]; then
+  OUT=$(cd "$P" && python3 scripts/gate.py delivery --check 2>&1); RC=$?
+  [ "$RC" -eq 0 ] && ok "delivery --check: the landed deploy pipeline calls the executor and holds production behind approval" || bad "delivery --check red on the landed pipeline (rc=$RC)" "$OUT"
+  cp "$PIPE" "$PIPE.keep"; sed -i 's/^\(  *\)environment: production$/\1environment: staging/; s/^\(  *\)trigger: manual$/\1trigger: automatic/' "$PIPE"
+  OUT=$(cd "$P" && python3 scripts/gate.py delivery --check 2>&1); RC=$?; mv "$PIPE.keep" "$PIPE"
+  [ "$RC" -eq 1 ] && ok "RED: a production stage without its approval is refused by delivery --check" || bad "an unapproved production stage passed delivery --check (rc=$RC)" "$OUT"
+elif python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))["answers"].get("ci_cd.platform") in ("GitHub Actions", "Bitbucket Pipelines") else 1)' "$ANSWERS"; then
+  bad "the answers name a covered CI platform and no deploy pipeline landed"
+fi
 
 echo; echo "materialize-synthetic: $PASS passed, $FAIL failed"
 [ "${MATERIALIZE_KEEP:-0}" = "1" ] && echo "scratch kept at $P"

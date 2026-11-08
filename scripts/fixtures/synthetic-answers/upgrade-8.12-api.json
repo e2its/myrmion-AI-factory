@@ -10,7 +10,7 @@
     "frontend.pattern": "F1",
     "database.primary.engine": "None",
     "hosting.provider": "AWS",
-    "hosting.iac_tool": "None",
+    "hosting.deploy_tool": "Terraform",
     "ci_cd.platform": "GitHub Actions",
     "project_tracking.tool": "GitHub Projects",
     "dependencies.backend": [
@@ -92,7 +92,8 @@
         "DC-37",
         "DC-38",
         "DC-39",
-        "DC-43"
+        "DC-43",
+        "DC-44"
       ],
       "collisions": [
         "DC-31"
@@ -115,7 +116,8 @@
       "data (EVOL-071)",
       "performance (EVOL-073)",
       "history-in-vcs (EVOL-118)",
-      "browser-mcp (EVOL-077)"
+      "browser-mcp (EVOL-077)",
+      "delivery-execution (EVOL-081)", "deploy-records (EVOL-081)"
     ],
     "templates_to_add": [
       "security/sast/python.yml",

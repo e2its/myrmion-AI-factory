@@ -327,7 +327,8 @@
       "docs/spec/*/review/peer_review_*.md",
       "docs/spec/*/review/sec_audit*.md",
       "docs/spec/*/sec_audit*.md",
-      "docs/spec/*/smoke_e2e_report.md"
+      "docs/spec/*/smoke_e2e_report.md",
+      "docs/spec/*/review/preventive_sweep_*.md"
     ]
   },
   "surface": {

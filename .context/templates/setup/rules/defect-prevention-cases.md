@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.7.0
+version: 1.8.0
 date: 2026-09-25
 applicable_when:
   path_glob:
@@ -153,5 +153,12 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 
 **Story:** A latency reference was measured once, on one environment, and became the threshold for every environment. A slower environment looked like a regression on each deploy, and a real regression hid behind a faster one. Nobody could tell which figure belonged to which build.
 
-**Detection:** The `performance` member: every baseline line names its site, its measured commit and its date. The deployed measurement compares a figure only with the last line of the same site; a site with no line yet is advisory and writes its first line. The light member refuses a line with no site and an edited or removed line.
+**Detection:** The `performance` member: every deploy record (`deploy/{env}/*` tag, EVOL-081) names its environment — the site —, its deployed commit and its date, and a tag cannot be edited. The deployed measurement compares a figure only with the last record of the same site; a site with no record yet is advisory and its first green deploy writes one. The light member refuses a record worse than its site's previous one.
 
+### DC-44 — A green deploy of a service that never started
+
+**Origin:** A generic class handed over by ADR-EVOL-066 and built in EVOL-081 (#135).
+
+**Story:** The deploy command exited zero and the pipeline went green. The service crashed on start, so nothing answered. The next rollback had no good state to return to, because every deploy had been recorded as good.
+
+**Detection:** `gate.py delivery --run` probes every `healthCheckPath` of `config/system_resources.json` against the deployed URL until its timeout. Any service down → the run is red and no `lkg/{env}/*` tag is written. The light member `delivery` refuses a pipeline whose deploy stage skips the executor, or whose production stage has no approval.

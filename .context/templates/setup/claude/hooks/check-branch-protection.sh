@@ -47,6 +47,7 @@ case "$wt_rc" in
   0) ;;
   4) exit 0 ;;   # nothing to judge — 3 is gate.py's import guard (package broken): a fault, below
   1) printf '%s\n' "$wt_out" >&2; exit 2 ;;
+  5) printf '%s\n' "$wt_out" >&2; exit 2 ;;   # EVOL-081: the adapter's apply/destroy when delivery.execution is ci — on every branch
   *) is_bash && shell_passes "gate.py write-target exit $wt_rc" ;;
 esac
 bc_out=$(python3 scripts/gate.py branch-class --protected 2>&1); bc_rc=$?

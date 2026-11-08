@@ -85,6 +85,14 @@ The current state, read on `main` at 9.2.0:
 
 Sources: developer.hashicorp.com (cli apply, plan, output, environment-variables), pulumi.com/docs (cli up, preview, stack output, environment-variables, state-and-backends), docs.aws.amazon.com (cdk ref-cli-cmd-deploy, destroy, diff, synth, rollback), docs.docker.com (compose up, down, config; dockerd socket), vercel.com/docs/cli, docs.railway.com/cli and the integrations/api pages, docs.fly.io/flyctl and the rollback-guide.
 
+**Second pass (docs reader, 2026-11-08, the rows' `destroy`, `delivery.migrate` and secret names).**
+- Terraform: `plan` and `destroy` run their own `init -input=false` first, because `validate` inits with `-backend=false`. `destroy` is `apply -destroy -input=false -auto-approve`; a plan file cannot take `-destroy`.
+- Pulumi `destroy --stack S --yes --non-interactive`, CDK `destroy --all --force`, Compose `down --remove-orphans` (volumes kept), flyctl `apps destroy A --yes`: verified.
+- Vercel `remove <project> --yes` deletes the whole project: this is the teardown.
+- Railway has no service teardown: `down` removes only the latest deployment, and `delete` removes the project with an account token. Its `destroy` is null, so the teardown fails closed and names the console.
+- Every `delivery.migrate` command was verified, with one note: goose reads `GOOSE_DRIVER` and `GOOSE_DBSTRING` from the environment. DbUp migrates inside the application (null).
+- The deny reads the last simple command of `apply` and `destroy`, so a chained `init` is never denied.
+
 Derived design point, mechanical, no RDR: most tools have no native rollback. The one rollback is therefore **redeploy the last-known-good SHA through the same pipeline, then re-seal**. Each IaC adapter names its service-URL output `url` by convention: the probe reads `url_from`.
 
 ## Decision
@@ -192,15 +200,16 @@ Owner's choice, verbatim: «1».
   3. Migrations through the `database.migrations_tool` row, with their trace.
   4. The adapter's `apply`.
   5. The liveness probe of every HTTP service: each `healthCheckPath` in `config/system_resources.json`, against `url_from`.
-  6. The record tag.
-  7. The `lkg` tag when the probe passes.
-  8. `gate.py performance --run --site --url`, which reads the record's SHA.
+  6. The deployed measurement (`gate.py performance`, not written on its own): its figures land in the record.
+  7. The record tag.
+  8. The `lkg` tag when the probe and the measurement pass.
 - **Production** runs only after a person approves:
   - GitHub: `environment: production`. `gate.py scm-protection` at `ci` verifies that environment's `protection_rules[].reviewers` through the API. A missing environment, or a Free private repository, is red.
   - Bitbucket: `deployment: production` with `trigger: manual`. The runbook names the Premium deployment permissions.
-- **The pull request** runs the smoke's automated specs against the persistent non-production environment. Under the Minimal strategy, they run against the build started in the job. The PR is blocked when the preventive sweep's `gate.py certify` verdict for the head SHA is missing, stale or red (RDR 1). The control point in `profile.py:67` becomes the pull request.
+- **The pull request** runs the smoke's automated specs against the persistent non-production environment. Under the Minimal strategy, they run against the build started in the job. The PR is blocked when the preventive sweep's `gate.py certify` verdict for the head SHA is missing, stale or red (RDR 1). The sweep is owed where the preventive-sweep phase exists: a `feature/*` branch, the full-sdlc preset, a change that is not documentation only — one reader, `gate.py delivery --sweep`. The control point in `profile.py:67` becomes the pull request.
 - **Rollback** redeploys the last `lkg/{env}/*` through the same pipeline. It writes its own `deploy/…` record, which is the re-seal.
-- **The DEVOPS instruction** triggers the run and watches it: `gh workflow run` with a unique `run-name`, then `gh run watch --exit-status`, or the Bitbucket pipelines API polled until `COMPLETED`. Local provision and deploy remain only for `delivery.execution == local`.
+- **Teardown** runs from the pipeline too: the deny covers the adapter's `destroy`. The production teardown waits for the same approval.
+- **The DEVOPS instruction** triggers the run and watches it: `gh workflow run` with a unique `run-name`, then `gh run watch --exit-status`, or the Bitbucket pipelines API polled until `COMPLETED`. Local provision and deploy remain only for `delivery.execution == local`, through the same executor: `gate.py delivery --run` refuses without `CI` only when the execution is `ci`.
 
 ### 4. The deny — one classifier (#119)
 
@@ -221,7 +230,8 @@ Owner's choice, verbatim: «1».
 
 - DC-44, «a deploy reports success while the service does not start», family `infra`.
 - Gate: the liveness probe in the deploy pipeline, and `gate.py delivery --check`.
-- Severity: CRITICAL.
+- Severity: BLOCKER, the catalog's top level.
+- It is tool-bound (promotion rule 5): the registry selects it where a deploy tool is answered.
 - The row and its case land in one change, through the promotion procedure (`rules/defect-prevention.md`).
 
 ### 7. Proof
@@ -262,6 +272,9 @@ Each change ships with its upgrade migration.
 - **Our own tests could still pass a bad pipeline.** The live schemas validate the pipeline's shape, and a real run is proven only in a downstream project.
 - **The adapters may drift from the CLIs.** The CLI facts are dated 2026-11-08, and a CLI flag may change. The adapter row is the one place to fix it.
 - **Bitbucket approval is weak on non-Premium plans.** Without Premium, «approval» means any user with write access pressing the manual trigger.
+- **Environment names are fixed for now.** The pipelines deploy `staging` and `production`. #147 owns the environment declaration; until it lands, a project with other names edits its pipeline, and `delivery --check` still holds every stage to the executor and the approval.
+- **Secrets reach the executor process.** The pipeline hands its secrets map to the executor, which passes each step only the row's names and `delivery.secrets`. The map lives in that one process's environment for the job's lifetime.
+- **The Bitbucket merge is not exercised end to end.** The synthetic run validates the merged `bitbucket-pipelines.yml` against the live schema; a real run is proven only downstream.
 - **The sweep verdict depends on the agent.** It is the agent's word, sealed to a SHA. The pipeline checks that the verdict exists, is fresh and is green, not how it was reached.
 
 ## Alternatives considered

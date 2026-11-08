@@ -483,7 +483,7 @@ def digest(repo: Path, paths: list[str], budget: int, include_always: bool = Fal
 SETUP_MD = "docs/setup.md"
 STACK_KEYS = ("project_mode", "project_scope", "backend.runtime", "backend.framework", "backend.topology",
               "frontend.framework", "frontend.meta_framework", "frontend.pattern", "database.primary.engine",
-              "hosting.provider", "hosting.iac_tool", "ci_cd.platform")
+              "hosting.provider", "hosting.deploy_tool", "ci_cd.platform")
 
 
 def stack_answers(repo: Path) -> dict | None:

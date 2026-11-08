@@ -9,10 +9,14 @@ stays their backstop). A wrapper or a reserved word before the command (sudo, en
 
 Verdict, in order: guarded (harness / user configuration, the git dir) → 1 · unresolved → 1 (route: Edit or Write)
 · every target outside the project → 4 (nothing to judge; 3 is gate.py's import guard) · in-project targets → 0, one per line.
+Deploy class (EVOL-081), judged after guarded: the command's words after the wrappers (bash -c read through) start
+with the adapter's own apply / destroy (config/quality.json → delivery.adapter, up to the first flag) and
+delivery.execution is ci → 5. Unreadable config or a null adapter → no class (fail open).
 """
 from __future__ import annotations
 
 import ast
+import json
 import os
 import re
 import shlex
@@ -123,6 +127,7 @@ class _Reader:
         self.targets: list[str] = []
         self.unresolved: str | None = None
         self.writer = False
+        self.argvs: list[list[str]] = []   # each simple command's words after the wrappers (the deploy class reads them)
 
     # ── words → paths ──
     def expand(self, word: str) -> str:
@@ -198,6 +203,7 @@ class _Reader:
         if not args:
             return
         name, rest = os.path.basename(args[0]), args[1:]
+        self.argvs.append([name, *rest])
         if name == "cd":
             self._cd(rest)
         elif name == "tee":
@@ -432,13 +438,80 @@ def targets(repo: Path, payload: dict, env: dict | None = None) -> dict:
     return out
 
 
+SHELLS = {"bash", "sh", "zsh", "dash"}
+
+
+def _shell_script(rest):
+    """The script of `bash -c SCRIPT` (also -lc, -ec …), or None."""
+    for i, a in enumerate(rest):
+        if not a.startswith("-") or a.startswith("--"):
+            return None
+        if "c" in a[1:]:
+            return rest[i + 1] if i + 1 < len(rest) else None
+    return None
+
+
+def _argvs(repo: Path, command: str, cwd: str | None, env: dict, depth: int = 0) -> list[list[str]]:
+    """Every simple command's words after the wrappers, `bash -c` read through."""
+    out = []
+    for args in _bash(repo, command, cwd, env).argvs:
+        script = _shell_script(args[1:]) if args[0] in SHELLS and depth < 3 else None
+        out += _argvs(repo, script, cwd, env, depth + 1) if script is not None else [args]
+    return out
+
+
+def _deploy_row(repo: Path) -> tuple[str | None, list[list[str]]]:
+    """(delivery.execution, the leading words of the adapter's apply / destroy up to the first flag) — EVOL-081.
+    Only the LAST simple command of each is the deploy; a chained preparation step (`terraform init && …`) is not.
+    Fail open: an unreadable config (a template's placeholders included) or a null adapter → no class."""
+    try:
+        d = json.loads((Path(repo) / "config/quality.json").read_text(encoding="utf-8")).get("delivery")
+    except (OSError, ValueError, AttributeError):
+        return None, []
+    adapter = d.get("adapter") if isinstance(d, dict) else None
+    if not isinstance(adapter, dict):
+        return None, []
+    heads = []
+    for key in ("apply", "destroy"):
+        cmd = adapter.get(key)
+        if not isinstance(cmd, str) or not cmd.strip():
+            continue
+        for args in list(_argvs(Path(repo), cmd, None, {}))[-1:]:
+            words = []
+            for w in args:
+                if w.startswith("-"):
+                    break
+                words.append(w)
+            if words and words[0] != "cd" and words not in heads:
+                heads.append(words)
+    return d.get("execution"), heads
+
+
+def deploy_class(repo: Path, payload: dict, env: dict | None = None) -> str | None:
+    """The project's delivery.execution when the Bash command runs the adapter's own apply / destroy, else None."""
+    ti = payload.get("tool_input") or {}
+    if (payload.get("tool_name") or ("Bash" if "command" in ti else "")) != "Bash":
+        return None
+    execution, heads = _deploy_row(repo)
+    if not heads:
+        return None
+    env = dict(os.environ if env is None else env)
+    for args in _argvs(Path(os.path.realpath(repo)), str(ti.get("command") or ""), payload.get("cwd") or None, env):
+        if any(args[:len(h)] == [os.path.basename(h[0]), *h[1:]] for h in heads):
+            return execution if isinstance(execution, str) else ""
+    return None
+
+
 def verdict(repo: Path, payload: dict, env: dict | None = None) -> tuple[int, str]:
-    """(rc, text): 0 + in-project targets one per line · 4 nothing to judge · 1 + the humanised reason.
+    """(rc, text): 0 + in-project targets one per line · 4 nothing to judge · 1 + the humanised reason
+    · 5 a deploy command (the adapter's apply / destroy) in a project that deploys from its pipeline (EVOL-081).
     Never 3: that is gate.py's import guard (the package missing or broken), which a hook must read as a fault."""
     t = targets(repo, payload, env)
     if t["guarded"]:
         return 1, (f"BLOCKED: this write lands on the harness or user configuration ({', '.join(t['guarded'])}) — guarded on every branch.\n"
                    "Resolution: an agent never changes its own guard rails; ask the user to make that change by hand.")
+    if deploy_class(repo, payload, env) == "ci":
+        return 5, "BLOCKED: This project deploys from its pipeline — run DEVOPS --deploy, which starts the pipeline and watches the run."
     if t["unresolved"]:
         return 1, (f"BLOCKED: the shell command writes to a target the guard cannot name before it runs — {t['unresolved']}.\n"
                    "Resolution: make the write with Edit or Write, or give the shell command a literal path, so the branch rule and the planning stage can judge it.")

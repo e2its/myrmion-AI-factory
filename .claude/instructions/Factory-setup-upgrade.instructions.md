@@ -244,11 +244,11 @@ Migration anchors (registry `migrations`; a row is owed when the project is olde
 
 Run `python3 scripts/gate.py data`: green, or each finding named.
 
-**performance (EVOL-073).** Add the template's `performance` block to `config/quality.json` (`thresholds`, `margin_pct`, `baseline`, `bundles: null`, `endpoints: null`, `warmup`, `samples`, `timeout_s`, `_doc`). Then, in this order:
+**performance (EVOL-073).** Add the template's `performance` block to `config/quality.json` (`thresholds`, `margin_pct`, `bundles: null`, `endpoints: null`, `warmup`, `samples`, `timeout_s`, `_doc`). Then, in this order:
 
 1. **The answers.** `hosting.type` (Q20.3, unless `hosting.provider` decides it — write the `derived_answers` value), `performance.api_p95` (Q37, a backend exists) and `performance.web` (Q37.1, a frontend exists) unanswered → owed through `pending_since`. Each answer lands its thresholds in `performance.thresholds` (`--resolve` → `configures["performance.thresholds"]`); a frontend answer also adds the loop row `verification.gates.performance` (`gates_upgrade.added`).
 2. **The old numbers.** The refreshed rules carry none; a project rule or script that repeats a performance threshold now points to `performance.thresholds` instead.
-3. **No baseline.** Nothing writes `docs/project_log/performance_baseline.jsonl` here: the first deployed measurement writes it. Until then the deployed measurement is advisory on the ratchet and blocking on the thresholds.
+3. **No baseline.** Nothing writes a deploy record here: the first deployed measurement writes it (EVOL-081). Until then the deployed measurement is advisory on the ratchet and blocking on the thresholds.
 
 Run `python3 scripts/gate.py performance`: green, or each finding named.
 
@@ -319,6 +319,12 @@ PY
 ```
 
 Interactive sessions ask once to approve a project server; the `factory-qa` agent carries the walk's tools of that server by name (`mcp__<server>__<tool>`).
+
+**deploy-tool (EVOL-081).** `hosting.iac_tool` becomes `hosting.deploy_tool` in `docs/setup.md`: a tool answer carries over as is; `None` or no answer on a served host → ask Q20.1 again (Vercel, Railway, Fly.io, Other: decided by the provider, never asked). Then the tool's row from `gate.py discovery --resolve --json → configures.delivery.adapter` lands in `config/quality.json → delivery.adapter` (Other: the finalisation's RDR, Factory-setup-discovery § 4.1.3 step 2a). Idempotent.
+
+**delivery-execution (EVOL-081).** Add the template's `delivery` block to `config/quality.json`: `execution` and `migrate` from `--resolve` (`configures.delivery.execution`, `configures.delivery.migrate`), `adapter` from deploy-tool, `secrets: []`, `probe` and `tags` as the template. Write `delivery.execution` beside `delivery.mode` in `docs/setup.md`. `ci` → the deploy pipeline lands — GitHub `.github/workflows/deploy.yml` (`templates_to_add`); Bitbucket merges into the existing `bitbucket-pipelines.yml` (`target_mode: merge`, Factory-setup-materialization) — and a local apply is denied from then.
+
+**deploy-records (EVOL-081).** Each line of `docs/project_log/performance_baseline.jsonl` becomes a `deploy/{env}/{ts}` record tag on its `sha` — the line's `site` is the `env`, `at` → `ts`; message JSON `{env, sha, at, hosting, metrics[, rebaseline]}` — read back through `gate.py delivery --last`; then the file is removed and `performance.baseline` leaves `config/quality.json`. No file → nothing. Idempotent: a tag that exists is skipped.
 
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 

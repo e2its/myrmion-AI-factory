@@ -17,8 +17,12 @@ light     (profile member, no build, no network) red when a threshold of a prese
           a ratcheted figure (p50 per endpoint, start_ms / cold_ms) beyond the reference × (1 + margin_pct/100), a value
           that cannot be read. The reference is the last baseline line of the SAME site (DC-43) — none yet → the
           ratchet is advisory (the one advisory state). A run inside its thresholds appends a line only when no
-          ratcheted figure is worse than the reference; the line names the measured commit (until the deployed-SHA
-          seal, #135).
+          ratcheted figure is worse than the reference.
+baseline  the deploy records (EVOL-081): each `deploy/{site}/*` tag whose record holds `metrics` is a line, read
+          through gates/delivery.py — immutable, so append-only by construction. `--run --site` alone (local mode)
+          writes its record tag through the same writer; under `delivery --run` it writes nothing and hands the line
+          to the record. The legacy `docs/project_log/performance_baseline.jsonl` is converted by the `deploy-records`
+          migration; while it remains it is named, never read.
 An unreadable value or config is red with its reason (LAW-08), never skipped.
 """
 from __future__ import annotations
@@ -41,15 +45,13 @@ from pathlib import Path
 from .common import GateFault, clean as _clean, context, key
 from .data import _accepted, answers
 from .dependencies import NONE
-from .frontmatter import _at
-from .seal import _reference
 
 HOSTING_KEY = "hosting.type"
 HOSTINGS = ("container", "function", "cdn")
 COLD = {"container": "start_ms", "function": "cold_ms", "cdn": None}
 SURFACES = {"backend": ("api_p95_ms",), "frontend": ("lcp_ms", "fcp_ms", "cls", "bundle_kb")}
 KNOWN = tuple(k for ks in SURFACES.values() for k in ks)
-DEFAULT_BASELINE = "docs/project_log/performance_baseline.jsonl"
+LEGACY_BASELINE = "docs/project_log/performance_baseline.jsonl"   # converted by the deploy-records migration (EVOL-081)
 LIGHTHOUSE = ["npx", "--yes", "lighthouse@13.5.0"]   # the one pin (rules/performance.md: «pinned in the gate»)
 # what Lighthouse inherits: no environment credential, no install script; HOME and cwd are a fresh directory, so no
 # credential file of the runner (~/.aws, ~/.npmrc, a repo .npmrc) is in its reach
@@ -174,52 +176,34 @@ def reference(entries: list[dict], site: str) -> dict | None:
     return same[-1] if same else None
 
 
-def baseline_path(repo: Path, cfg: dict) -> tuple[str, Path]:
-    """The configured baseline, inside the repository — a path that leaves it is a fault, never written."""
-    path = str(cfg.get("baseline") or DEFAULT_BASELINE)
-    p = repo / path
-    if not p.resolve().is_relative_to(repo.resolve()):
-        raise GateFault(f"`performance.baseline` `{path}` leaves the repository — the baseline lives in the project")
-    return path, p
-
-
 def dropped(new: dict, prev: dict) -> list[str]:
     """The ratcheted figures the previous line of the site measured and the new one does not."""
     return sorted(set(ratcheted(prev)) - set(ratcheted(new)))
 
 
-def _base_baseline(repo: Path, ref: str) -> str:
-    """The baseline path the merge base's config names — a repointed baseline is still compared with its old lines."""
-    try:
-        old_cfg = (json.loads(_at(repo, ref, "config/quality.json") or "{}").get("performance") or {})
-    except (ValueError, AttributeError):
-        old_cfg = {}
-    return str(old_cfg.get("baseline") or DEFAULT_BASELINE) if isinstance(old_cfg, dict) else DEFAULT_BASELINE
+def baseline_text(repo: Path) -> str:
+    """The deploy records that hold metrics, as baseline lines (oldest first) — the one reader is gates/delivery.py."""
+    from . import delivery
+    lines = []
+    for r in delivery.records(repo):
+        if r.get("metrics") is None:
+            continue
+        e = {"site": r["env"], **{k: r[k] for k in ("sha", "at", "hosting", "metrics", "rebaseline") if r.get(k) is not None}}
+        lines.append(json.dumps(e, sort_keys=True))
+    return "\n".join(lines) + ("\n" if lines else "")
 
 
-def baseline_row(repo: Path, cfg: dict, ref: str | None) -> dict | None:
+def baseline_row(repo: Path, cfg: dict, ref: str | None = None) -> dict | None:
+    legacy = (repo / LEGACY_BASELINE).is_file()
     try:
-        path, p = baseline_path(repo, cfg)
+        text = baseline_text(repo)
+        lines = parse_baseline(text)
     except GateFault as err:
-        return _row(str(cfg.get("baseline")), [str(err)], "")
-    old_text = _at(repo, ref, _base_baseline(repo, ref)) if ref is not None else None
-    if not p.is_file() and not (old_text or "").strip():
+        return _row("deploy records", [f"cannot be read as the performance baseline — {err}"], "")
+    if not lines and not legacy:
         return None
-    try:
-        lines = parse_baseline(p.read_text(encoding="utf-8", errors="replace")) if p.is_file() else []
-    except (GateFault, OSError) as err:
-        return _row(path, [f"cannot be read as the performance baseline — {err}"], "")
     problems, cache = [], {}
-    start = 0
-    if old_text is not None:
-        try:
-            old = parse_baseline(old_text)
-        except GateFault:
-            old = []
-        if [e["_raw"] for e in lines[:len(old)]] != [e["_raw"] for e in old]:
-            problems.append("a line present at the merge base was edited, removed or moved away — the baseline is append-only: restore it")
-        start = len(old)
-    for i in range(start, len(lines)):
+    for i in range(len(lines)):
         prev = reference(lines[:i], lines[i]["site"])
         if prev is not None:
             w = worse(lines[i]["metrics"], prev["metrics"]) + [f"{k} not measured" for k in dropped(lines[i]["metrics"], prev["metrics"])]
@@ -228,10 +212,13 @@ def baseline_row(repo: Path, cfg: dict, ref: str | None) -> dict | None:
             if w and rb and not why and any(e.get("rebaseline") == rb and e["site"] == lines[i]["site"] for e in lines[:i]):
                 why = f"names {rb}, which already re-baselined this site — one decision, one re-baseline"
             if w and (why or not rb):
-                problems.append(f"line {i + 1} ({lines[i]['site']}) is worse than the previous line of its site ({'; '.join(w)}) — the bar moves one way"
+                problems.append(f"record {i + 1} ({lines[i]['site']}) is worse than the previous record of its site ({'; '.join(w)}) — the bar moves one way"
                                 + (f"; its `rebaseline` {why}" if why else ", unless an accepted decision record re-baselines it"))
     sites = sorted({e["site"] for e in lines})
-    return _row(path, problems, f"{len(lines)} line(s), site(s): {', '.join(sites) or '—'}")
+    note = f"{len(lines)} record(s) with metrics, site(s): {', '.join(sites) or '—'}"
+    if legacy:
+        note += f"; {LEGACY_BASELINE} is still present — SETUP --upgrade (deploy-records) converts it into deploy tags"
+    return _row("deploy records", problems, note)
 
 
 def check(repo: Path, base: str | None = None) -> dict:
@@ -240,7 +227,7 @@ def check(repo: Path, base: str | None = None) -> dict:
     if na:
         return {"ok": True, "na": True, "reason": na, "entries": []}
     rows = [thresholds_row(cfg, surf)]
-    b = baseline_row(repo, cfg, _reference(repo, base) if base else None)
+    b = baseline_row(repo, cfg)   # the records are immutable tags: append-only by construction, no merge-base copy to compare
     if b is not None:
         rows.append(b)
     red = [r for r in rows if not r["ok"]]
@@ -374,7 +361,9 @@ def _git_head(repo: Path) -> str:
     return r.stdout.strip()
 
 
-def measure(repo: Path, site: str, url: str, now: str | None = None, rebaseline: str | None = None) -> dict:
+def measure(repo: Path, site: str, url: str, now: str | None = None, rebaseline: str | None = None,
+            sha: str | None = None, write: bool = True) -> dict:
+    """write=False (under `delivery --run`): nothing is tagged, the line to record is returned as `line`."""
     cfg, surf, ans, na = _scope(repo)
     if na:
         return {"ok": True, "na": True, "reason": na, "entries": []}
@@ -395,12 +384,10 @@ def measure(repo: Path, site: str, url: str, now: str | None = None, rebaseline:
     if hosting not in HOSTINGS:
         return {"ok": False, "reason": "no hosting type", "entries": [_row(HOSTING_KEY, [
             f"`{HOSTING_KEY}` in docs/setup.md must be one of {', '.join(HOSTINGS)} — it selects what is measured (Q20.3)"], "")]}
-    path = str(cfg.get("baseline") or DEFAULT_BASELINE)
+    path = "deploy records"
     try:
-        path, bp = baseline_path(repo, cfg)
-        text = bp.read_text(encoding="utf-8", errors="replace") if bp.is_file() else ""
-        entries = parse_baseline(text)
-    except (GateFault, OSError) as err:
+        entries = parse_baseline(baseline_text(repo))
+    except GateFault as err:
         return {"ok": False, "reason": "baseline unreadable", "recorded": False,
                 "entries": [_row(path, [f"cannot be read as the performance baseline — {err}"], "")]}
     try:
@@ -452,22 +439,26 @@ def measure(repo: Path, site: str, url: str, now: str | None = None, rebaseline:
                          f"re-baselined by {rebaseline} from {ref['sha'][:8]} ({ref['at']})" + (f": {'; '.join(w)}" if w else "") if rebaseline else
                          f"within {margin:g}% of {ref['sha'][:8]} ({ref['at']})"))
     red = [r for r in rows if not r["ok"]]
-    recorded = False
+    recorded, line = False, None
     if not red and metrics and (ref is None or rebaseline or not worse(metrics, ref["metrics"])):
-        line = {"site": site, "sha": _git_head(repo), "at": now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        line = {"site": site, "sha": sha or _git_head(repo), "at": now or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "hosting": hosting, "metrics": metrics, **({"rebaseline": rebaseline} if rebaseline and ref is not None else {})}
-        try:
-            bp.parent.mkdir(parents=True, exist_ok=True)
-            with bp.open("a", encoding="utf-8") as f:
-                f.write(("\n" if text and not text.endswith("\n") else "") + json.dumps(line, sort_keys=True) + "\n")
+        if write:
+            from . import delivery
+            try:
+                when = _dt.datetime.strptime(line["at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=_dt.timezone.utc)
+                delivery.write_record(repo, site, line["sha"], {"adapter": None, "probe": {}, "migrations": [], "metrics": metrics,
+                                      "hosting": hosting, **({"rebaseline": line["rebaseline"]} if "rebaseline" in line else {})}, good=False, now=when)
+                recorded = True
+            except GateFault as err:
+                rows.append(_row(path, [f"the record cannot be written — {err}; the measurement is not recorded"], ""))
+                red = rows[-1:]
+        else:
             recorded = True
-        except OSError as err:
-            rows.append(_row(path, [f"the line cannot be written ({type(err).__name__}) — the measurement is not recorded"], ""))
-            red = rows[-1:]
     reason = (f"{len(red)} of {len(rows)} red" if red else
               f"advisory — no baseline yet for site `{site}`" + ("; the first line is written" if recorded else "") if advisory else
               f"{len(rows)} green" + ((f"; the line re-baselined by {rebaseline} is appended" if rebaseline else "; a better line is appended") if recorded else ""))
-    return {"ok": not red, "advisory": advisory and not red, "reason": reason, "entries": rows, "metrics": metrics, "recorded": recorded}
+    return {"ok": not red, "advisory": advisory and not red, "reason": reason, "entries": rows, "metrics": metrics, "recorded": recorded, "line": line if recorded else None}
 
 
 def render(res: dict, name: str = "performance") -> str:

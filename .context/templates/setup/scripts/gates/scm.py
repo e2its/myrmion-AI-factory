@@ -353,6 +353,19 @@ def judge(norm: dict, c: dict, branch: str) -> tuple[list[str], list[str]]:
     return f, u
 
 
+def _production_env(rm: dict, tok: str, fetch) -> list[str]:
+    """EVOL-081: the pipeline deploys production through the `production` environment — it must exist with required
+    reviewers (a job naming a missing environment auto-creates it with no rules; a Free private repository ignores them)."""
+    h = {"Authorization": f"Bearer {tok}", "X-GitHub-Api-Version": "2022-11-28"}
+    api = "https://api.github.com" if rm["host"] == "github.com" else f"https://{rm['host']}/api/v3"
+    env = fetch(f"{api}/repos/{rm['owner']}/{rm['repo']}/environments/production", h, missing_ok=True)
+    if env is None:
+        return ["the `production` environment does not exist — create it with required reviewers (a deploy job would auto-create it with no rules)"]
+    if not any(r.get("type") == "required_reviewers" and r.get("reviewers") for r in env.get("protection_rules") or [] if isinstance(r, dict)):
+        return ["the `production` environment has no required reviewers — production would deploy without a person's approval (a Free private repository ignores them: Team or Pro)"]
+    return []
+
+
 def _na(reason: str, checklist: list[str] | None = None, **kw) -> dict:
     return {"ok": True, "status": "n/a", "required": True, "reason": reason, "findings": [], "branches": {}, "checklist": checklist if checklist is not None else CHECKLIST, **kw}
 
@@ -389,6 +402,8 @@ def check(repo: Path, control_point: str = "push", fetch=None, env: dict | None 
         norm = ADAPTERS[c["platform"]](rm, b, tok, fetch)
         f, u = judge(norm, c, b)
         branches[b] = {k: v for k, v in norm.items() if k not in ("extra",)}; findings += f; unverifiable += u
+    if c["platform"] == "GitHub" and (key(repo, "delivery.execution") or "local") == "ci":
+        findings += _production_env(rm, tok, fetch)
     reason = (f"{c['platform']} {rm['owner']}/{rm['repo']}: {len(findings)} missing setting(s) on {', '.join(c['branches'])} — apply {book}" if findings
               else f"{c['platform']} {rm['owner']}/{rm['repo']}: {', '.join(c['branches'])} protected as configured" + (f" (not exposed by the API, tick in {book}: {'; '.join(unverifiable)})" if unverifiable else ""))
     return {"ok": not findings, "status": "RED" if findings else "ok", "required": True, "platform": c["platform"], "repository": f"{rm['owner']}/{rm['repo']}",

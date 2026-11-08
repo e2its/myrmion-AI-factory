@@ -113,7 +113,8 @@
       "docs/spec/*/review/peer_review_*.md",
       "docs/spec/*/review/sec_audit*.md",
       "docs/spec/*/sec_audit*.md",
-      "docs/spec/*/smoke_e2e_report.md"
+      "docs/spec/*/smoke_e2e_report.md",
+      "docs/spec/*/review/preventive_sweep_*.md"
     ]
   },
   "surface": {
@@ -224,11 +225,19 @@
     "baseline": "docs/project_log/data_baseline.json",
     "migrations_paths": null
   },
+  "delivery": {
+    "_doc": "CI-only delivery (EVOL-081), read by python3 scripts/gate.py delivery. execution: ci (a CI platform answered — the pipeline deploys; a local apply or destroy of the adapter is denied) | local (no CI). adapter: the hosting.deploy_tool row {tool, iac, validate, plan, apply, destroy, url_from {kind: command | stdout | template | config}, params?, secrets (vault names only), rollback} — {env} and params fill its commands; null until declared. migrate: the migrations tool's non-interactive command, or null. secrets: the vault names the deploy steps need beyond the adapter row (the migration's database URL, the app's config) — DEVOPS --configure lists them; nothing else of the pipeline's secrets reaches a step. probe bounds the health poll; tags names the deploy record and the last-known-good. Rules: rules/ci-cd.md.",
+    "execution": "{{DELIVERY_EXECUTION}}",
+    "adapter": {{DELIVERY_ADAPTER}},
+    "migrate": {{DELIVERY_MIGRATE}},
+    "secrets": [],
+    "probe": {"timeout_s": 120, "interval_s": 5},
+    "tags": {"record": "deploy/{env}/{ts}", "lkg": "lkg/{env}/{ts}"}
+  },
   "performance": {
-    "_doc": "Performance as law (EVOL-073), read by python3 scripts/gate.py performance. thresholds is the ONE home of every performance threshold — api_p95_ms (backend), lcp_ms, fcp_ms, cls and bundle_kb (frontend, gzip per route) — filled from the discovery answers (Q37, Q37.1), never the injection budgets. margin_pct bounds a regression of a ratcheted figure (warm p50 per endpoint, start_ms or cold_ms by hosting.type) against the last baseline line of the SAME site. baseline is append-only: one line per recorded measurement {site, sha, at, hosting, metrics}, written by the deployed measurement (gate.py performance --run --site --url, DEVOPS after a deploy) — the first one per site, then only a line at least as good. bundles ({route: [globs over the build output]}) is written by the first frontend increment, endpoints (the probed paths) by the first backend increment; null is red where its surface exists (cdn: endpoints opt-in). warmup and samples shape the probe; timeout_s bounds each request, the start poll and Lighthouse. Rules: rules/performance.md.",
+    "_doc": "Performance as law (EVOL-073), read by python3 scripts/gate.py performance. thresholds is the ONE home of every performance threshold — api_p95_ms (backend), lcp_ms, fcp_ms, cls and bundle_kb (frontend, gzip per route) — filled from the discovery answers (Q37, Q37.1), never the injection budgets. margin_pct bounds a regression of a ratcheted figure (warm p50 per endpoint, start_ms or cold_ms by hosting.type) against the last baseline line of the SAME site. The baseline is the deploy records (EVOL-081): each deploy/{site}/{ts} tag whose record holds metrics, read through python3 scripts/gate.py delivery — immutable; the deployed measurement adds metrics to a record only for the first one per site, then only when at least as good. bundles ({route: [globs over the build output]}) is written by the first frontend increment, endpoints (the probed paths) by the first backend increment; null is red where its surface exists (cdn: endpoints opt-in). warmup and samples shape the probe; timeout_s bounds each request, the start poll and Lighthouse. Rules: rules/performance.md.",
     "thresholds": {{PERFORMANCE_THRESHOLDS}},
     "margin_pct": 10,
-    "baseline": "docs/project_log/performance_baseline.jsonl",
     "bundles": null,
     "endpoints": null,
     "warmup": 5,
