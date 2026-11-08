@@ -160,21 +160,23 @@ Owner's choice, verbatim: «1».
 
 ### 1. `delivery.execution` — derived, never asked
 
-- `discovery_registry.json → derived`: `delivery.execution` is `ci` when `ci_cd.platform != None` and the project deploys a server, and `local` otherwise.
+- `discovery_registry.json → derived`: `delivery.execution` is `ci` when `ci_cd.platform != None`, and `local` otherwise. It lands in `config/quality.json → delivery.execution`.
 - It lives in the `delivery:` block of the answer home, beside Q32 `delivery.mode`.
 - The `SETUP --upgrade` migration `delivery-execution` derives it for an older project.
 
 ### 2. One deploy tool per hosting target (RDR 2)
 
-- Q20.1 `hosting.iac_tool` becomes `hosting.deploy_tool`, and a registry migration carries the answer over. Its options are filtered by Q20:
-  - AWS, GCP, Azure and DigitalOcean get Terraform, Pulumi or AWS CDK;
+- Q20.1 `hosting.iac_tool` becomes `hosting.deploy_tool`, and a registry migration carries the answer over.
+- Its options are `options_by: hosting.provider`, the mechanism the registry already has:
+  - AWS gets Terraform, Pulumi or AWS CDK;
+  - GCP, Azure and DigitalOcean get Terraform or Pulumi;
   - Self-hosted gets Docker Compose or Terraform;
-  - Vercel, Railway and Fly.io are `decided_by` the provider (Vercel CLI, Railway CLI, flyctl).
-  - `None` is offered only when `ci_cd.platform == None`, or when there is no server.
-- Q21 moves ahead of Q20.1, so the filter can read it.
-- **`deploy_adapters`**, a data table in the registry, has one row per tool. Each row holds `validate`, `plan`, `apply` and `url_from`, the vault secret names (never values), and `rollback: redeploy-lkg`.
+  - Vercel, Railway, Fly.io and Other are `decided_by` the provider: Vercel CLI, Railway CLI, flyctl and Other.
+- **`None` leaves the options.** This follows the owner's question «why not always force one?». PLAW-12 already says «infrastructure changes are made only as code» for every cloud project, so `None` for a cloud host contradicted the law whatever the CI. A project with no server is never asked Q20, so it is never asked Q20.1. No question moves.
+- **The adapter row.** Each option of `hosting.deploy_tool` carries its row as `configures`, the registry mechanism of EVOL-066. The row holds `tool`, `validate`, `plan`, `apply`, `destroy` and `url_from`, the vault secret names (never values), and `rollback: redeploy-lkg`.
+  - It lands only the chosen row, in `config/quality.json → delivery.adapter`. A project never gets an adapter it did not choose.
   - The rows fill `IAC_CMD_*`, which leave `placeholder_baseline`.
-  - The pipeline reads the row; there is no branch per tool.
+- **One executor.** `gate.py delivery --run --env E` runs the steps from the row: validate, plan, migrate, apply, probe, record and lkg, then the performance step. The pipeline YAML only orders jobs and environments and holds the approval. There is no branch per tool and no shell per platform.
 - **«Other» provider:** the deploy stage fails closed with a plain message. Discovery finalisation poses an RDR for a project-declared adapter row.
 - **The other Q21 platforms** (GitLab CI, Azure DevOps, Jenkins, CodePipeline, Cloud Build) keep their governance template. Discovery finalisation poses an RDR: write their own deploy pipeline, or choose a covered platform.
 
@@ -202,7 +204,7 @@ Owner's choice, verbatim: «1».
 
 ### 4. The deny — one classifier (#119)
 
-- `scripts/gates/writes.py` gains the command class `deploy`. It holds every adapter's `apply` and `destroy` commands, read from `deploy_adapters`. Starting the pipeline (`gh workflow run`, the Bitbucket API) is not in it.
+- `scripts/gates/writes.py` gains the command class `deploy`. It holds the project's adapter `apply` and `destroy` commands, read from `config/quality.json → delivery.adapter`. Starting the pipeline (`gh workflow run`, the Bitbucket API) is not in it.
 - The command is judged after the wrappers are stripped.
 - When `delivery.execution == ci`, `check-branch-protection.sh` blocks that class with a plain message (LAW-08): «this project deploys from its pipeline — run DEVOPS --deploy, which starts and watches the run».
 
