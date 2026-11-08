@@ -26,6 +26,11 @@ Checks (BLOCKER and ERROR make the return RED; WARN never does):
   vision-*                     the design system arrives whole, tokenised, anchored and parseable
                                (component-undeclared, frontmatter-leak and a missing core component are WARN)
 
+Judged on its diff (EVOL-078): the content checks (DIFF_CHECKS) run again on the repo's copy of each
+returned file — the last synced version, written only by /codesign --sync — and a finding that copy
+already carries (same place, check and message) is left out, counted and said. A new target is all diff.
+external-deps is always judged: no later gate enforces the host allowlist.
+
 Usage:
     python3 validate_po_return.py --zip ~/Downloads/return.zip
     python3 validate_po_return.py --dir /path/to/unpacked
@@ -79,6 +84,11 @@ ALL_CHECKS = (
     "vision-files", "vision-tokens-declared", "vision-components-parseable",
     "vision-component-undeclared", "vision-frontmatter-leak",
 )
+DIFF_CHECKS = (   # about the artefacts' content; the rest is about the return itself and is always judged
+    "gherkin", "journey-grammar", "name-new-undeclared", "field-new-undeclared",
+    "a11y-basics", "mock-states",   # never external-deps: this validator is the allowlist's one enforcement (owner RDR «1»)
+    "vision-tokens-declared", "vision-components-parseable", "vision-component-undeclared",
+)
 NEW_NAME_CHECK = {kind: ("field-new-undeclared" if kind == "fields" else "name-new-undeclared")
                   for kind in L.VOCAB_KINDS}
 
@@ -103,6 +113,7 @@ class Finding:
 class Report:
     findings: list[Finding] = field(default_factory=list)
     checked: list[str] = field(default_factory=list)
+    unchanged: int = 0   # findings left out: the last synced copy already carries them
 
     def add(self, severity: str, where: str, check: str, message: str) -> None:
         self.findings.append(Finding(severity, where, check, message))
@@ -521,6 +532,49 @@ def _targets(root: Path, cfg: dict, rep: Report) -> tuple[Path | None, list[Path
     return vision, features
 
 
+def _synced_copy(target: Path, synced: Path, tmp: Path) -> Path | None:
+    """The last synced version of a returned target, shaped like the target: the repo's copy of each file the
+    return carries, beside the return's own ERQ. None when the repo holds none of them (a new target)."""
+    if not synced.is_dir():
+        return None
+    copy = tmp / target.name
+    copy.mkdir()
+    names = [p.name for p in target.iterdir()   # a symlink is never followed out of the return or the repo
+             if p.is_file() and not p.is_symlink() and p.name != "ERQ.md"
+             and (synced / p.name).is_file() and not (synced / p.name).is_symlink()]
+    if not names:
+        return None
+    for name in names:
+        shutil.copy2(synced / name, copy / name)
+    if (target / "ERQ.md").is_file() and not (target / "ERQ.md").is_symlink():
+        shutil.copy2(target / "ERQ.md", copy / "ERQ.md")
+    return copy
+
+
+def _outside_diff(vision: Path | None, feature_dirs: list[Path], ctx: Context) -> set[tuple[str, str, str]]:
+    """The content findings the last synced version already carries."""
+    base = Report()
+    with tempfile.TemporaryDirectory(prefix="po-synced-") as tmp:
+        if vision is not None:
+            copy = _synced_copy(vision, ctx.repo / ctx.cfg["design_system"]["vision_root"], Path(tmp))
+            if copy is not None:
+                validate_vision(copy, ctx, base)
+        for feature_dir in feature_dirs:
+            copy = _synced_copy(feature_dir, ctx.repo / ctx.cfg["features"]["spec_root"] / feature_dir.name, Path(tmp))
+            if copy is not None:
+                validate_feature(copy, ctx, base)
+    return {(f.where, f.check, f.message) for f in base.findings if f.check in DIFF_CHECKS}
+
+
+def _judge_diff_only(rep: Report, vision: Path | None, feature_dirs: list[Path], ctx: Context) -> None:
+    if not any(f.check in DIFF_CHECKS for f in rep.findings):
+        return   # nothing to subtract: the synced copies are never read
+    before = _outside_diff(vision, feature_dirs, ctx)
+    kept = [f for f in rep.findings if f.check not in DIFF_CHECKS or (f.where, f.check, f.message) not in before]
+    rep.unchanged = len(rep.findings) - len(kept)
+    rep.findings = kept
+
+
 def validate_dir(root: Path, repo: Path, cfg: dict) -> Report:
     if not root.is_dir():
         raise L.PoPackageError(f"Not a folder: {root} (use --zip for an archive)")
@@ -538,6 +592,7 @@ def validate_dir(root: Path, repo: Path, cfg: dict) -> Report:
         validate_vision(vision, ctx, rep)
     for feature_dir in feature_dirs:
         validate_feature(feature_dir, ctx, rep)
+    _judge_diff_only(rep, vision, feature_dirs, ctx)
     return rep
 
 
@@ -575,6 +630,7 @@ def render(rep: Report, as_json: bool) -> str:
     if as_json:
         infra = any(f.check == "journey-grammar-infra" for f in rep.blocking)
         return json.dumps({"checked": rep.checked, "findings": [f.__dict__ for f in rep.findings],
+                           "outside_diff": rep.unchanged,
                            "verdict": "RED" if rep.blocking else "GREEN",
                            "returnable_to_po": (not infra) if rep.blocking else None}, indent=2, ensure_ascii=False)
     lines = ["", "═══ PO return validation ═══", ""]
@@ -583,7 +639,10 @@ def render(rep: Report, as_json: bool) -> str:
     for f in sorted(rep.findings, key=lambda x: (SEVERITIES[x.severity][0], x.where)):
         lines += [f"  {SEVERITIES[f.severity][1]} {f.severity:<7} {f.where}", f"            [{f.check}] {f.message}"]
     warns = len(rep.findings) - len(rep.blocking)
-    lines += ["", f"  {len(rep.checked)} files reviewed · {len(rep.blocking)} blocking · {warns} warnings", ""]
+    lines += ["", f"  {len(rep.checked)} files reviewed · {len(rep.blocking)} blocking · {warns} warnings"]
+    if rep.unchanged:
+        lines.append(f"  {rep.unchanged} finding(s) left out: unchanged since the last sync")
+    lines.append("")
     lines.append("  VERDICT: " + verdict_line(rep))
     return "\n".join(lines + [""])
 

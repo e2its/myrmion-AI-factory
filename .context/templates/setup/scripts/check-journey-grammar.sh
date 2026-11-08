@@ -15,6 +15,12 @@
 #      empty or '—' anchors are rejected regardless of spec presence.
 #   8. Section 3 Paths: at least one `- **Path {Name}** (...):` line; every `Paso N` referenced exists; a path listing no Paso is a violation.
 #   8b. Section 2 carries at least one mermaid `journey` block (diagrammatic contract).
+#   8c. The diagram matches the steps (EVOL-078): per persona (a task's first actor), one task per Paso, in
+#       order, its score equal to that Paso's Feels (1..5).
+#   1b. The header matches the body (EVOL-078): feature_id = the `# User Journey: {id}` title; a UI scope
+#       points at least one Paso to a screen (`#step-N`); scope = spec.feature's `scope:` when it declares one.
+#   5b. Emotion invariants (EVOL-078): Feels ≤ 2 names a Pain; a Pain names its Ease; every Paso with a Pain
+#       has a Section 4 row, and every Section 4 row names an existing Paso with a Pain.
 #   9. Traceability Matrix: rows reference existing Pasos AND every Paso has a row (bidirectional).
 #  10. LAW-16 purity tripwire: technical type tokens are forbidden in Part II (Section 5 → end of file).
 #  11. Unresolved `{{...}}` placeholders are violations (an instance, not a template).
@@ -62,6 +68,7 @@ VIOLATIONS=0
 fail() { echo "❌ $*"; VIOLATIONS=$((VIOLATIONS + 1)); }
 note() { echo "   $*"; }
 trim_value() { printf '%s' "$1" | sed 's/<!--.*-->//; s/[[:space:]]*$//; s/^[[:space:]]*//'; }
+is_dash() { case "$1" in ""|"—"|"-") echo 1 ;; *) echo 0 ;; esac; }   # 1 = the field names nothing
 
 # ── 1. Frontmatter ──────────────────────────────────────────────────────────
 FM=$(awk '/^---$/{n++; next} n==1{print} n>=2{exit}' "$JOURNEY")
@@ -110,6 +117,8 @@ paso_exists() { echo "$PASOS" | grep -qx "$1"; }
 # Extract each step block (from its ### Paso heading to the next ###/## heading).
 STEP_TMP=$(mktemp -d) || { echo "❌ internal: mktemp failed — cannot validate (infra)" >&2; exit 2; }
 trap 'rm -rf "$STEP_TMP"' EXIT
+SEP=$(printf '\037')   # field separator of the step and task tables: never whitespace, so an empty field stays a field
+: > "$STEP_TMP/steps.tsv"
 awk -v dir="$STEP_TMP" '
   /^### Paso [0-9]+$/ { n=$3; f=dir "/" n; print > f; inblock=1; next }
   /^##/ { inblock=0 }
@@ -138,6 +147,13 @@ for n in $PASOS; do
 
   # Mock Action (value trimmed: inline HTML comments + surrounding whitespace stripped)
   mock_action=$(trim_value "$(sed -n 's/^- \*\*Mock Action:\*\*[[:space:]]*//p' "$blk" | head -1)")
+  persona=$(trim_value "$(sed -n 's/^- \*\*Persona:\*\*[[:space:]]*//p' "$blk" | head -1)")
+  pain=$(trim_value "$(sed -n 's/^- \*\*Pain:\*\*[[:space:]]*//p' "$blk" | head -1)")
+  ease=$(trim_value "$(sed -n 's/^- \*\*Ease:\*\*[[:space:]]*//p' "$blk" | head -1)")
+  if grep -q '^- \*\*Persona:\*\*' "$blk" && [ -z "$persona" ]; then
+    fail "Paso $n: Persona is empty — name who travels this step"
+  fi
+  printf '%s\037%s\037%s\037%s\037%s\037%s\n' "$n" "$persona" "$feels" "$(is_dash "$pain")" "$(is_dash "$ease")" "$mock_action" >> "$STEP_TMP/steps.tsv"
   if grep -q '^- \*\*Mock Action:\*\*' "$blk" && [ -z "$mock_action" ]; then
     fail "Paso $n: Mock Action is empty — expected '#step-N' or '—'"
   elif [ -n "$mock_action" ]; then
@@ -165,7 +181,7 @@ for n in $PASOS; do
   elif [ "$scenario" = "—" ]; then
     fail "Paso $n: BDD Scenario must be the exact Scenario title — '—' is not a valid anchor"
   elif [ -n "$scenario" ] && [ -n "$SPEC" ]; then
-    grep -qxF "$scenario" "$STEP_TMP/spec_titles" || fail "Paso $n: BDD Scenario '$scenario' not found as a Scenario title in $(basename "$SPEC")"
+    grep -qxF -- "$scenario" "$STEP_TMP/spec_titles" || fail "Paso $n: BDD Scenario '$scenario' not found as a Scenario title in $(basename "$SPEC")"
   fi
 done
 
@@ -195,7 +211,97 @@ if ! echo "$SEC2" | grep -q '^```mermaid'; then
   fail "Section 2: no mermaid block found (at least one mermaid journey diagram per persona required)"
 elif ! echo "$SEC2" | awk '/^```mermaid/{m=1; next} m&&/^```/{m=0} m' | grep -q '^[[:space:]]*journey[[:space:]]*$'; then
   fail "Section 2: mermaid block present but not of type 'journey'"
+else
+  # ── 8c. The diagram matches the steps (EVOL-078) ──────────────────────────
+  # Task lines `label: score: actors` of every journey block; the first actor is the persona.
+  echo "$SEC2" | awk '
+    /^```mermaid/ { m=1; first=1; next }
+    m && /^```/   { m=0; next }
+    m {
+      t=$0; sub(/^[[:space:]]+/, "", t); sub(/[[:space:]]+$/, "", t)
+      if (t == "" || t ~ /^%%/) next
+      if (first) { first=0; j=(t == "journey"); next }
+      if (!j || t ~ /^(title|section|accTitle|accDescr)([[:space:]:]|$)/) next
+      n=split(t, p, ":")
+      if (n < 3) { print "\001\037" t; next }
+      score=p[2]; gsub(/[[:space:]]/, "", score)
+      actors=p[3]; for (i=4; i<=n; i++) actors=actors ":" p[i]
+      split(actors, a, ","); who=a[1]; sub(/^[[:space:]]+/, "", who); sub(/[[:space:]]+$/, "", who)
+      if (who == "") { print "\001\037" t; next }
+      print who "\037" score "\037" p[1]
+    }' > "$STEP_TMP/tasks.tsv"
+  BADROW=$(printf '\001')   # the malformed-line sentinel: a byte no persona carries
+  while IFS="$SEP" read -r who score label; do
+    if [ "$who" = "$BADROW" ]; then
+      fail "Section 2: diagram line '$score' is not 'step: score: persona'"
+    else
+      case "$score" in
+        [1-5]) : ;;
+        *) fail "Section 2: diagram step '$label' scores '$score' — the score is the step's Feels, 1 to 5" ;;
+      esac
+    fi
+  done < "$STEP_TMP/tasks.tsv"
+  { cut -d"$SEP" -f2 "$STEP_TMP/steps.tsv"; awk -F"$SEP" '$1 != "\001" {print $1}' "$STEP_TMP/tasks.tsv"; } \
+    | sort -u > "$STEP_TMP/personas"
+  while IFS= read -r who; do
+    [ -z "$who" ] && continue
+    P="$who" awk -F"$SEP" '$2 == ENVIRON["P"] {print $1 "\037" $3}' "$STEP_TMP/steps.tsv" > "$STEP_TMP/p_steps"   # ENVIRON: -v would unescape a backslash
+    P="$who" awk -F"$SEP" '$1 == ENVIRON["P"] {print $2}' "$STEP_TMP/tasks.tsv" > "$STEP_TMP/p_tasks"
+    ns=$(grep -c '' "$STEP_TMP/p_steps" || true); nt=$(grep -c '' "$STEP_TMP/p_tasks" || true)
+    if [ "$ns" -ne "$nt" ]; then
+      fail "Section 2: the diagram shows $nt step(s) for '$who', the journey describes $ns — one diagram step per Paso"
+      continue
+    fi
+    paste -d"$SEP" "$STEP_TMP/p_steps" "$STEP_TMP/p_tasks" | while IFS="$SEP" read -r paso feels score; do
+      [ "$feels" = "$score" ] || echo "Section 2: the diagram scores '$who' $score at Paso $paso, whose Feels is ${feels:-?}/5"
+    done > "$STEP_TMP/mismatch"
+    while IFS= read -r bad; do fail "$bad"; done < "$STEP_TMP/mismatch"
+  done < "$STEP_TMP/personas"
 fi
+
+# ── 1b. The header matches the body (EVOL-078) ──────────────────────────────
+FID=$(echo "$FM" | sed -n "s/^feature_id:[[:space:]]*[\"']\{0,1\}\([^\"'[:space:]]*\)[\"']\{0,1\}.*/\1/p" | head -1)
+H1=$(sed -n 's/^# User Journey:[[:space:]]*\([^[:space:]]*\).*/\1/p' "$JOURNEY" | head -1)
+if [ -z "$H1" ]; then
+  fail "no title line '# User Journey: {feature id} — {name}'"
+elif [ -n "$FID" ] && [ "$FID" != "$H1" ]; then
+  fail "the title names feature '$H1', but this journey belongs to '$FID' — the title starts '# User Journey: $FID — '"
+fi
+if [ "$UI_SCOPE" -eq 1 ] && [ -n "$PASOS" ] && ! cut -d"$SEP" -f6 "$STEP_TMP/steps.tsv" | grep -q '^#step-'; then
+  fail "scope=$SCOPE shows screens, yet no Paso points to one (no '#step-N' Mock Action)"
+fi
+if [ -n "$SPEC" ] && [ "$(head -1 "$SPEC")" = "---" ]; then
+  SPEC_SCOPE=$(awk '/^---$/{n++; next} n==1{print} n>=2{exit}' "$SPEC" \
+    | sed -n 's/^scope:[[:space:]]*"\{0,1\}\([a-z-]*\)"\{0,1\}.*/\1/p' | head -1)
+  if [ -n "$SPEC_SCOPE" ] && [ -n "$SCOPE" ] && [ "$SPEC_SCOPE" != "$SCOPE" ]; then
+    fail "the journey's scope is '$SCOPE', $(basename "$SPEC") says '$SPEC_SCOPE'"
+  fi
+fi
+
+# ── 5b. Emotion invariants (EVOL-078) ───────────────────────────────────────
+SEC4=$(awk '/^## Section 4:/{p=1; next} /^## /{p=0} p' "$JOURNEY")
+echo "$SEC4" | sed -n 's/^|[[:space:]]*Paso[[:space:]]\{1,\}\([0-9][0-9]*\).*/\1/p' > "$STEP_TMP/painmap"
+if [ -s "$STEP_TMP/steps.tsv" ]; then
+  while IFS="$SEP" read -r n _who feels nopain noease _mock; do
+    if [ -n "$feels" ] && [ "$feels" -le 2 ] 2>/dev/null && [ "$nopain" -eq 1 ]; then
+      fail "Paso $n: Feels $feels/5 names no Pain — a low score says where it hurts"
+    fi
+    if [ "$nopain" -eq 0 ] && [ "$noease" -eq 1 ]; then
+      fail "Paso $n: a Pain is named but Ease is '—' — say how the design softens it"
+    fi
+    if [ "$nopain" -eq 0 ] && ! grep -qx "$n" "$STEP_TMP/painmap"; then
+      fail "Paso $n: its Pain has no row in Section 4 (Pain & Emotion Map)"
+    fi
+  done < "$STEP_TMP/steps.tsv"
+fi
+while IFS= read -r row; do
+  [ -z "$row" ] && continue
+  if ! paso_exists "$row"; then
+    fail "Section 4: row names Paso $row, which does not exist"
+  elif awk -F"$SEP" -v n="$row" '$1 == n && $4 == 1 {f=1} END {exit !f}' "$STEP_TMP/steps.tsv"; then
+    fail "Section 4: row names Paso $row, whose Pain is '—'"
+  fi
+done < "$STEP_TMP/painmap"
 
 # ── 9. Traceability Matrix rows ─────────────────────────────────────────────
 awk '/^## Traceability Matrix/{p=1; next} /^## /{p=0} p' "$JOURNEY" \

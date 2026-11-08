@@ -84,13 +84,12 @@ iterations: []
 - **seam:** null                  *(inherited — `{ at: "<contract op / scenario / journey step>", resolves: "<SLICE-X | FEAT-Y@SLICE-Y-Z>" }` when a dep is declared; CVP Check 19)*
 - **Deployable:** production
 - **Functional definition:** "After merging INC-1, the user can {{minimal end-to-end capability}}."
-- **Acceptance (mergeable = 100% functional):**
-  - [ ] All assigned scenarios pass E2E (if scope in [full-stack, frontend-only])
-  - [ ] All assigned contracts pass API integration tests (if scope in [full-stack, backend-only, integration])
-  - [ ] Reliability contract satisfied for assigned endpoints (if scope in [backend-only, integration])
-  - [ ] CVP `increment_deployability` gate PASS
-  - [ ] No TODO markers left in increment's code paths
-  - [ ] `qa_report_INC-N_*.md` status APPROVED (run `/qa --verify {{FEATURE_ID}} INC-N` after IMPLEMENT closes the slice)
+- **Acceptance — exit criteria (each measurable on its own):**   *(mergeable = 100% functional. One item per criterion, each naming in backticks the measure that decides it: one of THIS increment's scenarios or contract operations, a case id, or a command — never another increment's, never prose alone; `gate.py train` (h) is red otherwise)*
+  - [ ] `{{Scenario name 1}}` passes its E2E test   *(one item per scenario covered — scope in [full-stack, frontend-only])*
+  - [ ] `{{POST /api/v1/foo}}` passes its API integration test   *(one item per contract operation — scope in [full-stack, backend-only, integration])*
+  - [ ] `{{POST /api/v1/foo}}` meets its reliability contract   *(scope in [backend-only, integration])*
+  - [ ] `python3 scripts/gate.py profile --run` verdict ok
+  - [ ] `/qa --verify {{FEATURE_ID}} INC-1` report APPROVED   *(after IMPLEMENT closes the slice)*
 - **Branch convention:** `feature/{{FEATURE_ID}}-inc-1-{{slug}}` (one PR per increment — see factory-branching-strategy) — with sub-increments it is the train; sub-increments branch from it as `…-sub-{M}`
 - **Merged at:** null   *(ISO timestamp; set by the merge hook when the increment PR lands on main; trigger for status transition READY/BUILDING → MERGED)*
 - **Pending iteration:** null   *(non-null when `CASCADE_INCREMENT_INTERNAL` detects upstream change affecting this increment and status is BUILDING — the increment completes first, then `IMPLEMENT --refine` takes the change; cleared by `IMPLEMENT --refine`)*
@@ -116,7 +115,10 @@ iterations: []
 - **seam:** { at: "{{contract op / scenario / journey step}}", resolves: "SLICE-{{FEATURE_ID}}-1" }
 - **Deployable:** production
 - **Functional definition:** "After merging INC-2 (on top of INC-1), the user can additionally {{next capability}}."
-- **Acceptance:** (same checklist as INC-1)
+- **Acceptance — exit criteria (each measurable on its own):**
+  - [ ] `{{Scenario name 3}}` passes its E2E test
+  - [ ] `{{GET /api/v1/bar/:id}}` passes its API integration test
+  - [ ] `/qa --verify {{FEATURE_ID}} INC-2` report APPROVED
 - **Branch convention:** `feature/{{FEATURE_ID}}-inc-2-{{slug}}`
 - **Merged at:** null
 - **Pending iteration:** null
@@ -192,11 +194,14 @@ New increments MAY be appended to `increment_plan.md` after earlier increments r
 
 ## Invariants Enforced by CVP
 
-1. **increment_deployability** (CRITICAL) — every increment has non-empty scenarios, `deployable: production`, acceptance checklist complete, DAG acyclic.
+1. **increment_deployability** (CRITICAL) — every increment has non-empty scenarios, `deployable: production`, its own exit criteria each naming its measure (mechanical layer: `gate.py train` (h)), DAG acyclic.
 2. **increment_to_scenario_coverage** (CRITICAL) — every scenario in `spec.feature` appears in exactly one increment; no orphan, no duplicate.
 3. **increment_to_contract_coverage** (CRITICAL) — every contract operation in `contracts/**` appears in exactly one increment.
 4. **monolithic_heuristic** (CRITICAL when `slicing_strategy == monolithic`) — § 3 declaration present AND heuristic actually satisfied (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack).
 5. **increment_status_monotonic** — status transitions follow the lifecycle above; no regression (e.g., `MERGED → BUILDING` is BLOCKED). **Delegated to `immutability_policy.check_increment_immutability`** — this is NOT a CVP function (CVP has none); the monotonicity guard lives in the immutability layer.
+6. **surface_declared** (CRITICAL, EVOL-078) — every increment and sub-increment carries `~N files · ~N lines` (mechanical layer: `gate.py train` (i)).
+
+(h) and (i) skip an increment whose status is BUILDING or MERGED — a frozen increment is never edited (owner RDR, EVOL-078).
 
 ## Consumption Contract (IMPLEMENT `--plan`)
 

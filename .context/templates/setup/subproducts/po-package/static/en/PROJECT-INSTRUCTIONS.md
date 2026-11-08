@@ -90,11 +90,11 @@ Walk them one by one. Set `self_checked: true` in the manifest only when all hol
 2. Every `#step-N` exists as `id="step-N"` in `mock.html`, and every step section carries its four `data-state` blocks.
 3. Pasos are numbered 1, 2, 3… with no gaps; every Paso has the nine fields; every Paso has a row in the Traceability Matrix.
 4. Every Path names Pasos that exist.
-5. There is a `mermaid` block of type `journey` in Section 2.
+5. Section 2 has one `mermaid` block of type `journey` per persona. It has one line `step: score: persona` per Paso of that persona, in order. The score equals the Paso's `Feels`. The document opens with `# User Journey: {feature id} — {name}`.
 6. No technical type anywhere from Section 5 to the end.
 7. No template placeholder in double curly braces is left in the document.
 8. Every name and every field is in the glossary or declared in `new_names`.
-9. A Paso with `Feels` of 1 or 2 names a `Pain` and an `Ease`. A blocking pain has an error scenario that covers it.
+9. A Paso with `Feels` of 1 or 2 names a `Pain`. Every `Pain` names its `Ease` and has its row in Section 4. Section 4 lists only Pasos with a `Pain`. A blocking pain has an error scenario that covers it.
 10. Scenario titles are unique.
 11. The mock loads nothing external beyond what the project templates load.
 12. The mock uses tokens and existing components only.

@@ -859,7 +859,7 @@ CODESIGN owns capability-VALUE slicing and emits it as `slice_map.md`. BLUEPRINT
 2. Resolve placeholders:
    - `{{FEATURE_ID}}`, `{{SCOPE}}`, `[DATE]` from spec.feature + system clock.
    - `slicing_strategy`, `based_on_iteration`, `based_on_schemas_version` inherited from spec.feature (never recomputed).
-   - § 1 **Increments** populated from the Step B refinement: title, scenarios_covered, contract_surface, depends_on, functional_definition, acceptance checklist, branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`. **The canonical INC→INC dependency DAG is encoded by each increment's `depends_on:` field — CVP reads only this.** ADDITIONALLY set, on each `### INC-N`:
+   - § 1 **Increments** populated from the Step B refinement: title, scenarios_covered, contract_surface, depends_on, functional_definition, its own exit criteria (each naming its measure), branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`. **The canonical INC→INC dependency DAG is encoded by each increment's `depends_on:` field — CVP reads only this.** ADDITIONALLY set, on each `### INC-N`:
      - `cascade_source: SLICE-{{FEATURE_ID}}-N` — the authoritative slice this increment realizes (LAW-09 join key; CVP Check 18 resolves it).
      - `depends_on_slice` / `depends_on_feature` / `seam` — inherited from the realized slice (null-defaulted; empty stays a one-liner). These mirror the slice_map fields; `depends_on` stays the intra-feature INC→INC edge.
      - `Estimated surface` / `Escape` / `Sub-increments` — from Step B.4 (`Sub-increments:` only when over a ceiling; `Escape: none` otherwise).
@@ -880,8 +880,8 @@ BLUEPRINT MUST self-verify before exit:
 - **Seam resolution:** every increment `seam` resolves to a declared predecessor slice (`depends_on_slice`) or external feature@slice (`depends_on_feature`). (CVP Check 19.)
 - **DAG:** `depends_on` across all increments is acyclic (topological sort succeeds). INC-1 has `depends_on: []`. Every referenced ID exists.
 - **Deployability:** every increment declares `deployable: production`. Any other value (e.g., `flagged_off`, `experimental`) → BLOCK. Feature-flag-OFF merges are NOT a valid escape. If the user argues for a flagged rollout, that MUST be expressed as an explicit follow-up increment with its own scenarios, not as an escape on a half-done slice.
-- **Acceptance checklist shape:** each increment's acceptance block contains the template's standard checklist (E2E / API / Reliability / CVP / no-TODO).
-- **Surface declared:** every increment carries `Estimated surface:`; an increment over a ceiling carries `Sub-increments:` or an `Escape:` from the closed list. (CVP Check 21.)
+- **Exit criteria measurable on their own:** each increment lists its own exit criteria under **Acceptance**, each naming in backticks the measure that decides it — one of its own scenarios or contract operations, a case id, or a command; never «same as INC-1», never another increment's measure. (`gate.py train` (h); CVP Check 13.)
+- **Surface declared:** every increment carries `Estimated surface:`; an increment over a ceiling carries `Sub-increments:` or an `Escape:` from the closed list. (`gate.py train` (i), blocking; CVP Check 21.)
 
 Violations are **BUGS in the refinement** — a coverage/seam mismatch loops back to Step B; a value-order conflict that contracts cannot satisfy is recorded as a § 0 deviation and surfaced to the user (CODESIGN may need `--refine`). Do NOT silently auto-correct slice assignment.
 

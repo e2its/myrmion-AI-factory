@@ -49,13 +49,14 @@ CVP_SCOPES:
       - journey_path_to_test_coverage  # EVOL-041 — every § 3 Path expands transitively Paso → BDD Scenario → test_plan TC; every path fully covered
       - scenario_to_test_coverage    # spec.feature scenarios → test_plan.md test cases
       - contract_to_test_coverage    # contract endpoints → test_plan.md integration tests
-      - increment_deployability              # each increment declares deployable:production + acceptance checklist + DAG acyclic
+      - increment_deployability              # each increment declares deployable:production + its own measurable exit criteria (gate.py train (h)) + DAG acyclic
       - increment_to_scenario_coverage       # every spec.feature scenario appears in exactly one increment (no orphan, no duplicate)
       - increment_to_contract_coverage       # every contract operation appears in exactly one increment (no orphan, no duplicate)
       - monolithic_heuristic                 # applicable_when slicing_strategy==monolithic — § 3 Escape Declaration present + heuristic satisfied
       - slice_to_increment_coverage          # EVOL-036 — every slice realized by ≥1 increment (cascade_source), bidirectional + scenario consistency
       - slice_seam_resolution                # EVOL-036 — each depends_on_slice/depends_on_feature resolves + DAG + seam present (4 fail-modes)
       - slice_immutability_consistency       # EVOL-036 — per-scenario freeze partition well-formed; no MERGED increment orphaned; vacuous pre-BLUEPRINT
+      - surface_declared                     # EVOL-045, CRITICAL since EVOL-078 — every increment (and sub-increment) not BUILDING or MERGED declares its estimate (gate.py train (i); applicable_when slicing_strategy==incremental)
 
   CODESIGN_BLUEPRINT_IMPLEMENT:
     # Invoked by: IMPLEMENT --plan (Step 0.5)
@@ -68,7 +69,6 @@ CVP_SCOPES:
       - data_model_to_task           # design.md entities → dev_plan.md Phase A tasks
       - reliability_test_to_task     # test_plan.md § 2.2 Reliability Testing rows → dev_plan.md § Reliability Tests tasks (applicable_when scope in [backend-only, integration])
       - increment_to_task            # each increment has ≥1 [INC-N.*.M] task in dev_plan.md (applicable_when slicing_strategy==incremental)
-      - surface_declared             # EVOL-045 — every increment (and sub-increment) declares Estimated surface: (applicable_when slicing_strategy==incremental)
 
   FULL_CHAIN:
     # Invoked by: QA --verify (Pre-Verification Gate)
@@ -791,14 +791,14 @@ FUNCTION check_task_completion_to_qa(elements):
 
 ### Check 13: `increment_deployability` (CRITICAL)
 
-Every increment in `increment_plan.md § 1` must declare `deployable: production`, carry a non-empty acceptance checklist, and the cross-increment `depends_on` graph must be acyclic. Feature-flag-OFF merges are not a valid deployability escape — flagged rollouts must be expressed as explicit follow-up increments with their own scenarios.
+Every increment in `increment_plan.md § 1` must declare `deployable: production`, carry its own exit criteria each measurable on its own (EVOL-078 — mechanical layer: `python3 scripts/gate.py train` (h), red on a missing list, an item naming no backticked measure, or a measure another increment delivers; this check reads its verdict, never re-implements it), and the cross-increment `depends_on` graph must be acyclic. Feature-flag-OFF merges are not a valid deployability escape — flagged rollouts must be expressed as explicit follow-up increments with their own scenarios.
 
 ```yaml
 FUNCTION check_increment_deployability(elements):
   plan = elements.increment_plan
   IF plan IS NULL: RETURN   # handled by Check 0c
 
-  increments = elements.increments   # [{id, status, scope, scenarios_covered, contract_surface, depends_on, deployable, acceptance_checklist}]
+  increments = elements.increments   # [{id, status, scope, scenarios_covered, contract_surface, depends_on, deployable}]
 
   IF increments IS EMPTY:
     YIELD { check: "increment_deployability", severity: CRITICAL,
@@ -815,17 +815,20 @@ FUNCTION check_increment_deployability(elements):
               gap: "Increment declares deployable != production (found: '{inc.deployable}')",
               remediation: "Strict policy: every increment must ship serving real traffic. For flagged rollouts, express the flag as a NEW follow-up increment with its own scenarios instead." }
 
-    IF inc.acceptance_checklist IS EMPTY:
-      YIELD { check: "increment_deployability", severity: CRITICAL,
-              source: "{inc.id}.acceptance",
-              gap: "Increment has no acceptance checklist items",
-              remediation: "Populate the acceptance block per the template (E2E / API / Reliability / CVP / no-TODO)" }
-
     IF inc.scenarios_covered IS EMPTY AND inc.contract_surface IS EMPTY:
       YIELD { check: "increment_deployability", severity: CRITICAL,
               source: "{inc.id}",
               gap: "Increment has neither scenarios nor contract ops — nothing to deploy",
               remediation: "Either populate scenarios_covered + contract_surface, or remove this increment" }
+
+  # Exit criteria — one definition: gate.py train (h); this check yields its verdict, never re-implements it
+  exits = [e FOR e IN run("python3 scripts/gate.py train --json").entries WHERE e.id ENDS WITH " exits"]
+  IF exits IS EMPTY:   # the plan is not in the diff: judged at the push that changed it, never re-judged here
+    YIELD { check: "increment_deployability", severity: PASS, source: "increment_plan.md", target: "exit criteria n/a — plan not in the diff" }
+  FOR EACH problem IN exits[*].problems WHERE problem STARTS WITH "(h)":
+    YIELD { check: "increment_deployability", severity: CRITICAL,
+            source: "increment_plan.md", gap: problem,
+            remediation: "List each exit criterion under **Acceptance**, naming in backticks the scenario, operation, case or command that decides it" }
 
   # DAG acyclicity (Kahn's algorithm)
   inc_ids = { inc.id FOR inc IN increments }
@@ -1234,28 +1237,26 @@ FUNCTION check_slice_immutability_consistency(elements):
             target: "freeze partition well-formed; no MERGED increment orphaned; {merged_scenarios.length} frozen scenario(s)" }
 ```
 
-### Check 21: `surface_declared` (WARNING — IMPLEMENT scope, EVOL-045)
+### Check 21: `surface_declared` (CRITICAL — EVOL-045, blocking since EVOL-078)
 
-When `slicing_strategy == incremental`, every increment carries an `Estimated surface:` line (paths · ~files · ~lines, the same ruler `gate.py surface` uses at push) and every sub-increment it declares carries the `~files · ~lines` segment of its `- SUB-N-M:` item. A missing estimate means the ceiling was never compared and the train/sub-increment split was never decided.
+When `slicing_strategy == incremental`, every increment carries an `Estimated surface:` line (paths · ~files · ~lines, the same ruler `gate.py surface` uses at push) and every sub-increment it declares carries the `~files · ~lines` segment of its `- SUB-N-M:` item. A missing estimate means the ceiling was never compared and the train/sub-increment split was never decided. Mechanical layer: `python3 scripts/gate.py train` (i) — a light-profile member, red at push; this check reads its verdict, never re-implements it.
 
 ```yaml
 FUNCTION check_surface_declared(elements):
   IF elements.increment_plan IS NULL: RETURN
   IF elements.increment_plan.frontmatter.slicing_strategy != "incremental": RETURN
 
-  FOR EACH inc IN elements.increments:
-    missing = []
-    IF inc.estimated_surface IS NULL OR inc.estimated_surface IS EMPTY: missing.append("{inc.id}")
-    FOR EACH sub IN inc.sub_increments:
-      IF sub.estimated_surface IS NULL OR sub.estimated_surface IS EMPTY: missing.append("{inc.id}/{sub.id}")
-    FOR EACH src IN missing:
-      YIELD { check: "surface_declared", severity: WARNING,
-              source: src,
-              gap: "Increment declares no estimated surface",
-              remediation: "BLUEPRINT --refine {FEATURE_ID}: estimate the surface (Step B.4) and split into sub-increments when over the ceiling (config/quality.json surface.ceiling_*)" }
-    IF missing IS EMPTY:
-      YIELD { check: "surface_declared", severity: PASS,
-              source: inc.id, target: "estimated surface declared ({inc.sub_increments.length} sub-increment(s))" }
+  # One definition: gate.py train (i) — ~N files and ~N lines on every INC and SUB row not BUILDING or MERGED
+  exits = [e FOR e IN run("python3 scripts/gate.py train --json").entries WHERE e.id ENDS WITH " exits"]
+  problems = [p FOR p IN exits[*].problems WHERE p STARTS WITH "(i)"]
+  FOR EACH p IN problems:
+    YIELD { check: "surface_declared", severity: CRITICAL,
+            source: "increment_plan.md", gap: p,
+            remediation: "BLUEPRINT --refine {FEATURE_ID}: estimate the surface (Step B.4) and split into sub-increments when over the ceiling (config/quality.json surface.ceiling_*)" }
+  IF exits IS EMPTY:   # the plan is not in the diff: judged at the push that changed it
+    YIELD { check: "surface_declared", severity: PASS, source: "increment_plan.md", target: "n/a — plan not in the diff" }
+  ELSE IF problems IS EMPTY:
+    YIELD { check: "surface_declared", severity: PASS, source: "increment_plan.md", target: "every surface estimated" }
 ```
 
 ---
@@ -1326,7 +1327,7 @@ FUNCTION extract_traceable_elements(artifacts, scope):
     #   depends_on,             # list of other increment IDs
     #   deployable,             # must be "production" under strict policy
     #   functional_definition,  # free-text "- **Functional definition:**"
-    #   acceptance_checklist,   # list of {checked: bool, description: str}
+    #   exit_criteria,          # the **Acceptance** items — judged by gate.py train (h), never here
     #   branch,                 # "feature/{FEATURE_ID}-inc-N-{slug}" — the train when sub_increments is non-empty
     #   estimated_surface,      # EVOL-045 — "- **Estimated surface:**" (paths · ~files · ~lines) or null; Check 21
     #   escape,                 # EVOL-045 — none | one term of config/quality.json surface.escapes

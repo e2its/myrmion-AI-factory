@@ -177,6 +177,14 @@ assert d["returnable_to_po"] is True, d
   || bad "machine-readable report is wrong" "$JSON"
 expect_exit 1 "the line a human reads says RED and sends it back to the PO" "VERDICT: RED — goes back to the PO" \
   python3 "$VAL" --dir "$SANDBOX/fx/mutated" --repo "$PROJ"
+# Judged on its diff (EVOL-078): the same violation already in the repo's synced copy is left out — and said, in both reports.
+[ -e "$PROJ/docs/spec/FEAT-999" ] && bad "fixture precondition: the project already holds FEAT-999" "$PROJ/docs/spec/FEAT-999"
+mkdir -p "$PROJ/docs/spec/FEAT-999" && cp "$SANDBOX/fx/mutated/FEAT-999/user_journey.md" "$PROJ/docs/spec/FEAT-999/"
+expect_exit 0 "a violation the synced copy already carries is left out, and the line says so" "left out: unchanged since the last sync" \
+  python3 "$VAL" --dir "$SANDBOX/fx/mutated" --repo "$PROJ"
+python3 "$VAL" --dir "$SANDBOX/fx/mutated" --repo "$PROJ" --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["outside_diff"] >= 1 and not any(f["check"] == "journey-grammar" for f in d["findings"]), d' \
+  && ok "machine-readable report counts the left-out finding (outside_diff) and drops it" || bad "JSON does not say what was left out"
+rm -rf "$PROJ/docs/spec/FEAT-999"
 mv "$PROJ/scripts/check-journey-grammar.sh" "$SANDBOX/gate.bak"
 expect_exit 1 "a broken LOCAL gate is RED but is NOT sent back to the PO" "fix the local journey gate" python3 "$VAL" --dir "$RET" --repo "$PROJ"
 python3 "$VAL" --dir "$RET" --repo "$PROJ" --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["verdict"]=="RED" and d["returnable_to_po"] is False, d' \

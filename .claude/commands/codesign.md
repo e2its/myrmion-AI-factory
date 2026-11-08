@@ -68,7 +68,7 @@ Every feature declares two frontmatter fields in `spec.feature` that shape the r
 ## Key Principles
 - DRY: Consult `config/codebase_inventory.json` before creating new domain concepts (CIP Phase 0.5)
 - user_journey.md § 6 Business Fields is the **source of truth** for WHICH business fields exist (plain language, no types — LAW-16); ARCH derives all typing in design.md and does NOT invent business fields
-- Journey grammar (anchors, Feels 1-5, paths) is machine-validated by `scripts/check-journey-grammar.sh` (auto-approval CHECK 3)
+- Journey grammar (anchors, Feels 1-5, paths, diagram ↔ steps, header ↔ body, Pain ↔ Ease) is machine-validated by `scripts/check-journey-grammar.sh` (auto-approval CHECK 3)
 - After `--refine` in Iteration Mode → CASCADE_PENDING_ITERATION to all downstream artifacts
 - Vision compliance: All feature mockups MUST reference vision artifacts
 - **Iteration Changelog:** Every `--refine` MUST append a changelog entry to the modified artifacts documenting what changed, what triggered the change, and which downstream artifacts are affected. This changelog serves as reference for the next agent in the pipeline.

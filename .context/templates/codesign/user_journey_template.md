@@ -49,14 +49,16 @@ updated_at: "{{TIMESTAMP}}"
 
 ## Section 2: Journey Steps
 
-<!-- One mermaid `journey` diagram per persona (scores 1-5 = the Feels value of each step),
-     then per-step blocks. Parser-canonical: each step is delimited by `### Paso N`
+<!-- One mermaid `journey` diagram per persona, then per-step blocks. The diagram has
+     one task line per Paso of that persona, in order — `step: score: persona` (first
+     actor = the persona) — and each score equals that Paso's Feels (checked). Parser-canonical: each step is delimited by `### Paso N`
      (global numbering across personas) followed by the labeled fields below — ALL
      nine fields mandatory, `—` allowed only where noted.
      `Feels` is comparable across features: 1 = frustration/abandonment risk,
      2 = notable friction, 3 = neutral, 4 = confidence, 5 = delight.
      `Pain` names the friction at this step (or `—`); `Ease` names what the design
-     does to remove or soften it — this pair is the usability lens.
+     does to remove or soften it — this pair is the usability lens. Feels 1-2 names
+     a Pain; a Pain names its Ease and has its row in Section 4 (checked).
      `BDD Scenario` = exact `Scenario:` title in spec.feature (machine anchor).
      `Mock Action` = `#step-N` matching `<section class="imp-step" id="step-N">`
      in mock.html; `—` when scope has no mock. -->
@@ -109,7 +111,8 @@ journey
 ## Section 4: Pain & Emotion Map
 
 <!-- The usability lens, aggregated: where it hurts, what we want them to feel,
-     and why that emotion matters for the business at that point. -->
+     and why that emotion matters for the business at that point. One row per Paso
+     whose Pain is not `—`; every row names such a Paso (checked). -->
 
 | Where (Paso) | Pain | Target emotion | Why here |
 |--------------|------|----------------|----------|

@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.6.1
+version: 1.7.0
 date: 2026-09-25
 applicable_when:
   path_glob:
@@ -81,7 +81,7 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 
 **Story:** Any feature with a spec, a journey and a mock. Scenarios ship untraced, journey steps exist but cannot be reached, mock states, copy or accessible names are left out, or scope grows beyond the task — and nobody with fresh context compares the build with what was agreed before the deploy.
 
-**Detection:** The `traceability` member: every test case the plan declares is linked to its test at its one home, and the baseline only shrinks. The fidelity lens (`factory-critic-fidelity`) reads the diff against spec, journey, mock and plan with fresh context; a step that cannot be reached or a state not built is its finding. Reachability through the project's navigation model is project-specific (`PDC`).
+**Detection:** The `traceability` member: every test case the plan declares is linked to its test at its one home, and the baseline only shrinks. The fidelity lens (`factory-critic-fidelity`) reads the diff against spec, journey, mock and plan with fresh context; a step that cannot be reached or a state not built is its finding. `scripts/check-journey-grammar.sh` holds the journey to itself before anything is built: one diagram step per Paso scored at its Feels, the header naming the title's feature and the spec's scope, every Pain eased and mapped (EVOL-078). Reachability through the project's navigation model is project-specific (`PDC`).
 
 ### DC-35 — A stub outlives its producer
 

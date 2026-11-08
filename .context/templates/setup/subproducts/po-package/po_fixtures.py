@@ -72,7 +72,7 @@ journey
 - **Does:** Picks a day from the open days
 - **Sees:** The chosen day marked as selected
 - **Feels:** 4/5 — confident, the open days are obvious
-- **Pain:** —
+- **Pain:** Guessing which days are open
 - **Ease:** Closed days are not selectable
 - **BDD Scenario:** Guest picks an available day
 - **Mock Action:** {mock1}

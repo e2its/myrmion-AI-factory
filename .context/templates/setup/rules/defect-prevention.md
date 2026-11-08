@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Catalog — families, defect classes, gates, governed paths. Cases annex: defect-prevention-cases.md"
-version: 3.8.1
+version: 3.9.0
 date: 2026-09-25
 applicable_when:
   always: true
@@ -34,7 +34,7 @@ Runtime defect patterns that pass every static gate (lint, typecheck, SAST, unit
 | DC-31 | `process` | No literal credential enters the diff: configuration and the vault supply it, and a credential that reached any branch is rotated at once. | loop member `secrets`, proven to detect by its canary (`gate.py seal --run`) · pre-push secret scan (`security-scan.sh --secrets --require-scanner`) | `*` | IMPLEMENT, REVIEW, DEVOPS, AUDIT | BLOCKER |
 | DC-32 | `infra` | Every path a deploying job or a script it runs reads is on the declared runtime surface or a declared read, so no source changes a release unseen. | profile member `runtime-surface` (`gate.py runtime-surface` parity) | `.github/workflows/**`, `.gitlab-ci*.yml`, `.gitlab/**`, `bitbucket-pipelines.yml`, `azure-pipelines*.yml`, `governance-check-pipeline.yml`, `Jenkinsfile*`, `buildspec*.yml`, `cloudbuild*.yaml`, `scripts/**`, `config/quality.json` | IMPLEMENT, REVIEW, DEVOPS, AUDIT | BLOCKER |
 | DC-33 | `tests` | A coverage figure names what it did not measure: every runtime-surface file absent from the report is listed «not measured» or declared omitted. | per-file table of `gate.py seal --run` (`coverage-table.md`), read by the correctness lens | `config/quality.json`, `tests/**`, `**/*.config.*`, `**/*.toml` | IMPLEMENT, REVIEW, QA | WARNING |
-| DC-34 | `process` | Every in-scope scenario's declared cases are linked to tests that ran, and a fresh-context lens judges the build against spec, journey and mock. | profile member `traceability` (each declared case → its test) · the fidelity lens (`factory-critic-fidelity`) | `src/**`, `tests/**`, `e2e/**` | IMPLEMENT, REVIEW, QA | BLOCKER |
+| DC-34 | `process` | Every in-scope scenario's declared cases are linked to tests that ran, and a fresh-context lens judges the build against spec, journey and mock. | profile member `traceability` · the fidelity lens (`factory-critic-fidelity`) · `scripts/check-journey-grammar.sh` | `src/**`, `tests/**`, `e2e/**`, `docs/spec/**/user_journey.md` | CODESIGN, IMPLEMENT, REVIEW, QA | BLOCKER |
 | DC-35 | `process` | No placeholder outlives its producer: a seam's stub goes in the change that merges the sub it waits for. | profile member `train` (e) — the seam map's `stub until` | `docs/spec/**`, `src/**`, `tests/**` | BLUEPRINT, IMPLEMENT, REVIEW | BLOCKER |
 | DC-36 | `boundary` | One error code, one meaning: every code a contract names is one entry of the error catalog, and no code or meaning repeats. | profile member `contracts` (`gate.py contracts`: the catalog and every contract) | `contracts/**` | BLUEPRINT, IMPLEMENT, REVIEW | BLOCKER |
 | DC-37 | `boundary` | Each resource exposes CRUD single and batch; an omission, or an operation outside CRUD-First, declares its reason in `x-crud-exception`. | profile member `contracts` (`gate.py contracts`: shape and completeness of every contract; older findings in a shrink-only baseline) | `contracts/openapi/**` | BLUEPRINT, IMPLEMENT, REVIEW | BLOCKER |
