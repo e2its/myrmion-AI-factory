@@ -482,7 +482,7 @@ def _verdict(repo: Path, rel: str, paths: list[str], status: str, what: str, ext
 
 def pr(repo: Path, base: str, branch: str) -> dict:
     """The verdicts the PR pipeline demands of the agent (RDR 1 sweep, RDR 5 smoke, 2026-11-08). Owed for a
-    `feature/*` branch that is not a sub-increment (a sub PR into its train owes the light profile), the full-sdlc
+    branch of class feature, increment or train (a sub-increment PR into its train owes the light profile), the full-sdlc
     preset, a change that is not documentation only. Then, each in this PR's diff: the newest preventive-sweep report
     COMPLETED with `not_delivered: []`; the smoke at `qa.smoke_cadence` — `per-slice`: the increment's
     `smoke_e2e_report_INC-N.md` APPROVED; the PR that closes the feature (no increment in the branch, or its last

@@ -2,7 +2,7 @@
 """Server-side branch protection per SCM platform (EVOL-054) — the branch rule defended where the hooks cannot reach.
 
 config   `config/quality.json → scm`: `platform` (GitHub | GitLab | Bitbucket | Azure DevOps | Other), `protected_branches`
-         (the default branch by default), `required_checks` (the governance check and, where it runs, the lock-step check —
+         (the default branch by default), `required_checks` (the governance check, the lock-step check where it runs, `pr-verify` when deploying from GitHub Actions —
          never empty: a server that requires no check decides nothing), `approvals` (a project decision — 0 for a single
          author, never invented). `required: false` + `reason` opts out, on the board as n/a.
 reader   ONE reader, ONE control point: `gate.py scm-protection` asks the platform's API — with a token from the
@@ -353,10 +353,11 @@ def judge(norm: dict, c: dict, branch: str) -> tuple[list[str], list[str]]:
     return f, u
 
 
-def _production_env(rm: dict, tok: str, fetch) -> tuple[list[str], list[str]]:
+def _production_env(rm: dict, tok: str, fetch, branches: list[str]) -> tuple[list[str], list[str]]:
     """EVOL-081: the pipeline deploys production through the `production` environment — it must exist with required
     reviewers (a job naming a missing environment auto-creates it with no rules; a Free private repository ignores them)
-    and a deployment-branch policy (else any branch's workflow can name it and reach production's secrets).
+    and a deployment-branch policy naming only the protected branches, by exact name (else another branch's workflow can
+    name it and reach production's secrets). "Protected branches" as the policy is a note: any branch that gains a rule deploys.
     (findings, notes): self-review allowed is a note — a solo maintainer needs it, a team sets prevent_self_review."""
     h = {"Authorization": f"Bearer {tok}", "X-GitHub-Api-Version": "2022-11-28"}
     api = "https://api.github.com" if rm["host"] == "github.com" else f"https://{rm['host']}/api/v3"
@@ -366,8 +367,20 @@ def _production_env(rm: dict, tok: str, fetch) -> tuple[list[str], list[str]]:
     rev = [r for r in env.get("protection_rules") or [] if isinstance(r, dict) and r.get("type") == "required_reviewers" and r.get("reviewers")]
     if not rev:
         return ["the `production` environment has no required reviewers — production would deploy without a person's approval (a Free private repository ignores them: Team or Pro)"], []
-    out = [] if env.get("deployment_branch_policy") else ["the `production` environment has no deployment-branch policy — any branch's workflow can name it and reach production's secrets; limit it to main (Settings → Environments → production → Deployment branches)"]
-    notes = [] if any(r.get("prevent_self_review") for r in rev) else ["`production` lets the person who started a deploy approve it (prevent_self_review off) — a solo maintainer needs it; a team turns it on"]
+    pol, out, notes = env.get("deployment_branch_policy") or {}, [], []
+    fix = f"limit it to {', '.join(branches)} (Settings → Environments → production → Deployment branches → selected branches)"
+    if pol.get("custom_branch_policies"):
+        got = fetch(f"{api}/repos/{rm['owner']}/{rm['repo']}/environments/production/deployment-branch-policies", h, missing_ok=True) or {}
+        names = [p.get("name") for p in got.get("branch_policies") or [] if isinstance(p, dict) and p.get("type", "branch") == "branch"]
+        extra = sorted(n for n in names if n not in branches)
+        if not names or extra:
+            out.append(f"the `production` environment's deployment branches are {', '.join(map(str, extra or names)) or 'none'} — another branch's workflow can name it and reach production's secrets; {fix}")
+    elif pol.get("protected_branches"):
+        notes.append("`production` deploys from any protected branch — a branch that gains a protection rule can reach production's secrets; selected branches are exact")
+    else:
+        out.append(f"the `production` environment has no deployment-branch policy — any branch's workflow can name it and reach production's secrets; {fix}")
+    if not any(r.get("prevent_self_review") for r in rev):
+        notes.append("`production` lets the person who started a deploy approve it (prevent_self_review off) — a solo maintainer needs it; a team turns it on")
     return out, notes
 
 
@@ -414,7 +427,7 @@ def check(repo: Path, control_point: str = "push", fetch=None, env: dict | None 
         f, u = judge(norm, c, b)
         branches[b] = {k: v for k, v in norm.items() if k not in ("extra",)}; findings += f; unverifiable += u
     if c["platform"] == "GitHub" and (key(repo, "delivery.execution") or "local") == "ci" and _ci_platform(repo) == "GitHub Actions":
-        f, u = _production_env(rm, tok, fetch)
+        f, u = _production_env(rm, tok, fetch, c["branches"])
         findings += f; unverifiable += u
     reason = (f"{c['platform']} {rm['owner']}/{rm['repo']}: {len(findings)} missing setting(s) on {', '.join(c['branches'])} — apply {book}" if findings
               else f"{c['platform']} {rm['owner']}/{rm['repo']}: {', '.join(c['branches'])} protected as configured" + (f" (not exposed by the API, tick in {book}: {'; '.join(unverifiable)})" if unverifiable else ""))

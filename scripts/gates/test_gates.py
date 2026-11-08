@@ -3855,10 +3855,12 @@ class Scm(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             base = self._gh(rulesets=[self._rs(self.FULL)])
-            def fetch_with(env):
+            def fetch_with(env, policies=None):
                 def f(url, headers, missing_ok=False):
                     if url.endswith("/environments/production"):
                         return env
+                    if url.endswith("/environments/production/deployment-branch-policies"):
+                        return {"branch_policies": policies or []}
                     return base(url, headers, missing_ok)
                 return f
             kw = dict(control_point="ci", env={"GH_TOKEN": "t"}, origin="git@github.com:acme/app.git")
@@ -3871,8 +3873,16 @@ class Scm(unittest.TestCase):
             self.assertIn("no required reviewers", " ".join(r["findings"]))
             r = scm.check(repo, fetch=fetch_with({"protection_rules": [{"type": "required_reviewers", "reviewers": [{"type": "User"}]}]}), **kw)
             self.assertIn("no deployment-branch policy", " ".join(r["findings"]), "round-1 cure: reviewers without a branch policy gate nothing")
-            ok_env = {"protection_rules": [{"type": "required_reviewers", "reviewers": [{"type": "User"}]}], "deployment_branch_policy": {"protected_branches": True}}
-            r = scm.check(repo, fetch=fetch_with(ok_env), **kw)
+            rv = [{"type": "required_reviewers", "reviewers": [{"type": "User"}]}]
+            prot = {"protection_rules": rv, "deployment_branch_policy": {"protected_branches": True, "custom_branch_policies": False}}
+            r = scm.check(repo, fetch=fetch_with(prot), **kw)
+            self.assertTrue(r["ok"], scm.render(r)); self.assertIn("any protected branch", " ".join(r["unverifiable"]), "round-2 cure: protected branches is a note")
+            ok_env = {"protection_rules": rv, "deployment_branch_policy": {"protected_branches": False, "custom_branch_policies": True}}
+            for pols, word in (([{"name": "*", "type": "branch"}], "deployment branches are *"), ([], "deployment branches are none"),
+                               ([{"name": "main", "type": "branch"}, {"name": "release/*", "type": "branch"}], "deployment branches are release/*")):
+                r = scm.check(repo, fetch=fetch_with(ok_env, pols), **kw)
+                self.assertFalse(r["ok"]); self.assertIn(word, " ".join(r["findings"]), "round-2 cure: only the protected branches, by exact name")
+            r = scm.check(repo, fetch=fetch_with(ok_env, [{"name": "main", "type": "branch"}]), **kw)
             self.assertTrue(r["ok"], scm.render(r)); self.assertIn("prevent_self_review off", " ".join(r["unverifiable"]), "self-review is a note, never red")
             write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitLab CI\n---\n# Setup\n")
             self.assertTrue(scm.check(repo, fetch=fetch_with(None), **kw)["ok"], "GitHub-hosted on another CI: no GitHub deploy workflow, the environment is not asked")
@@ -5309,6 +5319,11 @@ class Writes(unittest.TestCase):
         self.deploy_config(adapter={"tool": "Docker Compose", "apply": "DOCKER_HOST=ssh://{host} docker compose up -d --wait", "destroy": None})
         self.assertEqual(self.deploy_rc("docker compose -f prod.yml up -d")[0], 5, "a flag and its value between the words")
         self.assertEqual(self.deploy_rc("docker compose -f prod.yml logs")[0], 4)
+        for cmd in ("docker-compose up -d", "docker --context prod compose up -d", "docker-compose -f prod.yml up"):
+            self.assertEqual(self.deploy_rc(cmd)[0], 5, f"round-2 cure: {cmd}")
+        self.deploy_config(adapter={"tool": "flyctl", "apply": "fly deploy --remote-only --app {app} --yes", "destroy": None})
+        self.assertEqual(self.deploy_rc("fly --access-token tok deploy --app my-app")[0], 5, "round-2 cure: a global flag's value before the subcommand")
+        self.assertEqual(self.deploy_rc("fly logs deploy")[0], 4, "a subcommand's own word is never the subcommand")
 
 
 class Cli(unittest.TestCase):
@@ -7412,6 +7427,11 @@ class Performance(unittest.TestCase):
             with _Slow() as s:
                 out = performance.render(performance.measure(repo, "staging", s.url))
             self.assertNotIn("cannot be read", out, "round-1 cure: a planted tag never stops the deployed measurement")
+            self._bl(repo, self._line().replace("2026-11-07T10:00:00Z", "yesterday"))
+            with _Slow() as s:
+                out = performance.render(performance.measure(repo, "staging", s.url))
+            self.assertNotIn("cannot be read", out, "round-2 cure: a record of the right shape but a bad field never stops it either")
+            self.assertIn("is no deploy record (", performance.render(performance.check(repo, "HEAD")))
             self.assertIn("is no deploy record", performance.render(performance.check(repo, "HEAD")), "the light check reports it")
 
     def test_the_hosting_selects_what_is_measured(self):

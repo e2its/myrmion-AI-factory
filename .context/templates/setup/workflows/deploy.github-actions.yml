@@ -59,7 +59,7 @@ jobs:
         run: git fetch origin "$BASE_REF"
         env:
           BASE_REF: ${{ github.base_ref }}
-      - name: "The agent's verdicts for this change — the preventive sweep (RDR 1) and the smoke at the project's cadence (RDR 5, 2026-11-08); owed for a feature branch, the full-sdlc preset, not documentation only"
+      - name: "The agent's verdicts for this change — the preventive sweep (RDR 1) and the smoke at the project's cadence (RDR 5, 2026-11-08); owed for a feature, increment or train branch, the full-sdlc preset, not documentation only"
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}

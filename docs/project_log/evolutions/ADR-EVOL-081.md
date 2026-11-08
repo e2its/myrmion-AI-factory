@@ -218,7 +218,7 @@ Owner's choice, verbatim: «1».
   7. The record tag.
   8. The `lkg` tag when the probe and the measurement pass.
 - **Production** runs only after a person approves:
-  - GitHub: `environment: production`. `gate.py scm-protection` at `ci` verifies that environment's `protection_rules[].reviewers` through the API. A missing environment, or a Free private repository, is red.
+  - GitHub: `environment: production`. `gate.py scm-protection` at `ci` verifies that environment's `protection_rules[].reviewers` and its deployment branches — selected by exact name, only the protected branches — through the API. A missing environment, no reviewers or no branch policy is red; "protected branches" as the policy and self-review allowed are notes.
   - Bitbucket: `deployment: production` with `trigger: manual`. The runbook names the Premium deployment permissions.
 - **The pull request** is blocked when one of the agent's verdicts for the head SHA is missing, stale or red (`gate.py certify`, `gate.py currency`), one reader, `gate.py delivery --pr`:
   - the preventive sweep (RDR 1);
@@ -226,11 +226,11 @@ Owner's choice, verbatim: «1».
   - They are owed where those phases exist: a branch of class feature, increment or train (`gate.py branch-class`), the full-sdlc preset, a change that is not documentation only. A sub-increment (its PR into the train owes the light profile) and every other class are n/a. The control point in `profile.py:67` becomes the pull request.
 - **Rollback** redeploys the last `lkg/{env}/*` through the same pipeline. It writes its own `deploy/…` record, which is the re-seal.
 - **Teardown** runs from the pipeline too: the deny covers the adapter's `destroy`. The production teardown waits for the same approval.
-- **The DEVOPS instruction** triggers the run and watches it: `gh workflow run` with a unique `run-name`, then `gh run watch --exit-status`, or the Bitbucket pipelines API polled until `COMPLETED`. Local provision and deploy remain only for `delivery.execution == local`, through the same executor: `gate.py delivery --run` refuses without `CI` only when the execution is `ci`.
+- **The DEVOPS instruction** triggers the run and watches it: `gh workflow run` with a `run_key` input the run name ends in, then `gh run watch --exit-status`, or the Bitbucket pipelines API polled until `COMPLETED`. Local provision and deploy remain only for `delivery.execution == local`, through the same executor: `gate.py delivery --run` refuses without `CI` only when the execution is `ci`.
 
 ### 4. The deny — one classifier (#119)
 
-- `scripts/gates/writes.py` gains the command class `deploy`. It holds the project's adapter `apply` and `destroy` commands, read from `config/quality.json → delivery.adapter`. Starting the pipeline (`gh workflow run`, the Bitbucket API) is not in it.
+- `scripts/gates/writes.py` gains the command class `deploy`. It holds the project's adapter `apply` and `destroy` commands, read from `config/quality.json → delivery.adapter`, and the executor's own `gate.py delivery --run|--rollback|--teardown`. Starting the pipeline (`gh workflow run`, the Bitbucket API) is not in it.
 - The command is judged after the wrappers are stripped.
 - When `delivery.execution == ci`, `check-branch-protection.sh` blocks that class with a plain message (LAW-08): «this project deploys from its pipeline — run DEVOPS --deploy, which starts and watches the run». A detached HEAD gets the same deny.
 - **The deny is friction, not the boundary.** The boundary is that no deploy credential lives on a workstation: production's secrets are environment secrets of `production` (GitHub) or secured variables of the production deployment (Bitbucket), handed only to the approved job. A command the classifier cannot see — a `make` target, a script that wraps the tool — passes the deny and still fails without the credential.
@@ -283,7 +283,7 @@ Each change ships with its upgrade migration.
   - a rollback is a redeploy of the last good SHA, sealed again.
 - Every hosting target discovery offers has its deploy tool. A pack adds a row of data, and #148 adds Cloudflare.
 - A PR is blocked until the agent's sweep and its smoke report at `qa.smoke_cadence` are present, green and current for the head.
-- **Installed projects** get the checks through `factory-sync.sh`, and the pipelines and migrations through `SETUP --upgrade`. The migrations rename the deploy-tool key, derive `delivery.execution` and convert the baseline. A project left on `local` keeps today's behaviour.
+- **Installed projects** get the checks through `factory-sync.sh`, and the pipelines and migrations through `SETUP --upgrade`. The migrations rename the deploy-tool key, derive `delivery.execution` and convert the baseline. A project with no CI platform stays on `local` and keeps today's behaviour; a project with one derives `ci`, and a key flipped back to `local` is red.
 
 ## Residual risks
 
@@ -300,6 +300,9 @@ Each change ships with its upgrade migration.
 
 ## Round-1 cures (critics, 2026-11-08)
 
+The RDR 5 recommendation text above was corrected after ratification: it said «no new key or flag», and the one PR check is a mode of the reader this change adds (`gate.py delivery --pr`). The owner's choice is unchanged.
+
+
 Four lenses, one round on the whole diff. Cured in the same branch, each with its red case:
 - **Executor.** A step reads only the names it declares: an unset `$NAME` is red and names `delivery.secrets`; `${…}` shell expansions never collide with `{PARAM}` placeholders; every command of the row is filled before the first step runs; a rollback never re-runs the forward migration; teardown expands its `destroy` first.
 - **Records.** A tag that is not a record (no JSON, another environment, a SHA that is not 40 hex) is skipped; the last good state is the newest `lkg` whose record holds the same SHA; a planted tag is never a record nor a last good state, never stops the deployed measurement, and the light performance check names it red (delete it on origin).
@@ -310,7 +313,9 @@ Four lenses, one round on the whole diff. Cured in the same branch, each with it
 - **Upgrade.** `deploy-records` is an executable block that reuses the executor's `write_record`, stops on a commit the clone lacks, pushes the tags and reads them back on `origin` before removing the file; the synthetic upgrade runs it twice.
 - **Runbooks.** GitHub: the `production` environment (required reviewers, deployment branches `main` only, environment secrets) and `pr-verify` as a required check. Bitbucket: Premium deployment permissions and secured deployment variables.
 
-Mutation sweep on the cures, in a scratch copy (2026-11-09): 18 mutants over the executor, the records, the check, the deny, `scm-protection` and the rejected-tag report — each turns its test class red; none survives. Suite, hooks (207), live pipeline schemas and the nine synthetic materialisations green.
+Round 2, on the cure diff only (2026-11-09): `docker-compose` spelled `docker compose`, a global flag's value before the subcommand, a record of the right shape with a bad field rejected like a planted tag, the deployment branches checked by exact name, the meta workflow's refs through `env:`, the record tags fetched before every read, the router's «deployed» bound to this build's SHA, `pr-verify` added to the required checks on upgrade.
+
+Mutation sweep on the cures, in a scratch copy (2026-11-09): 26 mutants over the executor, the records, the check, the deny, `scm-protection` and the rejected-tag report (18 for round 1, 8 for round 2) — each turns its test class red; none survives. Suite, hooks (207), live pipeline schemas and the nine synthetic materialisations green.
 
 ## Alternatives considered
 

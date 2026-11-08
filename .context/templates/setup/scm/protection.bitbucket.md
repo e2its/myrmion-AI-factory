@@ -20,6 +20,7 @@ Repository settings → Deployments → `production`.
 | Setting | Value | Why |
 |---|---|---|
 | **Deployment permissions** (Premium) | only the people who approve production; "admins can deploy" as the team decides | without them any user with write access can press the manual production step |
+| **Deployment branches** (Premium) | `main` only | a `custom:` pipeline runs from any branch: an edited pipeline on another branch could name `production` |
 | **Deployment variables** | the adapter row's names, production values only, secured | never repository variables: Bitbucket hands every variable of a step to its script |
 
 Bitbucket has no separate approval: the manual `trigger` is the approval, so without Premium deployment permissions it is weak — the deploy pipeline's header says so.

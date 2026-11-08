@@ -189,6 +189,13 @@ def baseline_text(repo: Path, rejected: list | None = None) -> str:
         if r.get("metrics") is None:
             continue
         e = {"site": r["env"], **{k: r[k] for k in ("sha", "at", "hosting", "metrics", "rebaseline") if r.get(k) is not None}}
+        try:
+            parse_baseline(json.dumps(e))
+        except GateFault as err:
+            if rejected is None:
+                raise
+            rejected.append((r["tag"], str(err).replace("line 1 ", "", 1)))
+            continue
         lines.append(json.dumps(e, sort_keys=True))
     return "\n".join(lines) + ("\n" if lines else "")
 
@@ -387,7 +394,7 @@ def measure(repo: Path, site: str, url: str, now: str | None = None, rebaseline:
             f"`{HOSTING_KEY}` in docs/setup.md must be one of {', '.join(HOSTINGS)} — it selects what is measured (Q20.3)"], "")]}
     path = "deploy records"
     try:
-        entries = parse_baseline(baseline_text(repo))
+        entries = parse_baseline(baseline_text(repo, []))   # a malformed record is skipped here; the light check names it
     except GateFault as err:
         return {"ok": False, "reason": "baseline unreadable", "recorded": False,
                 "entries": [_row(path, [f"cannot be read as the performance baseline — {err}"], "")]}

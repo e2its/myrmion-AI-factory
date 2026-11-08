@@ -32,14 +32,18 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }}
+        env:
+          BASE_REF: ${{ github.base_ref }}   # a ref name is author data: env, never inlined into the script
+        run: git fetch origin "$BASE_REF"
 
       - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py is the list)"
         env:
           GH_TOKEN: ${{ github.token }}   # EVOL-054: the scm-protection member reads this repository's ruleset at the ci control point (metadata: read is enough)
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           chmod +x scripts/validate-governance.sh scripts/check-adr-constitution-sync.sh scripts/check-applicability-frontmatter.sh
-          python3 scripts/gate.py profile --run --control-point ci --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
+          python3 scripts/gate.py profile --run --control-point ci --base "origin/${BASE_REF}" --branch "$HEAD_REF"
 
       - name: "One definition — hooks, workflows and the preflight keep no branch list, mode read or mode override (EVOL-046)"
         run: python3 scripts/gate.py one-definition

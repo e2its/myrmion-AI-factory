@@ -495,7 +495,7 @@ LAUNCHERS = {"npx": 0, "pnpx": 0, "bunx": 0, "timeout": 1, "nice": 0, "nohup": 0
              "sudo": 0, "env": 0, "command": 0, "exec": 0, "time": 0}
 VALUED = {"sudo": {"-u", "-g", "-C", "-h", "-p", "-r", "-t", "-U"}, "env": {"-u", "-C", "-S"}, "nice": {"-n"},
           "timeout": {"-s", "-k", "--signal", "--kill-after"}, "xargs": {"-I", "-n", "-P", "-L", "-d", "-a", "-E", "-s"}}
-ALIASES = {"flyctl": "fly", "docker-compose": "docker"}
+ALIASES = {"flyctl": ["fly"], "docker-compose": ["docker", "compose"]}   # one tool, one spelling
 GATE_DEPLOY = {"--run", "--rollback", "--teardown"}
 
 
@@ -514,18 +514,43 @@ def _unwrap(args: list[str]) -> list[str]:
     return args
 
 
+def _spelled(argv: list[str]) -> list[str]:
+    b = os.path.basename(argv[0])
+    return ALIASES.get(b, [b]) + list(argv[1:])
+
+
+def _subcommand_at(args: list[str]) -> list[int]:
+    """The positions that may hold the subcommand: the first word after the tool, or — while each candidate follows a
+    bare global flag (`--access-token T`, `-n x`, `--context prod`) — the word after it. A word that follows no bare flag
+    ends the chain, so a subcommand's own values never count (`terraform plan -out apply` is plan)."""
+    out, bare = [], False
+    for i, w in enumerate(args[1:], 1):
+        if w.startswith("-"):
+            bare = "=" not in w
+            continue
+        out.append(i)
+        if not bare:
+            break
+        bare = False
+    return out
+
+
 def _runs_head(args: list[str], head: list[str]) -> bool:
-    """argv runs the head: the same tool (aliases one name), its first word after the tool the head's subcommand,
-    the head's further words in order among the rest — flags and their values anywhere (`terraform -chdir=x apply`)."""
-    if not args or ALIASES.get(os.path.basename(args[0]), os.path.basename(args[0])) != ALIASES.get(os.path.basename(head[0]), os.path.basename(head[0])):
+    """argv runs the head: the same tool (aliases spelled one way — `docker-compose` is `docker compose`), the head's
+    subcommand where a subcommand can stand, the head's further words in order among the rest — flags anywhere."""
+    if not args:
         return False
-    words = [w for w in args[1:] if not w.startswith("-")]
+    args, head = _spelled(args), _spelled(head)
+    if args[0] != head[0]:
+        return False
     if len(head) == 1:
         return True
-    if not words or words[0] != head[1]:
-        return False
-    it = iter(words[1:])
-    return all(any(w == h for w in it) for h in head[2:])
+    for i in _subcommand_at(args):
+        if args[i] == head[1]:
+            it = iter(w for w in args[i + 1:] if not w.startswith("-"))
+            if all(any(w == h for w in it) for h in head[2:]):
+                return True
+    return False
 
 
 def _runs_executor(args: list[str]) -> bool:

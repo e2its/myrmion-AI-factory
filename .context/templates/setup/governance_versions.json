@@ -446,7 +446,7 @@
       "target": ".claude/hooks/check-push-preflight.sh"
     },
     "claude/CLAUDE.md": {
-      "version": "4.22.0",
+      "version": "4.21.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge"

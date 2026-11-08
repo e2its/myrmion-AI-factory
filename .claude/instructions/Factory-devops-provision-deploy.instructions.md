@@ -48,7 +48,7 @@ FUNCTION resolve_command_scope(command, FEATURE_ID, ENV):
   - Production waits for the approval in the platform (protected environment / manual trigger); say so, then watch.
   - Generated IaC ships by branch + PR; the pipeline applies it.
   - Before the PR: `--ref` is the feature branch, ENV non-production — the smoke (QA --verify) runs on that build and its report rides the PR (`gate.py delivery --pr`, RDR 5).
-  - The deploy state is the record tags, read through `gate.py delivery --last {ENV}` / `--lkg {ENV}` — in both modes. `deployment_report_*.md` is a human summary, never the state.
+  - The deploy state is the record tags, read through `gate.py delivery --last {ENV}` / `--lkg {ENV}` — in both modes. The pipeline pushes them to origin: `git fetch --tags --force origin` before every read. `deployment_report_*.md` is a human summary, never the state.
 - `local`: the agent runs the executor itself, then pushes the `deploy/*` and `lkg/*` tags.
 
 Last deploy and last good state: `gate.py delivery --last {ENV}` / `--lkg {ENV}` (JSON) — never a report file.
@@ -413,7 +413,7 @@ Phase 2: Pre-Flight
   VERIFY contract files haven't changed since last build
 
 Phases 3–5 by mode (§ Execution Mode):
-  ci: start + watch the run; the executor validates, plans, migrates, applies, probes, records and measures (no stage builds an artefact: the adapter's own tool builds — `vercel build`, `fly deploy --remote-only`, the IaC's image step). Read the result: gate.py delivery --last {ENV}
+  ci: start + watch the run; the executor validates, plans, migrates, applies, probes, records and measures (no stage builds an artefact: the adapter's own tool builds — `vercel build`, `fly deploy --remote-only`, the IaC's image step). Read the result: git fetch --tags --force origin, then gate.py delivery --last {ENV}
   local: python3 scripts/gate.py delivery --run --env {ENV} (the steps below are what the adapter row and the strategy do)
 
 Phase 3: Build Artifacts
