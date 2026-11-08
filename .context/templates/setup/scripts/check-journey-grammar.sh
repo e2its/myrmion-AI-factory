@@ -150,6 +150,9 @@ for n in $PASOS; do
   persona=$(trim_value "$(sed -n 's/^- \*\*Persona:\*\*[[:space:]]*//p' "$blk" | head -1)")
   pain=$(trim_value "$(sed -n 's/^- \*\*Pain:\*\*[[:space:]]*//p' "$blk" | head -1)")
   ease=$(trim_value "$(sed -n 's/^- \*\*Ease:\*\*[[:space:]]*//p' "$blk" | head -1)")
+  if grep -q '^- \*\*Persona:\*\*' "$blk" && [ -z "$persona" ]; then
+    fail "Paso $n: Persona is empty — name who travels this step"
+  fi
   printf '%s\037%s\037%s\037%s\037%s\037%s\n' "$n" "$persona" "$feels" "$(is_dash "$pain")" "$(is_dash "$ease")" "$mock_action" >> "$STEP_TMP/steps.tsv"
   if grep -q '^- \*\*Mock Action:\*\*' "$blk" && [ -z "$mock_action" ]; then
     fail "Paso $n: Mock Action is empty — expected '#step-N' or '—'"
@@ -178,7 +181,7 @@ for n in $PASOS; do
   elif [ "$scenario" = "—" ]; then
     fail "Paso $n: BDD Scenario must be the exact Scenario title — '—' is not a valid anchor"
   elif [ -n "$scenario" ] && [ -n "$SPEC" ]; then
-    grep -qxF "$scenario" "$STEP_TMP/spec_titles" || fail "Paso $n: BDD Scenario '$scenario' not found as a Scenario title in $(basename "$SPEC")"
+    grep -qxF -- "$scenario" "$STEP_TMP/spec_titles" || fail "Paso $n: BDD Scenario '$scenario' not found as a Scenario title in $(basename "$SPEC")"
   fi
 done
 
@@ -216,18 +219,20 @@ else
     m && /^```/   { m=0; next }
     m {
       t=$0; sub(/^[[:space:]]+/, "", t); sub(/[[:space:]]+$/, "", t)
-      if (t == "") next
+      if (t == "" || t ~ /^%%/) next
       if (first) { first=0; j=(t == "journey"); next }
-      if (!j || t ~ /^(title|section|accTitle|accDescr|%%)/) next
+      if (!j || t ~ /^(title|section|accTitle|accDescr)([[:space:]:]|$)/) next
       n=split(t, p, ":")
-      if (n < 3) { print "BAD\037" t; next }
+      if (n < 3) { print "\001\037" t; next }
       score=p[2]; gsub(/[[:space:]]/, "", score)
       actors=p[3]; for (i=4; i<=n; i++) actors=actors ":" p[i]
       split(actors, a, ","); who=a[1]; sub(/^[[:space:]]+/, "", who); sub(/[[:space:]]+$/, "", who)
+      if (who == "") { print "\001\037" t; next }
       print who "\037" score "\037" p[1]
     }' > "$STEP_TMP/tasks.tsv"
+  BADROW=$(printf '\001')   # the malformed-line sentinel: a byte no persona carries
   while IFS="$SEP" read -r who score label; do
-    if [ "$who" = "BAD" ]; then
+    if [ "$who" = "$BADROW" ]; then
       fail "Section 2: diagram line '$score' is not 'step: score: persona'"
     else
       case "$score" in
@@ -236,13 +241,13 @@ else
       esac
     fi
   done < "$STEP_TMP/tasks.tsv"
-  { cut -d"$SEP" -f2 "$STEP_TMP/steps.tsv"; awk -F"$SEP" '$1 != "BAD" {print $1}' "$STEP_TMP/tasks.tsv"; } \
+  { cut -d"$SEP" -f2 "$STEP_TMP/steps.tsv"; awk -F"$SEP" '$1 != "\001" {print $1}' "$STEP_TMP/tasks.tsv"; } \
     | sort -u > "$STEP_TMP/personas"
   while IFS= read -r who; do
     [ -z "$who" ] && continue
-    awk -F"$SEP" -v p="$who" '$2 == p {print $1 "\037" $3}' "$STEP_TMP/steps.tsv" > "$STEP_TMP/p_steps"
-    awk -F"$SEP" -v p="$who" '$1 == p {print $2}' "$STEP_TMP/tasks.tsv" > "$STEP_TMP/p_tasks"
-    ns=$(grep -c . "$STEP_TMP/p_steps" || true); nt=$(grep -c . "$STEP_TMP/p_tasks" || true)
+    P="$who" awk -F"$SEP" '$2 == ENVIRON["P"] {print $1 "\037" $3}' "$STEP_TMP/steps.tsv" > "$STEP_TMP/p_steps"   # ENVIRON: -v would unescape a backslash
+    P="$who" awk -F"$SEP" '$1 == ENVIRON["P"] {print $2}' "$STEP_TMP/tasks.tsv" > "$STEP_TMP/p_tasks"
+    ns=$(grep -c '' "$STEP_TMP/p_steps" || true); nt=$(grep -c '' "$STEP_TMP/p_tasks" || true)
     if [ "$ns" -ne "$nt" ]; then
       fail "Section 2: the diagram shows $nt step(s) for '$who', the journey describes $ns — one diagram step per Paso"
       continue
@@ -255,12 +260,12 @@ else
 fi
 
 # ── 1b. The header matches the body (EVOL-078) ──────────────────────────────
-FID=$(echo "$FM" | sed -n 's/^feature_id:[[:space:]]*"\{0,1\}\([^"[:space:]]*\)"\{0,1\}.*/\1/p' | head -1)
+FID=$(echo "$FM" | sed -n "s/^feature_id:[[:space:]]*[\"']\{0,1\}\([^\"'[:space:]]*\)[\"']\{0,1\}.*/\1/p" | head -1)
 H1=$(sed -n 's/^# User Journey:[[:space:]]*\([^[:space:]]*\).*/\1/p' "$JOURNEY" | head -1)
 if [ -z "$H1" ]; then
   fail "no title line '# User Journey: {feature id} — {name}'"
 elif [ -n "$FID" ] && [ "$FID" != "$H1" ]; then
-  fail "the header says feature '$FID', the title says '$H1'"
+  fail "the title names feature '$H1', but this journey belongs to '$FID' — the title starts '# User Journey: $FID — '"
 fi
 if [ "$UI_SCOPE" -eq 1 ] && [ -n "$PASOS" ] && ! cut -d"$SEP" -f6 "$STEP_TMP/steps.tsv" | grep -q '^#step-'; then
   fail "scope=$SCOPE shows screens, yet no Paso points to one (no '#step-N' Mock Action)"

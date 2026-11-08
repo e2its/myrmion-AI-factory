@@ -1052,9 +1052,9 @@ total_tasks: N
 - [ ] [INC-1.C.1] E2E happy path — submit claim
 
 ### Increment INC-1 Acceptance Gate
-- [ ] [INC-1.ACC.1] All assigned scenarios pass E2E
-- [ ] [INC-1.ACC.2] CVP increment_deployability PASS
-- [ ] [INC-1.ACC.3] No TODO markers in INC-1 code paths
+- [ ] [INC-1.ACC.1] `Submit claim` passes its E2E test
+- [ ] [INC-1.ACC.2] `python3 scripts/gate.py profile --run` verdict ok
+- [ ] [INC-1.ACC.3] `/qa --verify FEAT-001 INC-1` report APPROVED
 
 ## Increment INC-2: User can edit a submitted claim
 > **Status:** READY

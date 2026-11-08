@@ -61,7 +61,7 @@ python3 subproducts/po-package/validate_po_return.py --selftest
 python3 subproducts/po-package/validate_po_return.py --zip ~/Downloads/<retorno>.zip
 ```
 
-Ejecuta `--selftest` primero, siempre: estas herramientas están fuera de la superficie gobernada y el autotest es su única red. El validador juzga **forma y coherencia, nunca mérito**. La forma del journey la juzga `scripts/check-journey-grammar.sh`, la misma puerta que CODESIGN aplica a lo que genera. Un retorno se juzga por su diff: un hallazgo que ya tiene la copia sincronizada del repo se deja fuera y se cuenta («left out: unchanged since the last sync»).
+Ejecuta `--selftest` primero, siempre: estas herramientas están fuera de la superficie gobernada y el autotest es su única red. El validador juzga **forma y coherencia, nunca mérito**. La forma del journey la juzga `scripts/check-journey-grammar.sh`, la misma puerta que CODESIGN aplica a lo que genera. Un retorno se juzga por su diff: un hallazgo que ya tiene la copia sincronizada del repo se deja fuera y se cuenta («left out: unchanged since the last sync»); una referencia externa se juzga siempre.
 
 | Veredicto | Qué hacer |
 |---|---|

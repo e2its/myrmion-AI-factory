@@ -61,7 +61,7 @@ python3 subproducts/po-package/validate_po_return.py --selftest
 python3 subproducts/po-package/validate_po_return.py --zip ~/Downloads/<return>.zip
 ```
 
-Run `--selftest` first, every time: this tooling sits outside the governed surface and the self-test is its only net. The validator judges **form and coherence, never merit**. Journey form is judged by `scripts/check-journey-grammar.sh`, the same gate CODESIGN applies to its own output. A return is judged on its diff: a finding the repo's synced copy already carries is left out and counted («left out: unchanged since the last sync»).
+Run `--selftest` first, every time: this tooling sits outside the governed surface and the self-test is its only net. The validator judges **form and coherence, never merit**. Journey form is judged by `scripts/check-journey-grammar.sh`, the same gate CODESIGN applies to its own output. A return is judged on its diff: a finding the repo's synced copy already carries is left out and counted («left out: unchanged since the last sync»); an external reference is always judged.
 
 | Verdict | What to do |
 |---|---|

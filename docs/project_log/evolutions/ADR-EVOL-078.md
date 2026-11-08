@@ -30,6 +30,28 @@ Options posed:
 
 Recommendation: 1. The split RDR needs the estimate before building. Surviving risk: an old plan touched again must add its estimate. Owner's choice, verbatim: «1 Bloquear, mecánico».
 
+### RDR — which increments the exit and surface clauses judge (2026-11-08)
+
+Raised by the round-1 critics: a plan written before 9.2.0 has BUILDING or MERGED increments with prose acceptance and no estimate, and the immutability policy forbids editing them — the first touch of such a plan would be red with no cure short of `CODESIGN --revise`.
+
+Options posed:
+1. **Skip frozen increments:** (h) and (i) skip an increment whose `**Status:**` is BUILDING or MERGED; DRAFT, READY, INVALIDATED and an absent status are judged.
+2. Judge only the increments whose section the diff changes.
+3. Judge every increment, as delivered in round 1.
+
+Recommendation: 1 — one condition, consistent with the immutability policy; clause (e) already reads MERGED. Surviving risk: a frozen increment whose criteria were never measurable closes unmeasured. Owner's choice, verbatim: «1 Saltar congelados».
+
+### RDR — `external-deps` on the diff judgement (2026-11-08)
+
+Raised by the round-1 security critic: the exemption rests on «raised at the next CODESIGN gate», which is false for `external-deps` — the host allowlist is enforced only by the PO validator, so a tightened allowlist would never bite on an already-synced mock.
+
+Options posed:
+1. **Always judge it:** drop `external-deps` from the subtractable checks.
+2. Keep it exempt, and name every left-out finding in the report.
+3. Add an external-host check to CODESIGN auto-approval, and keep the exemption.
+
+Recommendation: 1 — the smallest change that keeps the one enforcement point. Surviving risk: after an allowlist tightening the PO sees old errors in their mock. Owner's choice, verbatim: «1 Always judge it».
+
 ### 1. The journey agrees with itself (`scripts/check-journey-grammar.sh`)
 
 Three clauses join the one journey check. No new script, and no new gate.
@@ -53,7 +75,7 @@ The LAW-16 tripwire (§ 10) is unchanged. The messages carry business words only
 
 - **The last synced version** is what the repo holds: `features.spec_root/{F}/` and `design_system.vision_root/`. `/codesign --sync` is its only writer.
 - **The comparison.** The validator runs the content checks on the return, then runs the same checks on the repo's copy of each returned file, with the same ERQ. A finding with the same place, check and message in both was already there. It is left out, counted and stated: «N finding(s) left out: unchanged since the last sync». In JSON it is `outside_diff`.
-- **Only content checks are compared.** These are `gherkin`, `journey-grammar`, `name-new-undeclared`, `field-new-undeclared`, `external-deps`, `a11y-basics`, `mock-states`, `vision-tokens-declared`, `vision-components-parseable` and `vision-component-undeclared`. Structure, manifest, ERQ, zip safety, self-check, infrastructure, `vision-files` and `new-name-unjustified` are about the return itself, so they are always judged.
+- **Only content checks are compared.** These are `gherkin`, `journey-grammar`, `name-new-undeclared`, `field-new-undeclared`, `a11y-basics`, `mock-states`, `vision-tokens-declared`, `vision-components-parseable` and `vision-component-undeclared`. Structure, manifest, ERQ, zip safety, self-check, infrastructure, `vision-files` and `new-name-unjustified` are about the return itself, so they are always judged. `external-deps` is always judged too: this validator is the host allowlist's one enforcement (RDR above).
 - **A new feature** has no repo copy, so all of it is diff.
 
 ### 3. Every increment exits on measurable criteria (`gate.py train`)
@@ -64,21 +86,21 @@ The LAW-16 tripwire (§ 10) is unchanged. The messages carry business words only
   - Each INC's `**Acceptance` block carries at least one item of its own (`- [ ]` or `- [x]`).
   - Each item names its measure in backticks: a scenario, a contract operation, a case id or a command.
   - A scenario title or a contract operation in backticks must be the INC's own (`Scenarios covered`, `Contract surface`). An item that measures another INC's delivery is red.
-- **(i) surface declared** (the RDR above). In an `incremental` plan, every INC carries `Estimated surface:` with `~files` and `~lines`, and every `SUB-` row its `~files · ~lines`.
-- **Every changed plan is judged**, with or without sub-increments.
+- **(i) surface declared** (the first RDR above). Unless the plan is `slicing_strategy: monolithic`, every INC carries `Estimated surface:` with `~files` and `~lines`, and every `SUB-` row its `~files · ~lines`.
+- **Every changed plan is judged**, with or without sub-increments. An INC whose `**Status:**` is BUILDING or MERGED is skipped: a frozen increment is never edited (second RDR above). Each problem opens with its clause, `(h)` or `(i)`.
 - **The template.** `increment_plan_template.md` names the block «Acceptance — exit criteria (each measurable on its own)», writes every item with its measure, and gives INC-2 its own list.
-- **CVP.** Check 13 delegates its mechanical layer to (h). Check 21 becomes CRITICAL and delegates to (i). `Factory-blueprint-design` self-verify and `rules/vertical-slicing.md` say the same.
+- **CVP.** Check 13 delegates its mechanical layer to (h). Check 21 becomes CRITICAL, joins the `BLUEPRINT --approve` scope and the push preflight subset, and delegates to (i). `Factory-blueprint-design` self-verify and `rules/vertical-slicing.md` say the same.
 
 ### 4. DC-34 names the journey gate
 
-- **Gate:** `scripts/check-journey-grammar.sh`, which checks that the journey's diagram, header and emotions agree with its steps.
+- **Gate:** `scripts/check-journey-grammar.sh` (the row names it; the annex in `rules/defect-prevention-cases.md` says what it checks — the row's cell is held by the pre-edit delivery budget).
 - **Paths:** `docs/spec/**/user_journey.md`.
 - **Applicable To:** CODESIGN.
 
 ## Consequences
 
 - A journey whose diagram, header or emotions contradict its steps is red at CODESIGN approval. It is also red wherever CVP runs the journey check (BLUEPRINT, IMPLEMENT), and in a PO return.
-- A PO hears only about what the PO changed. A finding that predates the return stays a finding of the repo's copy, raised at the next CODESIGN gate.
+- A PO hears only about what the PO changed. A finding that predates the return stays a finding of the repo's copy, raised at the next CODESIGN gate — except an external reference, always judged.
 - An increment plan is red at push when an exit criterion names no measure, measures another increment, or an increment has no estimate.
 - **Installed projects** get the checks through `factory-sync.sh`, and the templates and `po-package` through `SETUP --upgrade`. No discovery question is asked. An approved journey or plan that nobody touches is not re-judged by the push gate. A refine runs the check, and the artefact is fixed in that refine.
 
@@ -86,7 +108,8 @@ The LAW-16 tripwire (§ 10) is unchanged. The messages carry business words only
 
 - **A measure is checked for its form, not its truth.** A backticked command that does not exist passes (h). The lens and the verify gate judge whether the criterion was met.
 - **The diagram match is positional per persona.** Two steps of one persona swapped in the diagram with equal scores pass. Labels are free text and are not compared.
-- **The diff is found by comparing findings, not text.** A step renumbered by an insert makes old findings look new.
+- **The diff is found by comparing findings, not text.** A step renumbered by an insert makes old findings look new. A file-level finding (an image without `alt`) the copy already carries hides a second one the return adds; both are warnings.
+- **A frozen increment is not re-measured.** One approved before 9.2.0 with prose criteria closes as it was written.
 
 ## Alternatives considered
 

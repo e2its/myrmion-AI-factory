@@ -25,9 +25,9 @@ fields `tasks [..]` / `measured [..]` and the INC line `**Ratified sub-increment
                           `closes:` target the plan does not declare is red too.
   (f) not re-measured     a sub's `tasks` set differs from the set its estimate `measured`.
   (g) over the ratified   an INC declares more subs than its `Ratified sub-increments`.
-And on every changed plan, each `### INC-N` section (EVOL-078):
+And on every changed plan, each `### INC-N` section not BUILDING or MERGED (EVOL-078; a frozen increment is never edited):
   (h) exit criteria       its `**Acceptance` block lists no `- [ ]` item of its own; an item names no measure in
-                          backticks (a scenario, an operation, a case id or a command); or a backticked scenario or
+                          backticks (a scenario, an operation, a case id or a command — never empty, never a `{{placeholder}}`); or a backticked scenario or
                           operation belongs to another INC's `Scenarios covered` / `Contract surface`, not its own.
   (i) surface declared    unless the plan is `slicing_strategy: monolithic`: the INC has no `Estimated surface:` with
                           `~N files` and `~N lines`, or one of its `SUB-` rows lacks them (CVP Check 21, owner RDR «1»).
@@ -57,7 +57,9 @@ HEAD_RE = re.compile(r"(?m)^#{1,3}\s")
 ACCEPT_RE = re.compile(r"(?m)^(?P<ind>[ \t]*)-\s*\*\*Acceptance\b.*$")
 ITEM_RE = re.compile(r"^\s+-\s*\[[ xX]\]\s*(?P<text>\S.*)$")
 SPAN_RE = re.compile(r"`([^`]+)`")
-ESTIMATE = (re.compile(r"~\s*\d+\s*files\b"), re.compile(r"~\s*\d+\s*lines\b"))
+ESTIMATE = (re.compile(r"~\s*\d+\s*files?\b"), re.compile(r"~\s*\d+\s*lines?\b"))
+STATUS_RE = re.compile(r"\*\*Status:\*\*\s*`?([A-Za-z]+)")
+FROZEN = ("BUILDING", "MERGED")   # immutability policy: a frozen increment is never edited, so (h) and (i) skip it (owner RDR «1»)
 
 
 def _list(rest: str, name: str) -> list[str]:
@@ -87,7 +89,7 @@ def _sid(v: str) -> str:
 
 
 def _num(rest: str, unit: str) -> int:
-    m = re.search(rf"~\s*(\d+)\s*{unit}\b", rest)
+    m = re.search(rf"~\s*(\d+)\s*{unit}?\b", rest)   # unit is plural; the singular reads too
     return int(m.group(1)) if m else 0
 
 
@@ -232,42 +234,46 @@ def increments(text: str) -> list[dict]:
                 if m:
                     criteria.append(m.group("text").strip())
         est = re.search(r"\*\*Estimated surface:\*\*([^\n]*)", body)
+        st = STATUS_RE.search(body)
         out.append({"id": f"INC-{h.group(1)}", "scenarios": set(_field(body, "Scenarios covered")),
-                    "operations": set(_field(body, "Contract surface")), "criteria": criteria, "has_acceptance": bool(acc),
+                    "operations": set(_field(body, "Contract surface")), "criteria": criteria,
+                    "status": st.group(1).upper() if st else None,
                     "estimate": est.group(1) if est else None,
                     "subs": [(f"SUB-{m.group(1)}-{m.group(2)}", m.group(3)) for m in ROW_RE.finditer(body)]})
     return out
 
 
 def judge_exits(text: str) -> list[str]:
-    """Clauses (h) and (i) on one plan."""
+    """Clauses (h) and (i) on one plan; each problem opens with its clause, as CVP Checks 13 and 21 select them."""
     incs, problems = increments(text), []
     strategy = re.search(r"(?m)^slicing_strategy:\s*\"?(\w+)", text or "")
     estimated = not (strategy and strategy.group(1).lower() == "monolithic")
     for inc in incs:
+        if inc["status"] in FROZEN:
+            continue
         others = [o for o in incs if o["id"] != inc["id"]]
         if not inc["criteria"]:
-            problems.append(f"{inc['id']}: no exit criterion of its own under **Acceptance** — list each one, "
+            problems.append(f"(h) {inc['id']}: no exit criterion of its own under **Acceptance** — list each one, "
                             "with the measure that decides it in backticks")
         for c in inc["criteria"]:
-            spans = [_measure(x) for x in SPAN_RE.findall(c)]
+            spans = [s for s in (_measure(x) for x in SPAN_RE.findall(c)) if s and "{{" not in s]
             short = c if len(c) <= 70 else c[:67] + "…"
             if not spans:
-                problems.append(f"{inc['id']}: exit criterion «{short}» names no measure — put the scenario, operation, "
+                problems.append(f"(h) {inc['id']}: exit criterion «{short}» names no measure — put the scenario, operation, "
                                 "case or command that decides it in backticks")
             for sp in spans:
                 mine = sp in inc["scenarios"] or sp in inc["operations"]
                 owner = next((o["id"] for o in others if sp in o["scenarios"] or sp in o["operations"]), None)
                 if owner and not mine:
-                    problems.append(f"{inc['id']}: exit criterion «{short}» measures `{sp}`, which {owner} delivers — "
+                    problems.append(f"(h) {inc['id']}: exit criterion «{short}» measures `{sp}`, which {owner} delivers — "
                                     "an increment exits on its own criteria")
         if estimated:
             if inc["estimate"] is None or not all(r.search(inc["estimate"]) for r in ESTIMATE):
-                problems.append(f"{inc['id']}: no estimated surface (`Estimated surface:` with ~N files · ~N lines) — "
+                problems.append(f"(i) {inc['id']}: no estimated surface (`Estimated surface:` with ~N files · ~N lines) — "
                                 "estimate it and split it when over the ceiling (BLUEPRINT Step B.4)")
             for sid, rest in inc["subs"]:
                 if not all(r.search(rest) for r in ESTIMATE):
-                    problems.append(f"{sid}: no estimated surface (~N files · ~N lines) — measure the sub against the ceiling")
+                    problems.append(f"(i) {sid}: no estimated surface (~N files · ~N lines) — measure the sub against the ceiling")
     return problems
 
 
@@ -373,7 +379,7 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
             if increments(text):
                 problems = judge_exits(text)
                 rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} exits", "ok": not problems, "problems": problems,
-                             "note": f"{len(increments(text))} increment(s): exit criteria measurable on their own, every surface estimated"})
+                             "note": f"{len(increments(text))} increment(s): exit criteria and estimates judged, BUILDING and MERGED skipped"})
             if live_seams(text) or ratified(text) or any(s["tasks"] or s["measured"] for ss in parse(text).values() for s in ss):
                 problems = judge_seams(text)
                 rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} seams", "ok": not problems, "problems": problems,
@@ -386,7 +392,7 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
         return {"ok": True, "plans": plans, "entries": [], "reason": f"{why} — nothing to judge"}
     red = [r for r in rows if not r["ok"]]
     return {"ok": not red, "plans": plans, "entries": rows,
-            "reason": f"{len(red)} of {len(rows)} check(s) red" if red else f"{len(rows)} check(s) green — the train stacks by file"}
+            "reason": f"{len(red)} of {len(rows)} check(s) red" if red else f"{len(rows)} check(s) green"}
 
 
 def figures(repo: Path, plan: str | None = None) -> dict:

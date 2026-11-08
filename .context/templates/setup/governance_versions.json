@@ -148,7 +148,7 @@
       "target": ".claude/rules/contract-first-policy.md"
     },
     "rules/immutability_policy.md": {
-      "version": "1.8.1",
+      "version": "1.9.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/immutability_policy.md"
     },
@@ -477,7 +477,7 @@
       "target": "config/coherence-context.json"
     },
     "config/quality.json": {
-      "version": "1.22.1",
+      "version": "1.23.0",
       "content_type": "stack_configured",
       "target": "config/quality.json"
     },
@@ -866,13 +866,13 @@
       "role": "Body home of [PLAW-03] Project Mode & Extension Strategy (moved from the constitution template)."
     },
     "rules/defect-prevention-cases.md": {
-      "version": "1.6.1",
+      "version": "1.7.0",
       "content_type": "universal",
       "target": ".claude/rules/defect-prevention-cases.md",
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**)."
     },
     "scripts/gate.py": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
@@ -1539,7 +1539,7 @@
       "path": ".claude/instructions/Factory-implement-build.instructions.md"
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.22.0",
+      "version": "2.23.0",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md"
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
@@ -1754,7 +1754,7 @@
       "path": ".claude/skills/factory-rdr/SKILL.md"
     },
     "skills/factory-pr-review/SKILL.md": {
-      "version": "1.14.1",
+      "version": "1.15.0",
       "type": "skill",
       "role": "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.context/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .context/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT increment pass — work critics; separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "path": ".claude/skills/factory-pr-review/SKILL.md"
@@ -1927,7 +1927,7 @@
       "role": "Auto-Tag & Release on merge to main — calculates SemVer bump from conventional commits (feat!/feat/fix/chore/etc.) and creates a GitHub Release with categorized release notes."
     },
     "config/coherence-context.json": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`)."
@@ -2145,7 +2145,7 @@
       "path": ".github/workflows/lockstep-check.yml"
     },
     "config/quality.json": {
-      "version": "1.17.1",
+      "version": "1.18.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json"
@@ -2178,7 +2178,7 @@
       "path": "scripts/test-check-journey-grammar.sh"
     },
     "scripts/test-po-package.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project — in the three design-system cases a project can be materialised in. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-po-package.sh"
@@ -2206,7 +2206,7 @@
       "path": ".claude/hooks/deliver-governance.sh"
     },
     "scripts/gate.py": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"

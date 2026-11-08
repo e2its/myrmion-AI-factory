@@ -29,6 +29,7 @@ Checks (BLOCKER and ERROR make the return RED; WARN never does):
 Judged on its diff (EVOL-078): the content checks (DIFF_CHECKS) run again on the repo's copy of each
 returned file — the last synced version, written only by /codesign --sync — and a finding that copy
 already carries (same place, check and message) is left out, counted and said. A new target is all diff.
+external-deps is always judged: no later gate enforces the host allowlist.
 
 Usage:
     python3 validate_po_return.py --zip ~/Downloads/return.zip
@@ -85,7 +86,7 @@ ALL_CHECKS = (
 )
 DIFF_CHECKS = (   # about the artefacts' content; the rest is about the return itself and is always judged
     "gherkin", "journey-grammar", "name-new-undeclared", "field-new-undeclared",
-    "external-deps", "a11y-basics", "mock-states",
+    "a11y-basics", "mock-states",   # never external-deps: this validator is the allowlist's one enforcement (owner RDR «1»)
     "vision-tokens-declared", "vision-components-parseable", "vision-component-undeclared",
 )
 NEW_NAME_CHECK = {kind: ("field-new-undeclared" if kind == "fields" else "name-new-undeclared")
@@ -538,12 +539,14 @@ def _synced_copy(target: Path, synced: Path, tmp: Path) -> Path | None:
         return None
     copy = tmp / target.name
     copy.mkdir()
-    names = [p.name for p in target.iterdir() if p.is_file() and p.name != "ERQ.md" and (synced / p.name).is_file()]
+    names = [p.name for p in target.iterdir()   # a symlink is never followed out of the return or the repo
+             if p.is_file() and not p.is_symlink() and p.name != "ERQ.md"
+             and (synced / p.name).is_file() and not (synced / p.name).is_symlink()]
     if not names:
         return None
     for name in names:
         shutil.copy2(synced / name, copy / name)
-    if (target / "ERQ.md").is_file():
+    if (target / "ERQ.md").is_file() and not (target / "ERQ.md").is_symlink():
         shutil.copy2(target / "ERQ.md", copy / "ERQ.md")
     return copy
 
@@ -564,6 +567,8 @@ def _outside_diff(vision: Path | None, feature_dirs: list[Path], ctx: Context) -
 
 
 def _judge_diff_only(rep: Report, vision: Path | None, feature_dirs: list[Path], ctx: Context) -> None:
+    if not any(f.check in DIFF_CHECKS for f in rep.findings):
+        return   # nothing to subtract: the synced copies are never read
     before = _outside_diff(vision, feature_dirs, ctx)
     kept = [f for f in rep.findings if f.check not in DIFF_CHECKS or (f.where, f.check, f.message) not in before]
     rep.unchanged = len(rep.findings) - len(kept)

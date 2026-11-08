@@ -374,7 +374,7 @@ expect 0 "two personas with one diagram each pass (first actor is the persona)"
 # RED 1b-1 — the header names another feature than the title
 write_valid
 sed -i 's/^# User Journey: FEAT-T1 — Checkout$/# User Journey: FEAT-T2 — Checkout/' "$SANDBOX/case/user_journey.md"
-expect 1 "header feature_id unlike the title fails" "the header says feature 'FEAT-T1', the title says 'FEAT-T2'"
+expect 1 "header feature_id unlike the title fails" "the title names feature 'FEAT-T2', but this journey belongs to 'FEAT-T1'"
 
 # RED 1b-2 — no title line
 write_valid
@@ -421,6 +421,43 @@ expect 1 "a Section 4 row on a painless Paso fails" "row names Paso 1, whose Pai
 write_valid
 sed -i 's/^| Paso 2 | Fear of double charge |/| Paso 9 | Fear of double charge |/' "$SANDBOX/case/user_journey.md"
 expect 1 "a Section 4 row on a missing Paso fails" "row names Paso 9, which does not exist"
+
+# ═══ Edge battery (EVOL-078 round 1): no field falls out of the count ═══
+
+# RED — a diagram line with no actor is malformed, never skipped
+write_valid
+sed -i 's/      Pay the cart: 4: Shopper/      Pay the cart: 4:/' "$SANDBOX/case/user_journey.md"
+expect 1 "a diagram line with an empty actor fails" "is not 'step: score: persona'"
+
+# RED — a Paso with an empty Persona
+write_valid
+sed -i '0,/^- \*\*Persona:\*\* Shopper$/s//- **Persona:**/' "$SANDBOX/case/user_journey.md"
+expect 1 "an empty Persona fails" "Paso 1: Persona is empty"
+
+# GREEN — a mermaid init directive before 'journey' is not the diagram type
+write_valid
+sed -i '0,/^journey$/s//%%{init: {"theme": "neutral"}}%%\njourney/' "$SANDBOX/case/user_journey.md"
+expect 0 "a %% directive before 'journey' still reads the diagram"
+
+# RED — a task whose label starts with 'title' is a task, not a directive
+write_valid
+sed -i 's/      Pay the cart: 4: Shopper/      Pay the cart: 4: Shopper\n      titles shown: 3: Shopper/' "$SANDBOX/case/user_journey.md"
+expect 1 "a 'titles…' task counts as a step" "the diagram shows 3 step(s) for 'Shopper', the journey describes 2"
+
+# GREEN — a single-quoted feature_id reads as the title's id
+write_valid
+sed -i "s/^feature_id: \"FEAT-T1\"/feature_id: 'FEAT-T1'/" "$SANDBOX/case/user_journey.md"
+expect 0 "a single-quoted feature_id matches the title"
+
+# RED — a BDD Scenario starting with '-' is a title, never a grep option
+write_valid
+sed -i 's/^- \*\*BDD Scenario:\*\* Happy Path - Complete purchase$/- **BDD Scenario:** --version/' "$SANDBOX/case/user_journey.md"
+expect 1 "a BDD Scenario '--version' is looked up as a title" "BDD Scenario '--version' not found"
+
+# GREEN — a persona with a backslash is compared as written
+write_valid
+sed -i 's/^- \*\*Persona:\*\* Shopper$/- **Persona:** Shop\\\\per/; s/: Shopper$/: Shop\\\\per/' "$SANDBOX/case/user_journey.md"
+expect 0 "a backslash in a persona is matched verbatim"
 
 echo "──────────────────────────────────────────"
 echo "test-check-journey-grammar: $PASS passed, $FAIL failed"

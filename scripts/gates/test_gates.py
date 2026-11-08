@@ -5933,14 +5933,15 @@ class Train(unittest.TestCase):
             r = train.check(repo, "main"); self.assertTrue(r["ok"], train.render(r))
 
     @staticmethod
-    def _incs(c1="`Pay` passes its E2E test", c2="`Refund` passes its E2E test", est="~2 files · ~10 lines", strategy="incremental", sub=""):
+    def _incs(c1="`Pay` passes its E2E test", c2="`Refund` passes its E2E test", est="~2 files · ~10 lines", strategy="incremental", sub="", status1="", est1=None):
         def wrap(c):   # a "(…)" string stays inline on the Acceptance line, as the old template's INC-2 wrote it
             return c if isinstance(c, list) or c.startswith("(") else [c]
 
         def inc(n, scen, op, crit):
             acc = "".join(f"  - [ ] {c}\n" for c in crit) if isinstance(crit, list) else f" {crit}\n"
-            return (f"### INC-{n} — x\n\n- **Scenarios covered:** `spec.feature` → [{scen}]\n- **Contract surface:** [{op}]\n"
-                    f"- **Estimated surface:** paths [src/**] · {est}\n{sub if n == 1 else ''}- **Acceptance (mergeable = 100% functional):**"
+            st = f"- **Status:** {status1}\n" if n == 1 and status1 else ""
+            return (f"### INC-{n} — x\n\n{st}- **Scenarios covered:** `spec.feature` → [{scen}]\n- **Contract surface:** [{op}]\n"
+                    f"- **Estimated surface:** paths [src/**] · {est1 if n == 1 and est1 is not None else est}\n{sub if n == 1 else ''}- **Acceptance (mergeable = 100% functional):**"
                     + ("\n" + acc if isinstance(crit, list) else acc) + "- **Deployable:** production\n\n")
         return (f"---\nslicing_strategy: {strategy}\n---\n\n## 1. Increments\n\n"
                 + inc(1, "Pay, Pay twice", "POST /api/v1/pay", wrap(c1)) + inc(2, "Refund", "POST /api/v1/refund", wrap(c2)) + "## 2. Next\n")
@@ -5979,9 +5980,30 @@ class Train(unittest.TestCase):
                 if msg:
                     self.assertIn(msg, out, kw)
 
+    def test_hi_a_frozen_increment_is_skipped_and_a_measure_is_never_a_placeholder(self):
+        old = {"c1": "All assigned scenarios pass E2E", "est1": "unknown"}   # a pre-9.2.0 increment: prose acceptance, no estimate
+        cases = (
+            ({**old, "status1": "MERGED"}, True, None),
+            ({**old, "status1": "BUILDING"}, True, None),
+            ({**old, "status1": "`MERGED`"}, True, None),
+            ({**old, "status1": "DRAFT"}, False, "INC-1: exit criterion «All assigned scenarios pass E2E» names no measure"),
+            ({**old, "status1": "READY"}, False, "INC-1: no estimated surface"),
+            ({**old, "status1": "INVALIDATED"}, False, "INC-1: no estimated surface"),
+            ({"c1": "`{{Scenario name 1}}` passes its E2E test"}, False, "names no measure"),
+            ({"c1": "` ` passes"}, False, "names no measure"),
+            ({"est": "~1 file · ~1 line"}, True, None),
+        )
+        for kw, ok, msg in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.PLAN, self._incs(**kw))
+                r = train.check(repo, "main"); out = train.render(r)
+                self.assertEqual(r["ok"], ok, (kw, out))
+                if msg:
+                    self.assertIn(msg, out, kw)
+
     def test_the_shipped_template_names_a_measure_per_exit_criterion(self):
         tmpl = (HERE.parent.parent / ".context/templates/architect/increment_plan_template.md").read_text(encoding="utf-8")
-        incs = train.increments(tmpl.replace("INC-N …", "").replace("### INC-1 —", "### INC-1 —"))
+        incs = train.increments(tmpl)
         self.assertEqual([i["id"] for i in incs], ["INC-1", "INC-2"])
         for inc in incs:
             self.assertTrue(inc["criteria"], f"{inc['id']} carries its own exit criteria")

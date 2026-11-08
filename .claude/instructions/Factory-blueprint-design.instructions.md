@@ -859,7 +859,7 @@ CODESIGN owns capability-VALUE slicing and emits it as `slice_map.md`. BLUEPRINT
 2. Resolve placeholders:
    - `{{FEATURE_ID}}`, `{{SCOPE}}`, `[DATE]` from spec.feature + system clock.
    - `slicing_strategy`, `based_on_iteration`, `based_on_schemas_version` inherited from spec.feature (never recomputed).
-   - § 1 **Increments** populated from the Step B refinement: title, scenarios_covered, contract_surface, depends_on, functional_definition, acceptance checklist, branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`. **The canonical INC→INC dependency DAG is encoded by each increment's `depends_on:` field — CVP reads only this.** ADDITIONALLY set, on each `### INC-N`:
+   - § 1 **Increments** populated from the Step B refinement: title, scenarios_covered, contract_surface, depends_on, functional_definition, its own exit criteria (each naming its measure), branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`. **The canonical INC→INC dependency DAG is encoded by each increment's `depends_on:` field — CVP reads only this.** ADDITIONALLY set, on each `### INC-N`:
      - `cascade_source: SLICE-{{FEATURE_ID}}-N` — the authoritative slice this increment realizes (LAW-09 join key; CVP Check 18 resolves it).
      - `depends_on_slice` / `depends_on_feature` / `seam` — inherited from the realized slice (null-defaulted; empty stays a one-liner). These mirror the slice_map fields; `depends_on` stays the intra-feature INC→INC edge.
      - `Estimated surface` / `Escape` / `Sub-increments` — from Step B.4 (`Sub-increments:` only when over a ceiling; `Escape: none` otherwise).
