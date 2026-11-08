@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "9.0.0",
+  "framework_version": "9.1.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-08",
   "governance_features": {
@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.17.1",
+      "version": "2.18.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -437,7 +437,7 @@
       "upgrade_strategy": "smart-additive-merge"
     },
     "setup/setup_master_template.md": {
-      "version": "2.19.1",
+      "version": "2.20.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md"
     },
@@ -914,7 +914,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.34.0",
+      "version": "1.35.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -1005,7 +1005,7 @@
       "role": "Agent definition — phase (IMPLEMENT). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete."
     },
     "claude/agents/factory-qa.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-qa.md",
       "role": "Agent definition — phase (QA). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete."
@@ -1091,7 +1091,7 @@
       "role": "gates: governance digest currency of the feature's planning artefacts (EVOL-051) — for docs/spec/{ID}/ (verification.digest_artefacts): frontmatter governance_digest_version equals the snapshot's constitution_hash[:8] and the artefact names every rule the corpus binds to the branch's change (applicable — the one resolver); red in the static round and at the push, one predicate."
     },
     "scripts/gates/traceability.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/gates/traceability.py",
       "delivery": "both",
@@ -1189,14 +1189,14 @@
       "target": "scripts/gates/dependencies.py"
     },
     "scripts/gates/discovery.py": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/discovery.py",
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
     },
     "setup/discovery_registry.json": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "content_type": "universal",
       "target": null,
       "role": "The SETUP discovery registry (EVOL-102) — consumed in place by SETUP and gate.py discovery, never copied: the questions, their tiers, keys, options and conditions; derived values never asked."
@@ -1434,7 +1434,7 @@
       "target": ".context/templates/qa/qa_report_template.md"
     },
     "qa/smoke_e2e_report_template.md": {
-      "version": "2.1.1",
+      "version": "2.2.0",
       "content_type": "universal",
       "target": ".context/templates/qa/smoke_e2e_report_template.md"
     },
@@ -1463,7 +1463,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.27.0",
+      "version": "2.28.0",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -1547,11 +1547,11 @@
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md"
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.11.0",
+      "version": "3.12.0",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md"
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.17.1",
+      "version": "1.18.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md"
     },
     "instructions/Factory-backlog-execution-plan.instructions.md": {
@@ -1563,15 +1563,15 @@
       "path": ".claude/instructions/Factory-backlog-next-task.instructions.md"
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.29.0",
+      "version": "2.30.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md"
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.34.1",
+      "version": "3.35.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md"
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.28.0",
+      "version": "2.29.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md"
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
@@ -1587,7 +1587,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.29.0",
+      "version": "14.30.0",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
@@ -1611,7 +1611,7 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.9.1",
+      "version": "2.10.0",
       "type": "skill",
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
@@ -2242,13 +2242,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.34.0",
+      "version": "1.35.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.33.0",
+      "version": "1.34.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2338,7 +2338,7 @@
       "role": "Agent definition — phase (IMPLEMENT). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md)."
     },
     "agents/factory-qa.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "agent",
       "path": ".claude/agents/factory-qa.md",
       "role": "Agent definition — phase (QA). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md)."
@@ -2422,7 +2422,7 @@
       "path": "scripts/gates/digests.py"
     },
     "scripts/gates/traceability.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "gates: test-case traceability (EVOL-053) — the ONE home of the case → test link (config → traceability.home: pytest-marker | title-tag | custom pattern), strict FEATURE/CASE ids, `declared` from docs/spec/*/test_plan.md, `links` from the test roots, `check` (case → test, never test → case; unknown or malformed links red; the baseline only shrinks), `baseline --init|--refresh`; a light profile member; QA consumes --json. Meta copy (lock-step pair scripts/gates/*.py).",
       "path": "scripts/gates/traceability.py"
@@ -2486,13 +2486,13 @@
       "path": "scripts/test-check-design-sections.sh"
     },
     "scripts/fixtures/synthetic-answers/default.json": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json"
     },
     "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json"
@@ -2503,7 +2503,7 @@
       "path": "scripts/gates/dependencies.py"
     },
     "scripts/gates/discovery.py": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "type": "script",
       "path": "scripts/gates/discovery.py",
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
@@ -2525,7 +2525,7 @@
       "path": "scripts/gates/frontmatter.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12.json": {
-      "version": "1.8.1",
+      "version": "1.9.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json"
@@ -2551,25 +2551,25 @@
       "path": "scripts/test-red-stacks.sh"
     },
     "scripts/fixtures/synthetic-answers/java.json": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/java.json"
     },
     "scripts/fixtures/synthetic-answers/go.json": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/go.json"
     },
     "scripts/fixtures/synthetic-answers/rust.json": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/rust.json"
     },
     "scripts/fixtures/synthetic-answers/frontend-only.json": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/frontend-only.json"
@@ -2675,7 +2675,7 @@
       "path": "scripts/gates/data.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json": {
-      "version": "1.3.1",
+      "version": "1.4.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json"

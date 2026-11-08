@@ -2,6 +2,8 @@
   "_doc": "Synthetic SETUP answers (#143): a .NET backend, a Vue.js frontend, AWS CodePipeline. Must select the C# rules, the Vue verification row and the CodeBuild governance check. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
+    "qa.smoke_cadence": "feature-close",
+    "qa.browser_mcp": "playwright",
     "project_scope": "full-stack",
     "domain.monetary_amounts": false,
     "backend.runtime": ".NET",

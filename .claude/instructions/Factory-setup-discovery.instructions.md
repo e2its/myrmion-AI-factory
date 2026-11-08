@@ -345,6 +345,22 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Persist:** `quality.security_scan.sca_threshold`
 - **After:** Materialization resolves `{{SCA_THRESHOLD}}` in `config/quality.json` and bakes it into the `sca` gate of `verification.gates`; the BVL dependency audit blocks at or above it where the tool grades severity (npm, OWASP); the other audit tools block on any finding (`factory-build-verification` § dependency_audit). An unreadable value blocks.
 
+#### Q23.4: Smoke cadence (EVOL-077)
+- **Options:** `per-slice` | `feature-close`
+- **Simplified:** es: "¿Cuándo se recorre la prueba de humo: al cerrar cada tramo o solo al cerrar la funcionalidad?" / en: "When does the smoke walk run: at each slice close, or only at feature close?"
+- **RDR Recommendation:** `per-slice` — each slice walks its own cases plus every earlier slice's, so a regression shows one slice earlier; the cost is one smoke run per slice. It needs the traceability home (`config/quality.json → traceability`): a project that traces no case answers `feature-close`, as does one whose dev deployment is too costly to smoke per slice.
+- **Tier-filtered:** ALL tiers.
+- **Persist:** `qa.smoke_cadence`
+- **After:** `QA --verify` Gate 4 reads it (`Factory-qa-verify`); with `per-slice` each increment closes on `docs/spec/{F}/smoke_e2e_report_{INC}.md`.
+
+#### Q23.5: Browser MCP for visual QA cases (EVOL-077, conditional: frontend exists)
+- **Options:** `chrome-devtools` | `playwright` | `none`
+- **Simplified:** es: "¿Qué herramienta de navegador usa QA para revisar la interfaz a ojo (capturas, errores de consola)?" / en: "Which browser tool does QA use to check the interface visually (screenshots, console errors)?"
+- **RDR Recommendation:** `chrome-devtools` — console and screenshots in one server, its usage statistics and field-data lookups off. `playwright` when the project's end-to-end suite is Playwright already. `none` keeps the smoke without visual cases.
+- **Tier-filtered:** ALL tiers.
+- **Persist:** `qa.browser_mcp` → the pinned, isolated server entry in `.mcp.json` (the registry's `configures → mcp.servers`; the upgrade anchor **browser-mcp (EVOL-077)** writes it) and the `[QA-VIS-{CASE}]` cases of the smoke
+- **After:** the `factory-qa` agent runs the visual walk on the isolated browser profile; the main session never drives the browser.
+
 #### Q24: AI Capabilities
 - **3 boolean sub-questions:**
   - Q24a: Does your project involve AI model **training**? → triggers MLflow/W&B/custom questions

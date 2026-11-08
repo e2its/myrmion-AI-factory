@@ -2,6 +2,7 @@
   "_doc": "Synthetic SETUP answers (EVOL-116): Go backend, None frontend. The per-file scoped rows land without `red: false` and without `was`; the red member proves through tests. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
+    "qa.smoke_cadence": "per-slice",
     "project_scope": "backend-only",
     "domain.monetary_amounts": false,
     "backend.runtime": "Go",

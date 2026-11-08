@@ -2,6 +2,8 @@
   "_doc": "Synthetic SETUP answers (#143), keyed by the keys discovery persists, under the literals it offers. materialize-synthetic.sh evaluates every manifest stack_conditional against them. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
+    "qa.smoke_cadence": "per-slice",
+    "qa.browser_mcp": "chrome-devtools",
     "project_scope": "full-stack",
     "domain.monetary_amounts": true,
     "backend.runtime": "Python",

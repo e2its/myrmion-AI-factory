@@ -37,7 +37,7 @@ validate    V1 schema · V2 a single option not derived · V3 a credential-named
             (fills | derived fills | constants | baseline), and every entry names a token some template carries · V11 every
             migration row parses and its anchor exists · V12 every `configures` row: a key's literal is offered, a
             gate row is {command, scoped?, red_link?, report?} with a command, `defect_prevention.classes` a list of
-            `DC-NN` · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
+            `DC-NN`, an `mcp.servers` row {<name>: {command, args}} — pinned `pkg@x.y.z`, `--isolated`, no env, no url (EVOL-077) · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
             configured id a row, a row no option configures names no STACK_LABEL_KEYS label.
 configures  EVOL-067 — a key spec's `configures {<option literal>: {<config pointer>: value}}` and a derived entry's
             `configures {<config pointer>: value}` (unconditional, or only when its `when` condition holds — EVOL-074; V5 checks
@@ -69,6 +69,11 @@ TOKEN = re.compile(r"\{\{\s*([A-Z][A-Z0-9_]*)\s*\}\}")
 TOKEN_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 BASELINE_VALUE = re.compile(r"^(?:pending #\d+|unsourced)$")
 DC_POINTER = "defect_prevention.classes"
+MCP_POINTER = "mcp.servers"   # EVOL-077: the MCP target — lands in the project's .mcp.json → mcpServers (the upgrade anchor browser-mcp)
+MCP_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+MCP_PIN = re.compile(r"^(?:@[a-z0-9][\w.-]*/)?[a-z0-9][\w.-]*@\d+\.\d+\.\d+$")
+MCP_COMMAND = "npx"   # a local server fetched at one exact version — never a shell, never a path
+MCP_FLAGS = ("-y", "--isolated", "--headless", "--no-usage-statistics", "--no-performance-crux", "--no-javascript-evaluation", "--no-file-navigations")   # the only flags a row carries: no registry, no config file; only the opt-outs (telemetry, script evaluation, file: URLs)
 DC_UNIVERSAL = re.compile(r"^DC-\d+$")
 TEMPLATE_CATALOG = TEMPLATE_ROOT + "rules/defect-prevention.md"
 TEMPLATE_CASES = TEMPLATE_ROOT + "rules/defect-prevention-cases.md"
@@ -1272,6 +1277,31 @@ def _v11(repo: Path, reg: dict, fw: tuple | None) -> list[str]:
     return out
 
 
+def _mcp_rows(where: str, servers) -> list[str]:
+    """EVOL-077: an `mcp.servers` row lands in the project's .mcp.json → mcpServers — a local server, pinned, isolated."""
+    if servers is None:
+        return []
+    if not isinstance(servers, dict) or not servers:
+        return [f"V12 · {where}: {MCP_POINTER} is {{<server name>: {{command, args}}}}"]
+    out = []
+    for name, row in servers.items():
+        if not MCP_NAME.match(str(name)):
+            out.append(f"V12 · {where}: {MCP_POINTER} server name `{name}` is not [a-z0-9-]+ — the harness names its tools mcp__<name>__*")
+        if not isinstance(row, dict) or not isinstance(row.get("command"), str) or not row["command"].strip() \
+                or not isinstance(row.get("args"), list) or not all(isinstance(a, str) for a in row["args"]):
+            out.append(f"V12 · {where}: {MCP_POINTER} `{name}` is {{command, args}} — a command and a list of string arguments"); continue
+        out += [f"V12 · {where}: {MCP_POINTER} `{name}`: `{f}` is not an mcp-server field (command, args) — no env (no credential), no url (no remote server)" for f in row if f not in ("command", "args")]
+        if row["command"] != MCP_COMMAND:
+            out.append(f"V12 · {where}: {MCP_POINTER} `{name}`: command `{row['command']}` — a browser server runs as `{MCP_COMMAND}` of one pinned package, never a shell or a path")
+        pkgs = [a for a in row["args"] if not a.startswith("-")]
+        if len(pkgs) != 1 or not MCP_PIN.fullmatch(pkgs[0]):
+            out.append(f"V12 · {where}: {MCP_POINTER} `{name}`: the arguments name one package at an exact x.y.z version (`<package>@1.2.3`), got {pkgs or 'none'} — `@latest`, no version or a second package moves under the project")
+        out += [f"V12 · {where}: {MCP_POINTER} `{name}`: flag `{a}` is not one of {', '.join(MCP_FLAGS)}" for a in row["args"] if a.startswith("-") and a not in MCP_FLAGS]
+        if "--isolated" not in row["args"]:
+            out.append(f"V12 · {where}: {MCP_POINTER} `{name}`: no `--isolated` argument — the visual walk runs on a throw-away browser profile")
+    return out
+
+
 def _gate_rows(where: str, rows) -> list[str]:
     if not isinstance(rows, dict):
         return [f"V12 · {where}: configures is {{<config pointer>: value}}"]
@@ -1279,6 +1309,7 @@ def _gate_rows(where: str, rows) -> list[str]:
     ids = rows.get(DC_POINTER)
     if ids is not None and (not isinstance(ids, list) or not all(isinstance(i, str) and DC_UNIVERSAL.match(i) for i in ids)):
         out.append(f"V12 · {where}: {DC_POINTER} is a list of universal class ids [DC-NN, …]")
+    out += _mcp_rows(where, rows.get(MCP_POINTER))
     gates = rows.get("verification.gates")
     if gates is None:
         return out

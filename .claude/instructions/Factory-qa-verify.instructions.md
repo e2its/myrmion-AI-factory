@@ -256,12 +256,78 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       ❌ BLOCK: "QA report already APPROVED for {mode} ({latest_report}). No re-verification needed."
       STOP
 
-  # Gate 4: SMOKE-E2E gate (aggregate mode only — slice closures NEVER run smoke)
-  # Smoke validates the full-feature dev deployment, which only exists once every slice has closed.
-  # Running smoke in slice mode would deadlock — SMOKE-E2E issue cannot be Done before the feature
-  # is wholly merged. Slice mode therefore skips Gate 4 outright; aggregate mode keeps the original
-  # full-sdlc preset behaviour.
+  # Gate 4: SMOKE-E2E gate at the project's cadence (EVOL-077 — the one home: docs/setup.md → qa.smoke_cadence, Q23.4)
+  # The SMOKE-E2E board issue closes at feature close only (one per feature — a per-slice issue would deadlock).
+  # With `per-slice`, each increment closes on its own report, never on the board issue:
+  #   docs/spec/{FEATURE_ID}/smoke_e2e_report_{INCREMENT_ID}.md — frozen per increment (a redeploy invalidates only the aggregate).
+  # With `feature-close`, slice mode skips Gate 4 (the behaviour before EVOL-077).
   feature_phases = READ "docs/setup.md" → project_tracking.feature_phases
+  smoke_cadence = READ "docs/setup.md" → qa.smoke_cadence          # per-slice | feature-close
+  browser_mcp = READ "docs/setup.md" → qa.browser_mcp              # chrome-devtools | playwright | none | null (no frontend)
+  spec_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
+  IF feature_phases == "full-sdlc" AND smoke_cadence NOT IN ["per-slice", "feature-close"]:
+    # absent or not an option (an installed project before SETUP --upgrade, or a typo): the behaviour before EVOL-077, said every run (RDR «1», ADR-EVOL-077)
+    ⚠️ ADVISORY: "qa.smoke_cadence is {smoke_cadence OR 'not answered'}, not per-slice or feature-close: the smoke runs at feature close, as before. SETUP --upgrade asks Q23.4."
+    smoke_cadence = "feature-close"
+  # Visual cases (EVOL-077) — VISUAL_CHECK(r): with a UI scope and a browser MCP, every case r walks in a browser
+  # block has a `[QA-VIS-{CASE}]` entry with PASS in its `## Visual cases` (screenshot, zero console errors, layout
+  # against the mock). Run ONLY inside the factory-qa agent, on the server's --isolated profile (.mcp.json) — the main
+  # session never drives the browser. No frontend or `none` → no check. Called once the report is known to exist.
+  DEFINE VISUAL_CHECK(r):
+    IF spec_scope IN ["full-stack", "frontend-only"] AND browser_mcp IN ["chrome-devtools", "playwright"]:
+      IF a case r walks in a browser block has no `[QA-VIS-{CASE}]` entry with PASS:
+        ❌ BLOCK: "The smoke in {r} has no visual check for {CASE} — with a browser tool configured, each screen walked is checked visually."
+        STOP
+  IF feature_phases == "full-sdlc" AND (mode == "aggregate" OR smoke_cadence == "per-slice"):
+    # the walk is read from the gate, never re-derived: walks {report path: [case ids]} + the drift contract
+    trace_rc, trace = RUN("python3 scripts/gate.py traceability --json")
+    IF trace_rc >= 2 OR (trace.required AND NOT trace.ok):
+      ❌ BLOCK: "A walked case has no automated test, or traceability could not be judged ({trace.reason}) — the walk must never drift from the suite."
+      REDIRECT: "Link a test to each walked case at the traceability home (gate.py traceability names each one), then re-run."
+      STOP
+    walks = trace.walks OR {}                       # no key when traceability.required is false; a DRAFT report is never a key
+    slice_reports = [r FOR r IN GLOB("docs/spec/{FEATURE_ID}/smoke_e2e_report_INC-*.md") IF its id matches ^INC-[0-9]+$] ordered by the increment's number (INC-2 before INC-10)
+  IF mode == "slice" AND feature_phases == "full-sdlc" AND smoke_cadence == "per-slice":
+    IF NOT trace.required:
+      ❌ BLOCK: "The per-slice smoke checks every walk against the automated tests, and this project traces no test case ({trace.reason})."
+      REDIRECT: "Set qa.smoke_cadence: feature-close in docs/setup.md (a recorded decision), or declare the traceability home (config/quality.json → traceability)."
+      STOP
+    IF INCREMENT_ID does not match ^INC-[0-9]+$:
+      ❌ BLOCK: "`{INCREMENT_ID}` is not an increment id (INC-N)."
+      STOP
+    slice_report = "docs/spec/{FEATURE_ID}/smoke_e2e_report_{INCREMENT_ID}.md"
+    IF NOT FILE_EXISTS(slice_report):
+      ❌ BLOCK: "The smoke for increment {INCREMENT_ID} has not run on its dev deployment."
+      REDIRECT: "Walk the increment's cases plus every earlier increment's on the dev build, record them in {slice_report} (template .context/templates/qa/smoke_e2e_report_template.md, increment_id: {INCREMENT_ID}), then re-run."
+      STOP
+    fm = READ_FRONTMATTER(slice_report)
+    IF fm.overall_verdict != "PASS" OR fm.status != "APPROVED" OR (fm.scope AND fm.scope != spec_scope):
+      ❌ BLOCK: "The smoke for increment {INCREMENT_ID} is not a passed, approved walk of this feature's scope."
+      STOP
+    earlier_reports = [e FOR e IN slice_reports BEFORE slice_report]
+    FOR EACH e IN earlier_reports IF e NOT IN walks:
+      ❌ BLOCK: "Increment smoke {e} is still a draft — each slice's walk closes before the next slice is verified."
+      STOP
+    # the increment's cases: the filters of § generate_verification_checklist (AC rows of its `Scenarios covered`,
+    # TC-API rows of its `Contract surface`), only cases with their automated spec — a manual or baseline case is
+    # never walked (the drift contract refuses it)
+    target_increment = READ increment_plan.md § 1 → entry WHERE id == INCREMENT_ID
+    owed = { the case id FOR c IN trace.cases                     # its test_plan row: READ c.plan (file:line)
+             IF c.id starts with "{FEATURE_ID}/" AND c.status == "linked"
+                AND ( (its test_plan row is AC with gherkin_ref IN target_increment.scenarios_covered)
+                      OR (its test_plan row is TC-API whose endpoint matches target_increment.contract_surface) ) }
+    FOR EACH e IN earlier_reports: owed ∪= SET(walks[e])   # the regression
+    walked = SET(walks[slice_report])
+    IF owed - walked:
+      ❌ BLOCK: "The increment's smoke leaves out cases it owes: {owed - walked} — each slice walks its own cases plus every earlier slice's."
+      STOP
+    VISUAL_CHECK(slice_report)
+  IF mode == "aggregate" AND feature_phases == "full-sdlc" AND smoke_cadence == "per-slice":
+    FOR EACH r IN slice_reports:
+      fr = READ_FRONTMATTER(r)
+      IF fr.overall_verdict != "PASS" OR fr.status != "APPROVED":
+        ❌ BLOCK: "Increment smoke {r} is not a passed, approved walk — the feature closes only when every slice's walk passed."
+        STOP
   IF mode == "aggregate" AND feature_phases == "full-sdlc":
     ADAPTER = READ "docs/backlog/tool-adapter.md"
 
@@ -328,6 +394,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       IF fm.scope AND fm.scope != feature_scope:
         ❌ BLOCK: "Smoke report scope=`{fm.scope}` does not match spec.feature.scope=`{feature_scope}`. Regenerate the report using the correct template ({smoke_template})."
         STOP
+      VISUAL_CHECK(smoke_report)
     ELSE:
       ❌ BLOCK: "SMOKE-E2E issue is Done but {smoke_report} is missing — governance drift."
       REDIRECT: "Re-run the smoke blocks to regenerate the report using {smoke_template}."
@@ -336,7 +403,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
   ✅ Prerequisites passed — proceed with verification
 ```
 
-> **Rationale for Gate 4.** QA relied on ad-hoc manual smoke testing whose coverage and repeatability varied between sessions. The SMOKE-E2E gate makes smoke execution a reproducible DoD artefact: each journey Path (`user_journey.md § 3`) becomes one SMOKE-{N} block whose verification scope is the transitive TC set (Paso → BDD Scenario → test_plan `Gherkin Ref`), each block has a pass/fail line in `smoke_e2e_report.md`, and the gate issue on the backlog cannot close until every block is ✅. This caught the class of "works on my machine, blows up on dev" defects that repeatedly slipped into QA under the legacy flow.
+> **Rationale for Gate 4.** QA relied on ad-hoc manual smoke testing whose coverage and repeatability varied between sessions. The SMOKE-E2E gate makes smoke execution a reproducible DoD artefact: each journey Path (`user_journey.md § 3`) becomes one SMOKE-{N} block whose verification scope is the transitive TC set (Paso → BDD Scenario → test_plan `Gherkin Ref`), each block has a pass/fail line in `smoke_e2e_report.md`, and the gate issue on the backlog cannot close until every block is ✅. Since EVOL-077 the project chooses the cadence (`qa.smoke_cadence`): `per-slice` walks each increment on its own report, each one re-walking every earlier increment's cases, and the drift contract (`gate.py traceability`) refuses a walked case with no automated test. This caught the class of "works on my machine, blows up on dev" defects that repeatedly slipped into QA under the legacy flow.
 
 ### Scope Boundary (M-09)
 ```yaml
