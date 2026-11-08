@@ -72,6 +72,8 @@ DC_POINTER = "defect_prevention.classes"
 MCP_POINTER = "mcp.servers"   # EVOL-077: the MCP target — lands in the project's .mcp.json → mcpServers (the upgrade anchor browser-mcp)
 MCP_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MCP_PIN = re.compile(r"^(?:@[a-z0-9][\w.-]*/)?[a-z0-9][\w.-]*@\d+\.\d+\.\d+$")
+MCP_COMMAND = "npx"   # a local server fetched at one exact version — never a shell, never a path
+MCP_FLAGS = ("-y", "--isolated", "--headless", "--no-usage-statistics", "--no-performance-crux", "--no-javascript-evaluation", "--no-file-navigations")   # the only flags a row carries: no registry, no config file; only the opt-outs (telemetry, script evaluation, file: URLs)
 DC_UNIVERSAL = re.compile(r"^DC-\d+$")
 TEMPLATE_CATALOG = TEMPLATE_ROOT + "rules/defect-prevention.md"
 TEMPLATE_CASES = TEMPLATE_ROOT + "rules/defect-prevention-cases.md"
@@ -1289,8 +1291,12 @@ def _mcp_rows(where: str, servers) -> list[str]:
                 or not isinstance(row.get("args"), list) or not all(isinstance(a, str) for a in row["args"]):
             out.append(f"V12 · {where}: {MCP_POINTER} `{name}` is {{command, args}} — a command and a list of string arguments"); continue
         out += [f"V12 · {where}: {MCP_POINTER} `{name}`: `{f}` is not an mcp-server field (command, args) — no env (no credential), no url (no remote server)" for f in row if f not in ("command", "args")]
-        if not any(MCP_PIN.search(a) for a in row["args"]):
-            out.append(f"V12 · {where}: {MCP_POINTER} `{name}`: no argument pins an exact x.y.z version (`<package>@1.2.3`) — `@latest` or no version moves under the project")
+        if row["command"] != MCP_COMMAND:
+            out.append(f"V12 · {where}: {MCP_POINTER} `{name}`: command `{row['command']}` — a browser server runs as `{MCP_COMMAND}` of one pinned package, never a shell or a path")
+        pkgs = [a for a in row["args"] if not a.startswith("-")]
+        if len(pkgs) != 1 or not MCP_PIN.fullmatch(pkgs[0]):
+            out.append(f"V12 · {where}: {MCP_POINTER} `{name}`: the arguments name one package at an exact x.y.z version (`<package>@1.2.3`), got {pkgs or 'none'} — `@latest`, no version or a second package moves under the project")
+        out += [f"V12 · {where}: {MCP_POINTER} `{name}`: flag `{a}` is not one of {', '.join(MCP_FLAGS)}" for a in row["args"] if a.startswith("-") and a not in MCP_FLAGS]
         if "--isolated" not in row["args"]:
             out.append(f"V12 · {where}: {MCP_POINTER} `{name}`: no `--isolated` argument — the visual walk runs on a throw-away browser profile")
     return out

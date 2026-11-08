@@ -288,7 +288,7 @@ Then regenerate the snapshot (`docs/constitution.md` may have moved) and run `py
 
 ```bash
 python3 - "$@" <<'PY'
-import json, pathlib, subprocess, sys
+import json, os, pathlib, subprocess, sys, tempfile
 root = pathlib.Path.cwd().resolve()
 cmd = [sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"] + (["--answers", sys.argv[1]] if len(sys.argv) > 1 else [])
 r = subprocess.run(cmd, capture_output=True, text=True)
@@ -297,18 +297,28 @@ want = json.loads(r.stdout).get("configures", {}).get("mcp.servers") or {}
 f = root / ".mcp.json"
 if not want: print("no browser MCP answered: .mcp.json untouched"); sys.exit(0)
 if f.is_symlink(): sys.exit(".mcp.json is a symlink: merge the servers by hand")
-doc = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else {}
+try: doc = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else {}
+except json.JSONDecodeError as e: sys.exit(f".mcp.json is not valid JSON ({e.msg}, line {e.lineno}): fix it, then re-run")
+except UnicodeDecodeError: sys.exit(".mcp.json is not UTF-8 text: fix it, then re-run")
 if not isinstance(doc, dict) or not isinstance(doc.setdefault("mcpServers", {}), dict): sys.exit(".mcp.json is not {\"mcpServers\": {...}}: merge the servers by hand")
 added = []
 for name, row in want.items():
     have = doc["mcpServers"].get(name)
     if have is None: doc["mcpServers"][name] = row; added.append(name)
     elif have != row: print(f"kept {name}: it differs from the registry's {row} — RDR: keep it, or take the registry's")
-if added: f.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8"); print("added: " + ", ".join(added))
+if added:
+    fd, tmp = tempfile.mkstemp(dir=root, prefix=".mcp.json.")   # an unpredictable name, created exclusively: no symlink is followed
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as out: out.write(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+        if f.is_file(): os.chmod(tmp, f.stat().st_mode & 0o777)   # the project's own mode survives the replace
+        os.replace(tmp, f)
+    except BaseException:
+        os.unlink(tmp); raise
+    print("added: " + ", ".join(added))
 PY
 ```
 
-Interactive sessions ask once to approve a project server; the `factory-qa` agent carries its tools (`mcp__<server>__*`).
+Interactive sessions ask once to approve a project server; the `factory-qa` agent carries the walk's tools of that server by name (`mcp__<server>__<tool>`).
 
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 

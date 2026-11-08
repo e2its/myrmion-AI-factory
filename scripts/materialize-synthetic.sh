@@ -282,6 +282,24 @@ SEALG=$(python3 -c 'import sys; from pathlib import Path; sys.path.insert(0, sys
 SUITE=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["verification"]["gates"]["tests"]["command"])' "$P/config/quality.json")
 OUT=$(python3 "$ROOT/scripts/gate.py" --repo "$P" seal --validate 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "gate.py seal --validate on the $(basename "$ANSWERS") map: $ALLG" || bad "seal map invalid for $(basename "$ANSWERS") (rc=$RC)" "$OUT"
+# EVOL-077: the browser MCP lands from its anchor, for every fixture, in a tree of its own (the scripts, the registry,
+# the manifest) — merged beside a server the project has, pinned and isolated; `none` or no frontend writes nothing;
+# twice, the second a no-op
+H="$SCRATCH/h077"; Q="$H/q"; mkdir -p "$Q/.context/templates/setup/setup"
+cp -R "$ROOT/scripts" "$Q/scripts"; cp "$T/setup/discovery_registry.json" "$Q/.context/templates/setup/setup/"; cp "$MANIFEST" "$Q/.context/templates/setup/"
+python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**browser-mcp (EVOL-077).**")
+print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
+PY
+printf '{"mcpServers": {"own": {"command": "own-server", "args": []}}}\n' > "$Q/.mcp.json"
+ABS=$(realpath "$ANSWERS"); OUT=$(cd "$Q" && bash "$H/mig.sh" "$ABS" 2>&1); RC1=$?; SUM1=$(sha256sum < "$Q/.mcp.json")
+(cd "$Q" && bash "$H/mig.sh" "$ABS") >/dev/null 2>&1; RC2=$?; SUM2=$(sha256sum < "$Q/.mcp.json")
+WANT=$(python3 -c 'import json,sys; a=json.load(open(sys.argv[1]))["answers"]; print((a.get("qa.browser_mcp") or "") if a.get("frontend.framework") not in (None, "None") else "")' "$ANSWERS")
+GOT=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["mcpServers"]; print(",".join(sorted(k for k in d if k != "own")) + ("|" + ("ok" if "own" in d and all("--isolated" in v["args"] and any(__import__("re").search(r"@\d+\.\d+\.\d+$", x) for x in v["args"]) for k, v in d.items() if k != "own") else "bad")))' "$Q/.mcp.json")
+case "$WANT" in chrome-devtools|playwright) EXP="$WANT|ok" ;; *) EXP="|ok" ;; esac
+[ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "$EXP" ] \
+  && ok "the browser-mcp anchor lands Q23.5's server (${WANT:-none}) pinned and --isolated, keeps the project's own server, and a second run changes nothing (EVOL-077)" \
+  || bad "the browser-mcp anchor (rc=$RC1/$RC2, got=$GOT, want=$EXP)" "$OUT"
 # another stack's fixture proves its selection and its map only: the toolchain checks below are written for the default stack
 if [ "$IS_DEFAULT" != "1" ]; then
   echo; echo "materialize-synthetic: $PASS passed, $FAIL failed (selection of $(basename "$ANSWERS"))"; [ "$FAIL" -eq 0 ]; exit
@@ -381,27 +399,6 @@ OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
   || bad "the history-in-vcs migration (rc=$RC, idempotent=$([ "$SUM1" = "$SUM2" ] && echo y || echo n))" "$OUT"
 rm -f "$P/.claude/rules/zz-generated.md" "$P/.claude/rules/zz-link.md"; cp "$H/manifest" "$P/docs/project_log/governance_versions.json"
 if [ -f "$H/inv" ]; then cp "$H/inv" "$P/config/codebase_inventory.json"; else rm -f "$P/config/codebase_inventory.json"; fi
-# EVOL-077: the browser MCP lands from its anchor — merged beside a server the project has, pinned and isolated; twice, the second a no-op
-H="$SCRATCH/h077"; mkdir -p "$H"
-python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY'
-import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**browser-mcp (EVOL-077).**")
-print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
-PY
-printf '{"mcpServers": {"own": {"command": "own-server", "args": []}}}\n' > "$P/.mcp.json"
-DELIV=""   # the registry and the manifest, delivered as factory-sync does where the scratch tree lacks them; removed after
-for F in setup/discovery_registry.json governance_versions.json; do
-  [ -f "$P/.context/templates/setup/$F" ] && continue
-  mkdir -p "$(dirname "$P/.context/templates/setup/$F")"; cp "$T/$F" "$P/.context/templates/setup/$F"; DELIV="$DELIV $P/.context/templates/setup/$F"
-done
-ABS=$(realpath "$ANSWERS"); OUT=$(cd "$P" && bash "$H/mig.sh" "$ABS" 2>&1); RC1=$?; SUM1=$(sha256sum < "$P/.mcp.json")
-(cd "$P" && bash "$H/mig.sh" "$ABS") >/dev/null 2>&1; RC2=$?; SUM2=$(sha256sum < "$P/.mcp.json")
-WANT=$(python3 -c 'import json,sys; a=json.load(open(sys.argv[1]))["answers"]; print(a.get("qa.browser_mcp") if a.get("frontend.framework") not in (None, "None") else "")' "$ANSWERS")
-GOT=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["mcpServers"]; print(",".join(sorted(k for k in d if k != "own")) + ("|" + ("ok" if "own" in d and all("--isolated" in v["args"] and any(__import__("re").search(r"@\d+\.\d+\.\d+$", x) for x in v["args"]) for k, v in d.items() if k != "own") else "bad")))' "$P/.mcp.json")
-case "$WANT" in chrome-devtools|playwright) EXP="$WANT|ok" ;; *) EXP="|ok" ;; esac
-[ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "$EXP" ] \
-  && ok "the browser-mcp anchor lands Q23.5's server (${WANT:-none}) pinned and --isolated, keeps the project's own server, and a second run changes nothing (EVOL-077)" \
-  || bad "the browser-mcp anchor (rc=$RC1/$RC2, got=$GOT, want=$EXP)" "$OUT"
-rm -f "$P/.mcp.json"; for F in $DELIV; do rm -f "$F"; done
 # a real verdict on a feature branch: certified → ok; its certified file moves → STALE
 git -C "$P" checkout -q -b feature/FEAT-001-smoke; mkdir -p "$P/src" "$P/docs/spec/FEAT-001/qa"; printf 'print(1)\n' > "$P/src/app.py"
 git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm src; git -C "$P" update-ref refs/remotes/origin/main HEAD

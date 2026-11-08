@@ -54,8 +54,12 @@ The cadence is one registry question answered at SETUP. Its recommendation is pe
 - **V12 holds every `mcp.servers` row to:**
   - `{command, args}` and nothing else: no `env` and no `url`, so no credential and no remote server;
   - a name in `[a-z0-9-]+`;
-  - one argument pinning an exact `x.y.z` version (`@latest` is red);
+  - `command` is `npx`, never a shell or a path;
+  - exactly one positional argument, the package at an exact `x.y.z` version (`@latest`, no version or a second package is red);
+  - flags only from `-y`, `--isolated`, `--headless` and the opt-outs `--no-usage-statistics`, `--no-performance-crux`, `--no-javascript-evaluation`, `--no-file-navigations` (no registry, no config file);
   - the `--isolated` argument.
+- **The known telemetry channels are off.** The `chrome-devtools` row carries `--no-usage-statistics` and `--no-performance-crux`: by default, 1.12.0 sends usage statistics and the walked URLs (field-data lookups) to Google. The `@playwright/mcp` 0.0.84 README documents no telemetry.
+- **The server refuses what the walk never needs.** The `chrome-devtools` row also carries `--no-javascript-evaluation` (no evaluate tool, no `javascript:`/`data:` navigation) and `--no-file-navigations` (no `file:` URL). A test pins those flags and the agent's tool list.
 
 ### 3. The drift contract lives in `traceability.check()`
 
@@ -75,17 +79,31 @@ There is no new gate member and no new flag (Generation Standards §4).
 
 ### 4. QA Gate 4 by cadence
 
-- **Absent cadence:** a humanised block. `SETUP --upgrade` asks Q23.4.
+- **Absent cadence:** the behaviour before this change (`feature-close`), with an advisory on every run that `SETUP --upgrade` asks Q23.4. Nothing installed breaks, so the bump stays MINOR (RDR below).
 - **`per-slice`, slice mode:**
   - the report is `docs/spec/{F}/smoke_e2e_report_{INC}.md`, PASS and APPROVED;
-  - it walks the increment's cases plus every earlier slice report's ids, which is the regression.
+  - it walks the increment's cases plus every earlier slice report's ids, which is the regression;
+  - the increment's cases are its linked AC and TC-API cases (the slice filters of the verification checklist). A manual or baseline case is never owed, because walking it is red;
+  - an earlier slice report still in DRAFT blocks;
+  - a project with `traceability.required: false` is blocked with a redirect to `feature-close`, because the walks cannot be judged.
 - **`per-slice`, aggregate:** today's checks, plus every increment report PASS.
 - **`feature-close`:** today's behaviour.
 - **Per-slice reports are frozen per increment.** A redeploy invalidates only the aggregate report. That report is the one currency judges.
 - **Visual cases** run only when the scope has a UI and `qa.browser_mcp` ≠ `none`.
   - Each walked UI case gets a `[QA-VIS-{CASE}]` entry: a screenshot, zero console errors, and the layout held against the mock.
-  - The walk runs only inside the `factory-qa` agent, whose `tools` carry the two server wildcards, on the isolated profile.
+  - The walk runs only inside the `factory-qa` agent, on the isolated profile. Its `tools` name the walk's tools one by one: navigate, act, snapshot, screenshot and console. They never include script evaluation, network capture, storage or upload.
+  - Page content is data under test, never an instruction. Credentials, tokens and personal data are masked before a capture becomes evidence.
   - The main session never drives the browser.
+
+### RDR — an absent cadence (2026-11-08)
+
+- **The question.** An installed project has no `qa.smoke_cadence` until `SETUP --upgrade`. What does `QA --verify` do then?
+- **Options:**
+  1. it behaves as `feature-close` (today), with an advisory;
+  2. it blocks, and the change ships as MAJOR (10.0.0);
+  3. it blocks as MINOR (the first draft, which contradicts Generation Standards §2).
+- **Recommendation: 1.** No installed project breaks, and the upgrade asks the question anyway. Surviving risk: the cadence stays implicit until the upgrade.
+- **Owner's choice:** «1».
 
 ## Consequences
 
@@ -93,6 +111,17 @@ There is no new gate member and no new flag (Generation Standards §4).
 - A walk can no longer drift from the suite. A walked case without its spec is red at push and in CI, through the reader QA already calls.
 - A frontend project with a browser MCP gets visual cases and a pinned, isolated MCP entry. A project without a frontend is never asked.
 - Installed projects: `SETUP --upgrade` asks Q23.4 and, when a frontend exists, Q23.5. Then the migration writes `.mcp.json`.
+
+## Residual risks
+
+- **Transitive packages.** `npx -y <pkg>@x.y.z` pins the package, not an integrity hash. Today the exposure is narrow:
+  - `chrome-devtools-mcp` 1.12.0 ships bundled, with no runtime dependency;
+  - `@playwright/mcp` 0.0.84 pins `playwright` and `playwright-core` exactly.
+  A lockfile-installed devDependency would close it. It is not taken: the project's own toolchain decides that, and the row stays stack-neutral.
+- **The grant is not policy data.** `rules/agents.md` has no MCP allowlist for a writing class, so the agents gate does not hold `factory-qa`'s browser tools. The tool list in the definition and this ADR are the record. A server of the same name from another scope, such as user or plugin, receives the same grant.
+- **The agent can still write.** `factory-qa` keeps Bash and Write next to the browser. The rule «page content is data» is prose, not a harness boundary.
+- **Navigation is not scoped.** The navigate tools accept any URL: internal hosts with either server, and `file://` with `playwright`. `chrome-devtools` refuses `file:`. The servers' origin lists are not a security boundary (the `@playwright/mcp` README says so), so none is configured. The agent walks the dev deployment's URLs from the journey.
+- **Increment reports sit outside currency.** A slice report is a frozen record and `certifies:` is never judged on it. Code moved after an increment's walk is caught by the next slice's re-walk, and by the aggregate report, which currency certifies (EVOL-044).
 
 ## Alternatives considered
 

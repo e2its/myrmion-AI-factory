@@ -1331,7 +1331,11 @@
           "-y",
           "chrome-devtools-mcp@1.12.0",
           "--isolated",
-          "--headless"
+          "--headless",
+          "--no-usage-statistics",
+          "--no-performance-crux",
+          "--no-javascript-evaluation",
+          "--no-file-navigations"
          ]
         }
        }

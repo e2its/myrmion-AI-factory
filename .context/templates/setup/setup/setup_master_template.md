@@ -299,7 +299,7 @@ last_update: [TIMESTAMP]
 - [ ] **BRANCHING_COMPLIANCE:** Branching strategy selected, branch protection rules defined, semver policy configured
 - [ ] **ENVIRONMENT_COMPLIANCE:** Environment topology defined (Dev/Staging/Prod), auto-deploy rules per environment, .env templates planned
 - [ ] **CI_CD_COMPLIANCE:** CI/CD platform selected, pipeline depth chosen (Basic/Advanced), quality gates defined
-- [ ] **E2E_DAST_COMPLIANCE:** E2E testing framework configured (Playwright/Newman), DAST tools selected, visual regression enabled (if UI), Page Object Model structure defined
+- [ ] **E2E_DAST_COMPLIANCE:** E2E testing framework configured (Playwright/Newman), DAST tools selected, visual QA cases through the browser MCP (`qa.browser_mcp`, if UI), Page Object Model structure defined
 - [ ] **STATELESS_COMPLIANCE:** Services externalize session state, APIs are idempotent, cache is distributed
 - [ ] **AI_CAPABILITY_COMPLIANCE:** AI capabilities declared (training/inference/agentic), scaffolding impact identified, integration wiring planned
 - [ ] **SECURITY_BASELINE:** OWASP controls defined, secrets management strategy, SAST tools configured

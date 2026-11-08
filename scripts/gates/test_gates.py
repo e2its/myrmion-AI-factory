@@ -3463,6 +3463,20 @@ class Traceability(unittest.TestCase):
             # a DRAFT report is a skeleton, not a walk
             write(repo / report, body.replace("status: APPROVED", "status: DRAFT").replace("TC-API-01", "TC-01"))
             self.assertTrue(traceability.check(repo)["ok"])
+            # the line reads as the column does: a backticked or bold id is the id, a dash walks nothing, prose without a colon is prose
+            for line in ("Covered TCs: `AC-01`, **TC-API-01**", "**Covered TCs:** AC-01, TC-API-01", "Covered TCs: AC-01, TC-API-01, —"):
+                write(repo / report, body.replace("Covered TCs: AC-01, TC-API-01", line))
+                r = traceability.check(repo); self.assertTrue(r["ok"], (line, r["findings"])); self.assertEqual(r["walks"], {report: ["AC-01", "TC-API-01"]}, line)
+            write(repo / report, body.replace("Covered TCs: AC-01, TC-API-01", "Covered TCs: AC-01, TC-API-01\n\nCovered TCs lists the transitive expansion."))
+            r = traceability.check(repo); self.assertTrue(r["ok"], r["findings"])
+
+    def test_the_shipped_smoke_template_walks_only_its_example_rows(self):
+        """EVOL-077: the template's own prose names no walked case — a report kept from it is judged on its rows alone."""
+        real = Path(__file__).resolve().parents[2] / ".context/templates/qa/smoke_e2e_report_template.md"
+        if not real.is_file():
+            self.skipTest("not the framework repo")
+        items = [i for _, i in traceability._walked_items(real.read_text(encoding="utf-8"))]
+        self.assertEqual(items, ["AC-01", "TC-API-01", "AC-02", "TC-API-02"], "only the Consolidated Result example rows")
 
     def test_title_tag_and_junit_homes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -4859,8 +4873,13 @@ class Discovery(unittest.TestCase):
         ok = {"command": "npx", "args": ["-y", "chrome-devtools-mcp@1.12.0", "--isolated", "--headless"]}
         cases = [
             ("green", {"chrome-devtools": ok}, None),
-            ("latest", {"chrome-devtools": {**ok, "args": ["-y", "chrome-devtools-mcp@latest", "--isolated"]}}, "pins an exact x.y.z version"),
-            ("unpinned", {"chrome-devtools": {**ok, "args": ["-y", "chrome-devtools-mcp", "--isolated"]}}, "pins an exact x.y.z version"),
+            ("telemetry off", {"chrome-devtools": {**ok, "args": ok["args"] + ["--no-usage-statistics", "--no-performance-crux"]}}, None),
+            ("latest", {"chrome-devtools": {**ok, "args": ["-y", "chrome-devtools-mcp@latest", "--isolated"]}}, "one package at an exact x.y.z version"),
+            ("unpinned", {"chrome-devtools": {**ok, "args": ["-y", "chrome-devtools-mcp", "--isolated"]}}, "one package at an exact x.y.z version"),
+            ("second package", {"chrome-devtools": {**ok, "args": ok["args"] + ["evil-pkg"]}}, "one package at an exact x.y.z version"),
+            ("pin inside a longer arg", {"chrome-devtools": {**ok, "args": ["-y", "x;chrome-devtools-mcp@1.12.0", "--isolated"]}}, "one package at an exact x.y.z version"),
+            ("shell", {"chrome-devtools": {"command": "bash", "args": ["-c", "chrome-devtools-mcp@1.12.0", "--isolated"]}}, "never a shell or a path"),
+            ("registry flag", {"chrome-devtools": {**ok, "args": ok["args"] + ["--registry=https://evil"]}}, "flag `--registry=https://evil` is not one of"),
             ("not isolated", {"chrome-devtools": {**ok, "args": ["-y", "chrome-devtools-mcp@1.12.0"]}}, "`--isolated`"),
             ("env", {"chrome-devtools": {**ok, "env": {"TOKEN": "x"}}}, "`env` is not an mcp-server field"),
             ("url", {"chrome-devtools": {**ok, "url": "https://x"}}, "`url` is not an mcp-server field"),
@@ -4887,6 +4906,13 @@ class Discovery(unittest.TestCase):
         self.assertEqual(sorted(srv("chrome-devtools")), ["chrome-devtools"]); self.assertEqual(sorted(srv("playwright")), ["playwright"])
         self.assertIsNone(srv("none"), "none configures nothing")
         self.assertIn("--isolated", srv("playwright")["playwright"]["args"])
+        self.assertTrue({"--no-usage-statistics", "--no-performance-crux"} <= set(srv("chrome-devtools")["chrome-devtools"]["args"]), "no page URL or usage datum leaves the machine")
+        self.assertTrue({"--no-javascript-evaluation", "--no-file-navigations"} <= set(srv("chrome-devtools")["chrome-devtools"]["args"]), "the server refuses script evaluation and file: URLs")
+        # the walk's tools, named one by one: never script evaluation, network capture, storage, cookies, routing or upload
+        qa = read_frontmatter(real / ".claude/agents/factory-qa.md")["tools"]
+        mcp = [t.strip() for t in (qa.split(",") if isinstance(qa, str) else qa) if t.strip().startswith("mcp__")]
+        self.assertTrue(mcp and all(t.split("__")[1] in ("chrome-devtools", "playwright") for t in mcp), mcp)
+        self.assertEqual([t for t in mcp if "*" in t or any(w in t for w in ("evaluate", "run_code", "network", "storage", "cookie", "route", "upload", "file_upload", "heapsnapshot"))], [], "a walk observes and acts; it never evaluates, captures or uploads")
 
     # ── EVOL-066: the defect classes a stack selects, the template catalog held to its promotion rules ─────────
     DC_HEAD = ("---\ndescription: c\n---\n## Families\n| Family | Surface (globs) | Invariant |\n|---|---|---|\n"

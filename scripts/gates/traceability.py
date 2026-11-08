@@ -176,7 +176,8 @@ def declared(repo: Path, c: dict, listing: list[str] | None = None) -> tuple[dic
 # ─── walked cases (EVOL-077) ────────────────────────────────────────────────────
 
 WALK = re.compile(r"^smoke_e2e_report[^/]*\.md$")
-COVERED = re.compile(r"^\s*(?:[-*]\s+)?\**Covered TCs:?\**:?\s*(?P<ids>.*)$", re.I)
+COVERED = re.compile(r"^\s*(?:[-*]\s+)?\**Covered TCs(?::\**|\**:)\s*(?P<ids>.*)$", re.I)   # the colon is the line: prose that names the column is prose
+NO_CASE = ("—", "-")   # a placeholder walks nothing, in a line as in a cell
 VISUAL = re.compile(r"\[QA-VIS-(?P<id>[^\]\s]+)\]")
 
 
@@ -193,7 +194,7 @@ def _walked_items(text: str) -> list[tuple[int, str]]:
         out += [(n, m.group("id")) for m in VISUAL.finditer(line)]
         m = COVERED.match(line)
         if m:
-            out += [(n, x.strip()) for x in m.group("ids").split(",") if x.strip()]; continue
+            out += [(n, x) for x in (_cell(y) for y in m.group("ids").split(",")) if x and x not in NO_CASE]; continue
         t = re.match(r"^\s*\|(.*)\|\s*$", line)
         if not t:
             col = None; continue
@@ -204,7 +205,7 @@ def _walked_items(text: str) -> list[tuple[int, str]]:
         if "COVERED TCS" in heads:
             col = heads.index("COVERED TCS"); continue
         if col is not None and col < len(cells):
-            out += [(n, x.strip()) for x in cells[col].split(",") if x.strip() and x.strip() not in ("—", "-")]
+            out += [(n, x) for x in (_cell(y) for y in cells[col].split(",")) if x and x not in NO_CASE]
     return out
 
 

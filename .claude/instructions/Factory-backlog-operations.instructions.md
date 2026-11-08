@@ -497,6 +497,7 @@ For SMOKE-E2E gate issues specifically, the DoD checklist is **scope-aware** —
 - [ ] `docs/spec/{ID}/smoke_e2e_report.md` exists, status: APPROVED, scope frontmatter matches `frontend-only`
 - [ ] Every SMOKE-{N} block (one per `user_journey.md § 3` Path, expanded Paso → BDD Scenario → test_plan TC) executed on dev deploy, all verdicts PASS
 - [ ] Zero console errors during smoke execution (captured in evidence logs)
+- [ ] Visual-navigation checks pass (app_shell + page_templates + component_library fidelity)
 - [ ] Visual cases: with a browser MCP (`qa.browser_mcp`), every `[QA-VIS-{CASE}]` PASS (screenshot, zero console errors, layout against the mock) — run by the `factory-qa` agent on the isolated profile (EVOL-077)
 - [ ] WCAG 2.1 AA quick pass on smoked flows (no critical/serious violations)
 - [ ] Zero open `stale-after-*` labels on this issue
