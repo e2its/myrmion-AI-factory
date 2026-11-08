@@ -314,7 +314,7 @@
       "delivery": "both"
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd.platform == \"GitHub Actions\""
@@ -446,7 +446,7 @@
       "target": ".claude/hooks/check-push-preflight.sh"
     },
     "claude/CLAUDE.md": {
-      "version": "4.21.0",
+      "version": "4.22.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge"
@@ -503,7 +503,7 @@
       "stack_conditional": "ci_cd.platform == \"GitLab CI\""
     },
     "workflows/governance-check.bitbucket.yml": {
-      "version": "1.1.1",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "bitbucket-pipelines.yml",
       "stack_conditional": "ci_cd.platform == \"Bitbucket Pipelines\"",
@@ -1127,7 +1127,7 @@
       "role": "gates: server-side branch protection per SCM platform (EVOL-054) — one reader at the ci control point: with a read-only token it asks the platform's API (GitHub rulesets + legacy protection, GitLab protected branches / approvals / pipeline rule, Bitbucket branch restrictions, Azure DevOps policies) per protected branch, normalises pull-request-required / required checks / force-push / deletion / approvals and judges them against config → scm (RED on a missing setting, the runbook docs/scm/protection.md as the cure); no token, Other, push or static → n/a with the checklist; an API error is a fault."
     },
     "scm/protection.github.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "stack_conditional": "scm.platform == GitHub",
       "target": "docs/scm/protection.md",
@@ -1141,7 +1141,7 @@
       "role": "The server-side branch protection runbook for GitLab (EVOL-054): the exact settings — pull request required, the required checks and the approvals as configured, no force-push, no deletion — and the checklist a repository administrator ticks; verified at ci by gate.py scm-protection where the platform has an API."
     },
     "scm/protection.bitbucket.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "stack_conditional": "scm.platform == Bitbucket",
       "target": "docs/scm/protection.md",
@@ -1596,7 +1596,7 @@
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md"
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
-      "version": "2.8.0",
+      "version": "2.9.0",
       "path": ".claude/instructions/Factory-protocol-smart-redirect.instructions.md"
     },
     "instructions/Factory-protocol-cwd-discipline.instructions.md": {

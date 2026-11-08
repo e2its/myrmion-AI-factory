@@ -44,6 +44,7 @@
       "Q17",
       "Q18",
       "Q19",
+      "Q20.1",
       "Q20.2",
       "Q20.3",
       "Q21.2",
@@ -117,9 +118,12 @@
       "performance (EVOL-073)",
       "history-in-vcs (EVOL-118)",
       "browser-mcp (EVOL-077)",
-      "delivery-execution (EVOL-081)", "deploy-records (EVOL-081)"
+      "deploy-tool (EVOL-081)",
+      "delivery-execution (EVOL-081)",
+      "deploy-records (EVOL-081)"
     ],
     "templates_to_add": [
+      "workflows/deploy.github-actions.yml",
       "security/sast/python.yml",
       "security/sast/javascript.yml",
       "contracts/errors.yaml"

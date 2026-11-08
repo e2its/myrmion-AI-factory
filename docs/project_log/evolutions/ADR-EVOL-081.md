@@ -176,7 +176,7 @@ Options posed:
 3. No smoke on the PR: the PR demands the sweep only; the smoke stays in QA after the merge.
 4. Defer to #147, with 3 as the stated intermediate state.
 
-Recommendation: 1. It reuses the certified report and the currency check the PR already runs; no new key or flag; it closes the gap today. Surviving risk: the verdict is the agent's word, sealed to the SHA, as the sweep's is.
+Recommendation: 1. It reuses the certified report and the currency check the PR already runs; no new config key, and the one PR check is a mode of the reader this change adds (§5, `gate.py delivery --pr`); it closes the gap today. Surviving risk: the verdict is the agent's word, sealed to the SHA, as the sweep's is.
 
 Owner's choice, verbatim: «1».
 
@@ -223,7 +223,7 @@ Owner's choice, verbatim: «1».
 - **The pull request** is blocked when one of the agent's verdicts for the head SHA is missing, stale or red (`gate.py certify`, `gate.py currency`), one reader, `gate.py delivery --pr`:
   - the preventive sweep (RDR 1);
   - the smoke at `qa.smoke_cadence` (RDR 5): the increment's `smoke_e2e_report_INC-N.md` per slice, and `smoke_e2e_report.md` on the PR that closes the feature. The agent deploys the branch to the non-production environment through the pipeline's dispatch on that ref, then runs the smoke there.
-  - They are owed where those phases exist: a `feature/*` branch that is not a sub-increment (its PR into the train owes the light profile), the full-sdlc preset, a change that is not documentation only. The control point in `profile.py:67` becomes the pull request.
+  - They are owed where those phases exist: a branch of class feature, increment or train (`gate.py branch-class`), the full-sdlc preset, a change that is not documentation only. A sub-increment (its PR into the train owes the light profile) and every other class are n/a. The control point in `profile.py:67` becomes the pull request.
 - **Rollback** redeploys the last `lkg/{env}/*` through the same pipeline. It writes its own `deploy/…` record, which is the re-seal.
 - **Teardown** runs from the pipeline too: the deny covers the adapter's `destroy`. The production teardown waits for the same approval.
 - **The DEVOPS instruction** triggers the run and watches it: `gh workflow run` with a unique `run-name`, then `gh run watch --exit-status`, or the Bitbucket pipelines API polled until `COMPLETED`. Local provision and deploy remain only for `delivery.execution == local`, through the same executor: `gate.py delivery --run` refuses without `CI` only when the execution is `ci`.
@@ -232,7 +232,8 @@ Owner's choice, verbatim: «1».
 
 - `scripts/gates/writes.py` gains the command class `deploy`. It holds the project's adapter `apply` and `destroy` commands, read from `config/quality.json → delivery.adapter`. Starting the pipeline (`gh workflow run`, the Bitbucket API) is not in it.
 - The command is judged after the wrappers are stripped.
-- When `delivery.execution == ci`, `check-branch-protection.sh` blocks that class with a plain message (LAW-08): «this project deploys from its pipeline — run DEVOPS --deploy, which starts and watches the run».
+- When `delivery.execution == ci`, `check-branch-protection.sh` blocks that class with a plain message (LAW-08): «this project deploys from its pipeline — run DEVOPS --deploy, which starts and watches the run». A detached HEAD gets the same deny.
+- **The deny is friction, not the boundary.** The boundary is that no deploy credential lives on a workstation: production's secrets are environment secrets of `production` (GitHub) or secured variables of the production deployment (Bitbucket), handed only to the approved job. A command the classifier cannot see — a `make` target, a script that wraps the tool — passes the deny and still fails without the credential.
 
 ### 5. One reader of the deployment record — `gate.py delivery`
 
@@ -281,7 +282,7 @@ Each change ships with its upgrade migration.
   - every deploy is sealed with its SHA, probed, and tagged good or not;
   - a rollback is a redeploy of the last good SHA, sealed again.
 - Every hosting target discovery offers has its deploy tool. A pack adds a row of data, and #148 adds Cloudflare.
-- A PR is blocked until the agent has swept it and its smoke specs are green.
+- A PR is blocked until the agent's sweep and its smoke report at `qa.smoke_cadence` are present, green and current for the head.
 - **Installed projects** get the checks through `factory-sync.sh`, and the pipelines and migrations through `SETUP --upgrade`. The migrations rename the deploy-tool key, derive `delivery.execution` and convert the baseline. A project left on `local` keeps today's behaviour.
 
 ## Residual risks
@@ -292,7 +293,24 @@ Each change ships with its upgrade migration.
 - **Environment names are fixed for now.** The pipelines deploy `staging` and `production`. #147 owns the environment declaration; until it lands, a project with other names edits its pipeline, and `delivery --check` still holds every stage to the executor and the approval.
 - **Secrets reach the executor process.** The pipeline hands its secrets map to the executor, which passes each step only the row's names and `delivery.secrets`. The map lives in that one process's environment for the job's lifetime.
 - **The Bitbucket merge is not exercised end to end.** The synthetic run validates the merged `bitbucket-pipelines.yml` against the live schema; a real run is proven only downstream.
+- **A wrapped deploy passes the deny.** A `make deploy` or a project script that runs the tool is not classified; only the missing credential stops it (§4).
+- **Bitbucket hands every variable of a step to its script.** A deploy credential kept as a repository or workspace variable reaches every step; the runbook scopes it to the production deployment, and nothing checks it (the platform has no API the gate reads for it).
+- **Bitbucket narrows the default pipeline scopes from 2027-04-30.** A step that pushes tags then needs `write:git:bitbucket`; every pushing step of the template declares `auth.system.scopes` now. A project that edits its pipeline keeps the block.
 - **The sweep and smoke verdicts depend on the agent.** Each is the agent's word, sealed to a SHA. The pipeline checks that the verdict exists, is fresh and is green, not how it was reached.
+
+## Round-1 cures (critics, 2026-11-08)
+
+Four lenses, one round on the whole diff. Cured in the same branch, each with its red case:
+- **Executor.** A step reads only the names it declares: an unset `$NAME` is red and names `delivery.secrets`; `${…}` shell expansions never collide with `{PARAM}` placeholders; every command of the row is filled before the first step runs; a rollback never re-runs the forward migration; teardown expands its `destroy` first.
+- **Records.** A tag that is not a record (no JSON, another environment, a SHA that is not 40 hex) is skipped; the last good state is the newest `lkg` whose record holds the same SHA; a planted tag is never a record nor a last good state, never stops the deployed measurement, and the light performance check names it red (delete it on origin).
+- **Check.** The mode key matches the platform (`ci_cd.platform` None → local, else ci; a mismatch is red); a covered platform without a pipeline calling the executor is red; a pipeline that pushes every environment's tags is a finding; a missing YAML parser names PyYAML.
+- **Deny.** The tool's head matches through its aliases (`flyctl`, `docker-compose`) and its subcommand; valued flags are skipped; the executor's own `--run`, `--rollback` and `--teardown` are the deploy class; a detached HEAD is denied too.
+- **Pipelines.** GitHub: read-only top-level permissions, write and concurrency per deploy job, each job pushes only its environment's tags, rollback resolves its SHA in a job of its own, production dispatches only from `main`, the runtime-surface skip. Bitbucket: an announce step names the commit and the production last good state, each step pushes only its environment's tags, every pushing step declares its write scope.
+- **Server.** `scm-protection` asks the `production` environment for its deployment-branch policy too; self-review allowed is a note; the environment is asked only on GitHub Actions.
+- **Upgrade.** `deploy-records` is an executable block that reuses the executor's `write_record`, stops on a commit the clone lacks, pushes the tags and reads them back on `origin` before removing the file; the synthetic upgrade runs it twice.
+- **Runbooks.** GitHub: the `production` environment (required reviewers, deployment branches `main` only, environment secrets) and `pr-verify` as a required check. Bitbucket: Premium deployment permissions and secured deployment variables.
+
+Mutation sweep on the cures, in a scratch copy (2026-11-09): 18 mutants over the executor, the records, the check, the deny, `scm-protection` and the rejected-tag report — each turns its test class red; none survives. Suite, hooks (207), live pipeline schemas and the nine synthetic materialisations green.
 
 ## Alternatives considered
 

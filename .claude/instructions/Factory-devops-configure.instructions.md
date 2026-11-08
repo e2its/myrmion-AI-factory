@@ -488,7 +488,10 @@ FOR EACH secret identified:
     Save immediately
 
   A secret a deploy step reads (the migration's database URL, the app's config) — its NAME joins
-  config/quality.json → delivery.secrets (EVOL-081); the CI holds the value under that name. No other name reaches a step.
+  config/quality.json → delivery.secrets (EVOL-081); the CI holds the value under that name, production's as an
+  environment secret of `production` only (GitHub: gh secret set NAME --env production; Bitbucket: a secured variable
+  of the production deployment). On GitHub no other name of the map reaches a step; Bitbucket hands every variable of
+  the step to it — scope by deployment, never by repository variable.
 
 SECURITY RULES:
   ❌ NEVER log actual secret values

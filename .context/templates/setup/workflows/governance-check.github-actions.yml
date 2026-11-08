@@ -32,13 +32,20 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF"
+
+      - name: "PyYAML — the gates read pipeline files (delivery --check)"
+        run: python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y -qq python3-yaml
 
       - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py is the list)"
         env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
           GH_TOKEN: ${{ github.token }}   # EVOL-054: the scm-protection member reads this repository's rulesets at the ci control point (metadata: read is enough; a runner whose token is not exported is a RED wiring finding)
         run: |
-          python3 scripts/gate.py profile --run --control-point ci --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
+          python3 scripts/gate.py profile --run --control-point ci --base "origin/${BASE_REF}" --branch "$HEAD_REF"
 
       - name: "One definition — hooks, workflows and the preflight keep no branch list, mode read or mode override (EVOL-046)"
         run: python3 scripts/gate.py one-definition

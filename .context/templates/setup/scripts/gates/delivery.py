@@ -19,13 +19,16 @@ config    `config/quality.json → delivery`: `execution` (ci | local, derived f
           Their currency is `gate.py currency`'s.
 --check   (light profile member) the pipeline file(s): every deploy / teardown stage calls this executor and names
           its environment, production behind approval (GitHub `environment: production`; Bitbucket
-          `deployment: production` + `trigger: manual`); the adapter row has `apply` and `url_from`. n/a with
-          `execution: local`, no block, or no pipeline file.
+          `deployment: production` + `trigger: manual`); every tag push names its own environment; the adapter row
+          has `apply` and `url_from`; `execution` is the derivation of ci_cd.platform (None → local, else ci).
+          RED when GitHub Actions / Bitbucket Pipelines deploys from CI and its pipeline does not call the executor;
+          n/a with `execution: local`, no block, or another platform (it writes its own pipeline).
 record    annotated tag `deploy/{env}/{YYYYMMDDTHHMMSSZ}` on the deployed SHA, message = JSON {env, sha, at, adapter,
           probe, migrations, metrics, hosting[, rebaseline]}; `lkg/{env}/{ts}` lightweight on the same SHA. This module
           creates tags only; PUSHING them is the pipeline's step (or the DEVOPS agent's, in local mode) — never here.
 Commands from the adapter row run without a shell: ` && ` splits steps, leading `NAME=value` words set the step's
-environment, `{env}` is the environment name. Secrets: only the row's names and `delivery.secrets`, from the environment
+environment, `{env}` is the environment name, `$NAME` / `${NAME}` the step environment's value (an unset name is a fault, never
+an empty word). Every command of the run is filled before its first step runs: one left unfilled runs nothing. Secrets: only the row's names and `delivery.secrets`, from the environment
 or the pipeline's `DELIVERY_SECRETS` JSON map, reach the commands; the map itself never does.
 """
 from __future__ import annotations
@@ -43,12 +46,16 @@ from .common import GateFault, clean, context, key, parse_yaml, tracked_files
 
 TS = "%Y%m%dT%H%M%SZ"
 AT = "%Y-%m-%dT%H:%M:%SZ"
-ENV_RE = re.compile(r"^[a-z][a-z0-9-]{0,30}$")
+ENV_RE = re.compile(r"[a-z][a-z0-9-]{0,30}")
+SHA_RE = re.compile(r"[0-9a-f]{40}")
+VAR_RE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 URL_KINDS = ("command", "stdout", "template", "config")
 REFUSED = "This project deploys from its pipeline — run DEVOPS --deploy, which starts the pipeline and watches the run."
 RESOURCES = "config/system_resources.json"
 PIPELINES = (".github/workflows/deploy.yml", "bitbucket-pipelines.yml")
+COVERED = {"GitHub Actions": ".github/workflows/deploy.yml", "Bitbucket Pipelines": "bitbucket-pipelines.yml"}
+ALL_ENVS_PUSH = re.compile(r"refs/tags/(deploy|lkg)/\*")
 
 
 class Refused(GateFault):
@@ -86,7 +93,7 @@ def adapter_problems(a) -> list[str]:
 
 
 def _env_name(env: str) -> str:
-    if not ENV_RE.match(env or ""):
+    if not ENV_RE.fullmatch(env or ""):
         raise GateFault(f"--env {env!r} is not an environment name (lowercase letters, digits, dashes)")
     return env
 
@@ -111,8 +118,10 @@ def _order(name: str) -> tuple:
     return (base, int(n) if n.isdigit() else 0)
 
 
-def records(repo: Path, env: str | None = None) -> list[dict]:
-    """Every deploy record (oldest first), each {tag, env, sha, at, ...}; GateFault on an unreadable one."""
+def records(repo: Path, env: str | None = None, rejected: list | None = None) -> list[dict]:
+    """Every deploy record (oldest first), each {tag, env, sha, at, ...}. A tag in the namespace that is no record
+    (no JSON body, another environment, no 40-hex sha) is skipped: a planted tag never stops a deploy, never is one.
+    `rejected`, when given, receives (tag, why) per skipped tag — the light check reports them, the deploy never reads them."""
     out = []
     for name in sorted(filter(None, _git(repo, "tag", "-l", "deploy/*").splitlines()), key=_order):
         parts = name.split("/")
@@ -124,9 +133,14 @@ def records(repo: Path, env: str | None = None) -> list[dict]:
         try:
             rec = json.loads(body)
         except ValueError:
-            raise GateFault(f"tag {name} carries no JSON record — a deploy record is an annotated tag written by gate.py delivery") from None
-        if not isinstance(rec, dict) or rec.get("env") != parts[1]:
-            raise GateFault(f"tag {name}: its record names another environment")
+            rec = None
+        why = ("no JSON record in its message" if not isinstance(rec, dict)
+               else f"its `env` is not {parts[1]}" if rec.get("env") != parts[1]
+               else "its `sha` is not a 40-hex commit" if not SHA_RE.fullmatch(str(rec.get("sha", ""))) else None)
+        if why:
+            if rejected is not None:
+                rejected.append((name, why))
+            continue
         out.append({"tag": name, **rec})
     return out
 
@@ -137,14 +151,15 @@ def last(repo: Path, env: str) -> dict | None:
 
 
 def lkg(repo: Path, env: str) -> dict | None:
+    """The newest `lkg/E/*` tag whose own record exists and names the same SHA — a lone or moved lkg tag is no lkg."""
     _env_name(env)
-    good = sorted(filter(None, _git(repo, "tag", "-l", f"lkg/{env}/*").splitlines()), key=_order)
-    if not good:
-        return None
-    ts = good[-1].rsplit("/", 1)[-1]
-    rec = next((r for r in records(repo, env) if r["tag"] == f"deploy/{env}/{ts}"), None)
-    sha = _git(repo, "rev-list", "-n", "1", good[-1]).strip()
-    return {**(rec or {"env": env, "sha": sha}), "lkg": good[-1], "sha": sha}
+    recs = {r["tag"]: r for r in records(repo, env)}
+    for name in reversed(sorted(filter(None, _git(repo, "tag", "-l", f"lkg/{env}/*").splitlines()), key=_order)):
+        rec = recs.get(f"deploy/{env}/{name.rsplit('/', 1)[-1]}")
+        sha = _git(repo, "rev-list", "-n", "1", name, check=False).strip()
+        if rec and rec["sha"] == sha:
+            return {**rec, "lkg": name}
+    return None
 
 
 def write_record(repo: Path, env: str, sha: str, payload: dict, good: bool, now: _dt.datetime | None = None) -> str:
@@ -169,14 +184,24 @@ def write_record(repo: Path, env: str, sha: str, payload: dict, good: bool, now:
 
 # ─── running the adapter row ───────────────────────────────────────────────────
 
-def steps(cmd: str, env: str, params: dict | None = None) -> list[tuple[dict, list[str]]]:
+def _expand(word: str, scope: dict) -> str:
+    def val(m):
+        name = m.group(1) or m.group(2)
+        if not isinstance(scope.get(name), str):
+            raise GateFault(f"the adapter command reads ${name} and no declared secret or step variable holds it — name it in `delivery.secrets`")
+        return scope[name]
+    return VAR_RE.sub(val, word)
+
+
+def steps(cmd: str, env: str, params: dict | None = None, environ: dict | None = None) -> list[tuple[dict, list[str]]]:
     """A row command → [(assignments, argv)] with no shell: ` && ` separates steps, leading NAME=value words assign;
-    `{env}` and each `{param}` of the row's `params` are filled — a placeholder left over is a fault, never run."""
+    `{env}` and each `{param}` of the row's `params` are filled — a placeholder left over is a fault, never run.
+    With `environ`, `$NAME` / `${NAME}` in a word is that variable's value (the step's assignments first)."""
     out = []
     for k, v in {**(params or {}), "env": env}.items():
         if isinstance(v, str) and v.strip():   # a null param stays a placeholder: refused below, never run as "None"
-            cmd = cmd.replace("{" + str(k) + "}", v)
-    left = re.findall(r"\{([A-Za-z_]+)\}", cmd)
+            cmd = re.sub(r"(?<!\$)\{" + re.escape(str(k)) + r"\}", lambda _m, v=v: v, cmd)
+    left = re.findall(r"(?<!\$)\{([A-Za-z_]+)\}", cmd)
     if left:
         raise GateFault(f"the adapter command names {', '.join('{' + x + '}' for x in left)} and its row's `params` does not fill it")
     for part in cmd.split(" && "):
@@ -184,7 +209,9 @@ def steps(cmd: str, env: str, params: dict | None = None) -> list[tuple[dict, li
         assign = {}
         while words and ASSIGN.match(words[0]):
             k, v = words.pop(0).split("=", 1)
-            assign[k] = v
+            assign[k] = _expand(v, {**environ, **assign}) if environ is not None else v
+        if environ is not None:
+            words = [_expand(w, {**environ, **assign, "DEPLOY_ENV": env}) for w in words]
         if not words:
             raise GateFault(f"the adapter command `{clean(cmd, 80)}` has an empty step")
         out.append((assign, words))
@@ -208,7 +235,7 @@ def _environ(adapter: dict, environ, extra=None) -> dict:
 def run_cmd(repo: Path, cmd: str, env: str, environ: dict, runner=subprocess.run, label: str = "", params: dict | None = None) -> str:
     """Run a row command step by step; its stdout; GateFault naming the step that failed."""
     out = []
-    for assign, argv in steps(cmd, env, params):
+    for assign, argv in steps(cmd, env, params, environ):
         try:
             r = runner(argv, cwd=str(repo), env={**environ, **assign, "DEPLOY_ENV": env}, capture_output=True, text=True, timeout=3600)
         except (OSError, subprocess.TimeoutExpired) as e:
@@ -223,7 +250,7 @@ def run_cmd(repo: Path, cmd: str, env: str, environ: dict, runner=subprocess.run
 def migrations(repo: Path, since: str | None) -> list[str]:
     from . import data
     layouts, tests = data._globs(repo)
-    if since:
+    if since and SHA_RE.fullmatch(since):
         r = subprocess.run(["git", "-C", str(repo), "diff", "--name-only", f"{since}..HEAD"], capture_output=True, text=True, timeout=60)
         files = r.stdout.splitlines() if r.returncode == 0 else tracked_files(repo)
     else:
@@ -292,7 +319,17 @@ def _row(id_, problems, note=""):
     return {"id": id_, "ok": not problems, "problems": problems, "note": note}
 
 
-def run(repo: Path, env: str, environ=None, runner=subprocess.run, now=None) -> dict:
+def _preflight(a: dict, c: dict, env: str, e: dict) -> None:
+    """Fill every command the run will run before its first step: one unfilled placeholder or unset `$NAME` runs nothing."""
+    cmds = [a.get(k) for k in ("validate", "plan", "apply")] + [c.get("migrate")]
+    if isinstance(a.get("url_from"), dict) and a["url_from"].get("kind") == "command":
+        cmds.append(a["url_from"].get("command"))
+    for cmd in cmds:
+        if isinstance(cmd, str) and cmd.strip():
+            steps(cmd, env, a.get("params"), e)
+
+
+def run(repo: Path, env: str, environ=None, runner=subprocess.run, now=None, migrate: bool = True) -> dict:
     environ = os.environ if environ is None else environ
     c = cfg(repo)
     _guard(c, environ)
@@ -302,6 +339,7 @@ def run(repo: Path, env: str, environ=None, runner=subprocess.run, now=None) -> 
     if bad:
         raise GateFault("; ".join(bad))
     e = _environ(a, environ, (c or {}).get("secrets"))
+    _preflight(a, c or {}, env, e)
     sha = _git(repo, "rev-parse", "HEAD").strip()
     rows = []
     if a.get("iac") and (repo / "scripts/validate-iac.sh").is_file():
@@ -311,9 +349,10 @@ def run(repo: Path, env: str, environ=None, runner=subprocess.run, now=None) -> 
             run_cmd(repo, a[step], env, e, runner, step, a.get("params")); rows.append(_row(step, [], a[step]))
     prev = last(repo, env)
     trace = migrations(repo, prev["sha"] if prev else None)
-    if (c or {}).get("migrate"):
+    if (c or {}).get("migrate") and migrate:
         run_cmd(repo, c["migrate"], env, e, runner, "migrate")
-    rows.append(_row("migrate", [], f"{len(trace)} migration file(s) since {prev['sha'][:8] if prev else 'the first deploy'}"))
+    rows.append(_row("migrate", [], f"{len(trace)} migration file(s) since {prev['sha'][:8] if prev else 'the first deploy'}"
+                     + ("" if migrate else " — not run: a rollback never re-runs the forward migration")))
     out = run_cmd(repo, a["apply"], env, e, runner, "apply", a.get("params"))
     rows.append(_row("apply", [], a["apply"]))
     try:
@@ -353,7 +392,7 @@ def rollback(repo: Path, env: str, environ=None, runner=subprocess.run, now=None
     head = _git(repo, "rev-parse", "HEAD").strip()
     if head != good["sha"]:
         raise GateFault(f"a rollback deploys {good['lkg']} ({good['sha'][:8]}) — check that commit out first, HEAD is {head[:8]}")
-    return run(repo, env, environ, runner, now)
+    return run(repo, env, environ, runner, now, migrate=False)
 
 
 def teardown(repo: Path, env: str, environ=None, runner=subprocess.run) -> dict:
@@ -364,7 +403,9 @@ def teardown(repo: Path, env: str, environ=None, runner=subprocess.run) -> dict:
     a = (c or {}).get("adapter")
     if not isinstance(a, dict) or not isinstance(a.get("destroy"), str) or not a["destroy"].strip():
         raise GateFault("the deploy tool has no `destroy` command in its adapter row — tear the environment down with the host's own console; nothing was run")
-    run_cmd(repo, a["destroy"], env, _environ(a, environ, (c or {}).get("secrets")), runner, "destroy", a.get("params"))
+    e = _environ(a, environ, (c or {}).get("secrets"))
+    steps(a["destroy"], env, a.get("params"), e)
+    run_cmd(repo, a["destroy"], env, e, runner, "destroy", a.get("params"))
     return {"ok": True, "entries": [_row("destroy", [], a["destroy"])], "reason": f"{env} torn down; no record written"}
 
 
@@ -440,7 +481,7 @@ def _verdict(repo: Path, rel: str, paths: list[str], status: str, what: str, ext
 
 
 def pr(repo: Path, base: str, branch: str) -> dict:
-    """The verdicts the PR pipeline demands of the agent (RDR 1 sweep, RDR «1» smoke, 2026-11-08). Owed for a
+    """The verdicts the PR pipeline demands of the agent (RDR 1 sweep, RDR 5 smoke, 2026-11-08). Owed for a
     `feature/*` branch that is not a sub-increment (a sub PR into its train owes the light profile), the full-sdlc
     preset, a change that is not documentation only. Then, each in this PR's diff: the newest preventive-sweep report
     COMPLETED with `not_delivered: []`; the smoke at `qa.smoke_cadence` — `per-slice`: the increment's
@@ -451,10 +492,11 @@ def pr(repo: Path, base: str, branch: str) -> dict:
     from .common import glob_match
     from .train import INC_RE as PLAN_INC
     m = branch_mod.INC_RE.match(branch or "")
-    if not (branch or "").startswith("feature/"):
-        return {"ok": True, "na": True, "reason": f"{branch or 'this branch'} is not a feature branch — no verdict owed", "entries": []}
-    if m and m.group("m"):
+    cls = branch_mod.branch_class(repo, branch or "-")["class"] if branch else "unknown"
+    if cls == "sub-increment":
         return {"ok": True, "na": True, "reason": "a sub-increment PR into its train owes the light profile — the train's PR carries the verdicts", "entries": []}
+    if cls not in ("feature", "increment", "train"):
+        return {"ok": True, "na": True, "reason": f"{branch or 'this branch'} is not a feature branch ({cls}) — no verdict owed", "entries": []}
     ans = data.answers(repo)
     if ans.get("project_tracking.feature_phases") != "full-sdlc":
         return {"ok": True, "na": True, "reason": "the feature preset is not full-sdlc — no verdict owed", "entries": []}
@@ -483,10 +525,20 @@ def check(repo: Path) -> dict:
     c = cfg(repo)
     if c is None:
         return {"ok": True, "na": True, "reason": "no `delivery` block in config/quality.json — SETUP --upgrade adds it (EVOL-081)", "entries": []}
+    from . import data
+    plat = data.answers(repo).get("ci_cd.platform")
+    if isinstance(plat, str) and plat.strip():
+        want = "local" if plat.strip() == "None" else "ci"
+        if execution(c) != want:
+            return {"ok": False, "entries": [_row("delivery.execution", [f"is {execution(c)}, but ci_cd.platform is {plat} — it derives {want} (SETUP --upgrade writes it); a flipped key switches the CI-only controls off"])],
+                    "reason": "delivery.execution is not what ci_cd.platform derives"}
     if execution(c) == "local":
         return {"ok": True, "na": True, "reason": "delivery.execution is local — no pipeline deploys", "entries": []}
     files = [p for p in PIPELINES if (repo / p).is_file() and "gate.py delivery" in (repo / p).read_text(encoding="utf-8", errors="replace")]
     if not files:
+        if plat in COVERED:
+            return {"ok": False, "entries": [_row(COVERED[plat], [f"{plat} deploys from CI and {COVERED[plat]} does not call `gate.py delivery --run` — SETUP --upgrade lands the deploy pipeline"])],
+                    "reason": "the deploy pipeline is missing"}
         return {"ok": True, "na": True, "reason": "no deploy pipeline file (GitHub Actions / Bitbucket Pipelines) — another platform writes its own (discovery RDR)", "entries": []}
     rows = [_row("delivery.adapter", adapter_problems(c.get("adapter")), str((c.get("adapter") or {}).get("tool")))]
     for rel in files:
@@ -494,7 +546,12 @@ def check(repo: Path) -> dict:
         try:
             doc = parse_yaml(text)
         except Exception as err:   # the mini parser's every failure is one finding, never a crash
-            rows.append(_row(rel, [f"not readable YAML ({type(err).__name__})"]))
+            try:
+                import yaml  # type: ignore  # noqa: F401
+                why = f"not readable YAML ({type(err).__name__})"
+            except ImportError:
+                why = "cannot be read without PyYAML — install PyYAML where the gates run (the subset parser reads frontmatter, not pipelines)"
+            rows.append(_row(rel, [why]))
             continue
         probs = (_github if rel.startswith(".github/") else _bitbucket)(doc, rel)
         apply_cmd = ((c.get("adapter") or {}).get("apply") or "").split(" && ")[-1].strip()
@@ -502,6 +559,8 @@ def check(repo: Path) -> dict:
             probs.append(f"{rel} runs the adapter's apply directly — every deploy goes through `gate.py delivery --run` (probe + record)")
         if not CALL.search(text):
             probs.append(f"{rel} has no stage that calls `gate.py delivery --run --env …`")
+        if ALL_ENVS_PUSH.search(text):
+            probs.append(f"{rel} pushes every environment's tags — each stage pushes only its own (refs/tags/deploy/<env>/*, refs/tags/lkg/<env>/*)")
         rows.append(_row(rel, probs, "every deploy stage calls the executor; production waits for approval"))
     red = [r for r in rows if not r["ok"]]
     return {"ok": not red, "entries": rows, "reason": f"{len(red)} of {len(rows)} red" if red else f"{len(rows)} green"}

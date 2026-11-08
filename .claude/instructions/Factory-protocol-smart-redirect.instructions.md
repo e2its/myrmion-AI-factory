@@ -447,7 +447,7 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
     FOR EACH env IN pre_prod_envs:
       env_status = state.devops_plan.environments[env].status OR "NOT_PROVISIONED"
       IF env_status == "ACTIVE":
-        deployed = GLOB_EXISTS("{{base_path}}/devops/deployment_report_*.md") AND GREP(deployment_reports, env)
+        deployed = RUN("python3 scripts/gate.py delivery --last {{env}}").exit == 0   # the record tags are the deploy state (EVOL-081), both modes
         IF NOT deployed:
           actions.push({cmd: "DEVOPS --deploy {{ID}} --env {{env}}", reason: "Code ready, deploy to {{env}}"})
           needs_deploy = TRUE

@@ -181,11 +181,11 @@ def dropped(new: dict, prev: dict) -> list[str]:
     return sorted(set(ratcheted(prev)) - set(ratcheted(new)))
 
 
-def baseline_text(repo: Path) -> str:
+def baseline_text(repo: Path, rejected: list | None = None) -> str:
     """The deploy records that hold metrics, as baseline lines (oldest first) — the one reader is gates/delivery.py."""
     from . import delivery
     lines = []
-    for r in delivery.records(repo):
+    for r in delivery.records(repo, rejected=rejected):
         if r.get("metrics") is None:
             continue
         e = {"site": r["env"], **{k: r[k] for k in ("sha", "at", "hosting", "metrics", "rebaseline") if r.get(k) is not None}}
@@ -194,15 +194,16 @@ def baseline_text(repo: Path) -> str:
 
 
 def baseline_row(repo: Path, cfg: dict, ref: str | None = None) -> dict | None:
-    legacy = (repo / LEGACY_BASELINE).is_file()
+    legacy, rejected = (repo / LEGACY_BASELINE).is_file(), []
     try:
-        text = baseline_text(repo)
+        text = baseline_text(repo, rejected)
         lines = parse_baseline(text)
     except GateFault as err:
         return _row("deploy records", [f"cannot be read as the performance baseline — {err}"], "")
-    if not lines and not legacy:
+    if not lines and not legacy and not rejected:
         return None
-    problems, cache = [], {}
+    problems, cache = [f"{tag} is no deploy record ({why}) — a planted or broken tag; no deploy reads it, delete it on origin"
+                       for tag, why in rejected], {}
     for i in range(len(lines)):
         prev = reference(lines[:i], lines[i]["site"])
         if prev is not None:

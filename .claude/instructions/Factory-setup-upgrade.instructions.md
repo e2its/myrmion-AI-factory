@@ -322,9 +322,55 @@ Interactive sessions ask once to approve a project server; the `factory-qa` agen
 
 **deploy-tool (EVOL-081).** `hosting.iac_tool` becomes `hosting.deploy_tool` in `docs/setup.md`: a tool answer carries over as is; `None` or no answer on a served host → ask Q20.1 again (Vercel, Railway, Fly.io, Other: decided by the provider, never asked). Then the tool's row from `gate.py discovery --resolve --json → configures.delivery.adapter` lands in `config/quality.json → delivery.adapter` (Other: the finalisation's RDR, Factory-setup-discovery § 4.1.3 step 2a). Idempotent.
 
-**delivery-execution (EVOL-081).** Add the template's `delivery` block to `config/quality.json`: `execution` and `migrate` from `--resolve` (`configures.delivery.execution`, `configures.delivery.migrate`), `adapter` from deploy-tool, `secrets: []`, `probe` and `tags` as the template. Write `delivery.execution` beside `delivery.mode` in `docs/setup.md`. `ci` → the deploy pipeline lands — GitHub `.github/workflows/deploy.yml` (`templates_to_add`); Bitbucket merges into the existing `bitbucket-pipelines.yml` (`target_mode: merge`, Factory-setup-materialization) — and a local apply is denied from then.
+**delivery-execution (EVOL-081).** Add the template's `delivery` block to `config/quality.json`: `execution` and `migrate` from `--resolve` (`configures.delivery.execution`, `configures.delivery.migrate`), `adapter` from deploy-tool, `secrets: []`, `probe` as the template. When `coherence.certifying_artefacts` is present, append `docs/spec/*/smoke_e2e_report*.md` and `docs/spec/*/review/preventive_sweep_*.md` where missing (the PR's verdicts are certifying: `gate.py currency` judges their freshness). Write `delivery.execution` beside `delivery.mode` in `docs/setup.md`. `ci` → the deploy pipeline lands — GitHub `.github/workflows/deploy.yml` (`templates_to_add`); Bitbucket merges into the existing `bitbucket-pipelines.yml` (`target_mode: merge`, Factory-setup-materialization) — and a local apply is denied from then.
 
-**deploy-records (EVOL-081).** Each line of `docs/project_log/performance_baseline.jsonl` becomes a `deploy/{env}/{ts}` record tag on its `sha` — the line's `site` is the `env`, `at` → `ts`; message JSON `{env, sha, at, hosting, metrics[, rebaseline]}` — read back through `gate.py delivery --last`; then the file is removed and `performance.baseline` leaves `config/quality.json`. No file → nothing. Idempotent: a tag that exists is skipped.
+**deploy-records (EVOL-081).** Each line of `docs/project_log/performance_baseline.jsonl` becomes a `deploy/{env}/{ts}` record tag on its commit — the line's `site` is the `env`, `at` → `ts`; message JSON `{env, sha, at, hosting, metrics[, rebaseline]}`, written by the executor's own `write_record` (no lkg: a legacy line names no probe). The tags are pushed to `origin` and read back there; only then the file is removed and `performance.baseline` leaves `config/quality.json`. A line whose commit is not in the clone stops it, nothing removed. No file → nothing. Idempotent: a record that exists is skipped. Run it at the project root:
+
+```bash
+set -euo pipefail
+F=docs/project_log/performance_baseline.jsonl
+[ -f "$F" ] || { echo "deploy-records: no baseline file — nothing to convert"; exit 0; }
+python3 - "$F" <<'PY'
+import datetime as dt, json, subprocess, sys
+from pathlib import Path
+sys.path.insert(0, "scripts")
+from gates import delivery
+repo = Path(".")
+have = {(r["env"], r["sha"], r["at"]) for r in delivery.records(repo)}
+for n, raw in enumerate(Path(sys.argv[1]).read_text(encoding="utf-8").splitlines(), 1):
+    if not raw.strip():
+        continue
+    e = json.loads(raw)
+    r = subprocess.run(["git", "rev-parse", "-q", "--verify", f"{e['sha']}^{{commit}}"], capture_output=True, text=True)
+    if r.returncode:
+        sys.exit(f"deploy-records: line {n} names {e['sha']}, not a commit of this clone — fetch it, run again; nothing removed")
+    env, sha = delivery._env_name(e["site"]), r.stdout.strip()
+    if (env, sha, e["at"]) not in have:
+        at = dt.datetime.strptime(e["at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc)
+        delivery.write_record(repo, env, sha, {k: e[k] for k in ("hosting", "metrics", "rebaseline") if k in e}, good=False, now=at)
+        have.add((env, sha, e["at"]))
+PY
+git push origin 'refs/tags/deploy/*:refs/tags/deploy/*'
+python3 - "$F" <<'PY'
+import json, subprocess, sys
+from pathlib import Path
+sys.path.insert(0, "scripts")
+from gates import delivery
+remote = set(subprocess.run(["git", "ls-remote", "--tags", "origin", "deploy/*"], capture_output=True, text=True, check=True).stdout.split())
+recs = delivery.records(Path("."))
+for n, raw in enumerate(Path(sys.argv[1]).read_text(encoding="utf-8").splitlines(), 1):
+    if raw.strip():
+        e = json.loads(raw)
+        tag = next((r["tag"] for r in recs if r["env"] == e["site"] and r["sha"].startswith(e["sha"]) and r["at"] == e["at"]), None)
+        if not tag or f"refs/tags/{tag}" not in remote:
+            sys.exit(f"deploy-records: line {n} is not a record on origin yet — nothing removed")
+q = json.loads(Path("config/quality.json").read_text(encoding="utf-8"))
+(q.get("performance") or {}).pop("baseline", None)
+Path("config/quality.json").write_text(json.dumps(q, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+Path(sys.argv[1]).unlink()
+print("deploy-records: every line is a record tag on origin; the baseline file is removed")
+PY
+```
 
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 

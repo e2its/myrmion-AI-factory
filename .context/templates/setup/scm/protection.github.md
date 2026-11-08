@@ -20,6 +20,20 @@ Equivalent, as an API call (repository administrators only — never a materiali
 gh api -X PUT "repos/{owner}/{repo}/rulesets/{id}" --input ruleset.json   # rules: non_fast_forward, deletion, pull_request, required_status_checks
 ```
 
+## Production environment — when the project deploys from CI (`delivery.execution: ci`, EVOL-081)
+
+Repository → Settings → Environments → `production` (create it before the first deploy: a job naming a missing environment creates it with no rules).
+
+| Setting | Value | Why |
+|---|---|---|
+| **Required reviewers** | at least one person (Team or Pro on a private repository) | production waits for a person's approval |
+| **Deployment branches** | selected branches: `main` only | any other branch's workflow could name `production` and reach its secrets |
+| **Prevent self-review** | on for a team · off for a single maintainer | the person who starts a deploy does not approve it alone |
+| **Environment secrets** | the adapter row's names, production values only | never repository secrets: every job sees those |
+| **Required status check** | the Deploy workflow's `pr-verify` added to {{SCM_REQUIRED_CHECKS}} | the agent's sweep and smoke verdicts decide the merge |
+
+`gate.py scm-protection` verifies the reviewers and the branch policy at `ci`; self-review is reported, never red.
+
 ## Checklist
 
 - [ ] pull request required to merge into the protected branch (no direct push)
@@ -27,4 +41,5 @@ gh api -X PUT "repos/{owner}/{repo}/rulesets/{id}" --input ruleset.json   # rule
 - [ ] force-push forbidden
 - [ ] deletion forbidden
 - [ ] approvals: {{SCM_APPROVALS}} (a project decision — `scm.approvals`)
+- [ ] deploying from CI: `production` environment with required reviewers, deployment branches `main` only, its secrets as environment secrets, `pr-verify` required
 - [ ] `python3 scripts/gate.py scm-protection --control-point ci` green in CI, or this checklist ticked by a repository administrator when CI carries no token

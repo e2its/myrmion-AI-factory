@@ -192,9 +192,12 @@ class _Reader:
             except Unresolved:
                 self.vars[name] = None
         while args and args[0] in PREFIX_WORDS | {"export"}:
-            args.pop(0)
+            pre = args.pop(0)
             while args and (args[0].startswith("-") or ASSIGN.match(args[0])):
-                m = ASSIGN.match(args.pop(0))
+                flag = args.pop(0)
+                m = ASSIGN.match(flag)
+                if not m and flag in VALUED.get(pre, ()) and args:
+                    args.pop(0)   # `sudo -u root …`, `env -u X …`: the option's value is never the command
                 if m:
                     try:
                         self.vars[m.group(1)] = self.expand(m.group(2))
@@ -479,12 +482,56 @@ def _deploy_row(repo: Path) -> tuple[str | None, list[list[str]]]:
         for args in list(_argvs(Path(repo), cmd, None, {}))[-1:]:
             words = []
             for w in args:
-                if w.startswith("-"):
+                if w.startswith("-") or "{" in w:   # a flag or a row placeholder ends the head: `fly apps destroy {app}`
                     break
                 words.append(w)
             if words and words[0] != "cd" and words not in heads:
                 heads.append(words)
     return d.get("execution"), heads
+
+
+# launchers that run the next words as the command, with the option values they take (EVOL-081 deny)
+LAUNCHERS = {"npx": 0, "pnpx": 0, "bunx": 0, "timeout": 1, "nice": 0, "nohup": 0, "xargs": 0, "eval": 0, "stdbuf": 0,
+             "sudo": 0, "env": 0, "command": 0, "exec": 0, "time": 0}
+VALUED = {"sudo": {"-u", "-g", "-C", "-h", "-p", "-r", "-t", "-U"}, "env": {"-u", "-C", "-S"}, "nice": {"-n"},
+          "timeout": {"-s", "-k", "--signal", "--kill-after"}, "xargs": {"-I", "-n", "-P", "-L", "-d", "-a", "-E", "-s"}}
+ALIASES = {"flyctl": "fly", "docker-compose": "docker"}
+GATE_DEPLOY = {"--run", "--rollback", "--teardown"}
+
+
+def _unwrap(args: list[str]) -> list[str]:
+    """The command a launcher runs: `npx cdk deploy` → cdk deploy, `timeout 600 sudo -u x tf apply` → tf apply."""
+    while args and os.path.basename(args[0]) in LAUNCHERS:
+        name, rest = os.path.basename(args[0]), args[1:]
+        while rest and (rest[0].startswith("-") or ASSIGN.match(rest[0])):
+            flag = rest.pop(0)
+            if flag in VALUED.get(name, ()) and rest:
+                rest.pop(0)
+        for _ in range(LAUNCHERS[name]):   # `timeout DURATION`
+            if rest:
+                rest.pop(0)
+        args = rest
+    return args
+
+
+def _runs_head(args: list[str], head: list[str]) -> bool:
+    """argv runs the head: the same tool (aliases one name), its first word after the tool the head's subcommand,
+    the head's further words in order among the rest — flags and their values anywhere (`terraform -chdir=x apply`)."""
+    if not args or ALIASES.get(os.path.basename(args[0]), os.path.basename(args[0])) != ALIASES.get(os.path.basename(head[0]), os.path.basename(head[0])):
+        return False
+    words = [w for w in args[1:] if not w.startswith("-")]
+    if len(head) == 1:
+        return True
+    if not words or words[0] != head[1]:
+        return False
+    it = iter(words[1:])
+    return all(any(w == h for w in it) for h in head[2:])
+
+
+def _runs_executor(args: list[str]) -> bool:
+    """`gate.py delivery --run|--rollback|--teardown` — the executor run on a workstation (CI=1 would pass its guard)."""
+    i = next((k for k, w in enumerate(args) if os.path.basename(w) == "gate.py"), None)
+    return i is not None and "delivery" in args[i + 1:] and bool(GATE_DEPLOY & set(args[i + 1:]))
 
 
 def deploy_class(repo: Path, payload: dict, env: dict | None = None) -> str | None:
@@ -497,7 +544,8 @@ def deploy_class(repo: Path, payload: dict, env: dict | None = None) -> str | No
         return None
     env = dict(os.environ if env is None else env)
     for args in _argvs(Path(os.path.realpath(repo)), str(ti.get("command") or ""), payload.get("cwd") or None, env):
-        if any(args[:len(h)] == [os.path.basename(h[0]), *h[1:]] for h in heads):
+        args = _unwrap(list(args))
+        if _runs_executor(args) or any(_runs_head(args, h) for h in heads):
             return execution if isinstance(execution, str) else ""
     return None
 

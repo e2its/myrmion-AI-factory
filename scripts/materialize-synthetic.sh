@@ -266,6 +266,9 @@ PY
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]
 g["frontend-tests"]["scoped"]="npx jest --config jest.config.ts {paths} --no-coverage"; g["tests"]["command"]="python -m pytest -q -x"
 [r.pop("red_reads", None) for r in g.values()]; [g.pop(k, None) for k in ("sast", "contract-parity", "performance")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+  # its answers predate the deploy tool (EVOL-081): `hosting.iac_tool`, renamed by the deploy-tool migration
+  sed -i 's/^\(  *\)deploy_tool:/\1iac_tool:/' "$P/docs/setup.md"
+  rm -f "$P/.github/workflows/deploy.yml"   # and the deploy pipeline (templates_to_add, added where ci_cd.platform has one)
   rm -rf "$P/security/sast"   # it predates the SAST packs (EVOL-074): the packs and the `sast` row are owed (templates_to_add, added)
   rm -f "$P/contracts/errors.yaml" "$P/.claude/rules/monetary-amounts.md"   # it predates the product laws (EVOL-072): owed where the answers select them
   python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
@@ -312,6 +315,29 @@ case "$WANT" in chrome-devtools|playwright) EXP="$WANT|ok" ;; *) EXP="|ok" ;; es
 [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "$EXP" ] \
   && ok "the browser-mcp anchor lands Q23.5's server (${WANT:-none}) pinned and --isolated, keeps the project's own server, and a second run changes nothing (EVOL-077)" \
   || bad "the browser-mcp anchor (rc=$RC1/$RC2, got=$GOT, want=$EXP)" "$OUT"
+# EVOL-081 — the deploy-records migration, in a tree of its own (the scripts, a clone with an origin): a legacy baseline
+# line becomes a record tag on origin, read back before the file goes; twice, the second a no-op
+if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(open(sys.argv[1])) else 1)' "$ANSWERS"; then
+  H="$SCRATCH/h081"; Q="$H/q"; mkdir -p "$Q/docs/project_log" "$Q/config"
+  cp -R "$ROOT/scripts" "$Q/scripts"; git init -q --bare "$H/origin.git"
+  python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**deploy-records (EVOL-081).**")
+print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
+PY
+  printf '{"performance": {"baseline": "docs/project_log/performance_baseline.jsonl"}}\n' > "$Q/config/quality.json"
+  (cd "$Q" && git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm legacy && git remote add origin "$H/origin.git")
+  S7=$(git -C "$Q" rev-parse --short=7 HEAD)
+  printf '{"site": "staging", "sha": "%s", "at": "2026-10-01T10:00:00Z", "hosting": "staging", "metrics": {"lcp_ms": 900}}\n' "$S7" > "$Q/docs/project_log/performance_baseline.jsonl"
+  OUT=$(cd "$Q" && GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t bash "$H/mig.sh" 2>&1); RC1=$?
+  OUT2=$(cd "$Q" && bash "$H/mig.sh" 2>&1); RC2=$?
+  LAST=$(cd "$Q" && python3 scripts/gate.py delivery --last staging 2>/dev/null | python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["at"], r["metrics"]["lcp_ms"], len(r["sha"]))' 2>/dev/null)
+  ORIG=$(git -C "$H/origin.git" tag -l 'deploy/staging/*' | wc -l)
+  [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$LAST" = "2026-10-01T10:00:00Z 900 40" ] && [ "$ORIG" -eq 1 ] && [ ! -f "$Q/docs/project_log/performance_baseline.jsonl" ] \
+    && ! grep -q '"baseline"' "$Q/config/quality.json" \
+    && ok "the deploy-records migration turns a legacy baseline line into one record tag on origin (full SHA), removes the file and the key, and a second run changes nothing (EVOL-081)" \
+    || bad "the deploy-records migration (rc=$RC1/$RC2, last=$LAST, origin tags=$ORIG)" "$OUT${OUT2:+
+$OUT2}"
+fi
 # EVOL-081 — the merged Bitbucket pipeline (target_mode: merge): governance check, auto-tag and deploy in one file,
 # valid against the live schema, held by the executor's static check
 if [ -f "$P/bitbucket-pipelines.yml" ]; then

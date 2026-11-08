@@ -300,6 +300,12 @@ HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "terraform apply t
 assert_block "execution ci: «terraform apply» is blocked on a working branch, DEVOPS --deploy named" "run DEVOPS --deploy"
 HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "gh workflow run deploy.yml")"
 assert_pass "execution ci: starting the pipeline (gh workflow run) passes"
+git -C "$REPO" checkout -q --detach
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "terraform apply tfplan")"
+assert_block "execution ci, detached HEAD: «terraform apply» is still blocked (no branch is no exemption)" "run DEVOPS --deploy"
+HOME="$FAKEHOME" run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
+assert_pass "detached HEAD: an ordinary write passes (no branch to protect)"
+git -C "$REPO" checkout -q feature/FEAT-001-x
 deliv local
 HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "terraform apply tfplan")"
 assert_pass "execution local: «terraform apply» passes"

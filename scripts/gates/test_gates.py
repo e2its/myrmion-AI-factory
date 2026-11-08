@@ -3862,6 +3862,7 @@ class Scm(unittest.TestCase):
                     return base(url, headers, missing_ok)
                 return f
             kw = dict(control_point="ci", env={"GH_TOKEN": "t"}, origin="git@github.com:acme/app.git")
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\n---\n# Setup\n")
             self.assertTrue(scm.check(repo, fetch=fetch_with(None), **kw)["ok"], "local execution: the environment is not asked")
             q = json.loads((repo / "config/quality.json").read_text()); q["delivery"] = {"execution": "ci"}; write(repo / "config/quality.json", json.dumps(q))
             r = scm.check(repo, fetch=fetch_with(None), **kw)
@@ -3869,7 +3870,12 @@ class Scm(unittest.TestCase):
             r = scm.check(repo, fetch=fetch_with({"protection_rules": [{"type": "wait_timer", "wait_timer": 5}]}), **kw)
             self.assertIn("no required reviewers", " ".join(r["findings"]))
             r = scm.check(repo, fetch=fetch_with({"protection_rules": [{"type": "required_reviewers", "reviewers": [{"type": "User"}]}]}), **kw)
-            self.assertTrue(r["ok"], scm.render(r))
+            self.assertIn("no deployment-branch policy", " ".join(r["findings"]), "round-1 cure: reviewers without a branch policy gate nothing")
+            ok_env = {"protection_rules": [{"type": "required_reviewers", "reviewers": [{"type": "User"}]}], "deployment_branch_policy": {"protected_branches": True}}
+            r = scm.check(repo, fetch=fetch_with(ok_env), **kw)
+            self.assertTrue(r["ok"], scm.render(r)); self.assertIn("prevent_self_review off", " ".join(r["unverifiable"]), "self-review is a note, never red")
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitLab CI\n---\n# Setup\n")
+            self.assertTrue(scm.check(repo, fetch=fetch_with(None), **kw)["ok"], "GitHub-hosted on another CI: no GitHub deploy workflow, the environment is not asked")
 
 
 DISC_REGISTRY = {
@@ -5288,6 +5294,21 @@ class Writes(unittest.TestCase):
                                     "destroy": "terraform init -input=false && terraform apply -destroy -auto-approve"})
         self.assertEqual(self.deploy_rc("terraform init -input=false")[0], 4, "a chained preparation step (init) is never the deploy — only the chain's last command")
         self.assertEqual(self.deploy_rc("terraform apply -destroy -auto-approve")[0], 5)
+        # round-1 cure: global flags, launchers, option values, aliases, placeholders, the executor itself
+        for cmd in ("terraform -chdir=infra apply tfplan", "timeout 600 terraform apply", "sudo -u root terraform apply",
+                    "env -u X terraform apply", "nice -n 5 terraform apply", "CI=1 python3 scripts/gate.py delivery --run --env production",
+                    "python3 scripts/gate.py delivery --teardown --env staging"):
+            self.assertEqual(self.deploy_rc(cmd)[0], 5, cmd)
+        for cmd in ("terraform plan -out apply", "terraform -chdir=infra plan", "python3 scripts/gate.py delivery --check",
+                    "python3 scripts/gate.py delivery --last staging"):
+            self.assertEqual(self.deploy_rc(cmd)[0], 4, f"{cmd} is not deploy")
+        self.deploy_config(adapter={"tool": "flyctl", "apply": "fly deploy --remote-only --app {app} --yes", "destroy": "fly apps destroy {app} --yes"})
+        for cmd in ("fly apps destroy my-app --yes", "flyctl deploy --app my-app", "npx --yes fly deploy"):
+            self.assertEqual(self.deploy_rc(cmd)[0], 5, cmd)
+        self.assertEqual(self.deploy_rc("fly apps list")[0], 4)
+        self.deploy_config(adapter={"tool": "Docker Compose", "apply": "DOCKER_HOST=ssh://{host} docker compose up -d --wait", "destroy": None})
+        self.assertEqual(self.deploy_rc("docker compose -f prod.yml up -d")[0], 5, "a flag and its value between the words")
+        self.assertEqual(self.deploy_rc("docker compose -f prod.yml logs")[0], 4)
 
 
 class Cli(unittest.TestCase):
@@ -7242,8 +7263,9 @@ class Performance(unittest.TestCase):
             self._bl(repo, self._line(p50=10) + self._line(site="production", p50=50))
             r = performance.check(repo, "HEAD"); self.assertTrue(r["ok"], "another site's line is never the reference (DC-43): " + performance.render(r))
             self.assertTrue(performance.check(repo)["ok"], "without a base only the shape and the one-way rule are read")
-        for bad, word in (('{"sha": "a", "metrics": {}}\n', "has no at, hosting"), ("x\n", "carries no JSON record"),
-                          (self._line(sha="zz"), "`sha` must be the measured commit"),
+        for bad, word in (('{"sha": "' + "a" * 40 + '", "metrics": {}}\n', "has no at, hosting"),
+                          ("x\n", "is no deploy record (no JSON record in its message)"),
+                          (self._line(sha="zz"), "is no deploy record (its `sha` is not a 40-hex commit)"),
                           (self._line().replace("2026-11-07T10:00:00Z", "yesterday"), "`at` must be a UTC date"),
                           (self._line().replace('"container"', '"vm"'), "`hosting` must be one of"),
                           (self._line(extra={"start_ms": "slow"}), "`metrics` must hold numbers")):
@@ -7388,7 +7410,9 @@ class Performance(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp); self._bl(repo, "x\n")
             with _Slow() as s:
-                self.assertIn("cannot be read as the performance baseline", performance.render(performance.measure(repo, "staging", s.url)))
+                out = performance.render(performance.measure(repo, "staging", s.url))
+            self.assertNotIn("cannot be read", out, "round-1 cure: a planted tag never stops the deployed measurement")
+            self.assertIn("is no deploy record", performance.render(performance.check(repo, "HEAD")), "the light check reports it")
 
     def test_the_hosting_selects_what_is_measured(self):
         for hosting, cold in (("container", "start_ms"), ("function", "cold_ms")):
@@ -7670,6 +7694,54 @@ class Delivery(unittest.TestCase):
         with self.assertRaisesRegex(GateFault, "not an environment name"):
             delivery._env_name("prod; rm -rf /")
 
+    def test_variables_are_the_step_environment_and_every_command_is_filled_first(self):
+        """Round-1 cure: `$NAME` is the step's value (a migrate row passes the database URL), an unset name is a fault;
+        an unfilled command anywhere in the run runs nothing; a rollback never re-runs the forward migration."""
+        self.assertEqual(delivery.steps('migrate -database "$DATABASE_URL" up', "staging", None, {"DATABASE_URL": "pg://x"})[0][1],
+                         ["migrate", "-database", "pg://x", "up"])
+        self.assertEqual(delivery.steps("H=ssh://${HOST} tool --at $H", "staging", None, {"HOST": "h1"}), [({"H": "ssh://h1"}, ["tool", "--at", "ssh://h1"])])
+        with self.assertRaisesRegex(GateFault, r"reads \$DATABASE_URL"):
+            delivery.steps('migrate -database "$DATABASE_URL" up', "staging", None, {})
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, adapter={**self.ROW, "apply": "fly deploy --app {app}", "params": {"app": None}})
+            calls = []
+            with self.assertRaisesRegex(GateFault, r"names \{app\}"):
+                delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertEqual(calls, [], "an unfilled apply refuses before validate runs")
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["migrate"] = "mig up"
+            write(repo / "config/quality.json", json.dumps(q)); self._git(repo, "commit", "-qam", "migrate")
+            delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            calls = []
+            r = delivery.rollback(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertTrue(r["ok"], delivery.render(r)); self.assertNotIn(["mig", "up"], [c[0][:2] for c in calls], "a rollback never runs the forward migration")
+            self.assertIn("not run: a rollback", delivery.render(r))
+
+    def test_a_planted_tag_is_never_a_record_nor_a_last_good_state(self):
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            self._git(repo, "tag", "deploy/staging/99991231T235959Z")                 # lightweight: no record
+            self._git(repo, "tag", "-a", "deploy/staging/99991231T235958Z", "-m", '{"env": "staging", "sha": "--output=x"}')
+            self._git(repo, "tag", "lkg/staging/99991231T235959Z")                    # an lkg with no record of its own
+            self.assertEqual(delivery.records(repo, "staging"), [], "neither tag is a record")
+            self.assertIsNone(delivery.lkg(repo, "staging"), "a lone lkg tag is no last-known-good")
+            r = delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            self.assertTrue(r["ok"], "a planted tag never stops a deploy"); self.assertEqual(delivery.lkg(repo, "staging")["tag"], r["tag"])
+            rec = delivery.last(repo, "staging")
+            root = self._git(repo, "rev-list", "--max-parents=0", "HEAD").strip()
+            self._git(repo, "tag", "-f", rec["tag"].replace("deploy/", "lkg/", 1), root)
+            self.assertIsNone(delivery.lkg(repo, "staging"), "an lkg tag moved off its record's SHA is no last-known-good")
+
+    def test_check_names_pyyaml_when_the_subset_parser_cannot_read_the_pipeline(self):
+        tpl = HERE.parent.parent / ".context/templates/setup/workflows"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / ".github/workflows/deploy.yml", (tpl / "deploy.github-actions.yml").read_text())
+            with unittest.mock.patch.dict(sys.modules, {"yaml": None}):
+                out = delivery.render(delivery.check(repo))
+            self.assertIn("install PyYAML", out)
+
     def test_check_holds_the_pipeline_to_the_approval(self):
         tpl = HERE.parent.parent / ".context/templates/setup/workflows"
         with tempfile.TemporaryDirectory() as tmp:
@@ -7691,6 +7763,30 @@ class Delivery(unittest.TestCase):
             self.assertIn("no `url_from`", delivery.render(delivery.check(repo)))
         with tempfile.TemporaryDirectory() as tmp:
             self.assertTrue(delivery.check(self._repo(tmp, execution="local")).get("na"))
+
+    def test_check_holds_the_mode_key_and_the_covered_pipeline(self):
+        """Round-1 cure: `execution` is ci_cd.platform's derivation; a covered platform deploying from CI has its pipeline;
+        a stage pushes only its own environment's tags."""
+        tpl = HERE.parent.parent / ".context/templates/setup/workflows"
+        setup = lambda repo, plat: write(repo / "docs/setup.md", f"---\nci_cd:\n  platform: {plat}\n---\n# Setup\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, execution="local")
+            setup(repo, "GitHub Actions")
+            self.assertIn("ci_cd.platform is GitHub Actions — it derives ci", delivery.render(delivery.check(repo)))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            setup(repo, "None")
+            self.assertFalse(delivery.check(repo)["ok"], "None derives local")
+            setup(repo, "Bitbucket Pipelines")
+            self.assertIn("bitbucket-pipelines.yml does not call", delivery.render(delivery.check(repo)))
+            setup(repo, "Jenkins")
+            self.assertTrue(delivery.check(repo).get("na"), "another platform writes its own pipeline")
+            setup(repo, "GitHub Actions")
+            text = (tpl / "deploy.github-actions.yml").read_text()
+            write(repo / ".github/workflows/deploy.yml", text)
+            r = delivery.check(repo); self.assertTrue(r["ok"], delivery.render(r))
+            write(repo / ".github/workflows/deploy.yml", text.replace("refs/tags/deploy/staging/*:refs/tags/deploy/staging/*", "refs/tags/deploy/*:refs/tags/deploy/*"))
+            self.assertIn("pushes every environment's tags", delivery.render(delivery.check(repo)))
 
     def test_the_pr_verdicts_are_owed_only_where_they_apply(self):
         """RDR 1 (sweep) and RDR «1» 2026-11-08 (smoke): the PR demands the agent's verdicts, in its diff."""

@@ -13,6 +13,17 @@
 | **Check for at least N approvals** (merge check) | **{{SCM_APPROVALS}}** | a project decision (`scm.approvals`) |
 | **Prevent a merge with unresolved merge checks** (`enforce_merge_checks`, Premium) | on | without it the merge checks are advisory — the reader reports them as such, not as enforced |
 
+## Production deployment — when the project deploys from CI (`delivery.execution: ci`, EVOL-081)
+
+Repository settings → Deployments → `production`.
+
+| Setting | Value | Why |
+|---|---|---|
+| **Deployment permissions** (Premium) | only the people who approve production; "admins can deploy" as the team decides | without them any user with write access can press the manual production step |
+| **Deployment variables** | the adapter row's names, production values only, secured | never repository variables: Bitbucket hands every variable of a step to its script |
+
+Bitbucket has no separate approval: the manual `trigger` is the approval, so without Premium deployment permissions it is weak — the deploy pipeline's header says so.
+
 ## Checklist
 
 - [ ] no direct push to the protected branch (pull requests only)
@@ -21,4 +32,5 @@
 - [ ] deletion forbidden
 - [ ] approvals: {{SCM_APPROVALS}}
 - [ ] merge checks enforced (Premium) — or the checklist is the record for the builds and approvals
+- [ ] deploying from CI: production deployment permissions (Premium) and its secrets as secured deployment variables
 - [ ] `python3 scripts/gate.py scm-protection --control-point ci` green in CI, or this checklist ticked by a repository administrator when CI carries no token

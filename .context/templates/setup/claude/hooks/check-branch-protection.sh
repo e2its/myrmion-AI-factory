@@ -10,10 +10,10 @@
 # ============================================================================
 
 branch=$(git branch --show-current 2>/dev/null || echo '')
-if [ -z "$branch" ]; then
-  exit 0
-fi
 PAYLOAD=$(cat)
+# A detached HEAD has no branch to protect — the write-target reader still judges it (the deploy class, the guarded
+# configuration), then the hook lets it through (EVOL-081 round 1).
+detached_pass() { [ -z "$branch" ] && exit 0; }
 # EVOL-065: the same guard for a shell write. Reader fault on a Bash call → let through with a notice:
 # the shell is the repair route, and the git pre-commit hook classifies the branch before any commit.
 is_bash() { [[ "$PAYLOAD" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" ]]; }
@@ -26,11 +26,13 @@ shell_passes() {  # the PreToolUse envelope: the only channel an exit-0 hook has
 # bare hotfix, and a train (a per-increment branch whose increment plan declares sub-increments). No regex here.
 # exit 1 = protected → block. A missing or broken reader blocks too (fail-closed): governance is not delivered.
 if ! command -v python3 >/dev/null 2>&1; then
+  detached_pass
   is_bash && shell_passes "python3 is not on PATH"
   echo "BLOCKED: python3 is not on PATH — the governance reader cannot run, so '$branch' cannot be classified. Install python3, then retry." >&2
   exit 2
 fi
 if [ ! -f scripts/gate.py ]; then
+  detached_pass
   is_bash && shell_passes "scripts/gate.py is not delivered"
   {
     echo "BLOCKED: the governance reader (scripts/gate.py) is not delivered — the branch '$branch' cannot be classified."
@@ -48,8 +50,9 @@ case "$wt_rc" in
   4) exit 0 ;;   # nothing to judge — 3 is gate.py's import guard (package broken): a fault, below
   1) printf '%s\n' "$wt_out" >&2; exit 2 ;;
   5) printf '%s\n' "$wt_out" >&2; exit 2 ;;   # EVOL-081: the adapter's apply/destroy when delivery.execution is ci — on every branch
-  *) is_bash && shell_passes "gate.py write-target exit $wt_rc" ;;
+  *) detached_pass; is_bash && shell_passes "gate.py write-target exit $wt_rc" ;;
 esac
+detached_pass
 bc_out=$(python3 scripts/gate.py branch-class --protected 2>&1); bc_rc=$?
 case "$bc_rc" in
   0) exit 0 ;;
