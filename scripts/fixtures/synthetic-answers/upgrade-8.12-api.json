@@ -54,6 +54,8 @@
       "Q23.1",
       "Q23.2",
       "Q23.3",
+      "Q23.4",
+      "Q23.5",
       "Q24",
       "Q25",
       "Q27.1",
@@ -112,7 +114,8 @@
       "feature_map Version (EVOL-070)",
       "data (EVOL-071)",
       "performance (EVOL-073)",
-      "history-in-vcs (EVOL-118)"
+      "history-in-vcs (EVOL-118)",
+      "browser-mcp (EVOL-077)"
     ],
     "templates_to_add": [
       "security/sast/python.yml",

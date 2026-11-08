@@ -308,7 +308,8 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
     
     IF current_agent == "DEVOPS":
       targets = []
-      # re-deploy to dev invalidates the smoke blocks captured against the previous build
+      # re-deploy to dev invalidates the smoke blocks captured against the previous build — the aggregate report only:
+      # an increment report (smoke_e2e_report_{INC}.md, per-slice cadence, EVOL-077) is frozen; the next increment re-walks its cases
       IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md") AND "redeploy_dev" IN affected_scopes:
         targets.push("smoke_e2e_report")
       RETURN targets

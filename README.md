@@ -290,7 +290,7 @@ Each `full-sdlc` feature expands into **8 backlog issues**. Three are hard gates
 
 - **CONTRACT-FREEZE** — freezes API contracts (OpenAPI, TS interfaces, GraphQL schema, etc., stack-specific) and the contract test harness before `IMPLEMENT --plan`.
 - **PREVENTIVE-SWEEP** — runtime defect scan post-IMPLEMENT via a parallel scope-sized skill; zero open C-severity findings to pass.
-- **SMOKE-E2E** — one smoke block per `user_journey.md § 3` Path, expanded transitively Paso → BDD Scenario → `test_plan.md` TC, executed on the dev-deployed build before `QA --verify` can pass.
+- **SMOKE-E2E** — one smoke block per `user_journey.md § 3` Path, expanded transitively Paso → BDD Scenario → `test_plan.md` TC, executed on the dev-deployed build before `QA --verify` can pass. The cadence is a SETUP answer (Q23.4 `qa.smoke_cadence`: per slice, recommended, or at feature close); every walked case must have its automated test (`gate.py traceability`); a frontend with a browser MCP (Q23.5) adds `[QA-VIS-{CASE}]` visual cases, walked by the `factory-qa` agent on an isolated browser profile (EVOL-077).
 
 Two additional gates operate at the epic/slice level:
 

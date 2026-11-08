@@ -1,5 +1,5 @@
 ---
-version: 2.19.1
+version: 2.20.0
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -91,6 +91,9 @@ hosting:
 performance:
   api_p95: null                       # Q37, when a backend exists (EVOL-073)
   web: null                           # Q37.1, when a frontend exists (EVOL-073)
+qa:
+  smoke_cadence: null                 # Q23.4: per-slice | feature-close (EVOL-077)
+  browser_mcp: null                   # Q23.5, when a frontend exists: chrome-devtools | playwright | none (EVOL-077)
 ci_cd:
   platform: null
   tier: null
@@ -257,7 +260,8 @@ last_update: [TIMESTAMP]
 - **IDE Preference:** [VSCode | IntelliJ IDEA | PyCharm | None]
 - **E2E Testing:** [Playwright (Web UI) | Newman (API) | Skip]
 - **DAST Tools:** [OWASP ZAP | Skip]
-- **Visual Regression:** [Enabled (Playwright Snapshots) | Disabled]
+- **Visual QA cases:** [chrome-devtools | playwright | none] — frontmatter `qa.browser_mcp` (Q23.5, when a frontend exists); a browser MCP adds `[QA-VIS-{CASE}]` cases to the smoke (EVOL-077)
+- **Smoke cadence:** [per-slice | feature-close] — frontmatter `qa.smoke_cadence` (Q23.4, EVOL-077)
 - **Stateless Strategy:** [Session Management: Redis/JWT | Cache: Redis Cluster/CDN | Idempotency: Keys/Deduplication]
 - **Security Baseline:** [OWASP Top 10 Controls | Secrets: Vault/AWS Secrets | SAST: Semgrep/Gitleaks | Network: Zero Trust/mTLS]
 - **Privacy Compliance:** [GDPR Art. 5+25 | PII Classification: Tier 1/2/3 | User Rights: Access/Erasure/Portability | Consent: Opt-In/Granular]

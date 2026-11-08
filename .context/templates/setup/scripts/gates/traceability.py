@@ -23,6 +23,11 @@ links       every link under the test roots at the home, with its file:line. A l
 check       case → test, never test → case: every declared, non-manual case has a linking test, or sits in the baseline.
             The baseline may only shrink: an entry now linked is red until removed; an entry naming no declared case
             is red; a baseline on disk that git does not track is red (commit it — CI reads the commit).
+walks       EVOL-077 — the drift contract: every smoke report beside a plan (`docs/spec/{FEATURE}/smoke_e2e_report*.md`,
+            `status: DRAFT` skipped) lists the cases it walks — `Covered TCs:` lines, the `Covered TCs` table column and
+            `[QA-VIS-<id>]` visual tokens, outside code fences. Each walked id is a declared, non-manual case with a
+            linking test: malformed, unknown, manual, unlinked or still in the baseline is red. `walks {report: [ids]}`
+            is what QA reads for the per-slice regression (each slice report covers every earlier one's ids).
 baseline    `--init` records the unlinked set once (refused when the file exists, and refused when no case links at
             all — a home or a root that matches nothing is a misconfiguration, not debt); `--refresh` removes entries
             that are linked or gone — never adds.
@@ -35,7 +40,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from .common import GateFault, key
+from .common import GateFault, key, read_frontmatter
 from .seal import _norm_path, _root_match
 
 HOMES = {
@@ -168,6 +173,73 @@ def declared(repo: Path, c: dict, listing: list[str] | None = None) -> tuple[dic
     return out, bad
 
 
+# ─── walked cases (EVOL-077) ────────────────────────────────────────────────────
+
+WALK = re.compile(r"^smoke_e2e_report[^/]*\.md$")
+COVERED = re.compile(r"^\s*(?:[-*]\s+)?\**Covered TCs:?\**:?\s*(?P<ids>.*)$", re.I)
+VISUAL = re.compile(r"\[QA-VIS-(?P<id>[^\]\s]+)\]")
+
+
+def _walked_items(text: str) -> list[tuple[int, str]]:
+    """(line, item) for every case a report walks, outside code fences: `Covered TCs:` lines, the `Covered TCs` table column, `[QA-VIS-<id>]` tokens."""
+    out: list[tuple[int, str]] = []
+    fence = False
+    col: int | None = None
+    for n, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith(("```", "~~~")):
+            fence = not fence; col = None; continue
+        if fence:
+            continue
+        out += [(n, m.group("id")) for m in VISUAL.finditer(line)]
+        m = COVERED.match(line)
+        if m:
+            out += [(n, x.strip()) for x in m.group("ids").split(",") if x.strip()]; continue
+        t = re.match(r"^\s*\|(.*)\|\s*$", line)
+        if not t:
+            col = None; continue
+        cells = [_cell(x) for x in t.group(1).split("|")]
+        if cells and all(set(x) <= set("-: ") for x in cells):
+            continue
+        heads = [x.upper() for x in cells]
+        if "COVERED TCS" in heads:
+            col = heads.index("COVERED TCS"); continue
+        if col is not None and col < len(cells):
+            out += [(n, x.strip()) for x in cells[col].split(",") if x.strip() and x.strip() not in ("—", "-")]
+    return out
+
+
+def walks(repo: Path, c: dict, listing: list[str], dec: dict, lnk: dict, base: list[str]) -> tuple[dict[str, list[str]], list[dict]]:
+    """report → the case ids it walks; findings: a walked case with no automated spec (manual, unlinked or in the baseline), unknown, or malformed."""
+    folders = sorted({str(Path(p).parent) for p in listing if _root_match(p, [c["plans"]])})
+    out: dict[str, list[str]] = {}
+    bad: list[dict] = []
+    for folder in folders:
+        feature = Path(folder).name
+        for rel in [p for p in listing if str(Path(p).parent) == folder and WALK.match(Path(p).name)]:
+            try:
+                status = str((read_frontmatter(repo / rel) or {}).get("status") or "").upper()
+            except GateFault as e:
+                bad.append({"path": rel, "reason": f"frontmatter unreadable: {e}"}); continue
+            if status == "DRAFT":
+                continue   # a skeleton, not a walk
+            ids: list[str] = []
+            for n, item in _walked_items((repo / rel).read_text(encoding="utf-8", errors="replace")):
+                where = f"{rel}:{n}"
+                if not c["id"].match(item):
+                    bad.append({"path": rel, "reason": f"{where}: `{item}` is not a case id (traceability.id_pattern) — a walk lists the cases it covers"}); continue
+                qid = f"{feature}/{item}"
+                if qid not in dec:
+                    bad.append({"path": rel, "reason": f"{where}: `{qid}` names no case the plan declares — a walk covers declared cases"})
+                elif dec[qid]["manual"]:
+                    bad.append({"path": rel, "reason": f"{where}: `{qid}` is a manual case — a walked case needs its automated spec"})
+                elif qid not in lnk:
+                    bad.append({"path": rel, "reason": f"{where}: `{qid}` is walked without its automated spec{' (still in the baseline)' if qid in base else ''} — the walk drifts from the suite; link a test at the home"})
+                if item not in ids:
+                    ids.append(item)
+            out[rel] = ids
+    return out, bad
+
+
 # ─── links at the home ──────────────────────────────────────────────────────────
 
 def _marker_name(dec: ast.AST) -> tuple[str | None, list[str]]:
@@ -271,7 +343,8 @@ def check(repo: Path) -> dict:
     dec, bad_dec = declared(repo, c, listing)
     lnk, bad_lnk = links(repo, c, listing)
     base = read_baseline(repo, c)
-    findings = list(bad_dec) + list(bad_lnk)
+    walked, bad_walk = walks(repo, c, listing, dec, lnk, base)
+    findings = list(bad_dec) + list(bad_lnk) + list(bad_walk)
     if (repo / c["baseline"]).is_file() and not is_tracked(repo, c["baseline"]):
         findings.append({"path": c["baseline"], "reason": "the baseline is on disk but git does not track it — commit it (CI reads the commit; an uncommitted baseline is a push that is green here and red there)"})
     for qid in sorted(set(lnk) - set(dec)):
@@ -295,9 +368,10 @@ def check(repo: Path) -> dict:
     n_lnk = sum(1 for q in owed if q in lnk)
     manual = sum(1 for d in dec.values() if d["manual"])
     reason = (f"{len(dec)} case(s) declared, {n_lnk} linked, {len(unlinked)} unlinked ({len([q for q in unlinked if q in base])} in the baseline)"
-              + (f", {manual} manual" if manual else "")) if dec else "no test plan declares a case yet"
+              + (f", {manual} manual" if manual else "")
+              + (f", {sum(len(v) for v in walked.values())} walked" if walked else "")) if dec else "no test plan declares a case yet"
     return {"ok": not findings, "required": True, "home": c["kind"], "declared": len(dec), "linked": n_lnk, "manual": manual, "unlinked": unlinked, "baseline": base,
-            "new_debt": new_debt, "shrink": shrink, "stale": stale, "unknown": sorted(set(lnk) - set(dec)), "findings": findings, "cases": cases, "reason": reason}
+            "new_debt": new_debt, "shrink": shrink, "stale": stale, "unknown": sorted(set(lnk) - set(dec)), "walks": walked, "findings": findings, "cases": cases, "reason": reason}
 
 
 def baseline(repo: Path, init: bool = False, refresh: bool = False) -> dict:

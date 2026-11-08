@@ -3433,6 +3433,37 @@ class Traceability(unittest.TestCase):
             del q["traceability"]; write(repo / "config/quality.json", json.dumps(q))
             r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertIn("`traceability` is missing", r["reason"])
 
+    def test_the_walk_drift_contract(self):
+        """EVOL-077: every case a smoke report walks has its automated spec — a walk never drifts from the suite."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            plan = self.PLAN + "\n## 4. UX\n| ID | Test Case | Tool | Expected |\n|---|---|---|---|\n| UX-01 | Responsive | Manual + Lighthouse | adapts |\n"
+            write(repo / "docs/spec/FEAT-001/test_plan.md", plan)
+            write(repo / "tests/test_login.py", 'import pytest\n\n@pytest.mark.case("FEAT-001/AC-01")\ndef test_login(): pass\n\n@pytest.mark.case("FEAT-001/TC-API-01")\ndef test_api(): pass\n')
+            write(repo / "docs/project_log/traceability_baseline.json", json.dumps({"unlinked": ["FEAT-001/TC-01"]}))
+            self._commit(repo, "linked + baseline")
+            self.assertTrue(traceability.check(repo)["ok"], "no walk yet: the contract reads nothing")
+            report = "docs/spec/FEAT-001/smoke_e2e_report_INC-1.md"
+            body = "---\nstatus: APPROVED\n---\n## SMOKE-1 — Path \"login\"\n\nCovered TCs: AC-01, TC-API-01\n\n| Block | Path | Covered TCs | Verdict |\n|---|---|---|---|\n| SMOKE-1 | login | AC-01 | PASS |\n\n## Visual cases\n- [QA-VIS-AC-01] dashboard renders — PASS\n\n```\nCovered TCs: TC-99\n```\n"
+            write(repo / report, body)
+            r = traceability.check(repo)
+            self.assertTrue(r["ok"], r["findings"]); self.assertEqual(r["walks"], {report: ["AC-01", "TC-API-01"]}, "line, column and visual token read; a fence walks nothing")
+            self.assertIn("2 walked", r["reason"])
+            # RED (the DoD): a walked case with no automated spec — unlinked, still in the baseline, or manual
+            for walked, why in (("TC-01", "without its automated spec"), ("UX-01", "manual"), ("TC-77", "names no case"), ("tc 01", "not a case id")):
+                write(repo / report, body.replace("Covered TCs: AC-01, TC-API-01", f"Covered TCs: AC-01, {walked}"))
+                r = traceability.check(repo)
+                self.assertFalse(r["ok"], walked); self.assertTrue(any(why in f["reason"] and f["path"] == report for f in r["findings"]), (walked, r["findings"]))
+            # the Consolidated Result column walks too: a case only the table lists is held to its spec
+            write(repo / report, body.replace("| SMOKE-1 | login | AC-01 | PASS |", "| SMOKE-1 | login | AC-01, TC-01 | PASS |"))
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertTrue(any("FEAT-001/TC-01" in f["reason"] for f in r["findings"]), r["findings"])
+            # a visual case inherits its case's spec: QA-VIS of an unlinked case is red
+            write(repo / report, body.replace("[QA-VIS-AC-01]", "[QA-VIS-TC-01]"))
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertTrue(any("TC-01" in f["reason"] for f in r["findings"]))
+            # a DRAFT report is a skeleton, not a walk
+            write(repo / report, body.replace("status: APPROVED", "status: DRAFT").replace("TC-API-01", "TC-01"))
+            self.assertTrue(traceability.check(repo)["ok"])
+
     def test_title_tag_and_junit_homes(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp, kind="title-tag")
@@ -4822,6 +4853,40 @@ class Discovery(unittest.TestCase):
                 self._reg(repo, lambda r: mut(next(s for q in r["questions"] for k, s in q["keys"].items() if k == "backend.runtime")["configures"]))
                 v12 = self._rule(discovery.validate(repo), "V12")
                 self.assertTrue(any(msg in f for f in v12), v12)
+
+    def test_v12_mcp_server_rows(self):
+        """EVOL-077: an `mcp.servers` row lands in .mcp.json — {command, args} only, pinned exactly, isolated."""
+        ok = {"command": "npx", "args": ["-y", "chrome-devtools-mcp@1.12.0", "--isolated", "--headless"]}
+        cases = [
+            ("green", {"chrome-devtools": ok}, None),
+            ("latest", {"chrome-devtools": {**ok, "args": ["-y", "chrome-devtools-mcp@latest", "--isolated"]}}, "pins an exact x.y.z version"),
+            ("unpinned", {"chrome-devtools": {**ok, "args": ["-y", "chrome-devtools-mcp", "--isolated"]}}, "pins an exact x.y.z version"),
+            ("not isolated", {"chrome-devtools": {**ok, "args": ["-y", "chrome-devtools-mcp@1.12.0"]}}, "`--isolated`"),
+            ("env", {"chrome-devtools": {**ok, "env": {"TOKEN": "x"}}}, "`env` is not an mcp-server field"),
+            ("url", {"chrome-devtools": {**ok, "url": "https://x"}}, "`url` is not an mcp-server field"),
+            ("bad name", {"chrome__devtools": ok}, "server name"),
+            ("not a row", {"chrome-devtools": "npx x"}, "{command, args}"),
+            ("no command", {"chrome-devtools": {"args": ok["args"]}}, "{command, args}"),
+        ]
+        for label, servers, msg in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                self._reg(repo, self._configures)
+                self._reg(repo, lambda r: next(s for q in r["questions"] for k, s in q["keys"].items() if k == "backend.runtime")["configures"]["Python"].__setitem__("mcp.servers", servers))
+                v12 = self._rule(discovery.validate(repo), "V12")
+                if msg is None:
+                    self.assertEqual(v12, [])
+                else:
+                    self.assertTrue(any(msg in f for f in v12), (label, v12))
+
+    def test_q23_5_configures_the_browser_mcp(self):
+        real = Path(__file__).resolve().parents[2]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        srv = lambda a: discovery.resolve(real, {"frontend.framework": "React", "qa.browser_mcp": a})["configures"].get("mcp.servers")
+        self.assertEqual(sorted(srv("chrome-devtools")), ["chrome-devtools"]); self.assertEqual(sorted(srv("playwright")), ["playwright"])
+        self.assertIsNone(srv("none"), "none configures nothing")
+        self.assertIn("--isolated", srv("playwright")["playwright"]["args"])
 
     # ── EVOL-066: the defect classes a stack selects, the template catalog held to its promotion rules ─────────
     DC_HEAD = ("---\ndescription: c\n---\n## Families\n| Family | Surface (globs) | Invariant |\n|---|---|---|\n"

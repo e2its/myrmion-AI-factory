@@ -20,7 +20,9 @@
       "src/**",
       "scripts/**"
     ],
-    "performance.web": "standard"
+    "performance.web": "standard",
+    "qa.smoke_cadence": "per-slice",
+    "qa.browser_mcp": "none"
   },
   "expect": {
     "landed": [

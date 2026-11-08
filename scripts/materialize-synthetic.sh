@@ -381,6 +381,27 @@ OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
   || bad "the history-in-vcs migration (rc=$RC, idempotent=$([ "$SUM1" = "$SUM2" ] && echo y || echo n))" "$OUT"
 rm -f "$P/.claude/rules/zz-generated.md" "$P/.claude/rules/zz-link.md"; cp "$H/manifest" "$P/docs/project_log/governance_versions.json"
 if [ -f "$H/inv" ]; then cp "$H/inv" "$P/config/codebase_inventory.json"; else rm -f "$P/config/codebase_inventory.json"; fi
+# EVOL-077: the browser MCP lands from its anchor — merged beside a server the project has, pinned and isolated; twice, the second a no-op
+H="$SCRATCH/h077"; mkdir -p "$H"
+python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**browser-mcp (EVOL-077).**")
+print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
+PY
+printf '{"mcpServers": {"own": {"command": "own-server", "args": []}}}\n' > "$P/.mcp.json"
+DELIV=""   # the registry and the manifest, delivered as factory-sync does where the scratch tree lacks them; removed after
+for F in setup/discovery_registry.json governance_versions.json; do
+  [ -f "$P/.context/templates/setup/$F" ] && continue
+  mkdir -p "$(dirname "$P/.context/templates/setup/$F")"; cp "$T/$F" "$P/.context/templates/setup/$F"; DELIV="$DELIV $P/.context/templates/setup/$F"
+done
+ABS=$(realpath "$ANSWERS"); OUT=$(cd "$P" && bash "$H/mig.sh" "$ABS" 2>&1); RC1=$?; SUM1=$(sha256sum < "$P/.mcp.json")
+(cd "$P" && bash "$H/mig.sh" "$ABS") >/dev/null 2>&1; RC2=$?; SUM2=$(sha256sum < "$P/.mcp.json")
+WANT=$(python3 -c 'import json,sys; a=json.load(open(sys.argv[1]))["answers"]; print(a.get("qa.browser_mcp") if a.get("frontend.framework") not in (None, "None") else "")' "$ANSWERS")
+GOT=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["mcpServers"]; print(",".join(sorted(k for k in d if k != "own")) + ("|" + ("ok" if "own" in d and all("--isolated" in v["args"] and any(__import__("re").search(r"@\d+\.\d+\.\d+$", x) for x in v["args"]) for k, v in d.items() if k != "own") else "bad")))' "$P/.mcp.json")
+case "$WANT" in chrome-devtools|playwright) EXP="$WANT|ok" ;; *) EXP="|ok" ;; esac
+[ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "$EXP" ] \
+  && ok "the browser-mcp anchor lands Q23.5's server (${WANT:-none}) pinned and --isolated, keeps the project's own server, and a second run changes nothing (EVOL-077)" \
+  || bad "the browser-mcp anchor (rc=$RC1/$RC2, got=$GOT, want=$EXP)" "$OUT"
+rm -f "$P/.mcp.json"; for F in $DELIV; do rm -f "$F"; done
 # a real verdict on a feature branch: certified → ok; its certified file moves → STALE
 git -C "$P" checkout -q -b feature/FEAT-001-smoke; mkdir -p "$P/src" "$P/docs/spec/FEAT-001/qa"; printf 'print(1)\n' > "$P/src/app.py"
 git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm src; git -C "$P" update-ref refs/remotes/origin/main HEAD
@@ -661,6 +682,14 @@ OUT=$(cd "$P" && python3 scripts/gate.py traceability 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'FEAT-001/TC-02' && printf '%s' "$OUT" | grep -q 'no linking test' && ! printf '%s' "$OUT" | grep -q 'UX-01' && ok "RED: a declared case with no linking test at the one home (pytest-marker, from the materialised config); the untracked test links; the manual row is never owed" || bad "unlinked case not refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py traceability --baseline --init 2>&1 && git -C "$P" add -A && python3 scripts/gate.py traceability 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '1 linked, 1 unlinked (1 in the baseline), 1 manual' && ok "the baseline records the debt once (committed); the gate is green with the number on the board" || bad "baseline init/check wrong (rc=$RC)" "$OUT"
+# EVOL-077: the drift contract — a walked case has its automated spec; one still in the baseline is red, named with the report
+printf -- '---\nstatus: APPROVED\n---\n## SMOKE-1\n\nCovered TCs: TC-01\n\n## Visual cases\n- [QA-VIS-TC-01] list — PASS\n' > "$P/docs/spec/FEAT-001/smoke_e2e_report_INC-1.md"
+OUT=$(cd "$P" && python3 scripts/gate.py traceability 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '1 walked' && ok "a smoke walk whose cases all have their spec is green, counted (EVOL-077)" || bad "a clean walk not green (rc=$RC)" "$OUT"
+printf -- '---\nstatus: APPROVED\n---\n## SMOKE-1\n\nCovered TCs: TC-01, TC-02\n' > "$P/docs/spec/FEAT-001/smoke_e2e_report_INC-1.md"
+OUT=$(cd "$P" && python3 scripts/gate.py traceability 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'smoke_e2e_report_INC-1.md' && printf '%s' "$OUT" | grep -q 'walked without its automated spec' && ok "RED: a walked case with no automated spec fails the drift contract, on the materialised config (EVOL-077)" || bad "a walked case with no spec not refused (rc=$RC)" "$OUT"
+rm -f "$P/docs/spec/FEAT-001/smoke_e2e_report_INC-1.md"
 printf 'import pytest\n\n@pytest.mark.case("FEAT-001/TC-01")\ndef test_timeout(): pass\n\n@pytest.mark.case("FEAT-001/TC-02")\ndef test_cache(): pass\n\n@pytest.mark.case("FEAT-001/TC-77")\ndef test_ghost(): pass\n' > "$P/tests/test_trace.py"; git -C "$P" add -A >/dev/null
 OUT=$(cd "$P" && python3 scripts/gate.py traceability 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'TC-77' && printf '%s' "$OUT" | grep -q 'only shrinks' && ok "RED: an unknown link is as wrong as a case with no test; a baseline entry now linked must be removed" || bad "unknown link / shrink not refused (rc=$RC)" "$OUT"

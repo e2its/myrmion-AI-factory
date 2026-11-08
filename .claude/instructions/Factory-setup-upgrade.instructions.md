@@ -284,6 +284,32 @@ PY
 
 Then regenerate the snapshot (`docs/constitution.md` may have moved) and run `python3 scripts/gate.py manifest-parity`: green, or each finding named. Bumps from now on: `gate.py manifest --bump` writes the version only; the why goes in the commit.
 
+**browser-mcp (EVOL-077).** Q23.5's answer (`qa.browser_mcp`, asked when a frontend exists) lands its server in `.mcp.json` → `mcpServers`: the registry row `configures → mcp.servers`, pinned and `--isolated`. The merge keeps every server the project already has. A same-name server with other content is kept and printed: pose it as an RDR (keep it, or take the registry's). `none` or no frontend writes nothing. Idempotent — a second run changes nothing. Materialisation runs this same block. Run:
+
+```bash
+python3 - "$@" <<'PY'
+import json, pathlib, subprocess, sys
+root = pathlib.Path.cwd().resolve()
+cmd = [sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"] + (["--answers", sys.argv[1]] if len(sys.argv) > 1 else [])
+r = subprocess.run(cmd, capture_output=True, text=True)
+if r.returncode != 0: sys.exit(f"discovery --resolve failed: {(r.stdout or r.stderr).strip()}")
+want = json.loads(r.stdout).get("configures", {}).get("mcp.servers") or {}
+f = root / ".mcp.json"
+if not want: print("no browser MCP answered: .mcp.json untouched"); sys.exit(0)
+if f.is_symlink(): sys.exit(".mcp.json is a symlink: merge the servers by hand")
+doc = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else {}
+if not isinstance(doc, dict) or not isinstance(doc.setdefault("mcpServers", {}), dict): sys.exit(".mcp.json is not {\"mcpServers\": {...}}: merge the servers by hand")
+added = []
+for name, row in want.items():
+    have = doc["mcpServers"].get(name)
+    if have is None: doc["mcpServers"][name] = row; added.append(name)
+    elif have != row: print(f"kept {name}: it differs from the registry's {row} — RDR: keep it, or take the registry's")
+if added: f.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8"); print("added: " + ", ".join(added))
+PY
+```
+
+Interactive sessions ask once to approve a project server; the `factory-qa` agent carries its tools (`mcp__<server>__*`).
+
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).

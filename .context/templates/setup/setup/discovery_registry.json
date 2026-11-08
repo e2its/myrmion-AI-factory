@@ -1298,6 +1298,62 @@
    }
   },
   {
+   "id": "Q23.4",
+   "tier": 2,
+   "since": "9.1.0",
+   "keys": {
+    "qa.smoke_cadence": {
+     "options": [
+      "per-slice",
+      "feature-close"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q23.5",
+   "tier": 2,
+   "since": "9.1.0",
+   "when": "frontend.framework exists",
+   "keys": {
+    "qa.browser_mcp": {
+     "options": [
+      "chrome-devtools",
+      "playwright",
+      "none"
+     ],
+     "configures": {
+      "chrome-devtools": {
+       "mcp.servers": {
+        "chrome-devtools": {
+         "command": "npx",
+         "args": [
+          "-y",
+          "chrome-devtools-mcp@1.12.0",
+          "--isolated",
+          "--headless"
+         ]
+        }
+       }
+      },
+      "playwright": {
+       "mcp.servers": {
+        "playwright": {
+         "command": "npx",
+         "args": [
+          "-y",
+          "@playwright/mcp@0.0.84",
+          "--isolated",
+          "--headless"
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
    "id": "Q24",
    "tier": 2,
    "since": "1.0.0",
@@ -2357,6 +2413,12 @@
    "since": "9.0.0",
    "detect": "always",
    "apply": "history-in-vcs (EVOL-118)"
+  },
+  {
+   "id": "browser-mcp (EVOL-077)",
+   "since": "9.1.0",
+   "detect": "always",
+   "apply": "browser-mcp (EVOL-077)"
   }
  ]
 }

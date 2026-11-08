@@ -3,7 +3,7 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.17.1
+version: 2.18.0
 date: 2026-10-20
 ---
 
@@ -165,7 +165,7 @@ No gate is optional — it changes its control point. One key, `delivery_mode` i
 | train close (last sub-increment) | **full**: the light members + the one full verification loop (the project's declared members, `verification.gates`; a skip is dated and expires, a security member never skipped — once, on the bytes the commit carries, after the artefacts; EVOL-051, EVOL-067) + one deployment when the runtime surface moved | same | the loop's **seal** (`gate.py seal --check`: the read-sets at HEAD) + the push markers |
 | pull request to the main branch (CI) | **full** (the workflow runs `gate.py profile --run`; a sub-increment PR into its train owes light); the only control point that asks the server — `scm-protection` with the CI token (EVOL-054) | full | honours the loop's seal (`seal` member) |
 | main branch itself | no direct commit (reader-classified, fail-closed); every merge arrives through a PR that passed the full profile | same | — |
-| deployment on demand (`DEVOPS --deploy`) | preventive sweep + smoke + the performance measure (`gate.py performance --run --site`) on the deployed build | same | the smoke verdict (`certifies:`) |
+| deployment on demand (`DEVOPS --deploy`) | preventive sweep + smoke (cadence `qa.smoke_cadence`) + the performance measure (`gate.py performance --run --site`) on the deployed build | same | the smoke verdict (`certifies:`) |
 
 ## One planning stage (EVOL-048)
 

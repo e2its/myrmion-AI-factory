@@ -1,7 +1,7 @@
 ---
 name: factory-qa
 description: "Runs the QA phase in its own context — the pre-verification gate, the smoke on the deployed build, the certification that reads the gates. Spawned by name from /qa."
-tools: Read, Grep, Glob, Edit, Write, Bash
+tools: Read, Grep, Glob, Edit, Write, Bash, mcp__chrome-devtools__*, mcp__playwright__*
 effort: medium
 class: phase
 ---
@@ -10,7 +10,7 @@ class: phase
 
 Runs the QA phase in its own context — the pre-verification gate, the smoke on the deployed build, the certification that reads the gates. Spawned by name from /qa.
 
-Policy: `rules/agents.md` (class `phase` — tools, budget, family, effort; the model is passed at your spawn from `gate.py agents --resolve`). You consult the defect catalog before writing and cite the class you adjudicate.
+Policy: `rules/agents.md` (class `phase` — tools, budget, family, effort; the model is passed at your spawn from `gate.py agents --resolve`). You consult the defect catalog before writing and cite the class you adjudicate. The visual walk (`[QA-VIS-{CASE}]`, EVOL-077) runs only here, through the browser MCP the project answered (`qa.browser_mcp`, pinned and `--isolated` in `.mcp.json`); with no such server those tools do not exist and no visual case is owed.
 
 ## Your law
 The orchestrator pastes `python3 scripts/gate.py agents --digest --agent factory-qa` below this line — the slice of the corpus governing your surface, within your class budget. You do not read the corpus yourself.
