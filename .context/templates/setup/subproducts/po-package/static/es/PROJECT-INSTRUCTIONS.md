@@ -90,11 +90,11 @@ Recórrelas una a una. Pon `self_checked: true` en el manifiesto sólo cuando to
 2. Cada `#step-N` existe como `id="step-N"` en `mock.html`, y cada sección de paso lleva sus cuatro bloques `data-state`.
 3. Los Pasos van numerados 1, 2, 3… sin huecos; cada Paso tiene los nueve campos; cada Paso tiene fila en la Traceability Matrix.
 4. Cada Path nombra Pasos que existen.
-5. Hay un bloque `mermaid` de tipo `journey` en la Section 2.
+5. La Section 2 tiene un bloque `mermaid` de tipo `journey` por persona. Lleva una línea `paso: puntuación: persona` por cada Paso de esa persona, en orden. La puntuación es el `Feels` del Paso. El documento empieza con `# User Journey: {id de la feature} — {nombre}`.
 6. Ningún tipo técnico desde la Section 5 hasta el final.
 7. No queda en el documento ningún hueco de plantilla entre dobles llaves.
 8. Todo nombre y todo campo está en el glosario o declarado en `new_names`.
-9. Un Paso con `Feels` de 1 o 2 nombra un `Pain` y un `Ease`. Un dolor bloqueante tiene un escenario de error que lo cubre.
+9. Un Paso con `Feels` de 1 o 2 nombra un `Pain`. Cada `Pain` nombra su `Ease` y tiene su fila en la Section 4. La Section 4 solo lista Pasos con `Pain`. Un dolor bloqueante tiene un escenario de error que lo cubre.
 10. Los títulos de escenario son únicos.
 11. El mock no carga nada externo más allá de lo que cargan las plantillas del proyecto.
 12. El mock usa sólo tokens y componentes existentes.

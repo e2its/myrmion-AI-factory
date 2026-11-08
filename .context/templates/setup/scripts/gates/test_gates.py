@@ -5754,7 +5754,11 @@ class Train(unittest.TestCase):
 
     @staticmethod
     def _plan(*rows):
-        return "# Plan\n\n### INC-1: x\n\n**Sub-increments:**\n" + "".join(f"- {r}\n" for r in rows)
+        """A complete INC (clauses h, i): its own measured exit criterion and its estimate; a row without one gets ~1/~1."""
+        rows = [r if "~" in r else f"{r} · ~1 files · ~1 lines" for r in rows]
+        return ("# Plan\n\n### INC-1: x\n\n- **Estimated surface:** paths [src/**] · ~9 files · ~90 lines\n"
+                "- **Acceptance — exit criteria (each measurable on its own):**\n  - [ ] `pytest tests/` passes\n\n"
+                "**Sub-increments:**\n" + "".join(f"- {r}\n" for r in rows))
 
     def test_na_without_a_changed_plan(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -5781,7 +5785,8 @@ class Train(unittest.TestCase):
             write(repo / self.PLAN, self._plan("SUB-1-1: a · paths [src/a.py] · ~2 files · ~10 lines · status: READY",
                                                "SUB-1-2: m · paths [src/m.py] · after [SUB-1-1] · status: READY",
                                                "SUB-1-3: b · paths [src/a.py] · after [SUB-1-2] · ~2 files · ~10 lines · status: READY"))
-            r = train.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(len(r["entries"]), 1)
+            r = train.check(repo, "main"); self.assertTrue(r["ok"], r)
+            self.assertEqual([e["id"] for e in r["entries"]], ["FEAT-001 INC-1", "FEAT-001 exits"])
 
     def test_a_shared_glob_over_the_ceiling_green(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -5910,11 +5915,13 @@ class Train(unittest.TestCase):
         self.assertTrue(r["ok"], out)
 
     def test_seam_placeholder_without_subs_na_and_second_table_ignored(self):
-        tpl = ("# Plan\n\n### INC-1: x\n\nno subs\n\n## Seam map\n\n| use case | handler | grant/route | integration test | client | e2e case | sub |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
+        tpl = ("# Plan\n\n### INC-1: x\n\nno subs\n- **Estimated surface:** paths [src/**] · ~2 files · ~10 lines\n"
+               "- **Acceptance:**\n  - [ ] `pytest tests/` passes\n\n## Seam map\n\n| use case | handler | grant/route | integration test | client | e2e case | sub |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
                "| `{{src/…/use_case}}` | `{{src/…/handler}}` | {{grant}} · {{METHOD /route}} | `{{tests/…/it}}` | closes: SUB-{{N}}-{{M}} | closes: SUB-{{N}}-{{M}} | SUB-{{N}}-{{M}} |\n")
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp); write(repo / self.PLAN, tpl)
-            r = train.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(r["entries"], [], r)
+            r = train.check(repo, "main"); self.assertTrue(r["ok"], r)
+            self.assertEqual([e["id"] for e in r["entries"]], ["FEAT-001 exits"], r)   # the placeholder seam row is not judged
         r, out = self._seam("src/**, tests/**", "src/h.py")
         self.assertTrue(r["ok"], out)
         with tempfile.TemporaryDirectory() as tmp:
@@ -5924,6 +5931,62 @@ class Train(unittest.TestCase):
                   + self.SEAM.format(uc="src/uc/x.py", h="src/h.py", it="tests/it/x.py", cl="closes: SUB-1-2", sub="SUB-1-1")
                   + "\nNotes:\n\n| term | meaning |\n| --- | --- |\n| seam | where parts meet |\n")
             r = train.check(repo, "main"); self.assertTrue(r["ok"], train.render(r))
+
+    @staticmethod
+    def _incs(c1="`Pay` passes its E2E test", c2="`Refund` passes its E2E test", est="~2 files · ~10 lines", strategy="incremental", sub=""):
+        def wrap(c):   # a "(…)" string stays inline on the Acceptance line, as the old template's INC-2 wrote it
+            return c if isinstance(c, list) or c.startswith("(") else [c]
+
+        def inc(n, scen, op, crit):
+            acc = "".join(f"  - [ ] {c}\n" for c in crit) if isinstance(crit, list) else f" {crit}\n"
+            return (f"### INC-{n} — x\n\n- **Scenarios covered:** `spec.feature` → [{scen}]\n- **Contract surface:** [{op}]\n"
+                    f"- **Estimated surface:** paths [src/**] · {est}\n{sub if n == 1 else ''}- **Acceptance (mergeable = 100% functional):**"
+                    + ("\n" + acc if isinstance(crit, list) else acc) + "- **Deployable:** production\n\n")
+        return (f"---\nslicing_strategy: {strategy}\n---\n\n## 1. Increments\n\n"
+                + inc(1, "Pay, Pay twice", "POST /api/v1/pay", wrap(c1)) + inc(2, "Refund", "POST /api/v1/refund", wrap(c2)) + "## 2. Next\n")
+
+    def test_h_exit_criteria_measurable_on_their_own(self):
+        cases = (
+            ({}, True, None),
+            ({"c1": ["`Pay twice` passes its E2E test", "`POST /api/v1/pay` passes its integration test", "`/qa --verify FEAT-001 INC-1` APPROVED"]}, True, None),
+            ({"c1": "All assigned scenarios pass E2E"}, False, "INC-1: exit criterion «All assigned scenarios pass E2E» names no measure"),
+            ({"c2": "(same checklist as INC-1)"}, False, "INC-2: no exit criterion of its own"),
+            ({"c2": []}, False, "INC-2: no exit criterion of its own"),
+            ({"c1": "`Refund` passes its E2E test"}, False, "measures `refund`, which INC-2 delivers"),
+            ({"c1": "`POST  /api/v1/refund` answers"}, False, "which INC-2 delivers"),
+        )
+        for kw, ok, msg in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.PLAN, self._incs(**kw))
+                r = train.check(repo, "main"); out = train.render(r)
+                self.assertEqual(r["ok"], ok, (kw, out))
+                if msg:
+                    self.assertIn(msg, out, kw)
+
+    def test_i_every_surface_estimated_unless_monolithic(self):
+        cases = (
+            ({"est": "~{{files}} files · ~{{lines}} lines"}, False, "INC-1: no estimated surface"),
+            ({"est": "~2 files"}, False, "INC-1: no estimated surface"),
+            ({"est": "~2 files · ~10 lines", "sub": "- **Sub-increments:**\n  - SUB-1-1: a · paths [src/a.py] · status: READY\n"}, False, "SUB-1-1: no estimated surface"),
+            ({"est": "~2 files · ~10 lines", "sub": "- **Sub-increments:**\n  - SUB-1-1: a · paths [src/a.py] · ~1 files · ~5 lines · status: READY\n"}, True, None),
+            ({"est": "unknown", "strategy": "monolithic"}, True, None),
+        )
+        for kw, ok, msg in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.PLAN, self._incs(**kw))
+                r = train.check(repo, "main"); out = train.render(r)
+                self.assertEqual(r["ok"], ok, (kw, out))
+                if msg:
+                    self.assertIn(msg, out, kw)
+
+    def test_the_shipped_template_names_a_measure_per_exit_criterion(self):
+        tmpl = (HERE.parent.parent / ".context/templates/architect/increment_plan_template.md").read_text(encoding="utf-8")
+        incs = train.increments(tmpl.replace("INC-N …", "").replace("### INC-1 —", "### INC-1 —"))
+        self.assertEqual([i["id"] for i in incs], ["INC-1", "INC-2"])
+        for inc in incs:
+            self.assertTrue(inc["criteria"], f"{inc['id']} carries its own exit criteria")
+            for c in inc["criteria"]:
+                self.assertRegex(c, r"`[^`]+`", f"{inc['id']}: «{c}» names its measure")
 
     def test_dangling_after_and_after_cycle_red(self):
         for rows, word in ((("SUB-1-1: a · paths [src/a.py] · after [SUB-1-9] · status: READY",), "SUB-1-9"),

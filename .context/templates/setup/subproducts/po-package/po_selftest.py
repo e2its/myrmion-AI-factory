@@ -40,6 +40,7 @@ class Case:
     scope: str = "full-stack"
     archive: Archive | None = None  # hostile archive instead of a folder return
     forbid: str | None = None      # check id that must NOT fire
+    outside: int | None = None     # findings the last synced copy already carries: left out, counted (EVOL-078)
 
 
 def _sub(path: Path, old: str, new: str) -> None:
@@ -104,6 +105,26 @@ def _mock_head(markup: str) -> Mutation:
 def _only_vision_no_manifest(repo: Path, ret: Path) -> None:
     _only_vision(repo, ret)
     (ret / "MANIFEST.yaml").unlink()
+
+
+def _synced(*names: str, then: Mutation | None = None, before: Mutation | None = None) -> Mutation:
+    """The repo already holds FEAT-999 — the last synced version: `before` edits the return, the named files are
+    copied into the repo as they stand, then `then` edits the return only (what the PO changed)."""
+    def mutate(repo: Path, ret: Path) -> None:
+        if before:
+            before(repo, ret)
+        for name in names:
+            dest = repo / "docs" / "spec" / "FEAT-999" / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(_feat(ret, name), dest)
+        if then:
+            then(repo, ret)
+    return mutate
+
+
+_IMG = lambda r, t: _sub(_feat(t, "mock.html"), "<h1>Pick a day</h1>", '<h1>Pick a day</h1><img src="a.png">')
+_GHOST = lambda r, t: _sub(_feat(t, "user_journey.md"), "- **BDD Scenario:** Guest confirms the booking",
+                           "- **BDD Scenario:** Guest pays a deposit")
 
 
 def _gate(body: str) -> Mutation:
@@ -377,6 +398,18 @@ CASES: list[Case] = [
     Case("R32 return with nothing in it", "structure", "BLOCKER", message="neither",
          mutate=lambda r, t: (shutil.rmtree(t / "FEAT-999"), shutil.rmtree(t / "VISION"))),
     # ── mock ──
+    # ── judged on its diff (EVOL-078) ──
+    Case("D1 a finding the synced copy already carries is left out", with_vision=False, outside=1,
+         mutate=_synced("mock.html", before=_IMG)),
+    Case("D2 the same finding brought in by the return is raised", "a11y-basics", "WARN", with_vision=False,
+         outside=0, mutate=_synced("mock.html", then=_IMG), message="alt"),
+    Case("D3 a journey violation the synced copy already carries is left out", with_vision=False, outside=1,
+         mutate=_synced("user_journey.md", "spec.feature", "mock.html", before=_GHOST)),
+    Case("D4 a journey violation the return brings in is raised", "journey-grammar", "ERROR", with_vision=False,
+         outside=0, mutate=_synced("user_journey.md", "spec.feature", "mock.html", then=_GHOST), message="Guest pays a deposit"),
+    Case("D5 the return's own form is judged even when every file is unchanged", "erq-fields", "ERROR", with_vision=False,
+         mutate=_synced("user_journey.md", "spec.feature", "mock.html",
+                        then=lambda r, t: _sub(_feat(t, "ERQ.md"), 'classification: "delta"', 'classification: "maybe"'))),
     Case("R24 page without a language", "a11y-basics", "WARN",
          lambda r, t: _sub(_feat(t, "mock.html"), '<html lang="en">', "<html>"), message="lang"),
     Case("R24b image without alternative text", "a11y-basics", "WARN",
@@ -469,6 +502,8 @@ def _verdict_follows_severity(case: Case, rep: V.Report) -> str | None:
 
 
 def _verdict(case: Case, rep: V.Report) -> str | None:
+    if case.outside is not None and rep.unchanged != case.outside:
+        return f"{case.outside} finding(s) should be left out as unchanged since the last sync, {rep.unchanged} were"
     if case.forbid in {f.check for f in rep.findings}:
         return f"«{case.forbid}» fired and must not"
     if case.expect is None:

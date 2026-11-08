@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "9.1.0",
+  "framework_version": "9.2.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-08",
   "governance_features": {
@@ -16,7 +16,7 @@
   },
   "templates": {
     "rules/defect-prevention.md": {
-      "version": "3.8.1",
+      "version": "3.9.0",
       "content_type": "universal",
       "target": ".claude/rules/defect-prevention.md"
     },
@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.18.0",
+      "version": "2.19.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -665,7 +665,7 @@
       "delivery": "both"
     },
     "scripts/check-journey-grammar.sh": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "scripts/check-journey-grammar.sh",
       "role": "SETUP-delivery copy of check-journey-grammar.sh (byte-mirror, meta_template_mirror pair). Invoked by CODESIGN auto-approval CHECK 3 and CVP journey checks in materialised projects.",
@@ -679,21 +679,21 @@
       "role": "PO package shared helpers: repo/config resolution, journey-first closed vocabulary (§1/§6/§7), nesting-safe `<section data-component>` scanner, allowed external hosts derived from the framework CODESIGN templates, zip safety. Stack-agnostic, tracker-agnostic."
     },
     "subproducts/po-package/validate_po_return.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "subproducts/po-package/validate_po_return.py",
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "PO return validator — form and coherence only, never merit (green = reviewable, not accepted). Delegates journey form to scripts/check-journey-grammar.sh with a stub frontmatter; adds structure, manifest, evolution-request, Gherkin, vocabulary, external-dependency, zip-safety and vision-return checks. Exit 0 clean / 1 findings / 2 infra."
     },
     "subproducts/po-package/po_selftest.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "subproducts/po-package/po_selftest.py",
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "Hermetic self-test of the return validator: every check id red-proved, golden returns green, plus a coverage meta-assertion (a check with no red case fails the self-test). Run by meta CI and re-run by the factory-po-intake skill before trusting a green."
     },
     "subproducts/po-package/po_fixtures.py": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "subproducts/po-package/po_fixtures.py",
       "stack_conditional": "po_package.mode != \"off\"",
@@ -714,7 +714,7 @@
       "role": "PO package builder: reads the repo, stages OUTSIDE it, zips. Offline (roadmap arrives as a file exported through /backlog). 00-core product sheet, feature catalogue, closed-vocabulary glossary, route map, roadmap; 10-design-system tokens, component base (registry joined with the codebase inventory), one preview card per component; 20-features annexes; 30-templates PO-safe cuts. Design-system cards from code per component when the project configures a rebuild tool (no shell, timeout, fail-open), card-to-registry drift report, ds-only mode for CI, stale-runbook warning. Names no third-party tool."
     },
     "subproducts/po-package/RUNBOOK.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "subproducts/po-package/RUNBOOK.md",
       "stack_conditional": "po_package.mode != \"off\"",
@@ -728,7 +728,7 @@
       "role": "PO-facing guide shipped at the zip root (build-time variables, no SETUP placeholders)."
     },
     "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS.md",
       "stack_conditional": "po_package.mode != \"off\"",
@@ -777,7 +777,7 @@
       "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
     },
     "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS.md",
       "stack_conditional": "po_package.mode != \"off\"",
@@ -805,7 +805,7 @@
       "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
     },
     "subproducts/po-package/RUNBOOK.es.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "subproducts/po-package/RUNBOOK.es.md",
       "stack_conditional": "po_package.mode != \"off\"",
@@ -914,7 +914,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.35.0",
+      "version": "1.36.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -1172,7 +1172,7 @@
       "target": ".claude/hooks/session-handoff.sh"
     },
     "rules/vertical-slicing.md": {
-      "version": "1.1.1",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/vertical-slicing.md"
     },
@@ -1227,7 +1227,7 @@
       "target": "scripts/gates/aligned.py"
     },
     "scripts/gates/train.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/train.py"
@@ -1339,7 +1339,7 @@
       "target": ".context/templates/architect/fdr_template.md"
     },
     "architect/increment_plan_template.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": ".context/templates/architect/increment_plan_template.md"
     },
@@ -1379,7 +1379,7 @@
       "target": ".context/templates/codesign/questions_and_proposals.md"
     },
     "codesign/user_journey_template.md": {
-      "version": "2.0.3",
+      "version": "2.1.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/user_journey_template.md"
     },
@@ -1463,7 +1463,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.28.0",
+      "version": "2.29.0",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -1479,7 +1479,7 @@
       "path": ".claude/commands/blueprint.md"
     },
     "commands/codesign.md": {
-      "version": "1.11.0",
+      "version": "1.12.0",
       "path": ".claude/commands/codesign.md"
     },
     "commands/devops.md": {
@@ -1507,7 +1507,7 @@
       "path": ".claude/instructions/Factory-audit-complexity.instructions.md"
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.21.0",
+      "version": "3.22.0",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md"
     },
     "instructions/Factory-blueprint-refine.instructions.md": {
@@ -1519,7 +1519,7 @@
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md"
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "3.6.0",
+      "version": "3.7.0",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md"
     },
     "instructions/Factory-codesign-vision.instructions.md": {
@@ -1587,7 +1587,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.30.0",
+      "version": "14.31.0",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
@@ -1724,7 +1724,7 @@
       "path": ".claude/skills/factory-memory-cache/SKILL.md"
     },
     "skills/factory-coherence-validation/SKILL.md": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "type": "skill",
       "role": "CVP v1.2.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "path": ".claude/skills/factory-coherence-validation/SKILL.md"
@@ -2169,12 +2169,12 @@
       "path": "scripts/test-validate-governance.sh"
     },
     "scripts/check-journey-grammar.sh": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "path": "scripts/check-journey-grammar.sh",
       "delivery": "both"
     },
     "scripts/test-check-journey-grammar.sh": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "path": "scripts/test-check-journey-grammar.sh"
     },
     "scripts/test-po-package.sh": {
@@ -2242,13 +2242,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.35.0",
+      "version": "1.36.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.34.0",
+      "version": "1.35.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2536,7 +2536,7 @@
       "path": "scripts/gates/aligned.py"
     },
     "scripts/gates/train.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "path": "scripts/gates/train.py"
     },

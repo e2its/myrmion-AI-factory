@@ -25,6 +25,12 @@ fields `tasks [..]` / `measured [..]` and the INC line `**Ratified sub-increment
                           `closes:` target the plan does not declare is red too.
   (f) not re-measured     a sub's `tasks` set differs from the set its estimate `measured`.
   (g) over the ratified   an INC declares more subs than its `Ratified sub-increments`.
+And on every changed plan, each `### INC-N` section (EVOL-078):
+  (h) exit criteria       its `**Acceptance` block lists no `- [ ]` item of its own; an item names no measure in
+                          backticks (a scenario, an operation, a case id or a command); or a backticked scenario or
+                          operation belongs to another INC's `Scenarios covered` / `Contract surface`, not its own.
+  (i) surface declared    unless the plan is `slicing_strategy: monolithic`: the INC has no `Estimated surface:` with
+                          `~N files` and `~N lines`, or one of its `SUB-` rows lacks them (CVP Check 21, owner RDR «1»).
 
 A seam table is one whose header carries `use case` and `sub`; the template's placeholder row in a plan that declares
 no sub is nothing to judge. Nothing to judge → `train: n/a`. `--figures` counts per INC: subs, unique paths, path-touches, re-touch, train total.
@@ -47,6 +53,11 @@ RATIFIED_RE = re.compile(r"\*\*Ratified sub-increments:\*\*\s*(\d+)")
 SUB_ID = re.compile(r"SUB-\d+-\d+", re.I)
 TARGET_RE = re.compile(r"(stub until|closes:)\s*`?(SUB-\d+-\d+)", re.I)
 SEAM_COLS = ("use case", "handler", "integration test")
+HEAD_RE = re.compile(r"(?m)^#{1,3}\s")
+ACCEPT_RE = re.compile(r"(?m)^(?P<ind>[ \t]*)-\s*\*\*Acceptance\b.*$")
+ITEM_RE = re.compile(r"^\s+-\s*\[[ xX]\]\s*(?P<text>\S.*)$")
+SPAN_RE = re.compile(r"`([^`]+)`")
+ESTIMATE = (re.compile(r"~\s*\d+\s*files\b"), re.compile(r"~\s*\d+\s*lines\b"))
 
 
 def _list(rest: str, name: str) -> list[str]:
@@ -170,6 +181,96 @@ def judge_seams(text: str) -> list[str]:
     return problems
 
 
+def _items(line: str) -> list[str]:
+    """The `[a, b]` list of one field line: commas split outside brackets and backticks; placeholders dropped."""
+    start = line.find("[")
+    if start < 0:
+        return []
+    items, cur, depth, tick = [], "", 0, False
+    for ch in line[start + 1:]:
+        if ch == "`":
+            tick = not tick
+        elif not tick and ch in "[{(":
+            depth += 1
+        elif not tick and ch in "]})":
+            if depth == 0:
+                break
+            depth -= 1
+        if ch == "," and depth == 0 and not tick:
+            items.append(cur); cur = ""
+        else:
+            cur += ch
+    items.append(cur)
+    return [v for v in (_measure(i) for i in items) if v and "{{" not in v]
+
+
+def _measure(v: str) -> str:
+    return re.sub(r"\s+", " ", v.strip().strip("`'\"").strip()).casefold()
+
+
+def _field(body: str, label: str) -> list[str]:
+    m = re.search(rf"\*\*{label}:\*\*([^\n]*)", body)
+    return _items(m.group(1)) if m else []
+
+
+def increments(text: str) -> list[dict]:
+    """Each `### INC-N` section: its scenarios, operations, exit criteria, estimate and sub rows."""
+    out, text = [], text or ""
+    heads = list(INC_RE.finditer(text))
+    for i, h in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        nxt = HEAD_RE.search(text, h.end())
+        body = text[h.end(): min(end, nxt.start() if nxt else end)]
+        criteria = []
+        acc = ACCEPT_RE.search(body)
+        if acc:
+            field = re.compile(rf"^[ \t]{{0,{len(acc.group('ind'))}}}-\s*\*\*")
+            for line in body[acc.end():].splitlines()[1:]:
+                if field.match(line):
+                    break
+                m = ITEM_RE.match(line)
+                if m:
+                    criteria.append(m.group("text").strip())
+        est = re.search(r"\*\*Estimated surface:\*\*([^\n]*)", body)
+        out.append({"id": f"INC-{h.group(1)}", "scenarios": set(_field(body, "Scenarios covered")),
+                    "operations": set(_field(body, "Contract surface")), "criteria": criteria, "has_acceptance": bool(acc),
+                    "estimate": est.group(1) if est else None,
+                    "subs": [(f"SUB-{m.group(1)}-{m.group(2)}", m.group(3)) for m in ROW_RE.finditer(body)]})
+    return out
+
+
+def judge_exits(text: str) -> list[str]:
+    """Clauses (h) and (i) on one plan."""
+    incs, problems = increments(text), []
+    strategy = re.search(r"(?m)^slicing_strategy:\s*\"?(\w+)", text or "")
+    estimated = not (strategy and strategy.group(1).lower() == "monolithic")
+    for inc in incs:
+        others = [o for o in incs if o["id"] != inc["id"]]
+        if not inc["criteria"]:
+            problems.append(f"{inc['id']}: no exit criterion of its own under **Acceptance** — list each one, "
+                            "with the measure that decides it in backticks")
+        for c in inc["criteria"]:
+            spans = [_measure(x) for x in SPAN_RE.findall(c)]
+            short = c if len(c) <= 70 else c[:67] + "…"
+            if not spans:
+                problems.append(f"{inc['id']}: exit criterion «{short}» names no measure — put the scenario, operation, "
+                                "case or command that decides it in backticks")
+            for sp in spans:
+                mine = sp in inc["scenarios"] or sp in inc["operations"]
+                owner = next((o["id"] for o in others if sp in o["scenarios"] or sp in o["operations"]), None)
+                if owner and not mine:
+                    problems.append(f"{inc['id']}: exit criterion «{short}» measures `{sp}`, which {owner} delivers — "
+                                    "an increment exits on its own criteria")
+        if estimated:
+            if inc["estimate"] is None or not all(r.search(inc["estimate"]) for r in ESTIMATE):
+                problems.append(f"{inc['id']}: no estimated surface (`Estimated surface:` with ~N files · ~N lines) — "
+                                "estimate it and split it when over the ceiling (BLUEPRINT Step B.4)")
+            for sid, rest in inc["subs"]:
+                if not all(r.search(rest) for r in ESTIMATE):
+                    problems.append(f"{sid}: no estimated surface (~N files · ~N lines) — measure the sub against the ceiling")
+    return problems
+
+
 def order(subs: list[dict]) -> list[str]:
     """The `after` graph itself: a dangling target or a cycle leaves the order undefined."""
     by, problems = {s["id"]: s for s in subs}, []
@@ -269,6 +370,10 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
                 problems = judge(subs, cf, cl)
                 rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} {inc}", "ok": not problems, "problems": problems, "note": f"{len(subs)} sub(s) stacked by file"})
             text = _read(repo, plan)
+            if increments(text):
+                problems = judge_exits(text)
+                rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} exits", "ok": not problems, "problems": problems,
+                             "note": f"{len(increments(text))} increment(s): exit criteria measurable on their own, every surface estimated"})
             if live_seams(text) or ratified(text) or any(s["tasks"] or s["measured"] for ss in parse(text).values() for s in ss):
                 problems = judge_seams(text)
                 rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} seams", "ok": not problems, "problems": problems,

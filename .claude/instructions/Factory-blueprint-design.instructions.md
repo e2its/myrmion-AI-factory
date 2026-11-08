@@ -880,8 +880,8 @@ BLUEPRINT MUST self-verify before exit:
 - **Seam resolution:** every increment `seam` resolves to a declared predecessor slice (`depends_on_slice`) or external feature@slice (`depends_on_feature`). (CVP Check 19.)
 - **DAG:** `depends_on` across all increments is acyclic (topological sort succeeds). INC-1 has `depends_on: []`. Every referenced ID exists.
 - **Deployability:** every increment declares `deployable: production`. Any other value (e.g., `flagged_off`, `experimental`) → BLOCK. Feature-flag-OFF merges are NOT a valid escape. If the user argues for a flagged rollout, that MUST be expressed as an explicit follow-up increment with its own scenarios, not as an escape on a half-done slice.
-- **Acceptance checklist shape:** each increment's acceptance block contains the template's standard checklist (E2E / API / Reliability / CVP / no-TODO).
-- **Surface declared:** every increment carries `Estimated surface:`; an increment over a ceiling carries `Sub-increments:` or an `Escape:` from the closed list. (CVP Check 21.)
+- **Exit criteria measurable on their own:** each increment lists its own exit criteria under **Acceptance**, each naming in backticks the measure that decides it — one of its own scenarios or contract operations, a case id, or a command; never «same as INC-1», never another increment's measure. (`gate.py train` (h); CVP Check 13.)
+- **Surface declared:** every increment carries `Estimated surface:`; an increment over a ceiling carries `Sub-increments:` or an `Escape:` from the closed list. (`gate.py train` (i), blocking; CVP Check 21.)
 
 Violations are **BUGS in the refinement** — a coverage/seam mismatch loops back to Step B; a value-order conflict that contracts cannot satisfy is recorded as a § 0 deviation and surfaced to the user (CODESIGN may need `--refine`). Do NOT silently auto-correct slice assignment.
 

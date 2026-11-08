@@ -658,7 +658,7 @@ FUNCTION codesign_auto_approve(FEATURE_ID):
   # Run the Blocking Validations (scope-aware — UX checks are N/A when has_ui=false)
   CHECK 1: spec.feature valid Gherkin syntax
   CHECK 2: [has_ui ? "mock.html WCAG 2.1 AA compliant" : "N/A (scope=backend-only/integration — no mock.html)"]
-  CHECK 3: user_journey.md grammar valid — RUN `scripts/check-journey-grammar.sh {base_path}/` (exit 0 required: Paso anchors, 9 step fields, Feels 1-5, BDD Scenario ↔ spec titles, Mock Action ↔ imp-step ids, Paths, LAW-16 purity tripwire, no TODO/TBD/{{placeholders}}). Script missing → NOISY warning + manual grammar review (fail-open on infra only)
+  CHECK 3: user_journey.md grammar valid — RUN `scripts/check-journey-grammar.sh {base_path}/` (exit 0 required: Paso anchors, 9 step fields, Feels 1-5, BDD Scenario ↔ spec titles, Mock Action ↔ imp-step ids, Paths, diagram ↔ steps (one task per Paso, score = Feels), header ↔ title and spec scope, Pain ↔ Ease ↔ Section 4, LAW-16 purity tripwire, no TODO/TBD/{{placeholders}}). Script missing → NOISY warning + manual grammar review (fail-open on infra only)
   CHECK 4: Tripartite Alignment — scope-aware bidirectional checks
            • has_ui=true → 6 checks (SPEC↔MOCK + SPEC↔JOURNEY + MOCK↔JOURNEY)
            • has_ui=false → 2 checks (SPEC↔JOURNEY + JOURNEY↔SPEC only; mock-involving checks are N/A)

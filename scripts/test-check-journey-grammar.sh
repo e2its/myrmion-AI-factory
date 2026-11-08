@@ -73,6 +73,7 @@ journey
     title Shopper — Checkout
     section Pay
       Pay the cart: 4: Shopper
+      Recover from a declined payment: 2: Shopper
 ```
 
 ### Paso 1
@@ -329,6 +330,97 @@ write_valid
 TMPDIR=/nonexistent-dir-xyz bash "$SCRIPT" "$SANDBOX/case" >/dev/null 2>&1
 rc=$?
 if [ "$rc" -eq 2 ]; then PASS=$((PASS+1)); echo "  ✓ mktemp infra failure exits 2 (never a silent PASS)"; else FAIL=$((FAIL+1)); echo "  ✗ mktemp infra failure (want exit 2, got $rc)"; fi
+
+# ═══ Coherence battery (EVOL-078): the diagram, the header and the emotions agree with the steps ═══
+
+# RED 8c-1 — the diagram drops a step
+write_valid
+sed -i '/Recover from a declined payment: 2: Shopper/d' "$SANDBOX/case/user_journey.md"
+expect 1 "diagram with fewer steps than the journey fails" "the diagram shows 1 step(s) for 'Shopper', the journey describes 2"
+
+# RED 8c-2 — the diagram scores a step unlike its Feels
+write_valid
+sed -i 's/Recover from a declined payment: 2: Shopper/Recover from a declined payment: 4: Shopper/' "$SANDBOX/case/user_journey.md"
+expect 1 "diagram score unlike the step's Feels fails" "scores 'Shopper' 4 at Paso 2, whose Feels is 2/5"
+
+# RED 8c-3 — a diagram line that is not 'step: score: persona'
+write_valid
+sed -i 's/      Pay the cart: 4: Shopper/      Pay the cart 4 Shopper/' "$SANDBOX/case/user_journey.md"
+expect 1 "malformed diagram line fails" "is not 'step: score: persona'"
+
+# RED 8c-4 — a diagram score outside 1..5
+write_valid
+sed -i 's/Pay the cart: 4: Shopper/Pay the cart: 9: Shopper/' "$SANDBOX/case/user_journey.md"
+expect 1 "diagram score outside 1..5 fails" "scores '9'"
+
+# RED 8c-5 — the diagram names a persona no step has
+write_valid
+sed -i 's/Recover from a declined payment: 2: Shopper/Recover from a declined payment: 2: Buyer/' "$SANDBOX/case/user_journey.md"
+expect 1 "diagram persona unknown to the steps fails" "the diagram shows 1 step(s) for 'Buyer', the journey describes 0"
+
+# GREEN 8c — two personas, one diagram each, steps interleaved by Paso number
+write_valid
+python3 - "$SANDBOX/case/user_journey.md" <<'PYEOF'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s = s.replace("      Recover from a declined payment: 2: Shopper\n```\n",
+              "```\n\n```mermaid\njourney\n    title Clerk — Checkout\n    section Recover\n      Recover from a declined payment: 2: Clerk, Shopper\n```\n", 1)
+s = s.replace("- **Persona:** Shopper\n- **Goal:** Recover", "- **Persona:** Clerk\n- **Goal:** Recover", 1)
+open(p, "w").write(s)
+PYEOF
+expect 0 "two personas with one diagram each pass (first actor is the persona)"
+
+# RED 1b-1 — the header names another feature than the title
+write_valid
+sed -i 's/^# User Journey: FEAT-T1 — Checkout$/# User Journey: FEAT-T2 — Checkout/' "$SANDBOX/case/user_journey.md"
+expect 1 "header feature_id unlike the title fails" "the header says feature 'FEAT-T1', the title says 'FEAT-T2'"
+
+# RED 1b-2 — no title line
+write_valid
+sed -i '/^# User Journey: FEAT-T1 — Checkout$/d' "$SANDBOX/case/user_journey.md"
+expect 1 "missing title line fails" "no title line"
+
+# RED 1b-3 — a UI scope whose steps point to no screen
+write_valid
+sed -i 's/^- \*\*Mock Action:\*\* #step-[12]$/- **Mock Action:** —/' "$SANDBOX/case/user_journey.md"
+sed -i 's/| #step-[12] |/| — |/' "$SANDBOX/case/user_journey.md"
+expect 1 "full-stack journey with no #step-N fails" "no Paso points to one"
+
+# RED 1b-4 — spec.feature declares another scope
+write_valid
+printf -- '---\nfeature_id: FEAT-T1\nscope: backend-only\n---\n' | cat - "$SANDBOX/case/spec.feature" > "$SANDBOX/case/spec.tmp" && mv "$SANDBOX/case/spec.tmp" "$SANDBOX/case/spec.feature"
+expect 1 "spec.feature scope unlike the journey's fails" "spec.feature says 'backend-only'"
+
+# GREEN 1b — spec.feature declares the same scope
+write_valid
+printf -- '---\nfeature_id: FEAT-T1\nscope: full-stack\n---\n' | cat - "$SANDBOX/case/spec.feature" > "$SANDBOX/case/spec.tmp" && mv "$SANDBOX/case/spec.tmp" "$SANDBOX/case/spec.feature"
+expect 0 "spec.feature with the same scope passes"
+
+# RED 5b-1 — a low score that names no pain
+write_valid
+sed -i 's/^- \*\*Pain:\*\* Fear of double charge$/- **Pain:** —/' "$SANDBOX/case/user_journey.md"
+expect 1 "Feels 2/5 without a Pain fails" "Feels 2/5 names no Pain"
+
+# RED 5b-2 — a pain with no ease
+write_valid
+sed -i 's/^- \*\*Ease:\*\* Explicit "you have not been charged" message$/- **Ease:** —/' "$SANDBOX/case/user_journey.md"
+expect 1 "a Pain without its Ease fails" "say how the design softens it"
+
+# RED 5b-3 — a pain missing from the Pain & Emotion Map
+write_valid
+sed -i '/^| Paso 2 | Fear of double charge |/d' "$SANDBOX/case/user_journey.md"
+expect 1 "a Pain without its Section 4 row fails" "Paso 2: its Pain has no row in Section 4"
+
+# RED 5b-4 — a map row on a step with no pain
+write_valid
+sed -i 's/^| Paso 2 | Fear of double charge | Trust | Payment failures break trust |$/&\n| Paso 1 | Waiting | Calm | Speed matters |/' "$SANDBOX/case/user_journey.md"
+expect 1 "a Section 4 row on a painless Paso fails" "row names Paso 1, whose Pain is '—'"
+
+# RED 5b-5 — a map row on a step that does not exist
+write_valid
+sed -i 's/^| Paso 2 | Fear of double charge |/| Paso 9 | Fear of double charge |/' "$SANDBOX/case/user_journey.md"
+expect 1 "a Section 4 row on a missing Paso fails" "row names Paso 9, which does not exist"
 
 echo "──────────────────────────────────────────"
 echo "test-check-journey-grammar: $PASS passed, $FAIL failed"

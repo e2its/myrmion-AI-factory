@@ -419,7 +419,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py surface 2>&1); RC=$?
 git -C "$P" -c user.name=t -c user.email=t@t commit -q --allow-empty -m $'chore: generated\n\nSurface-Escape: generated-code'
 OUT=$(cd "$P" && python3 scripts/gate.py surface 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'escape: generated-code' && ok "a Surface-Escape trailer from the closed list passes" || bad "valid escape not honoured (rc=$RC)" "$OUT"
-mkdir -p "$P/docs/spec/FEAT-001"; printf '### INC-1 — x\n- **Sub-increments:**\n  - SUB-1-1: a · branch feature/FEAT-001-inc-1-x-sub-1\n' > "$P/docs/spec/FEAT-001/increment_plan.md"
+mkdir -p "$P/docs/spec/FEAT-001"; printf '### INC-1 — x\n- **Estimated surface:** paths [src/**] · ~2 files · ~20 lines\n- **Acceptance — exit criteria (each measurable on its own):**\n  - [ ] `pytest tests/` passes\n- **Sub-increments:**\n  - SUB-1-1: a · ~1 files · ~10 lines · branch feature/FEAT-001-inc-1-x-sub-1\n' > "$P/docs/spec/FEAT-001/increment_plan.md"
 OUT=$(cd "$P" && python3 scripts/gate.py branch-class --branch feature/FEAT-001-inc-1-x --protected 2>&1); RC=$?
 [ "$RC" -eq 1 ] && ok "a per-increment branch with declared sub-increments is a protected train" || bad "train not protected (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py surface --base origin/main --branch feature/FEAT-001-inc-1-x 2>&1); RC=$?
