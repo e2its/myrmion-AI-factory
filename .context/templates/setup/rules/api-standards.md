@@ -6,11 +6,8 @@ applicable_when:
     - "**/asyncapi/**"
     - "**/api/**"
     - "**/*.proto"
-version: 1.4.0
+version: 1.4.1
 date: 2026-01-26
-changelog:
-  - "1.3.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
-  - "1.0.0: Initial template version"
 ---
 
 # Contract-First Development & API Governance

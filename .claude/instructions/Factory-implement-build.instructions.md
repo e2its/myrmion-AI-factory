@@ -1969,7 +1969,7 @@ FUNCTION defect_discovery_check(error, context):
   IF user_approves:
     # Follow the Discovery Protocol of .claude/rules/defect-prevention.md:
     # 1. Add the row and its case (the sweep derives its search from them)
-    # 2. Bump version in governance_versions.json — python3 scripts/gate.py manifest --bump --entry <the two files> --level minor --note "<the DC and why>" (EVOL-061)
+    # 2. Bump version in governance_versions.json — python3 scripts/gate.py manifest --bump --entry <the two files> --level minor (EVOL-061); the DC and its why go in the commit message
     # 3. Save feedback memory for cross-session awareness
     EXECUTE_DISCOVERY_PROTOCOL(next_pdc, suggested_name, error)
 ```

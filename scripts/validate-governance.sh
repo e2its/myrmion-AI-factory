@@ -417,7 +417,7 @@ PYEOF
     elif [ -n "$STALE_ENTRY" ]; then
       fail "Changed tracked file(s) whose manifest entry version did NOT advance:"
       while IFS= read -r e; do [ -n "$e" ] && echo -e "     ${RED}→ $e${NC}"; done <<< "$STALE_ENTRY"
-      echo -e "   ${YELLOW}ACTION: bump each entry's version + add a changelog line (Generation Standards §2 / GWP)${NC}"
+      echo -e "   ${YELLOW}ACTION: bump each entry's version — python3 scripts/gate.py manifest --bump (Generation Standards §2 / GWP; state only, EVOL-118)${NC}"
     else
       pass "All changed tracked entries advanced their version"
     fi

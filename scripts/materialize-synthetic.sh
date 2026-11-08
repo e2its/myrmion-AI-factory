@@ -347,6 +347,40 @@ sed -i '0,/^version: /s//version: 9.9.9\nx_drift: /' "$P/.claude/rules/architect
 OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'architecture.md' && ok "RED: an injected frontmatter drift is caught in the scratch project" || bad "injected drift not caught (rc=$RC)" "$OUT"
 sed -i '/^x_drift: /d; 0,/^version: 9.9.9/s//version: '"$(cd "$P" && python3 -c "import json;print(json.load(open('docs/project_log/governance_versions.json'))['templates']['rules/architecture.md']['version'])")"'/' "$P/.claude/rules/architecture.md"
+# EVOL-118: the manifest carries current state only — a reintroduced history key is red, named by its path; removed, green again
+if grep -rlq '^changelog:' "$P/.claude/rules"; then bad "a materialised rule carries a frontmatter changelog (EVOL-118)" "$(grep -rl '^changelog:' "$P/.claude/rules")"; else ok "no materialised rule carries a frontmatter changelog (EVOL-118)"; fi
+cp "$P/docs/project_log/governance_versions.json" "$P/manifest.keep"
+python3 - "$P/docs/project_log/governance_versions.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["templates"]["rules/architecture.md"]["changelog"] = ["1.0.0: x"]; json.dump(d, open(p, "w"), indent=1)
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q '/templates/rules/architecture.md/changelog' && ok "RED: a history key reintroduced into the project manifest is named (EVOL-118)" || bad "a reintroduced history key not caught (rc=$RC)" "$OUT"
+mv "$P/manifest.keep" "$P/docs/project_log/governance_versions.json"
+# EVOL-118: the upgrade migration history-in-vcs, run from its anchor on an old-shape project — twice, the second a no-op
+H="$SCRATCH/h118"; mkdir -p "$H"; cp "$P/docs/project_log/governance_versions.json" "$H/manifest"; cp "$P/.claude/rules/architecture.md" "$H/arch"
+[ -f "$P/config/codebase_inventory.json" ] && cp "$P/config/codebase_inventory.json" "$H/inv"
+python3 - "$P" "$H" <<'PY'
+import json, pathlib, sys
+p, h = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+m = p / "docs/project_log/governance_versions.json"; d = json.loads(m.read_text()); d["templates"]["rules/architecture.md"]["changelog"] = ["1.0.0: x"]; d["changelog"] = ["9.0.0: y"]; m.write_text(json.dumps(d, indent=1))
+i = p / "config/codebase_inventory.json"; inv = json.loads(i.read_text()) if i.is_file() else {"artefacts": []}; inv["changelog"] = [{"date": "x"}]; i.write_text(json.dumps(inv))
+a = p / ".claude/rules/architecture.md"; s = a.read_text(); a.write_text(s.replace("\n---\n", "\nchangelog:\n  - \"1.0.0: x\"\n---\n", 1))
+(p / ".claude/rules/zz-generated.md").write_bytes(b"---\r\nversion: 1.0.0\r\nchangelog:\r\n- \"1.0.0: x\"\r\n\r\n- \"0.9.0: y\"\r\n---\r\n# g\r\n")
+(h / "outside.md").write_text("---\nchangelog:\n  - x\n---\n# o\n"); (p / ".claude/rules/zz-link.md").symlink_to(h / "outside.md")
+PY
+python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**history-in-vcs (EVOL-118).**")
+print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
+PY
+(cd "$P" && bash "$H/mig.sh") >/dev/null 2>&1; SUM1=$(cd "$P" && cat docs/project_log/governance_versions.json config/codebase_inventory.json .claude/rules/*.md | sha256sum)
+(cd "$P" && bash "$H/mig.sh") >/dev/null 2>&1; SUM2=$(cd "$P" && cat docs/project_log/governance_versions.json config/codebase_inventory.json .claude/rules/*.md | sha256sum)
+OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
+[ "$RC" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && cmp -s "$P/.claude/rules/architecture.md" "$H/arch" \
+  && [ "$(cat "$P/.claude/rules/zz-generated.md")" = "$(printf -- '---\r\nversion: 1.0.0\r\n---\r\n# g\r')" ] && grep -q '^changelog:' "$H/outside.md" \
+  && ok "the upgrade migration history-in-vcs drops the history from an old-shape project — manifest, inventory, delivered and generated rules, CRLF kept, a symlink out skipped — and a second run changes nothing (EVOL-118)" \
+  || bad "the history-in-vcs migration (rc=$RC, idempotent=$([ "$SUM1" = "$SUM2" ] && echo y || echo n))" "$OUT"
+rm -f "$P/.claude/rules/zz-generated.md" "$P/.claude/rules/zz-link.md"; cp "$H/manifest" "$P/docs/project_log/governance_versions.json"
+if [ -f "$H/inv" ]; then cp "$H/inv" "$P/config/codebase_inventory.json"; else rm -f "$P/config/codebase_inventory.json"; fi
 # a real verdict on a feature branch: certified → ok; its certified file moves → STALE
 git -C "$P" checkout -q -b feature/FEAT-001-smoke; mkdir -p "$P/src" "$P/docs/spec/FEAT-001/qa"; printf 'print(1)\n' > "$P/src/app.py"
 git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm src; git -C "$P" update-ref refs/remotes/origin/main HEAD
@@ -529,10 +563,10 @@ OUT=$(cd "$P" && printf '## Sources\n- mcp · context7 · q · https://x/y · wh
 [ "$RC" -eq 0 ] && ok "a reader return with its sources, answer and unknowns passes the contract" || bad "reader return refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '## Answer\nx\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n' | python3 scripts/gate.py agents --check-return --class reader 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'no `## Sources` section' && ok "a reader return without its sources is refused" || bad "reader return without sources not refused (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && python3 scripts/gate.py manifest --bump --entry .claude/rules/agents.md --level patch 2>&1); RC=$?
-[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'mandatory and never empty' && ok "RED: a manifest bump without its note is refused (EVOL-061)" || bad "empty note not refused (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && python3 scripts/gate.py manifest --bump --entry .claude/rules/agents.md --level patch --note "fix(SYN-1) — the synthetic project moves one rule" --base HEAD 2>&1); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '↑ templates:rules/agents.md' && (cd "$P" && python3 scripts/gate.py manifest-parity >/dev/null 2>&1) && ok "a project bumps its materialised rule by target: the entry, its line and the frontmatter move together, parity holds (EVOL-061)" || bad "manifest bump on the materialised tree failed (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py manifest --bump --entry .claude/rules/agents.md --level patch --note x 2>&1); RC=$?
+[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'unrecognized arguments: --note' && ok "RED: a history note on a manifest bump is refused — the why lives in the commit (EVOL-118)" || bad "a history note not refused (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py manifest --bump --entry .claude/rules/agents.md --level patch --base HEAD 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '↑ templates:rules/agents.md' && (cd "$P" && python3 scripts/gate.py manifest-parity >/dev/null 2>&1) && ok "a project bumps its materialised rule by target: the entry and the frontmatter move together, no history line, parity holds (EVOL-061, EVOL-118)" || bad "manifest bump on the materialised tree failed (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf 'src/a.py:1 · 🔴 · confidence 90%% · probe: read\nsrc/b.py:2 · 🟢 · confidence 85%% · probe: read\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 0\nModel: claude-x\n' | python3 scripts/gate.py agents --check-return --class work-critic 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'informational finding inside the findings' && ok "RED: an informational finding before the governance block is refused (EVOL-060)" || bad "informational inside the findings not refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf 'src/a.py:1 · 🔴 · confidence 90%% · probe: read\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 1\nModel: claude-x\n## Informational\nsrc/b.py:2 · 🟢 · confidence 85%% · probe: read (DC-29)\n' | python3 scripts/gate.py agents --check-return --class work-critic 2>&1); RC=$?

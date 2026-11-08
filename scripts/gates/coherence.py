@@ -16,7 +16,8 @@ currency        An artefact that certifies a build declares WHAT it certified in
                 never re-bless. Infrastructure faults (pipeline not delivered, git down) are reported apart (exit 2).
 manifest-parity A governed file whose frontmatter carries `version:` and its manifest entry are one digit and
                 move together; drift is red with the manifest as the source of truth; unreadable frontmatter is red.
-                Files with no frontmatter `version:` are counted, not compared.
+                Files with no frontmatter `version:` are counted, not compared. History lives in version control
+                (EVOL-118): a `changelog` key at any depth of the manifest or of the codebase inventory is red.
 """
 from __future__ import annotations
 
@@ -209,10 +210,35 @@ def manifest_path(repo: Path) -> Path:
 
 
 ROOTS = {"templates": ".context/templates/setup/", "agent_templates": ".context/templates/", "framework_core": ""}
+INVENTORY = "config/codebase_inventory.json"
+HISTORY_KEY = "changelog"
+
+
+def history_keys(o, at: str = "") -> list[str]:
+    """Every JSON path of a `changelog` key under o — the operational files carry current state only (EVOL-118)."""
+    out: list[str] = []
+    if isinstance(o, dict):
+        for k, v in o.items():
+            here = f"{at}/{k}"
+            out += [here] if k == HISTORY_KEY else history_keys(v, here)
+    elif isinstance(o, list):
+        for i, v in enumerate(o):
+            out += history_keys(v, f"{at}/{i}")
+    return out
+
+
+def _history_findings(repo: Path, p: Path, data) -> list[dict]:
+    """One finding per file — the count and the first path — so an un-migrated manifest stays one line (EVOL-062)."""
+    keys = history_keys(data)
+    if not keys:
+        return []
+    more = f" and {len(keys) - 1} more" if len(keys) > 1 else ""
+    return [{"path": str(p.relative_to(repo)), "reason": f"`{keys[0]}`{more} is history — history lives in version control (EVOL-118): "
+                                                       "drop the key; an installed project runs SETUP --upgrade (migration history-in-vcs (EVOL-118))"}]
 
 
 def manifest_parity(repo: Path) -> tuple[list[dict], dict]:
-    """(findings, stats). Every manifest entry whose file carries a frontmatter `version:` must equal it."""
+    """(findings, stats). Every manifest entry whose file carries a frontmatter `version:` must equal it; no history key."""
     mp = manifest_path(repo)
     try:
         m = json.loads(mp.read_text(encoding="utf-8"))
@@ -220,7 +246,13 @@ def manifest_parity(repo: Path) -> tuple[list[dict], dict]:
         raise GateFault(f"{mp.relative_to(repo)} is not readable JSON ({e})") from None
     if not isinstance(m.get("templates"), dict) or not m["templates"]:
         raise GateFault(f"{mp.relative_to(repo)} has no `templates` section — the governance manifest keeps the framework's `templates` map (key → version, target); nothing can be compared")
-    findings: list[dict] = []
+    findings: list[dict] = _history_findings(repo, mp, m)
+    inv = repo / INVENTORY
+    if inv.is_file():
+        try:
+            findings += _history_findings(repo, inv, json.loads(inv.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as e:   # ValueError: JSONDecodeError and a non-UTF-8 file alike
+            findings.append({"path": INVENTORY, "reason": f"not readable JSON ({e}) — its history keys cannot be verified"})
     stats = {"compared": 0, "no_version": 0, "absent": 0}
     for section, root in ROOTS.items():
         for k, e in (m.get(section) or {}).items():

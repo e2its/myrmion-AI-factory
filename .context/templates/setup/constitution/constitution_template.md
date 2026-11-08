@@ -1,13 +1,6 @@
 ---
-version: 4.0.0
+version: 4.0.1
 date: 2026-09-25
-changelog:
-  - "4.0.0: feat(EVOL-043) — index form: one sentence + one body pointer + records per law; bodies moved to rules/"
-  - "3.2.0: feat(EVOL-029) — added [LAW] QA Per-Increment Alignment section. Mandates per-slice transition path under slicing_strategy: incremental, triple gate (tasks/peer_review/BVL) per slice, /qa --verify {ID} {INC-N} required before aggregate, plan-level dev_plan.status derived (never written manually). Monolithic features unchanged."
-  - "3.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C)."
-  - "3.0.0: Operational sections marked with `## [LAW]` for mechanical snapshot extraction. Single-source-of-truth model: only [LAW] sections embed in governance snapshot. Fixed UTF-8 mojibake in Security by Design heading."
-  - "2.0.0: Added Project Mode & Brownfield Extension Strategy section (E0/E1/E2/E3) with per-strategy rules"
-  - "1.0.0: Initial template version"
 ---
 
 # Project Constitution — Index of Project Law

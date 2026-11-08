@@ -12,6 +12,9 @@ replaced by a non-file (a link), or moved to a name that is no artefact — whos
 (APPROVED_STATES or MERGED) or terminal (CANCELLED / SUPERSEDED: the trace it keeps) is red. A move to another
 markdown or .feature name keeps the artefact (renames detected). A base frontmatter the parser cannot read is still
 judged: its `status:` line is read directly (a gate that cannot read never reads green).
+
+A template under `.context/templates/` is never an artefact (EVOL-118): its `status` is the materialised artefact's
+default, its frontmatter moves with its manifest bump, and a template may retire.
 """
 from __future__ import annotations
 
@@ -52,6 +55,7 @@ RESOLUTION = "change it through the phase's refine, which appends an iteration"
 DELIVERED = APPROVED_STATES | {"MERGED"}
 KEPT = DELIVERED | {"CANCELLED", "SUPERSEDED", "APPROVED (SUPERSEDED)"}   # never deleted: delivered, or terminal
 ARTEFACT = (".md", ".feature")
+TEMPLATES = ".context/templates/"   # a template is never an artefact: its status is the materialised default (EVOL-118)
 STATUS_LINE = re.compile(r"^status:[ \t]*['\"]?([^'\"#\r\n]*)", re.M)
 
 
@@ -79,12 +83,12 @@ def _gone(repo: Path, ref: str) -> list[str]:
         if st[:1] in ("R", "C"):
             old, new = f[i + 1], f[i + 2]
             i += 3
-            if st[:1] == "R" and old.endswith(ARTEFACT) and not new.endswith(ARTEFACT):
+            if st[:1] == "R" and old.endswith(ARTEFACT) and not new.endswith(ARTEFACT) and not old.startswith(TEMPLATES):
                 out.append(old)
             continue
         path = f[i + 1]
         i += 2
-        if st[:1] in ("D", "T") and path.endswith(ARTEFACT):
+        if st[:1] in ("D", "T") and path.endswith(ARTEFACT) and not path.startswith(TEMPLATES):
             out.append(path)
     return out
 
@@ -105,7 +109,7 @@ def check(repo: Path, base: str) -> list[dict]:
             findings.append({"path": path, "key": "(deleted)", "reason": f"a delivered artefact ({status}) was deleted — "
                              "mark it terminal (status CANCELLED or SUPERSEDED) and keep the file; never delete it" if status in DELIVERED else
                              f"a terminal artefact ({status}) was deleted — it is the trace of what was decided; keep the file"})
-    for path in [p for p in _git(repo, "diff", "--name-only", "--no-renames", ref).splitlines() if p.endswith((".md", ".feature"))]:
+    for path in [p for p in _git(repo, "diff", "--name-only", "--no-renames", ref).splitlines() if p.endswith(ARTEFACT) and not p.startswith(TEMPLATES)]:
         disk = repo / path   # an approved artefact is markdown or a spec.feature: a binary or a YAML document is not this gate's
         if not disk.is_file():
             continue  # deleted or no longer a file: judged above

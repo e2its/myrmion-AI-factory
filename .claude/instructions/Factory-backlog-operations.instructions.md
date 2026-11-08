@@ -263,10 +263,10 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
 
   # Governance bump — the canonical framework rule is enforced by the governance-check CI
   # workflow (.github/workflows/governance-check.yml). Every change to a tracked rule file
-  # MUST bump its entry in governance_versions.json — python3 scripts/gate.py manifest --bump --entry <path> --level … --note "…" (EVOL-061).
+  # MUST bump its entry in governance_versions.json — python3 scripts/gate.py manifest --bump --entry <path> --level … (EVOL-061; state only, EVOL-118).
   UPDATE docs/project_log/governance_versions.json → defect-prevention.md entry:
     version: bump minor (e.g. 2.0.0 → 2.1.0)
-    changelog.append: "{YYYY-MM-DD}: EPIC-{N} retrospective added {count} DC entries ({dc_ids})"
+  # the why — "EPIC-{N} retrospective added {count} DC entries ({dc_ids})" — goes in the commit message
 
   # Worklog
   APPEND_TO_WORKLOG: {phase: "RETROSPECTIVE", action: "writeback", added_dcs: [...]}

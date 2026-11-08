@@ -3,18 +3,8 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.17.0
+version: 2.17.1
 date: 2026-10-20
-changelog:
-  - "2.10.0: feat(EVOL-065) — the PreToolUse guard judges shell writes too (one write-target reader); a write outside the project is not judged; pre-merge-commit refuses a merge commit on a protected branch."
-  - "2.9.0: feat(EVOL-064) — § Control points and gate profiles (EVOL-046) and § One planning stage (EVOL-048) moved verbatim from the project CLAUDE.md."
-  - "2.8.0: feat(EVOL-054) — § Server-side protection; the [PLAW-11] mandate names the server side (the runbook docs/scm/protection.md, gate.py scm-protection at ci)."
-  - "2.7.0: feat(EVOL-047) — post-merge actions and the main-branch line qualified by the runtime surface (gate.py runtime-surface --changed)."
-  - "2.6.0: feat(EVOL-045) — frontmatter default_base_branch (read by gate.py diff-base); § Trains and sub-increments."
-  - "2.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
-  - "2.1.0: feat(EVOL-043) — hosts [PLAW-11] body (merged from the constitution template; placeholder-bearing variant kept, hard-coded approval count dropped)"
-  - "2.0.0: PR validation mode, approval count, merge method configurable via SETUP Q22.1"
-  - "1.0.0: Initial template version"
 ---
 
 # Branching Strategy & Version Control Rules

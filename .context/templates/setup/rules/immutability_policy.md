@@ -183,7 +183,7 @@ def check_slice_immutability(feature_id, proposed_slice_map):
 - **Never deleted.** To retire one, mark it terminal (`status: CANCELLED` or `SUPERSEDED`) and keep the file. Traceability reads it. A terminal artefact is kept too: it is the trace of what was decided.
 - **A move is not a deletion.** A rename to another markdown or `.feature` name is allowed.
 - **A secret or a personal datum inside one** is redacted in place and the file kept; the secret is rotated (`rules/security_policy.md`). Erasing a personal datum from history is an owner decision, never a silent delete.
-- **Gate:** profile member `frontmatter-lock` (`gate.py frontmatter-lock`). Red when a markdown or `.feature` file whose base `status` is delivered or terminal is deleted, replaced by a link, or moved to a name that is no artefact.
+- **Gate:** profile member `frontmatter-lock` (`gate.py frontmatter-lock`). Red when a markdown or `.feature` file whose base `status` is delivered or terminal is deleted, replaced by a link, or moved to a name that is no artefact. A template under `.context/templates/` is never an artefact.
 
 ---
 

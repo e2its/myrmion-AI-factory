@@ -6,10 +6,8 @@ applicable_when:
     - "docs/spec/**/slice_map.md"
     - "docs/spec/**/increment_plan.md"
     - "docs/spec/**/dev_plan.md"
-version: 1.1.0
+version: 1.1.1
 date: 2026-10-07
-changelog:
-  - "1.0.0: feat(EVOL-064) — body moved verbatim from the project CLAUDE.md § Incremental Dev Plan (Vertical Slicing); CLAUDE.md keeps the always-on lines and a pointer here."
 ---
 
 # Incremental Dev Plan (Vertical Slicing)

@@ -8,12 +8,8 @@ applicable_when:
     - "**/*.jsx"
     - "**/*.tsx"
     - "**/*.vue"
-version: 1.8.0
+version: 1.8.1
 date: 2026-01-26
-changelog:
-  - "1.6.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
-  - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
-  - "1.0.0: Initial template version"
 ---
 
 # 🎨 UX Constitution & Interaction Policies

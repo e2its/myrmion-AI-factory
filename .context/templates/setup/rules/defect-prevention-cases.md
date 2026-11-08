@@ -1,9 +1,7 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.6.0
+version: 1.6.1
 date: 2026-09-25
-changelog:
-  - "1.0.0: feat(EVOL-043) — annex created; narratives moved out of the catalog prose columns into one case per DC"
 applicable_when:
   path_glob:
     - "docs/project_log/**"

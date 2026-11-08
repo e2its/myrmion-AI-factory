@@ -1,9 +1,6 @@
 ---
-version: 1.2.1
+version: 1.2.2
 template_date: 2026-01-29
-changelog:
-  - "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
-  - "1.0.0: Initial ADR template for setup phase decisions"
 adr_number: "{{NUMBER}}"
 title: "{{TITLE}}"
 date: "{{DATE}}"

@@ -189,8 +189,6 @@ For each detected technology (backend.runtime, frontend.framework):
        framework: ["{technology_lc}"]
      version: 1.0.0
      date: {CURRENT_DATE}
-     changelog:
-       - "1.0.0: Auto-generated during SETUP materialization"
      ---
      ```
    - **Step 3b — Derive `path_glob` list** from technology name (factory-applicability-discovery scans these). Common mappings (one entry per glob — list form, NOT brace expansion):

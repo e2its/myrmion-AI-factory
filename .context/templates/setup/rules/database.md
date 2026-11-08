@@ -9,13 +9,8 @@ applicable_when:
     - "**/*.sql"
     - "**/models/**"
     - "config/seed_registry.json"
-version: 1.4.0
+version: 1.4.1
 date: 2026-11-06
-changelog:
-  - "1.4.0: feat(EVOL-071) — the data pack: expand and contract, an ADR tag per destructive step, no automatic rollback of a contract step, one connection factory, seeds through the owner; enforced by gate.py data."
-  - "1.3.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
-  - "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
-  - "1.0.0: Initial template version"
 ---
 
 # Database Governance & Migration Strategy

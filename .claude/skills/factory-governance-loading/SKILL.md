@@ -317,7 +317,7 @@ ELSE:
 
 Read side above. Write side here.
 
-**Rule:** touch a tracked file → bump its manifest entry + add changelog line, same commit. No exceptions.
+**Rule:** touch a tracked file → bump its manifest entry, same commit. No exceptions. State only (EVOL-118): no history line in the manifest — the why lives in the commit, the pull request and, in a project, the feature plan.
 
 **Tracked files.** `.context/templates/setup/governance_versions.json` has two sections:
 
@@ -333,10 +333,10 @@ Read side above. Write side here.
 **Procedure (EVOL-061 — the bump is a tool, not a ritual).** One command writes everything the check verifies:
 
 ```bash
-python3 scripts/gate.py manifest --bump --entry <path> [--entry …] --level patch|minor|major --note "<what and why>" [--framework patch|minor|major] [--new <path>]
+python3 scripts/gate.py manifest --bump --entry <path> [--entry …] --level patch|minor|major [--framework patch|minor|major] [--new <path>]
 ```
 
-It resolves each path to its entry (framework_core by its file — the entry's `path`, else `.claude/` + key — templates under `.context/templates/setup/`, agent_templates under `.context/templates/`; a project's by target), moves the version by the level, prepends the changelog line in the entry's shape (`"<version>: <note>"`), moves the file's frontmatter `version:` when it carries one (manifest-parity by construction), and with `--framework` moves `framework_version`, `last_updated` and the `description` prefix. It is **idempotent on the branch**: an entry already advanced against the base is not moved again — its line is replaced only when the note differs. `--new <path> [--target T]` adds an entry at `1.0.0` (the file must exist; a template's target and delivery follow its nearest sibling's convention, or `--target` names it; never silently: a path matching no entry is refused). The base is the branching grammar's one diff base or `--base REF`; a base that cannot be read is a fault — `--no-base` is the one way to move every entry on purpose. `--check --entry … [--framework]` verifies without writing. The level follows the commit prefix (fix:/chore: → patch, feat: → minor, feat!:/BREAKING → major); the note is the decision — mandatory, never empty, read by the governance critic.
+It resolves each path to its entry (framework_core by its file — the entry's `path`, else `.claude/` + key — templates under `.context/templates/setup/`, agent_templates under `.context/templates/`; a project's by target), moves the version by the level, moves the file's frontmatter `version:` when it carries one (manifest-parity by construction), and with `--framework` moves `framework_version` and `last_updated`. It is **idempotent on the branch**: an entry already advanced against the base is not moved again. `--new <path> [--target T]` adds an entry at `1.0.0` (the file must exist; a template's target and delivery follow its nearest sibling's convention, or `--target` names it; never silently: a path matching no entry is refused). The base is the branching grammar's one diff base or `--base REF`; a base that cannot be read is a fault — `--no-base` is the one way to move every entry on purpose. `--check --entry … [--framework]` verifies without writing. The level follows the commit prefix (fix:/chore: → patch, feat: → minor, feat!:/BREAKING → major); the decision is the commit message, read by the governance critic. `gate.py manifest-parity` is red on any `changelog` key in the manifest or the inventory.
 
 **Applies.** Every commit touching a tracked file. Docs-only changes too — a change outside the runtime surface skips the deploy / tag machinery (EVOL-047), NOT this rule, and it still ships via branch and pull request.
 

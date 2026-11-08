@@ -97,7 +97,7 @@ Flips a proposed record to `accepted`. For ADRs, mechanically amends `docs/const
    - `REMOVE` → delete the `## [{id}]` section.
 6. **Write `## Constitution Amendment` section** in the ADR with the before/after of the entry (and of the body when it changed).
 7. **Flip frontmatter** `status: proposed` → `accepted`. Set `accepted_at: ISO_8601`.
-8. **Bump the governance manifest** entries: `docs/constitution.md` (MINOR, or MAJOR when the caller signals a breaking flip), the body home rule file (MINOR), the ADR at `1.0.0`; changelog line `"{new_version}: ADR-{N} {amendment_kind} {target_section} — {title}"`.
+8. **Bump the governance manifest** entries: `docs/constitution.md` (MINOR, or MAJOR when the caller signals a breaking flip), the body home rule file (MINOR), the ADR at `1.0.0` (`gate.py manifest --bump`); the commit message names `ADR-{N} {amendment_kind} {target_section} — {title}`.
 9. **Regenerate the snapshot:** `bash scripts/generate-governance-snapshot.sh` (the index changed).
 10. **Append worklog entry.** `adr_accepted` with `{number, target_section, amendment_kind, body_home}`.
 11. **Emit commit-message suggestion** at `.context/state/commit-message-suggestion.md`:

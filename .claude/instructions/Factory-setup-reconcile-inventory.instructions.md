@@ -18,7 +18,7 @@ This subcommand is the canonical entry point for the inventory reconciliation fl
 Read these files before doing anything else:
 
 1. `.claude/skills/factory-codebase-inventory/SKILL.md` — full reconciliation protocol (Phases 1–5).
-2. `config/codebase_inventory.json` — current state (especially `version` + `changelog` for context on the last reconcile).
+2. `config/codebase_inventory.json` — current state (`version`; the last reconcile's why is in `git log -- config/codebase_inventory.json`).
 3. `.context/governance_snapshot.md` § Stack Configuration (rendered from `docs/setup.md` frontmatter, the answer home) — for the BC list (which BCs the orphan scan covers).
 4. `scripts/reconcile_inventory.py` — the reusable Python helper this command orchestrates.
 
@@ -80,11 +80,10 @@ Idempotent. Only touches entries whose description matches the boilerplate fallb
 ### Step 5 — Persist + verify
 
 1. Bump `config/codebase_inventory.json` `version` (PATCH for additions, MINOR for renames/relocations, MAJOR for breaking schema changes — schema is governed by the inventory's own `$schema` field).
-2. Append a `changelog` entry naming the reconcile trigger + counts (e.g. "Reconciliation triggered by inventory-drift CI gate flip — registered N orphans, relocated M dead paths").
-3. Bump `last_updated` to today.
-4. Re-run `python3 scripts/check-inventory-freshness.py` → must report `✅ Inventory clean`.
-5. Update `docs/project_log/governance_versions.json`:
-   - `config/codebase_inventory.json` entry — bump `version` + add changelog line.
+2. Bump `last_updated` to today. The trigger and the counts go in the commit message (below) — never into the inventory: it carries current state only (EVOL-118; `gate.py manifest-parity` is red on a `changelog` key).
+3. Re-run `python3 scripts/check-inventory-freshness.py` → must report `✅ Inventory clean`.
+4. Update `docs/project_log/governance_versions.json`:
+   - `config/codebase_inventory.json` entry — bump `version`.
    - If the freshness script or reconciler script changed, bump those manifest entries too.
    - `framework_version` — PATCH bump if this is a content-only reconcile; MINOR if reconciler logic changed.
 
@@ -106,11 +105,10 @@ Idempotent. Only touches entries whose description matches the boilerplate fallb
 ## Audit trail
 
 Every reconcile produces:
-- One `changelog` line in `config/codebase_inventory.json`.
-- One commit message with the canonical pattern above.
+- One commit message with the canonical pattern above — the trigger and the counts.
 - One `governance_versions.json` entry recording the framework_version bump.
 
-The full reconciliation history is reproducible by walking `git log --follow config/codebase_inventory.json` + diffing the inventory's `changelog` array.
+The full reconciliation history is `git log --follow config/codebase_inventory.json`.
 
 ---
 

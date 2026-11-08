@@ -79,8 +79,6 @@ Each template MUST include:
 ---
 version: 1.0.0
 date: YYYY-MM-DD
-changelog:
-  - "1.0.0: Initial template version"
 ---
 
 # [Template Name]

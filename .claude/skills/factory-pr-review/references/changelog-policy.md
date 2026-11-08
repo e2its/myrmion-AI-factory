@@ -7,9 +7,9 @@ Always load this file. It's the traceability axis of the review.
 | Context | Source of truth | Format |
 |---|---|---|
 | Materialised project (downstream) | `CHANGELOG.md` at repo root | Keep a Changelog (sections below) |
-| Framework meta repo | `.context/templates/setup/governance_versions.json` (per-file `changelog` arrays + top-level `description`) | Manifest entries with PATCH/MINOR/MAJOR semver per entry |
+| Framework meta repo | the commit and the pull request; `.context/templates/setup/governance_versions.json` carries current versions only (EVOL-118) | Manifest entries with PATCH/MINOR/MAJOR semver per entry |
 
-In framework meta, the manifest IS the changelog. A "missing CHANGELOG" finding becomes a "missing manifest bump" finding. See Hard Block 11 in `SKILL.md`.
+In framework meta, the history lives in version control and the manifest holds the versions. A "missing CHANGELOG" finding becomes a "missing manifest bump" finding. See Hard Block 11 in `SKILL.md`.
 
 ## CHANGELOG
 

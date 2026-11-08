@@ -446,7 +446,7 @@ if [[ -f "$GOV_MANIFEST" ]] && [[ ! -d "docs/spec" ]] && grep -q "framework_vers
 
   if [[ "$TRACKED_HIT" == "true" ]]; then
     if ! echo "$CHANGED_FILES" | grep -qx "$GOV_MANIFEST"; then
-      add_finding "blocker" "governance-bump-miss" "Framework-core file changed without a matching $GOV_MANIFEST update (CLAUDE.md Generation Standards §2). Bump the manifest entry + add a changelog line in the SAME commit."
+      add_finding "blocker" "governance-bump-miss" "Framework-core file changed without a matching $GOV_MANIFEST update (CLAUDE.md Generation Standards §2). Bump the manifest entry in the SAME commit (python3 scripts/gate.py manifest --bump)."
     fi
   fi
 fi
