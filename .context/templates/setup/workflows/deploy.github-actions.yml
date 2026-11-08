@@ -60,11 +60,11 @@ jobs:
         run: git fetch origin "$BASE_REF"
         env:
           BASE_REF: ${{ github.base_ref }}
-      - name: "The preventive sweep swept this change (RDR 1) — owed for a feature branch, the full-sdlc preset, not documentation only"
+      - name: "The agent's verdicts for this change — the preventive sweep (RDR 1) and the smoke at the project's cadence (RDR 1, 2026-11-08); owed for a feature branch, the full-sdlc preset, not documentation only"
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
-        run: python3 scripts/gate.py delivery --sweep --base "origin/${BASE_REF}" --branch "$HEAD_REF"
+        run: python3 scripts/gate.py delivery --pr --base "origin/${BASE_REF}" --branch "$HEAD_REF"
       - name: "The sweep verdict is current — its certifies hash matches the head (gate.py currency)"
         env:
           BASE_REF: ${{ github.base_ref }}

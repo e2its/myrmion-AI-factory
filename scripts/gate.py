@@ -500,13 +500,13 @@ def cmd_performance(repo, a):
 
 def cmd_delivery(repo, a):
     try:
-        acts = [x for x in ("run", "rollback", "teardown", "check", "sweep") if getattr(a, x)] + (["last"] if a.last else []) + (["lkg"] if a.lkg else [])
+        acts = [x for x in ("run", "rollback", "teardown", "check", "pr") if getattr(a, x)] + (["last"] if a.last else []) + (["lkg"] if a.lkg else [])
         if len(acts) != 1:
-            raise GateFault("name one of --run, --rollback, --teardown, --last, --lkg, --check, --sweep")
+            raise GateFault("name one of --run, --rollback, --teardown, --last, --lkg, --check, --pr")
         if acts[0] in ("run", "rollback", "teardown") and not a.env:
             raise GateFault(f"--{acts[0]} needs --env (the environment deployed)")
-        if acts[0] == "sweep" and not (a.branch and a.base):
-            raise GateFault("--sweep needs --branch (the PR's source branch) and --base (its target)")
+        if acts[0] == "pr" and not (a.branch and a.base):
+            raise GateFault("--pr needs --branch (the PR's source branch) and --base (its target)")
         if acts[0] in ("last", "lkg"):
             env = a.last or a.lkg
             rec = delivery_mod.last(repo, env) if a.last else delivery_mod.lkg(repo, env)
@@ -518,7 +518,7 @@ def cmd_delivery(repo, a):
         r = {"run": lambda: delivery_mod.run(repo, a.env), "rollback": lambda: delivery_mod.rollback(repo, a.env),
              "teardown": lambda: delivery_mod.teardown(repo, a.env),
              "check": lambda: delivery_mod.check(repo),
-             "sweep": lambda: delivery_mod.sweep(repo, _base(repo, a), a.branch)}[acts[0]]()
+             "pr": lambda: delivery_mod.pr(repo, _base(repo, a), a.branch)}[acts[0]]()
     except GateFault as e:
         print(f"delivery: RED — {clean(e)}", file=sys.stderr)
         return 1
@@ -759,7 +759,7 @@ def build_parser():
     p = sub.add_parser("contracts"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--parity", action="store_true"); p.set_defaults(fn=cmd_contracts)
     p = sub.add_parser("data"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_data)
     p = sub.add_parser("performance"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--run", action="store_true"); p.add_argument("--site", default=""); p.add_argument("--url", default=""); p.add_argument("--rebaseline", default=None); p.set_defaults(fn=cmd_performance)
-    p = sub.add_parser("delivery"); p.add_argument("--run", action="store_true"); p.add_argument("--rollback", action="store_true"); p.add_argument("--teardown", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--sweep", action="store_true", help="the PR's sweep verdict (owed: feature branch, full-sdlc, not docs only)"); p.add_argument("--base", default=None); p.add_argument("--branch", default=""); p.add_argument("--last", default=None, metavar="ENV"); p.add_argument("--lkg", default=None, metavar="ENV"); p.add_argument("--env", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_delivery)
+    p = sub.add_parser("delivery"); p.add_argument("--run", action="store_true"); p.add_argument("--rollback", action="store_true"); p.add_argument("--teardown", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--pr", action="store_true", help="the verdicts the PR demands: sweep + smoke (owed: feature branch, full-sdlc, not docs only)"); p.add_argument("--base", default=None); p.add_argument("--branch", default=""); p.add_argument("--last", default=None, metavar="ENV"); p.add_argument("--lkg", default=None, metavar="ENV"); p.add_argument("--env", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_delivery)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("write-target"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_write_target)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)

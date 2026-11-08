@@ -166,6 +166,20 @@ Recommendation: 1. The record is immutable and works the same on both platforms.
 
 Owner's choice, verbatim: «1».
 
+### RDR 5 — what runs the smoke on the pull request (2026-11-08)
+
+Found while building: no config key names a smoke command, and staging deploys only after the merge — a PR job against it would test main, not the PR's head.
+
+Options posed:
+1. **The PR demands the agent's certified smoke report.** The agent deploys the branch to the non-production environment through the pipeline's dispatch on that ref, runs the smoke (QA) and commits its report. The PR checks it is in the diff, APPROVED and current for the head (`certifies:`, `gate.py currency`), at `qa.smoke_cadence`. Same pattern as the sweep.
+2. The CI runs the smoke itself: new discovery keys (smoke and start commands), browser runners, an ephemeral environment per PR — #147's ground.
+3. No smoke on the PR: the PR demands the sweep only; the smoke stays in QA after the merge.
+4. Defer to #147, with 3 as the stated intermediate state.
+
+Recommendation: 1. It reuses the certified report and the currency check the PR already runs; no new key or flag; it closes the gap today. Surviving risk: the verdict is the agent's word, sealed to the SHA, as the sweep's is.
+
+Owner's choice, verbatim: «1».
+
 ### 1. `delivery.execution` — derived, never asked
 
 - `discovery_registry.json → derived`: `delivery.execution` is `ci` when `ci_cd.platform != None`, and `local` otherwise. It lands in `config/quality.json → delivery.execution`.
@@ -206,7 +220,10 @@ Owner's choice, verbatim: «1».
 - **Production** runs only after a person approves:
   - GitHub: `environment: production`. `gate.py scm-protection` at `ci` verifies that environment's `protection_rules[].reviewers` through the API. A missing environment, or a Free private repository, is red.
   - Bitbucket: `deployment: production` with `trigger: manual`. The runbook names the Premium deployment permissions.
-- **The pull request** runs the smoke's automated specs against the persistent non-production environment. Under the Minimal strategy, they run against the build started in the job. The PR is blocked when the preventive sweep's `gate.py certify` verdict for the head SHA is missing, stale or red (RDR 1). The sweep is owed where the preventive-sweep phase exists: a `feature/*` branch, the full-sdlc preset, a change that is not documentation only — one reader, `gate.py delivery --sweep`. The control point in `profile.py:67` becomes the pull request.
+- **The pull request** is blocked when one of the agent's verdicts for the head SHA is missing, stale or red (`gate.py certify`, `gate.py currency`), one reader, `gate.py delivery --pr`:
+  - the preventive sweep (RDR 1);
+  - the smoke at `qa.smoke_cadence` (RDR 5): the increment's `smoke_e2e_report_INC-N.md` per slice, and `smoke_e2e_report.md` on the PR that closes the feature. The agent deploys the branch to the non-production environment through the pipeline's dispatch on that ref, then runs the smoke there.
+  - They are owed where those phases exist: a `feature/*` branch that is not a sub-increment (its PR into the train owes the light profile), the full-sdlc preset, a change that is not documentation only. The control point in `profile.py:67` becomes the pull request.
 - **Rollback** redeploys the last `lkg/{env}/*` through the same pipeline. It writes its own `deploy/…` record, which is the re-seal.
 - **Teardown** runs from the pipeline too: the deny covers the adapter's `destroy`. The production teardown waits for the same approval.
 - **The DEVOPS instruction** triggers the run and watches it: `gh workflow run` with a unique `run-name`, then `gh run watch --exit-status`, or the Bitbucket pipelines API polled until `COMPLETED`. Local provision and deploy remain only for `delivery.execution == local`, through the same executor: `gate.py delivery --run` refuses without `CI` only when the execution is `ci`.
@@ -275,7 +292,7 @@ Each change ships with its upgrade migration.
 - **Environment names are fixed for now.** The pipelines deploy `staging` and `production`. #147 owns the environment declaration; until it lands, a project with other names edits its pipeline, and `delivery --check` still holds every stage to the executor and the approval.
 - **Secrets reach the executor process.** The pipeline hands its secrets map to the executor, which passes each step only the row's names and `delivery.secrets`. The map lives in that one process's environment for the job's lifetime.
 - **The Bitbucket merge is not exercised end to end.** The synthetic run validates the merged `bitbucket-pipelines.yml` against the live schema; a real run is proven only downstream.
-- **The sweep verdict depends on the agent.** It is the agent's word, sealed to a SHA. The pipeline checks that the verdict exists, is fresh and is green, not how it was reached.
+- **The sweep and smoke verdicts depend on the agent.** Each is the agent's word, sealed to a SHA. The pipeline checks that the verdict exists, is fresh and is green, not how it was reached.
 
 ## Alternatives considered
 

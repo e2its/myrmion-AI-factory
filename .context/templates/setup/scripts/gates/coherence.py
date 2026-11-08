@@ -31,7 +31,7 @@ from .common import GateFault, any_glob, clean, key, load_coherence, read_frontm
 
 TERMINAL = {"APPROVED", "PASSED", "PASS", "SECURE", "IMPLEMENTED_AND_VERIFIED", "COMPLETED"}   # COMPLETED: the preventive sweep (EVOL-081)
 DEFAULT_CERTIFYING = ["docs/spec/*/qa/qa_report*.md", "docs/spec/*/review/peer_review_*.md",
-                      "docs/spec/*/review/sec_audit*.md", "docs/spec/*/sec_audit*.md", "docs/spec/*/smoke_e2e_report.md",
+                      "docs/spec/*/review/sec_audit*.md", "docs/spec/*/sec_audit*.md", "docs/spec/*/smoke_e2e_report*.md",
                       "docs/spec/*/review/preventive_sweep_*.md"]
 FEATURE_IN_BRANCH = re.compile(r"^(?:feature|epic)/([A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*)")
 

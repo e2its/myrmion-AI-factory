@@ -13,9 +13,10 @@ config    `config/quality.json → delivery`: `execution` (ci | local, derived f
 --rollback --env E   HEAD must be the last `lkg/E/*` SHA (the pipeline checks it out), then `--run`: its record is the re-seal.
 --teardown --env E   the adapter's `destroy`; null destroy fails closed; writes no tag.
 --last E / --lkg E   the latest record / the latest good record, JSON.
---sweep --base B --branch NAME   the PR pipeline's sweep verdict: owed for a `feature/*` branch, the full-sdlc preset
-          (docs/setup.md), a change that is not documentation only; then the newest preventive-sweep report the PR adds
-          is COMPLETED with `not_delivered: []` (n/a otherwise). Its currency is `gate.py currency`'s.
+--pr --base B --branch NAME   the verdicts the PR pipeline demands of the agent: the preventive sweep (COMPLETED,
+          every scope delivered) and the smoke at `qa.smoke_cadence` (APPROVED), each in the PR's diff — owed for a
+          `feature/*` branch that is not a sub-increment, the full-sdlc preset, not documentation only (n/a otherwise).
+          Their currency is `gate.py currency`'s.
 --check   (light profile member) the pipeline file(s): every deploy / teardown stage calls this executor and names
           its environment, production behind approval (GitHub `environment: production`; Bitbucket
           `deployment: production` + `trigger: manual`); the adapter row has `apply` and `url_from`. n/a with
@@ -425,25 +426,55 @@ def _bitbucket(doc: dict, rel: str) -> list[str]:
 SWEEP_GLOB = "docs/spec/*/review/preventive_sweep_*.md"
 
 
-def sweep(repo: Path, base: str, branch: str) -> dict:
-    """The PR pipeline's sweep verdict: owed for a feature branch, the full-sdlc preset, a change that is not
-    documentation only — then the newest report the PR adds is COMPLETED with `not_delivered: []`."""
+def _verdict(repo: Path, rel: str, paths: list[str], status: str, what: str, extra=None) -> dict:
+    """One owed verdict artefact: in this PR's diff, at `status` (and `not_delivered: []` for the sweep)."""
+    from .common import read_frontmatter
+    if rel not in paths or not (repo / rel).is_file():
+        return _row(rel, [f"not in this pull request — {what}"])
+    fm = read_frontmatter(repo / rel)
+    probs = [] if fm.get("status") == status else [f"status is {fm.get('status')!r}, not {status}"]
+    for k, v in (extra or {}).items():
+        if fm.get(k) != v:
+            probs.append(f"`{k}` is not {v!r} — not every scope delivered")
+    return _row(rel, probs, f"{status}")
+
+
+def pr(repo: Path, base: str, branch: str) -> dict:
+    """The verdicts the PR pipeline demands of the agent (RDR 1 sweep, RDR «1» smoke, 2026-11-08). Owed for a
+    `feature/*` branch that is not a sub-increment (a sub PR into its train owes the light profile), the full-sdlc
+    preset, a change that is not documentation only. Then, each in this PR's diff: the newest preventive-sweep report
+    COMPLETED with `not_delivered: []`; the smoke at `qa.smoke_cadence` — `per-slice`: the increment's
+    `smoke_e2e_report_INC-N.md` APPROVED; the PR that closes the feature (no increment in the branch, or its last
+    INC of increment_plan.md) also `smoke_e2e_report.md` APPROVED. Their currency is `gate.py currency`'s."""
     from . import data, seal
-    if not branch.startswith("feature/"):
-        return {"ok": True, "na": True, "reason": f"{branch or 'this branch'} is not a feature branch — no sweep owed", "entries": []}
-    if data.answers(repo).get("project_tracking.feature_phases") != "full-sdlc":
-        return {"ok": True, "na": True, "reason": "the feature preset is not full-sdlc — no sweep owed", "entries": []}
+    from . import branch as branch_mod
+    from .common import glob_match
+    from .train import INC_RE as PLAN_INC
+    m = branch_mod.INC_RE.match(branch or "")
+    if not (branch or "").startswith("feature/"):
+        return {"ok": True, "na": True, "reason": f"{branch or 'this branch'} is not a feature branch — no verdict owed", "entries": []}
+    if m and m.group("m"):
+        return {"ok": True, "na": True, "reason": "a sub-increment PR into its train owes the light profile — the train's PR carries the verdicts", "entries": []}
+    ans = data.answers(repo)
+    if ans.get("project_tracking.feature_phases") != "full-sdlc":
+        return {"ok": True, "na": True, "reason": "the feature preset is not full-sdlc — no verdict owed", "entries": []}
     if seal.docs_only(repo, base)["ok"]:
-        return {"ok": True, "na": True, "reason": "documentation only — no sweep owed", "entries": []}
-    from .common import glob_match, read_frontmatter
-    found = sorted(p for p in seal.diff_paths(repo, base) if glob_match(p, SWEEP_GLOB) and (repo / p).is_file())
-    if not found:
+        return {"ok": True, "na": True, "reason": "documentation only — no verdict owed", "entries": []}
+    paths = seal.diff_paths(repo, base)
+    sweeps = sorted(p for p in paths if glob_match(p, SWEEP_GLOB) and (repo / p).is_file())
+    if not sweeps:
         return {"ok": False, "entries": [], "reason": f"no preventive-sweep report ({SWEEP_GLOB}) in this pull request — the agent sweeps the change first"}
-    fm = read_frontmatter(repo / found[-1])
-    probs = ([] if fm.get("status") == "COMPLETED" else [f"status is {fm.get('status')!r}, not COMPLETED"]) + \
-            ([] if fm.get("not_delivered") == [] else ["not every scope delivered (`not_delivered` is not [])"])
-    return {"ok": not probs, "entries": [_row(found[-1], probs, "COMPLETED, every scope delivered")],
-            "reason": f"{found[-1]} red" if probs else f"{found[-1]} swept this change"}
+    rows = [_verdict(repo, sweeps[-1], paths, "COMPLETED", "the agent sweeps the change first", {"not_delivered": []})]
+    feature, inc = sweeps[-1].split("/")[2], (m.group("n") if m else None)
+    plan = repo / f"docs/spec/{feature}/increment_plan.md"
+    last = max((int(h.group(1)) for h in PLAN_INC.finditer(plan.read_text(encoding="utf-8", errors="replace"))), default=0) if plan.is_file() else 0
+    smoke = "the agent deploys this branch (DEVOPS --deploy), runs the smoke (QA --verify) and commits its report"
+    if ans.get("qa.smoke_cadence") == "per-slice" and inc:
+        rows.append(_verdict(repo, f"docs/spec/{feature}/smoke_e2e_report_INC-{inc}.md", paths, "APPROVED", smoke))
+    if not inc or int(inc) >= last:
+        rows.append(_verdict(repo, f"docs/spec/{feature}/smoke_e2e_report.md", paths, "APPROVED", smoke + " (this PR closes the feature)"))
+    red = [r for r in rows if not r["ok"]]
+    return {"ok": not red, "entries": rows, "reason": f"{len(red)} of {len(rows)} verdict(s) red" if red else f"{len(rows)} verdict(s) green"}
 
 
 def check(repo: Path) -> dict:

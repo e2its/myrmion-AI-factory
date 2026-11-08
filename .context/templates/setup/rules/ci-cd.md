@@ -259,7 +259,7 @@ For secrets needed by the running application (not just the pipeline):
 - Production runs only in a protected environment: GitHub `environment: production` with required reviewers (`gate.py scm-protection` reads them through the API); Bitbucket `deployment: production` + `trigger: manual`.
 - One executor per deploy: `python3 scripts/gate.py delivery --run --env {env}`, from the adapter row `config/quality.json → delivery.adapter` — validate, plan, migrate, apply, probe every `healthCheckPath`, the performance measure, record tag `deploy/{env}/{ts}` (the measure in it), `lkg/{env}/{ts}` when every probe is up and the measure green.
 - Rollback redeploys the last `lkg/{env}/*` through the same pipeline; its record is the re-seal.
-- The PR pipeline runs the smoke specs and blocks without a fresh green sweep verdict (`gate.py certify`) for the head SHA, where the sweep is owed: `feature/*`, full-sdlc, not documentation only (`gate.py delivery --sweep`).
+- The PR pipeline blocks without the agent's fresh green verdicts for the head SHA (`gate.py certify`, `gate.py currency`), where they are owed — `feature/*` but not a sub-increment, full-sdlc, not documentation only (`gate.py delivery --pr`): the preventive sweep, and the smoke at `qa.smoke_cadence` (the increment's report per slice; the aggregate on the PR that closes the feature). The agent deploys the branch to the non-production environment (`DEVOPS --deploy`, the pipeline's dispatch on that ref) and runs the smoke there before the PR.
 - Teardown runs from the pipeline too (`--teardown`, production behind the same approval).
 - `local`: DEVOPS runs the same executor from the agent's machine.
 

@@ -7692,27 +7692,44 @@ class Delivery(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertTrue(delivery.check(self._repo(tmp, execution="local")).get("na"))
 
-    def test_the_sweep_verdict_is_owed_only_where_it_applies(self):
+    def test_the_pr_verdicts_are_owed_only_where_they_apply(self):
+        """RDR 1 (sweep) and RDR «1» 2026-11-08 (smoke): the PR demands the agent's verdicts, in its diff."""
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             q = json.loads((repo / "config/quality.json").read_text()); q["documentation"] = {"paths": ["**/*.md", "docs/**"], "exclusions": []}
             write(repo / "config/quality.json", json.dumps(q))
-            write(repo / "docs/setup.md", "---\nproject_tracking:\n  feature_phases: full-sdlc\n---\n# Setup\n")
+            setup = lambda cadence, phases="full-sdlc": write(repo / "docs/setup.md", f"---\nproject_tracking:\n  feature_phases: {phases}\nqa:\n  smoke_cadence: {cadence}\n---\n# Setup\n")
+            setup("feature-close")
+            write(repo / "docs/spec/F-1/increment_plan.md", "# Plan\n### INC-1 — a\n### INC-2 — b\n")
             self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "preset"); base = self._git(repo, "rev-parse", "HEAD").strip()
-            write(repo / "src/app.py", "x = 1\n"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "code")
-            self.assertTrue(delivery.sweep(repo, base, "fix/typo")["na"])
-            r = delivery.sweep(repo, base, "feature/F-1-x"); self.assertFalse(r["ok"]); self.assertIn("no preventive-sweep report", r["reason"])
+            commit = lambda msg: (self._git(repo, "add", "-A"), self._git(repo, "commit", "-qm", msg))
+            write(repo / "src/app.py", "x = 1\n"); commit("code")
+            self.assertTrue(delivery.pr(repo, base, "fix/typo")["na"])
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-1-a-sub-2")["na"], "a sub PR into its train owes the light profile")
+            r = delivery.pr(repo, base, "feature/F-1-inc-1-a"); self.assertFalse(r["ok"]); self.assertIn("no preventive-sweep report", r["reason"])
             rep = "docs/spec/F-1/review/preventive_sweep_20261108.md"
-            write(repo / rep, "---\nstatus: IN_PROGRESS\nnot_delivered: [S2]\n---\n"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "sweep")
-            r = delivery.sweep(repo, base, "feature/F-1-x"); self.assertFalse(r["ok"]); self.assertEqual(len(r["entries"][0]["problems"]), 2)
-            write(repo / rep, "---\nstatus: COMPLETED\nnot_delivered: []\n---\n"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "swept")
-            self.assertTrue(delivery.sweep(repo, base, "feature/F-1-x")["ok"])
+            write(repo / rep, "---\nstatus: IN_PROGRESS\nnot_delivered: [S2]\n---\n"); commit("sweep")
+            r = delivery.pr(repo, base, "feature/F-1-inc-1-a"); self.assertFalse(r["ok"]); self.assertEqual(len(r["entries"][0]["problems"]), 2)
+            write(repo / rep, "---\nstatus: COMPLETED\nnot_delivered: []\n---\n"); commit("swept")
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-1-a")["ok"], "feature-close: INC-1 of 2 owes no smoke")
+            r = delivery.pr(repo, base, "feature/F-1-inc-2-b"); self.assertFalse(r["ok"]); self.assertIn("closes the feature", r["entries"][-1]["problems"][0])
+            r = delivery.pr(repo, base, "feature/F-1-whole"); self.assertFalse(r["ok"], "a feature on one branch closes it")
+            agg = "docs/spec/F-1/smoke_e2e_report.md"
+            write(repo / agg, "---\nstatus: DRAFT\n---\n"); commit("smoke draft")
+            self.assertIn("not APPROVED", delivery.pr(repo, base, "feature/F-1-inc-2-b")["entries"][-1]["problems"][0])
+            write(repo / agg, "---\nstatus: APPROVED\n---\n"); commit("smoke")
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-2-b")["ok"])
+            setup("per-slice"); commit("per-slice")
+            r = delivery.pr(repo, base, "feature/F-1-inc-1-a"); self.assertFalse(r["ok"]); self.assertEqual(r["entries"][-1]["id"], "docs/spec/F-1/smoke_e2e_report_INC-1.md")
+            write(repo / "docs/spec/F-1/smoke_e2e_report_INC-1.md", "---\nstatus: APPROVED\n---\n"); commit("slice smoke")
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-1-a")["ok"])
+            self.assertEqual(len(delivery.pr(repo, base, "feature/F-1-inc-2-b")["entries"]), 3, "per-slice: the last INC owes its slice and the aggregate")
             docs = self._git(repo, "rev-parse", "HEAD").strip()
-            write(repo / "docs/notes.md", "n\n"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "docs")
-            self.assertTrue(delivery.sweep(repo, docs, "feature/F-1-x")["na"])
-            write(repo / "docs/setup.md", "---\nproject_tracking:\n  feature_phases: lean\n---\n"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "lean")
-            self.assertTrue(delivery.sweep(repo, base, "feature/F-1-x")["na"])
-            gate = [sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "delivery", "--sweep"]
+            write(repo / "docs/notes.md", "n\n"); commit("docs")
+            self.assertTrue(delivery.pr(repo, docs, "feature/F-1-inc-1-a")["na"])
+            setup("per-slice", "lean"); commit("lean")
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-1-a")["na"])
+            gate = [sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "delivery", "--pr"]
             r = subprocess.run(gate + ["--branch", "feature/F-1-x"], capture_output=True, text=True); self.assertIn("needs --branch", r.stderr)
 
     def test_the_member_and_the_cli(self):

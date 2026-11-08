@@ -47,6 +47,7 @@ FUNCTION resolve_command_scope(command, FEATURE_ID, ENV):
   - Bitbucket: trigger the `custom: deploy-{ENV}` pipeline through the pipelines API, poll until `COMPLETED`, read its result.
   - Production waits for the approval in the platform (protected environment / manual trigger); say so, then watch.
   - Generated IaC ships by branch + PR; the pipeline applies it.
+  - Before the PR: `--ref` is the feature branch, ENV non-production — the smoke (QA --verify) runs on that build and its report rides the PR (`gate.py delivery --pr`, RDR 5).
 - `local`: the agent runs the executor itself, then pushes the `deploy/*` and `lkg/*` tags.
 
 Last deploy and last good state: `gate.py delivery --last {ENV}` / `--lkg {ENV}` (JSON) — never a report file.

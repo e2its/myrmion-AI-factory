@@ -30,12 +30,12 @@ pipelines:
     '**':
       - step:
           image: atlassian/default-image:4
-          name: Preventive sweep verdict (RDR 1) — owed for a feature branch, full-sdlc, not docs only
+          name: The agent verdicts — preventive sweep and smoke (owed for a feature branch, full-sdlc, not docs only)
           clone:
             depth: full
           script:
             - git fetch origin "$BITBUCKET_PR_DESTINATION_BRANCH"
-            - python3 scripts/gate.py delivery --sweep --base "origin/${BITBUCKET_PR_DESTINATION_BRANCH}" --branch "$BITBUCKET_BRANCH"
+            - python3 scripts/gate.py delivery --pr --base "origin/${BITBUCKET_PR_DESTINATION_BRANCH}" --branch "$BITBUCKET_BRANCH"
             - python3 scripts/gate.py currency --base "origin/${BITBUCKET_PR_DESTINATION_BRANCH}"
   branches:
     main:
