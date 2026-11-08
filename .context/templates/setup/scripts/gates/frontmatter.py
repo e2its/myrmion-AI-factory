@@ -12,6 +12,9 @@ replaced by a non-file (a link), or moved to a name that is no artefact — whos
 (APPROVED_STATES or MERGED) or terminal (CANCELLED / SUPERSEDED: the trace it keeps) is red. A move to another
 markdown or .feature name keeps the artefact (renames detected). A base frontmatter the parser cannot read is still
 judged: its `status:` line is read directly (a gate that cannot read never reads green).
+
+A template under `.context/templates/` is never an artefact (EVOL-118): its `status` is the materialised artefact's
+default, its frontmatter moves with its manifest bump, and a template may retire.
 """
 from __future__ import annotations
 
