@@ -24,11 +24,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import html
+import importlib.util
 import json
 import os
 import re
 import shlex
 import subprocess
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,6 +38,7 @@ from urllib.parse import quote, urlsplit
 
 from . import rest
 from .common import GateFault, clean, frontmatter_of, glob_match, load_quality, tracked_files
+from .common import approved as common_approved
 
 PIN = ".pin.json"
 DOWN = "the source of truth is down"
@@ -63,15 +66,36 @@ CATEGORIES = {
     "record":   {"kind": "repo", "writer": "agent", "why": "a record of what ran — written by the run, never approved",
                  "paths": [".context/**", "docs/spec/*/worklog*", "docs/spec/*/proof/**", "docs/spec/*/baselines/**"]},
 }
-APPROVED_FM = {"status": {"APPROVED", "ACCEPTED"}, "verdict": {"APPROVED"}, "overall_verdict": {"PASS", "APPROVED"}}
+APPROVED = frozenset({"APPROVED", "ACCEPTED", "PASS"})   # an approved artefact, an accepted decision record, a passed smoke
 PIN_KEYS = {"source", "id", "version", "approved_at", "sha256"}
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
-_AT = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
+_AT = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")   # ASCII digits: the pins compare as strings
 _HEX = re.compile(r"[0-9a-f]{64}")
+MAX_PAGE = 8 * 1024 * 1024   # a page larger than this is refused before any parse
+FLOOR = ".claude/skills/factory-pr-review/scripts/detect_change_type.py"   # the secrets floor's one pattern list (DC-31)
 
 
 class StoreDown(GateFault):
     """The store could not answer — an infrastructure fault, reported as a warning at the gate, never a pass in silence."""
+
+
+class Outage:
+    """A store down mid-gate (EVOL-080 § 3): the artefact the store cannot answer is left unjudged and the loop goes on,
+    so no red already found is lost. `settle(red)` raises the outage when nothing is red (n/a + WARN under the profile,
+    exit 2 on a direct call); beside a red it is a WARN line and the red stands."""
+
+    def __init__(self):
+        self.down: StoreDown | None = None
+
+    def note(self, e: StoreDown):
+        self.down = self.down or e
+
+    def settle(self, red) -> None:
+        if self.down is None:
+            return
+        if not red:
+            raise self.down
+        print(f"WARN {self.down}", file=sys.stderr)
 
 
 def _down(why) -> StoreDown:
@@ -96,6 +120,8 @@ def cfg(repo: Path) -> dict:
             raise GateFault(f"config/quality.json → documents.homes.{clean(k, 40)}: only {', '.join(asked())} may live outside the repo — {why}")
         if v not in HOMES:
             raise GateFault(f"config/quality.json → documents.homes.{k} must be Repo or External, not {clean(v, 40)!r}")
+    if d.get("deployment") not in (None, "", "cloud", "dc"):
+        raise GateFault(f"config/quality.json → documents.deployment must be cloud or dc, not {clean(d.get('deployment'), 40)!r}")
     return {**d, "adapter": d.get("adapter", "none"), "homes": homes}
 
 
@@ -104,9 +130,11 @@ def asked() -> list[str]:
 
 
 def category_of(rel: str) -> str | None:
-    """The category whose paths hold `rel` (asked first); None outside every category."""
+    """The category whose paths hold `rel` (asked first), anchored at the repo root unless the path starts `**/`;
+    None outside every category."""
+    top = rel.split("/")[0]
     for name in sorted(CATEGORIES, key=lambda k: CATEGORIES[k]["kind"] != "asked"):
-        if any(glob_match(rel, p) for p in CATEGORIES[name]["paths"]):
+        if any(glob_match(rel, p) and (p.startswith("**/") or p.split("/")[0] == top) for p in CATEGORIES[name]["paths"]):
             return name
     return None
 
@@ -123,7 +151,7 @@ def home(c: dict, category: str | None) -> str:
 
 
 def approved(fm: dict) -> bool:
-    return any(str(fm.get(k) or "").strip().upper() in vals for k, vals in APPROVED_FM.items())
+    return common_approved(fm, APPROVED)
 
 
 # ─── the pin ────────────────────────────────────────────────────────────────────
@@ -135,7 +163,7 @@ def sha(text: str) -> str:
 def load_pin(raw: str, where: str) -> dict:
     try:
         d = json.loads(raw)
-    except ValueError:
+    except (ValueError, RecursionError):
         raise GateFault(f"{where}: the pin is not readable JSON — restore it from its approval commit") from None
     if not isinstance(d, dict) or set(d) != PIN_KEYS:
         raise GateFault(f"{where}: a pin carries exactly {{source, id, version, approved_at, sha256}} — restore it from its approval commit")
@@ -161,16 +189,39 @@ def _file(p: Path) -> str | None:
 
 def _at(repo: Path, ref: str, rel: str) -> str | None:
     """The file at `ref`; None when it does not exist there (a bad ref is a fault, never an absent artefact)."""
-    r = subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{ref}^{{commit}}"], capture_output=True, timeout=30)
+    r = subprocess.run(["git", "-C", str(repo), "cat-file", "-e", ref + "^{commit}"], capture_output=True, timeout=30)
     if r.returncode != 0:
         raise GateFault(f"`{clean(ref, 80)}` is not a commit here — fetch it first")
     r = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{rel}"], capture_output=True, timeout=60)
-    return r.stdout.decode("utf-8") if r.returncode == 0 else None
+    if r.returncode != 0:
+        return None
+    try:
+        return r.stdout.decode("utf-8")
+    except UnicodeDecodeError:
+        raise GateFault(f"{rel} at {clean(ref, 80)} is not UTF-8 text — a deliverable is published and hashed as UTF-8") from None
 
 
 def _pin_of(repo: Path, rel: str, ref: str | None = None) -> dict | None:
     raw = _file(repo / (rel + PIN)) if ref is None else _at(repo, ref, rel + PIN)
     return None if raw is None else load_pin(raw, rel + PIN)
+
+
+def admitted(repo: Path, rel: str) -> bool:
+    """`rel`'s pin stands as the artefact: well formed, of the project's store, under a category homed there."""
+    try:
+        pin = _pin_of(repo, rel)
+    except GateFault:
+        return False
+    c = cfg(repo)
+    return pin is not None and pin["source"] == c["adapter"] and home(c, category_of(rel)) == "external"
+
+
+def _inside(repo: Path, rel: str) -> Path:
+    """The artefact's path, confined to the repository (a `..` or a link out is refused)."""
+    p = repo / rel
+    if not rel or rel.startswith("/") or ".." in Path(rel).parts or not p.resolve().is_relative_to(repo.resolve()):
+        raise GateFault(f"{clean(rel, 120)} is not a path inside the repository")
+    return p
 
 
 def _write_pin(repo: Path, rel: str, pin: dict):
@@ -184,7 +235,7 @@ def open_store(repo: Path, c: dict | None = None, **inject):
     if c["adapter"] == "confluence":
         return Confluence(c, **inject)
     if c["adapter"] == "built":
-        return Built(c)
+        return Built(c, repo)
     raise GateFault("a pin names a store, but config/quality.json → documents names none — answer Q38 (SETUP --upgrade) or restore the file")
 
 
@@ -198,30 +249,41 @@ def _read_at(st, rel: str, pid: str, version: int) -> tuple[int, str]:
     return cur, body
 
 
+def _verified(st, rel: str, pin: dict) -> tuple[int, str]:
+    """→ (current version, the pinned bytes), the hash checked against the pin."""
+    cur, body = _read_at(st, rel, pin["id"], pin["version"])
+    if sha(body) != pin["sha256"]:
+        raise GateFault(f"{rel}: version {pin['version']} in the store is not the approved bytes (its hash differs from the pin) — "
+                        "restore the approved version in the store, or re-approve through the owner phase")
+    return cur, body
+
+
 def read_pinned(repo: Path, rel: str, pin: dict, st=None, c: dict | None = None) -> str:
+    c = c or cfg(repo)
+    if pin["source"] != c["adapter"]:
+        raise GateFault(f"{rel}: the pin names the source `{pin['source']}`; the project's store is `{c['adapter']}` — "
+                        "bring the artefact back as a file and `--approve` it there")
     memo = os.environ.get(MEMO)
     m = Path(memo) / pin["sha256"] if memo and Path(memo).is_dir() else None
     if m is not None and m.is_file():
         t = m.read_bytes().decode("utf-8", "replace")
         if sha(t) == pin["sha256"]:
             return t
-    c = c or cfg(repo)
-    if pin["source"] != c["adapter"]:
-        raise GateFault(f"{rel}: the pin names the source `{pin['source']}`; the project's store is `{c['adapter']}` — re-approve it there")
-    st = st or open_store(repo, c)
-    _, body = _read_at(st, rel, pin["id"], pin["version"])
-    if sha(body) != pin["sha256"]:
-        raise GateFault(f"{rel}: version {pin['version']} in the store is not the approved bytes (its hash differs from the pin) — "
-                        "restore the approved version in the store, or re-approve through the owner phase")
+    _, body = _verified(st or open_store(repo, c), rel, pin)
     if m is not None:
-        m.write_bytes(body.encode("utf-8"))
+        try:
+            fd = os.open(m, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            with os.fdopen(fd, "wb") as f:
+                f.write(body.encode("utf-8"))
+        except OSError:
+            pass   # the memo saves a read, never decides one
     return body
 
 
 def text(repo: Path, rel: str, ref: str | None = None, store=None) -> str | None:
     """The artefact's text: the file when there is one (at `ref` when given), else its pinned version read live;
     None when neither exists."""
-    t = _file(repo / rel) if ref is None else _at(repo, ref, rel)
+    t = _file(_inside(repo, rel)) if ref is None else _at(repo, ref, rel)
     if t is not None:
         return t
     pin = _pin_of(repo, rel, ref)
@@ -262,6 +324,7 @@ def _title(c: dict, rel: str) -> str:
 
 
 def _external(repo: Path, rel: str) -> dict:
+    _inside(repo, rel)
     c = cfg(repo)
     cat = category_of(rel)
     if home(c, cat) != "external":
@@ -271,29 +334,27 @@ def _external(repo: Path, rel: str) -> dict:
 
 
 def approve(repo: Path, rel: str, store=None, now: str | None = None) -> dict:
-    """Publish the approved file as a new version (only when its bytes differ), pin it, remove the file. With no file,
-    pin the store's current version (an approval of what the store holds)."""
+    """Publish the approved file as a new version (only when its bytes differ), pin it, remove the file. The file is the
+    only thing approved: an edit made in the store is drift, never adopted."""
     c = _external(repo, rel)
-    st = store or open_store(repo, c)
     pin, body = _pin_of(repo, rel), _file(repo / rel)
-    if body is None and pin is None:
-        raise GateFault(f"{rel}: no file and no pin — nothing to approve")
     if body is None:
-        cur, body = st.read(pin["id"])
-        pid, v = pin["id"], cur
-        if not approved(frontmatter_of(body)):
-            raise GateFault(f"{rel}: the store's current version {cur} is not APPROVED in its frontmatter — approve it through the owner phase")
+        raise GateFault(f"{rel}: no file to approve — `--pull` it, carry the change through the owner phase's refine, then `--approve`"
+                        if pin else f"{rel}: no file and no pin — nothing to approve")
+    if not approved(frontmatter_of(body)):
+        raise GateFault(f"{rel} is not APPROVED in its frontmatter (status / verdict) — only an approved artefact is published")
+    _no_secret(repo, rel, body)
+    if pin and pin["source"] != c["adapter"]:
+        pin = None   # pinned in another store: published anew in this one
+    st = store or open_store(repo, c)
+    cur = st.read(pin["id"]) if pin else None
+    if cur is not None and sha(cur[1]) == sha(body):
+        pid, v = pin["id"], cur[0]
     else:
-        if not approved(frontmatter_of(body)):
-            raise GateFault(f"{rel} is not APPROVED in its frontmatter (status / verdict) — only an approved artefact is published")
-        cur = st.read(pin["id"]) if pin else None
-        if cur is not None and sha(cur[1]) == sha(body):
-            pid, v = pin["id"], cur[0]
-        else:
-            pid, v = st.publish(pin["id"] if pin else None, _title(c, rel), body)
-            _, back = _read_at(st, rel, pid, v)
-            if sha(back) != sha(body):
-                raise GateFault(f"{rel}: the store did not keep the published bytes at version {v} — nothing is pinned; check the store")
+        pid, v = st.publish(pin["id"] if pin else None, _title(c, rel), body)
+        _, back = _read_at(st, rel, pid, v)
+        if sha(back) != sha(body):
+            raise GateFault(f"{rel}: the store did not keep the published bytes at version {v} — nothing is pinned; check the store")
     new = {"source": c["adapter"], "id": str(pid), "version": v, "approved_at": now or _now(), "sha256": sha(body)}
     load_pin(json.dumps(new), rel + PIN)
     moved = not (pin and all(pin[k] == new[k] for k in ("source", "id", "version", "sha256")))
@@ -302,6 +363,21 @@ def approve(repo: Path, rel: str, store=None, now: str | None = None) -> dict:
     if (repo / rel).is_file():
         (repo / rel).unlink()
     return {"ok": True, "path": rel, "id": str(pid), "version": v, "pin_moved": moved}
+
+
+def _no_secret(repo: Path, rel: str, body: str):
+    """The secrets floor over the bytes before they leave the repo (DC-31): a hit refuses the publish, naming the file
+    and never the match. The floor not delivered refuses too — nothing is published unscanned."""
+    f = repo / FLOOR
+    try:
+        spec = importlib.util.spec_from_file_location("secrets_floor", f)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        pats = list(mod.SECRET_PATTERNS)
+    except Exception:
+        raise GateFault(f"the secrets floor ({FLOOR}) is not delivered — run factory-sync; nothing is published unscanned") from None
+    if any(re.search(x, body) for x in pats):
+        raise GateFault(f"{rel} carries what looks like a credential — nothing is published; remove it (and rotate it if it was real), then approve again")
 
 
 def pull(repo: Path, rel: str, store=None) -> dict:
@@ -332,6 +408,10 @@ def check(repo: Path, base: str | None = None, store=None) -> dict:
     files = _files(repo)
     pins = [f for f in files if f.endswith(PIN)]
     reds, warns, live = [], [], []
+    fork = None
+    if base:
+        from .seal import _reference
+        fork = _reference(repo, base)   # what the branch forked from — a re-approval on the base's tip is not this branch's
     if read_only(c):
         warns.append("WARN the built store has no publish command — every agent-written category lives in the repo")
     external = [k for k in asked() if home(c, k) == "external"]
@@ -341,7 +421,7 @@ def check(repo: Path, base: str | None = None, store=None) -> dict:
     for p in pins:
         rel = p[:-len(PIN)]
         try:
-            pin = load_pin((repo / p).read_bytes().decode("utf-8"), p)
+            pin = load_pin((repo / p).read_bytes().decode("utf-8", "replace"), p)
         except GateFault as e:
             reds.append(str(e))
             continue
@@ -357,11 +437,11 @@ def check(repo: Path, base: str | None = None, store=None) -> dict:
         if pin["source"] != c["adapter"]:
             reds.append(f"{rel}: the pin names the source `{pin['source']}`; the project's store is `{c['adapter']}` — re-approve it there")
             continue
-        if base:
-            raw = _at(repo, base, p)
+        if fork:
+            raw = _at(repo, fork, p)
             if raw is not None:
                 try:
-                    old = load_pin(raw, f"{p} at {base}")
+                    old = load_pin(raw, f"{p} at {fork[:12]}")
                 except GateFault:
                     old = None
                 if old and (old["version"], old["sha256"]) != (pin["version"], pin["sha256"]) and pin["approved_at"] <= old["approved_at"]:
@@ -385,11 +465,13 @@ def check(repo: Path, base: str | None = None, store=None) -> dict:
         for rel, pin in live:
             st = st or open_store(repo, c)
             try:
-                cur, _ = st.read(pin["id"])
+                cur, _ = _verified(st, rel, pin)
                 if cur != pin["version"]:
-                    reds.append(f"{rel}: the page moved to v{cur} without re-approval (pinned v{pin['version']}) — re-approve through the owner "
-                                f"phase's refine (`gate.py documents --approve {rel}`), or restore v{pin['version']} in the store")
-                read_pinned(repo, rel, pin, st, c)
+                    tip = _tip_version(repo, base, p)
+                    reds.append(f"{rel}: the base approved v{cur} after this branch forked (pinned v{pin['version']}) — rebase onto the base"
+                                if tip == cur else
+                                f"{rel}: the page moved to v{cur} without re-approval (pinned v{pin['version']}) — an edit in the store is drift: "
+                                f"restore v{pin['version']} there, or carry the change through the owner phase's refine (`--pull`, refine, `--approve`)")
                 n += 1
             except StoreDown:
                 raise
@@ -400,6 +482,15 @@ def check(repo: Path, base: str | None = None, store=None) -> dict:
             raise
         warns.append(f"WARN {e}")
     return {"ok": not reds, "na": None, "reds": reds, "warns": warns, "read": n}
+
+
+def _tip_version(repo: Path, base: str | None, p: str) -> int | None:
+    """The pinned version on the base's tip (None without a base or a readable pin there)."""
+    raw = _at(repo, base, p) if base else None
+    try:
+        return load_pin(raw, p)["version"] if raw is not None else None
+    except GateFault:
+        return None
 
 
 def render(r: dict) -> str:
@@ -442,9 +533,7 @@ def probe(repo: Path, store=None, now: str | None = None) -> dict:
 
 # ─── Confluence ─────────────────────────────────────────────────────────────────
 
-_MACRO = re.compile(r'<ac:structured-macro\b[^>]*\bac:name="code"[^>]*>(.*?)</ac:structured-macro>', re.S)
-_BODY = re.compile(r"<ac:plain-text-body>((?:<!\[CDATA\[.*?\]\]>)*)</ac:plain-text-body>", re.S)
-_CDATA = re.compile(r"<!\[CDATA\[(.*?)\]\]>", re.S)
+_OPEN, _CLOSE, _CD, _CDE = "<ac:plain-text-body>", "</ac:plain-text-body>", "<![CDATA[", "]]>"
 
 
 def wrap(path: str, body: str) -> str:
@@ -456,12 +545,56 @@ def wrap(path: str, body: str) -> str:
             f"<ac:plain-text-body><![CDATA[{cdata}]]></ac:plain-text-body></ac:structured-macro>")
 
 
+def _code_macros(markup: str) -> int:
+    n, i = 0, 0
+    while (i := markup.find("<ac:structured-macro", i)) >= 0:
+        j = markup.find(">", i)
+        if j < 0:
+            return n + ('ac:name="code"' in markup[i:])
+        n += 'ac:name="code"' in markup[i:j]
+        i = j
+    return n
+
+
+def _segments(s: str) -> list[tuple[str, str]]:
+    """[(m, markup) | (c, CDATA text)] in one linear pass; an unterminated CDATA is red."""
+    out, i = [], 0
+    while (j := s.find(_CD, i)) >= 0:
+        e = s.find(_CDE, j + len(_CD))
+        if e < 0:
+            raise GateFault("the page carries an unterminated CDATA section — restore the approved version in the store")
+        out += [("m", s[i:j]), ("c", s[j + len(_CD):e])]
+        i = e + len(_CDE)
+    return out + [("m", s[i:])]
+
+
 def unwrap(storage: str) -> str:
-    macros = _MACRO.findall(storage or "")
-    m = _BODY.search(macros[0]) if len(macros) == 1 else None
-    if m is None:
-        raise GateFault(f"the page no longer carries one artefact block ({len(macros)} code block(s)) — restore the approved version in the store")
-    return "".join(_CDATA.findall(m.group(1)))
+    """The artefact in the page: ONE code macro whose body is CDATA only. Store bytes never meet a backtracking
+    pattern, and text inside a CDATA is never read as structure."""
+    s = storage or ""
+    if len(s) > MAX_PAGE:
+        raise GateFault(f"the page is larger than {MAX_PAGE // (1024 * 1024)} MB — restore the approved version in the store")
+    segs = _segments(s)
+    markup = "".join(t for k, t in segs if k == "m")
+    n = _code_macros(markup)
+    bad = GateFault(f"the page no longer carries one artefact block ({n} code block(s)) — restore the approved version in the store")
+    if n != 1 or markup.count(_OPEN) != 1 or markup.count(_CLOSE) != 1:
+        raise bad
+    at = next(i for i, (k, t) in enumerate(segs) if k == "m" and _OPEN in t)
+    rest = segs[at][1].split(_OPEN, 1)[1]
+    if rest:
+        if rest.startswith(_CLOSE):
+            return ""   # an empty artefact
+        raise bad
+    body = []
+    for k, t in segs[at + 1:]:
+        if k == "c":
+            body.append(t)
+        elif t.startswith(_CLOSE):
+            return "".join(body)
+        elif t:
+            raise bad   # markup inside the body: not the shape the approval wrote
+    raise bad
 
 
 class Confluence:
@@ -476,6 +609,11 @@ class Confluence:
         self.cloud = (c.get("deployment") or ("cloud" if u.hostname.endswith(".atlassian.net") else "dc")) == "cloud"
         env = os.environ if env is None else env
         tok = env.get("CONFLUENCE_API_TOKEN")
+        for name in ("CONFLUENCE_API_TOKEN", "CONFLUENCE_USER_EMAIL"):
+            v = env.get(name) or ""
+            if v and (not v.isascii() or not v.isprintable() or v != v.strip()):
+                raise GateFault(f"{name} carries a space, a line break or a non-ASCII character — re-export it from the vault "
+                                "entry (its value is never shown)")
         if not tok:
             raise _down("CONFLUENCE_API_TOKEN is not set — export it from the vault entry named in docs/setup.md → documents.token")
         if self.cloud:
@@ -531,6 +669,8 @@ class Confluence:
         else:
             res = self._call("GET", f"/rest/api/content?spaceKey={quote(self.space, safe='')}&title={t}&type=page")
         hits = [str(r["id"]) for r in (res or {}).get("results") or [] if isinstance(r, dict) and r.get("id")]
+        if len(hits) > 1:
+            raise GateFault(f"Confluence holds {len(hits)} pages titled `{clean(title, 120)}` — keep one, then approve again")
         return hits[0] if hits else None
 
     def publish(self, pid: str | None, title: str, body: str) -> tuple[str, int]:
@@ -560,6 +700,8 @@ class Confluence:
                 "id": pid, "type": "page", "title": title, "body": {"storage": {"value": storage, "representation": "storage"}},
                 "version": {"number": cur + 1, "message": msg}})
         got, v, _ = self._page(d, pid)
+        if got != pid:
+            raise GateFault(f"Confluence answered the update of page {pid} with page {clean(got, 40)} — nothing is pinned")
         return got, v
 
 
@@ -569,7 +711,8 @@ class Built:
     """`documents.commands {read, publish}` — argv templates, no shell. A command that fails or times out is the store
     down; an answer that is not the declared JSON is red."""
 
-    def __init__(self, c: dict):
+    def __init__(self, c: dict, repo: Path | None = None):
+        self.cwd = str(repo) if repo else None
         self.cmds = c.get("commands") or {}
         if not isinstance(self.cmds, dict) or not isinstance(self.cmds.get("read"), str) or not self.cmds["read"].strip():
             raise GateFault("config/quality.json → documents.commands.read is missing — the built store is read through it")
@@ -582,13 +725,17 @@ class Built:
         except ValueError:
             raise GateFault(f"config/quality.json → documents.commands.{op} is not a command line") from None
         try:
-            r = subprocess.run(argv, capture_output=True, text=True, timeout=120)
+            r = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", timeout=120, cwd=self.cwd)
+        except UnicodeDecodeError:
+            raise GateFault(f"the {op} command answered bytes that are not UTF-8 — a deliverable is UTF-8 text") from None
         except FileNotFoundError:
             raise GateFault(f"documents.commands.{op}: `{clean(argv[0], 80)}` is not installed here") from None
-        except (OSError, subprocess.TimeoutExpired) as e:
-            raise _down(f"the {op} command could not run ({e})") from None
-        if r.returncode != 0:
-            raise _down(f"the {op} command exited {r.returncode} ({clean(r.stderr.strip()[-200:], 200)})")
+        except subprocess.TimeoutExpired:
+            raise _down(f"the {op} command ({clean(argv[0], 80)}) did not answer in 120 s") from None
+        except OSError as e:
+            raise _down(f"the {op} command ({clean(argv[0], 80)}) could not run ({type(e).__name__})") from None
+        if r.returncode != 0:   # its stderr is never echoed: an adapter may print its credential there
+            raise _down(f"the {op} command ({clean(argv[0], 80)}) exited {r.returncode}")
         try:
             d = json.loads(r.stdout)
         except ValueError:

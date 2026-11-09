@@ -189,13 +189,13 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
     # a changed pin is a changed design (EVOL-080): the artefact in its home, read through the one reader
     designs = sorted({c for c in documents.artefacts(sorted(moved)) if DESIGN_RE.fullmatch(c) and documents.exists(repo, c)})
     contracts = [c for c in changed if CONTRACT_RE.fullmatch(c)]
-    rows = []
+    rows, unread = [], documents.Outage()
     for d in designs:
         disk = repo / d
         try:
             text = disk.read_text(encoding="utf-8", errors="replace") if disk.is_file() else documents.text(repo, d)
-        except documents.StoreDown:
-            raise
+        except documents.StoreDown as e:
+            unread.note(e); continue   # unjudged: settled below, never a lost red
         except GateFault as e:   # a pin the store does not honour is red, never infra
             rows.append({"id": d, "ok": False, "problems": [str(e)], "note": "the pinned design could not be read"}); continue
         problems, judged, why = questions(text or "")
@@ -217,6 +217,7 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
             n = counted[0] if counted else 0
             rows.append({"id": c, "ok": not problems, "problems": problems,
                          "note": f"every operation declares `{outage}`; {n} sensitive field{'' if n == 1 else 's'} bounded"})
+    unread.settle([r for r in rows if not r["ok"]])
     if not rows:
         return {"ok": True, "files": [], "entries": [], "reason": "no design (docs/spec/*/design.md) and no contract (contracts/openapi/**) in the change — nothing to judge"}
     red = [r for r in rows if not r["ok"]]

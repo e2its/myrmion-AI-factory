@@ -104,7 +104,7 @@ The issue states the what; everything below is the how, resolved from the SDLC.
 
   A pin anywhere else is red. This covers a pin under a code-run path: the DoD's «external home for a code-run category».
 - **(b) Re-approval.** A pin that changed against the merge-base, whose version or hash moved while `approved_at` did not advance, is red.
-- **(c) Drift.** The store's current version must equal the pin. Anything else is red («moved without re-approval»): re-approve through the owner phase's refine, or restore the pinned version in the store.
+- **(c) Drift.** The store's current version must equal the pin. Anything else is red («moved without re-approval»): re-approve through the owner phase's refine (`--pull`, refine, `--approve`), or restore the pinned version in the store. When the base's tip pins that current version, the base re-approved it after the fork: the red says «rebase onto the base».
 - **(d) Pinned read.** Each pin read verifies version and hash.
 - **(e) No copy.** A file under a category homed externally whose frontmatter says approved (`status` `APPROVED` or `accepted`, `verdict` `APPROVED`, `overall_verdict` `PASS` or `APPROVED`) is red. Its remedy is `--approve`. A draft, a rejected report or an in-progress report is work in the repo.
 - **Scope.** With no external home configured, the member is n/a with its reason, and the gate costs nothing.
@@ -148,7 +148,7 @@ The issue states the what; everything below is the how, resolved from the SDLC.
   - QA, review and AUDIT reports when written approved (report).
 - **Pull.** A refine, and the iteration-model cascade, on a pinned artefact first runs `--pull`.
 - **Agents.** Agents read a pinned artefact with `gate.py documents --read`. This is one line in the project CLAUDE.md template, and `rules/documentation.md` holds the body.
-- **Gates.** The readers that move to `documents.text` / the pin-aware listing are bounds, digests, freeze, seal, frontmatter-lock, contracts, data, qa, delivery, proof, traceability and coherence. Frontmatter-lock reads an approved artefact moved home through its pin, so `--approve` deleting the file is no deletion.
+- **Gates.** The readers that move to `documents.text` / the pin-aware listing are bounds, digests, freeze, seal, frontmatter-lock, contracts, data, qa, delivery, proof, traceability and coherence. Frontmatter-lock reads an approved artefact moved home through its pin, so `--approve` deleting the file is no deletion; a re-pin, a draft over a pin and a deleted pin are judged like the file.
 
 ### 8. Upgrade
 Migration row `documents (EVOL-080)`, since 10.4.0, detect `config/quality.json#/documents`. It asks Q38 and its follow-ups, then writes the block. A project that answers `None` gets `{adapter: none}`, and nothing else moves.
@@ -181,3 +181,26 @@ Migration row `documents (EVOL-080)`, since 10.4.0, detect `config/quality.json#
   - lock-step, manifest parity, discovery, budgets, ADR sync, retired terms, `validate-governance` and `gate.py profile --run`;
   - two critic rounds × four lenses;
   - manifest bump, MINOR (framework 10.4.0).
+
+## Critic rounds
+
+### Round 1 (four lenses) — cured
+- **The store down never drops a red.** A gate that meets an outage leaves that artefact unjudged and goes on. The reds it found stand, with the outage as a WARN line. With no red, the outage is the verdict: n/a + WARN under the profile, exit 2 on a direct call (`documents.Outage`). This applies to bounds, coherence, data, digests, freeze, frontmatter-lock and traceability. The `contracts`, `data` and `delivery` verbs exit 2, never 1.
+- **A pin stands only when it can.** A pin is admitted as an artefact's home only when it is well formed, comes from the project's store, and sits under a category homed there. A forged pin, or a pin from another store, leaves a deletion red. A re-pin, a draft over a pin, and a deleted pin are judged like the file.
+- **Re-approval on the base.** When the base re-approved after the fork, the red says to rebase onto the base. An edit made in the store is drift; the red names both cures (restore the version, or `--pull`, refine, `--approve`).
+- **One approval predicate** (`common.approved`, read by qa and documents). Decoration is ignored, a REJECTED or INVALIDATED verdict denies, and a non-string value approves nothing.
+- **Nothing leaves the repo unscanned.**
+  - `--approve` runs the secrets floor (`SECRET_PATTERNS`, DC-31) on the bytes. A hit refuses the publish and names the file, never the match. If the floor is not delivered, the publish is refused too.
+  - A credential that is not ASCII, printable and trimmed is refused by name, never shown.
+  - Neither a header refused by the transport nor a built adapter's stderr ever reaches a message.
+- **Store bytes never backtrack.** A page is unwrapped by a linear scan: exactly one code macro, and a body made of CDATA only. Text inside a CDATA is never read as structure, so an artefact that quotes Confluence storage round-trips. A page over 8 MB and an answer over 16 MB are refused.
+- **Paths and shapes.** An artefact path stays inside the repo. The memo never writes through a link. Two pages with one title, or an update answered by another page, is a fault. `approved_at` is ASCII digits only. A pin nested too deep is a fault.
+- **Transport classes.** 401, 403, a second 429, any 5xx, a cut response and an answer that is not JSON are outages. Any other 4xx is red.
+- **No `{{…}}` in shipped code.** The git commit check is written `ref + "^{commit}"`. The synthetic materialisation resolved the f-string's `{{commit}}` as a placeholder, which broke every read at a ref (`documents._at`, `common.py`).
+- **Text aligned (LAW-17).** Every existence or frontmatter check counts the pin and reads through `--read`. The `documents` member is named in the light profile. The peer-review approval is an executed step.
+
+### Round 1 — accepted, not cured (informational)
+- `approved_at` compares at one-second granularity. Two approvals within the same second are indistinguishable, and harmless.
+- No dedicated exit code for the store down: exit 2 plus the fault line is the contract `profile.classify` reads.
+- The `vault_name` answer shape and owner-typed placeholders (pre-existing, outside this change).
+- `approved_at` / `approved_by` in the lock's permitted keys predate this change.

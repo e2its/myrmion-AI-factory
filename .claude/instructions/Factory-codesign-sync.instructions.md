@@ -79,6 +79,7 @@ FUNCTION codesign_sync(TARGET):
     never_approved ⇒ status DRAFT ; else tell the user: --vision-approve, then --vision-propagate
 
   ELSE:
+    # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
     first_adoption = NOT DIR_EXISTS("docs/spec/{TARGET}/")
     never_approved = first_adoption OR (no artefact of TARGET ever reached APPROVED AND NOT FILE_EXISTS("docs/spec/{TARGET}/design.md"))
 

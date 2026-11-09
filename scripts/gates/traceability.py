@@ -250,7 +250,7 @@ def _walked_items(text: str) -> list[tuple[int, str]]:
     return out
 
 
-def walks(repo: Path, c: dict, listing: list[str], dec: dict, lnk: dict, base: list[str]) -> tuple[dict[str, list[str]], list[dict]]:
+def walks(repo: Path, c: dict, listing: list[str], dec: dict, lnk: dict, base: list[str], outage=None) -> tuple[dict[str, list[str]], list[dict]]:
     """report → the case ids it walks; findings: a walked case with no automated spec (manual, unlinked or in the baseline), unknown, or malformed."""
     listing = _arts(listing)
     folders = sorted({str(Path(p).parent) for p in listing if _root_match(p, [c["plans"]])})
@@ -265,8 +265,10 @@ def walks(repo: Path, c: dict, listing: list[str], dec: dict, lnk: dict, base: l
                 else:   # its pin, read live (EVOL-080)
                     text = documents.text(repo, rel) or ""
                     status = str((frontmatter_of(text) or {}).get("status") or "").upper()
-            except documents.StoreDown:
-                raise   # the store down is infrastructure, never a finding
+            except documents.StoreDown as e:
+                if outage is None:
+                    raise   # the store down is infrastructure, never a finding
+                outage.note(e); continue   # unjudged: the caller settles it (EVOL-080 § 3)
             except GateFault as e:
                 bad.append({"path": rel, "reason": f"frontmatter unreadable: {e}"}); continue
             if status == "DRAFT":
@@ -392,7 +394,8 @@ def check(repo: Path) -> dict:
     dec, bad_dec = declared(repo, c, listing)
     lnk, bad_lnk = links(repo, c, listing)
     base = read_baseline(repo, c)
-    walked, bad_walk = walks(repo, c, listing, dec, lnk, base)
+    outage = documents.Outage()
+    walked, bad_walk = walks(repo, c, listing, dec, lnk, base, outage)
     _, bad_ret = retired(repo, c, listing, dec)
     findings = list(bad_dec) + list(bad_lnk) + list(bad_walk) + list(bad_ret)
     if (repo / c["baseline"]).is_file() and not is_tracked(repo, c["baseline"]):
@@ -414,6 +417,7 @@ def check(repo: Path) -> dict:
         if dec[q]["manual"]:
             return "manual"
         return "linked" if q in lnk else ("unlinked-baseline" if q in base else "unlinked")
+    outage.settle(findings)
     cases = [{"id": q, "plan": dec[q]["at"], "tests": lnk.get(q, []), "status": status(q)} for q in sorted(dec)]
     n_lnk = sum(1 for q in owed if q in lnk)
     manual = sum(1 for d in dec.values() if d["manual"])

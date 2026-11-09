@@ -169,15 +169,22 @@ def currency(repo: Path, base: str | None = "origin/main") -> tuple[list[dict], 
     findings: list[dict] = []
     faults: list[dict] = []
     tracked = set(tracked_files(repo))
+    outage = documents.Outage()
     for p in [*repo.glob("docs/spec/*/**/*.md"), *repo.glob("docs/spec/*/**/*.md" + documents.PIN)]:
         rel = str(p.relative_to(repo))
         if any_glob(documents.artefacts([rel])[0], globs) and rel not in tracked:
             findings.append({"path": rel, "reason": "not tracked by git (ignored?) — a verdict of record must be versioned; remove it from .gitignore and commit it"})
     for rel in in_scope(repo, globs, base):
         try:
-            fm = read_frontmatter(repo / rel) if (repo / rel).is_file() else frontmatter_of(documents.text(repo, rel))
-        except documents.StoreDown:
-            raise   # the store could not answer: infra, never a finding
+            if (repo / rel).is_file():
+                fm = read_frontmatter(repo / rel)
+            else:
+                t = documents.text(repo, rel)
+                if t is None:
+                    raise GateFault("neither the file nor its pin is in the worktree — restore it, or commit its removal")
+                fm = frontmatter_of(t)
+        except documents.StoreDown as e:
+            outage.note(e); continue   # the store could not answer: infra, never a finding — settled below
         except GateFault as e:
             findings.append({"path": rel, "reason": f"frontmatter unreadable: {e}"})
             continue
@@ -200,6 +207,7 @@ def currency(repo: Path, base: str | None = "origin/main") -> tuple[list[dict], 
             continue
         if fresh != str(cert["hash"]):
             findings.append({"path": rel, "reason": f"STALE: certified {cert['subject']} {str(cert['hash'])[:12]}… but the certified files are now {fresh[:12]}… — re-take the verdict, never re-bless it"})
+    outage.settle(findings or faults)
     return findings, faults
 
 

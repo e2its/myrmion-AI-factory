@@ -467,6 +467,8 @@ def cmd_contracts(repo, a):
         return 1
     try:
         r = contracts_mod.parity(repo) if a.parity else contracts_mod.check(repo, base)
+    except documents_mod.StoreDown:
+        raise   # the store down is a fault (exit 2), never a red verdict
     except GateFault as e:
         print(f"contracts: RED — {clean(e)}", file=sys.stderr)
         return 1
@@ -477,6 +479,8 @@ def cmd_contracts(repo, a):
 def cmd_data(repo, a):
     try:
         r = data_mod.check(repo, _base(repo, a))
+    except documents_mod.StoreDown:
+        raise   # the store down is a fault (exit 2), never a red verdict
     except (GateFault, branch_mod.UnknownBranch) as e:
         print(f"data: RED — {clean(e)}", file=sys.stderr)
         return 1
@@ -524,6 +528,8 @@ def cmd_delivery(repo, a):
              "teardown": lambda: delivery_mod.teardown(repo, a.env),
              "check": lambda: delivery_mod.check(repo),
              "pr": lambda: delivery_mod.pr(repo, _base(repo, a), a.branch)}[acts[0]]()
+    except documents_mod.StoreDown:
+        raise   # the store down is a fault (exit 2), never a red verdict
     except GateFault as e:
         print(f"delivery: RED — {clean(e)}", file=sys.stderr)
         return 1
@@ -604,7 +610,9 @@ def cmd_tracker(repo, a):
 
 
 def cmd_documents(repo, a):
-    verbs = [x for x, on in (("read", a.read), ("approve", a.approve), ("pull", a.pull), ("probe", a.probe)) if on]
+    verbs = [x for x, on in (("read", a.read is not None), ("approve", a.approve is not None), ("pull", a.pull is not None), ("probe", a.probe)) if on]
+    if any(isinstance(v, str) and not v.strip() for v in (a.read, a.approve, a.pull)):
+        raise GateFault("name the artefact's path — an empty path reads nothing")
     if a.ref and verbs != ["read"]:
         raise GateFault("--ref goes with --read only")
     if a.base and verbs:

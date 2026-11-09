@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.22.0",
+      "version": "2.23.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -912,7 +912,7 @@
       "delivery": "both"
     },
     "scripts/gates/common.py": {
-      "version": "1.4.1",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": "scripts/gates/common.py",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files.",
@@ -1685,7 +1685,7 @@
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md"
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
-      "version": "2.9.0",
+      "version": "2.10.0",
       "path": ".claude/instructions/Factory-protocol-smart-redirect.instructions.md"
     },
     "instructions/Factory-protocol-cwd-discipline.instructions.md": {
@@ -1693,7 +1693,7 @@
       "path": ".claude/instructions/Factory-protocol-cwd-discipline.instructions.md"
     },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
-      "version": "2.14.0",
+      "version": "2.15.0",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
@@ -2294,7 +2294,7 @@
       "path": "scripts/test-po-package.sh"
     },
     "instructions/Factory-codesign-sync.instructions.md": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "path": ".claude/instructions/Factory-codesign-sync.instructions.md"
     },
     "skills/factory-po-intake/SKILL.md": {

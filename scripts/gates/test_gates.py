@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import datetime as dt
 import hashlib
+import http.client
 import importlib.util
+import io
 import json
 import math
 import os
@@ -9857,6 +9860,7 @@ class Documents(unittest.TestCase):
         block = {"adapter": adapter, "site": "https://acme.atlassian.net", "space": "ENG", "deployment": "cloud", "title_prefix": "Acme",
                  "homes": homes if homes is not None else {"business": "Repo", "design": "External", "report": "Repo"}, "commands": commands}
         write(repo / "config/quality.json", json.dumps({"documents": block}))
+        write(repo / documents.FLOOR, (HERE.parent.parent / documents.FLOOR).read_text())   # the secrets floor, delivered as SETUP does
         if git:
             self._git(repo, "init", "-q", "-b", "main")
             self._git(repo, "config", "user.email", "t@t.test"); self._git(repo, "config", "user.name", "t")
@@ -10027,17 +10031,32 @@ class Documents(unittest.TestCase):
             self.assertEqual(fs.pages[pid], [V3], "the same bytes again publish no new version")
             self.assertEqual(json.loads((repo / (DOC + documents.PIN)).read_text())["version"], 1)
 
-    def test_approve_without_a_file_accepts_the_current_version(self):
+    def test_approve_without_a_file_is_refused_an_edit_in_the_store_is_never_adopted(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             self._pin(repo)
+            before = (repo / (DOC + documents.PIN)).read_text()
             fs = FakeStore({"9": ["v1", "v2", V3, V4]})
-            documents.approve(repo, DOC, store=fs, now="2026-11-09T12:00:00Z")
-            self.assertEqual(json.loads((repo / (DOC + documents.PIN)).read_text())["version"], 4, "re-approving the drifted version pins it")
-            self.assertEqual(len(fs.pages["9"]), 4, "nothing published")
-            fs.pages["9"].append("---\nstatus: DRAFT\n---\n")
-            with self.assertRaises(GateFault):
-                documents.approve(repo, DOC, store=fs, now="2026-11-09T13:00:00Z")
+            with self.assertRaises(GateFault) as e:
+                documents.approve(repo, DOC, store=fs, now="2026-11-09T12:00:00Z")
+            self.assertIn("--pull", str(e.exception), "the way back is the owner phase's refine")
+            self.assertEqual((repo / (DOC + documents.PIN)).read_text(), before, "the drifted version is never pinned")
+            self.assertEqual(fs.calls, [], "nothing read, nothing published")
+            os.remove(repo / (DOC + documents.PIN))
+            with self.assertRaisesRegex(GateFault, "nothing to approve"):
+                documents.approve(repo, DOC, store=fs)
+
+    def test_approve_of_a_pin_from_another_store_publishes_anew_here(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo, source="built", pid="old-7")
+            write(repo / DOC, V3)
+            fs = FakeStore()
+            r = documents.approve(repo, DOC, store=fs, now="2026-11-09T12:00:00Z")
+            pin = json.loads((repo / (DOC + documents.PIN)).read_text())
+            self.assertEqual((pin["source"], pin["version"]), ("confluence", 1))
+            self.assertNotEqual(r["id"], "old-7", "another store's id is never written to here")
+            self.assertNotIn(("read", "old-7", None), fs.calls)
 
     def test_approve_refuses_what_is_not_approved_or_not_homed_outside(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -10059,8 +10078,10 @@ class Documents(unittest.TestCase):
             self._pin(repo)
             documents.pull(repo, DOC, store=FakeStore({"9": ["v1", "v2", V3, V4]}))
             self.assertEqual((repo / DOC).read_text(), V3)
-            with self.assertRaises(GateFault):
-                documents.pull(repo, DOC, store=FakeStore({"9": [V3]}))   # never over a draft
+            write(repo / DOC, "my draft\n")
+            with self.assertRaisesRegex(GateFault, "draft is already there"):
+                documents.pull(repo, DOC, store=FakeStore({"9": ["v1", "v2", V3]}))
+            self.assertEqual((repo / DOC).read_text(), "my draft\n", "never over a draft")
 
     def test_a_pin_off_its_category_or_home_is_red(self):
         """DoD: an external home for a category the code compiles or runs is rejected."""
@@ -10069,7 +10090,7 @@ class Documents(unittest.TestCase):
             self._pin(repo, rel="docs/spec/FEAT-001/spec.feature")
             self._pin(repo, rel="docs/spec/FEAT-001/qa/qa_report_INC-1_1.md")
             self._pin(repo, rel="docs/spec/FEAT-001/test_plan.md", source="built")
-            r = documents.check(repo, store=FakeStore({"9": [V3]}))
+            r = documents.check(repo, store=FakeStore({"9": ["v1", "v2", V3]}))
             out = documents.render(r)
             self.assertFalse(r["ok"], out)
             self.assertIn("spec.feature", out); self.assertIn("compiles", out)
@@ -10267,7 +10288,260 @@ else:
             self.assertNotIsInstance(e.exception, documents.StoreDown)
             self.assertIn("{version, body}", str(e.exception))
             r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "documents", "--read", DOC], capture_output=True, text=True)
-            self.assertEqual(r.returncode, 2, "a direct read of an unreadable source of truth exits 2 — nothing rests on it")
+            self.assertEqual(r.returncode, 2, "a direct read whose store answers no {version, body} exits 2 — a fault, never bytes")
+            self.assertFalse(profile.classify("documents", 2, r.stdout + r.stderr)[0] == "n/a", "an adapter that answers garbage is no outage")
+
+    def test_the_store_down_is_na_end_to_end_through_the_cli_and_the_profile(self):
+        """DoD, wired: gate.py's own fault line on a store that cannot answer → exit 2 → the profile's n/a + WARN, verdict not FAULT."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Profile()._repo(tmp)
+            py = sys.executable
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["documents"] = {"adapter": "built", "homes": {"design": "External"},
+                              "commands": {"read": f"{py} -c 'import sys; sys.exit(3)'", "publish": f"{py} -c 'print(1)'"}}
+            write(repo / "config/quality.json", json.dumps(q))
+            self._pin(repo, source="built")
+            pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "pinned"); pgit(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+            pgit(repo, "checkout", "-qb", "feature/F-001-x")
+            r = subprocess.run([py, str(HERE.parent / "gate.py"), "--repo", str(repo), "documents", "--read", DOC], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2, r.stderr)
+            self.assertEqual(profile.classify("documents", 2, r.stdout + r.stderr)[0], "n/a", r.stderr)
+            rep = profile.run(repo, only=["documents"])
+            by = {x["member"]: x for x in rep["results"]}
+            self.assertEqual(by["documents"]["status"], "n/a", by)
+            self.assertIn(documents.DOWN, by["documents"]["warn"] or "")
+            self.assertNotIn(rep["verdict"], ("FAULT", "RED"), profile.render(rep))
+
+    def test_a_reapproval_on_the_base_after_the_fork_is_named_rebase_never_an_unapproved_move(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, git=True)
+            self._pin(repo)
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "v3 approved")
+            self._git(repo, "checkout", "-qb", "feature/F-1-x"); self._git(repo, "checkout", "-q", "main")
+            self._pin(repo, version=4, text=V4, at="2026-11-09T12:00:00Z")
+            self._git(repo, "commit", "-qam", "v4 re-approved on the base"); self._git(repo, "checkout", "-q", "feature/F-1-x")
+            fs = FakeStore({"9": ["v1", "v2", V3, V4]})
+            r = documents.check(repo, base="main", store=fs)
+            out = documents.render(r)
+            self.assertNotIn("without a re-approval", out, "the branch never moved its pin: the merge-base is the reference")
+            self.assertIn("rebase onto the base", out, "the base's re-approval is named as such")
+            fs.pages["9"].append("---\nstatus: APPROVED\n---\nedited in the store\n")
+            self.assertIn("an edit in the store is drift", documents.render(documents.check(repo, base="main", store=fs)))
+
+    def test_the_deployment_is_cloud_or_dc_a_typo_is_never_an_outage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); q["documents"]["deployment"] = "Cloud"
+            write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaises(GateFault) as e:
+                documents.cfg(repo)
+            self.assertNotIsInstance(e.exception, documents.StoreDown)
+            self.assertIn("cloud or dc", str(e.exception))
+
+    def test_a_category_is_anchored_at_the_repo_root(self):
+        self.assertEqual(documents.category_of("docs/spec/X/design.md"), "design")
+        self.assertEqual(documents.category_of("tests/fixtures/docs/spec/X/design.md"), "test", "a fixture deep in tests/ is no deliverable")
+        self.assertEqual(documents.category_of("src/a/b.feature"), "scenario", "a `**/` path still matches at any depth")
+
+    def test_the_source_is_checked_before_the_memo_and_a_memo_write_never_decides(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            memo = Path(tmp) / "memo"; memo.mkdir()
+            (memo / documents.sha(V3)).write_text(V3)
+            self._pin(repo, source="built")
+            with unittest.mock.patch.dict(os.environ, {documents.MEMO: str(memo)}), self.assertRaisesRegex(GateFault, "names the source"):
+                documents.text(repo, DOC, store=FakeStore({"9": ["v1", "v2", V3]}))
+            self._pin(repo)
+            (memo / documents.sha(V3)).unlink(); memo.chmod(0o500)
+            try:
+                with unittest.mock.patch.dict(os.environ, {documents.MEMO: str(memo)}):
+                    self.assertEqual(documents.text(repo, DOC, store=FakeStore({"9": ["v1", "v2", V3]})), V3, "an unwritable memo saves nothing, decides nothing")
+            finally:
+                memo.chmod(0o700)
+
+    def test_a_built_store_runs_in_the_repo_and_non_utf8_is_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            py = sys.executable
+            repo = self._repo(tmp, adapter="built", commands={"read": f"{py} reader.py {{id}}", "publish": f"{py} reader.py"})
+            write(repo / "reader.py", f"import json\nprint(json.dumps({{'version': 3, 'body': {V3!r}}}))\n")
+            self._pin(repo, source="built")
+            self.assertEqual(documents.text(repo, DOC), V3, "a relative command resolves against the repository, wherever the caller stands")
+            write(repo / "reader.py", "import sys\nsys.stdout.buffer.write(b'\\xff')\n")
+            with self.assertRaises(GateFault) as e:
+                documents.text(repo, DOC)
+            self.assertNotIsInstance(e.exception, documents.StoreDown, "bytes that are not UTF-8 are red, never an outage")
+
+    def test_a_non_utf8_artefact_at_a_ref_is_a_named_fault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, git=True)
+            (repo / DOC).parent.mkdir(parents=True, exist_ok=True); (repo / DOC).write_bytes(b"\xff\xfe")
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "binary")
+            with self.assertRaisesRegex(GateFault, "not UTF-8"):
+                documents.text(repo, DOC, ref="HEAD")
+
+    def test_text_inside_the_cdata_is_never_structure_and_store_bytes_never_backtrack(self):
+        body = ("---\nstatus: APPROVED\n---\nStorage quotes <ac:structured-macro ac:name=\"code\"> and </ac:structured-macro>, "
+                "</ac:plain-text-body> and ]]> as text.\n")
+        self.assertEqual(documents.unwrap(documents.wrap("docs/spec/F/design.md", body)), body, "an artefact about Confluence storage round-trips")
+        self.assertEqual(documents.unwrap(documents.wrap("p", "")), "")
+        hostile = documents.wrap("p", "x]]>" * 40).replace("</ac:plain-text-body>", " </ac:plain-text-body>")
+        t = time.time()
+        with self.assertRaisesRegex(GateFault, "one artefact block"):
+            documents.unwrap(hostile)
+        self.assertLess(time.time() - t, 1.0, "forty CDATA sections and a stray space answer at once")
+        for broken in (documents.wrap("p", "a") + documents.wrap("q", "b"), documents.wrap("p", "a").replace("]]></ac:plain", "</ac:plain"),
+                       "<p>no macro</p>", "x" * (documents.MAX_PAGE + 1)):
+            with self.assertRaises(GateFault):
+                documents.unwrap(broken)
+
+    def test_a_credential_value_is_named_never_shown(self):
+        site = "https://wiki.acme.test"
+        for env in ({"CONFLUENCE_API_TOKEN": "s3cr3tV4lue\r"}, {"CONFLUENCE_API_TOKEN": "s3cr3tV4lué"}):
+            with self.assertRaises(GateFault) as e:
+                documents.Confluence({"site": site, "space": "ENG", "deployment": "dc"}, fetch=FakeConfluence(site, {}), env=env)
+            self.assertNotIsInstance(e.exception, documents.StoreDown, "a malformed credential is configuration, never an outage")
+            self.assertIn("CONFLUENCE_API_TOKEN", str(e.exception)); self.assertNotIn("s3cr3t", str(e.exception))
+        with self.assertRaises(rest.Unreachable) as e:
+            rest.call("Confluence", "s", "a", "GET", "https://example.invalid/x", {"Authorization": "Bearer SECRETVALUE\r"})
+        self.assertNotIn("SECRETVALUE", str(e.exception), "a header refused by the transport never reaches a message")
+
+    def test_the_secrets_floor_runs_before_any_publish(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            key = "AKIA" + "Q" * 16
+            write(repo / DOC, V3 + f"aws id {key}\n")
+            fs = FakeStore()
+            with self.assertRaisesRegex(GateFault, "looks like a credential") as e:
+                documents.approve(repo, DOC, store=fs)
+            self.assertNotIn(key, str(e.exception), "the file is named, never the match")
+            self.assertEqual(fs.calls, [], "nothing left the repo"); self.assertTrue((repo / DOC).is_file())
+            write(repo / DOC, V3)
+            os.remove(repo / documents.FLOOR)
+            with self.assertRaisesRegex(GateFault, "not delivered"):
+                documents.approve(repo, DOC, store=fs)
+            self.assertEqual(fs.calls, [], "the floor absent: nothing is published unscanned")
+
+    def test_paths_stay_in_the_repo_and_shapes_are_strict(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp + "/r")
+            for bad in ("../x/docs/spec/F/design.md", "/etc/design.md", ""):
+                with self.assertRaises(GateFault):
+                    documents.approve(repo, bad, store=FakeStore())
+                with self.assertRaises(GateFault):
+                    documents.text(repo, bad)
+            self.assertFalse(documents.approved({"status": ["APPROVED"]}), "by type: a list is never an approval")
+            with self.assertRaisesRegex(GateFault, "not readable JSON"):
+                documents.load_pin("[" * 100000, "x")
+            pin = {"source": "confluence", "id": "9", "version": 3, "approved_at": "٢٠٢٦-11-03T10:00:00Z", "sha256": documents.sha(V3)}
+            with self.assertRaisesRegex(GateFault, "malformed"):
+                documents.load_pin(json.dumps(pin), "x")
+            memo = Path(tmp) / "memo"; memo.mkdir()
+            victim = Path(tmp) / "victim.txt"; victim.write_text("keep")
+            (memo / documents.sha(V3)).symlink_to(victim)
+            self._pin(repo)
+            with unittest.mock.patch.dict(os.environ, {documents.MEMO: str(memo)}):
+                self.assertEqual(documents.text(repo, DOC, store=FakeStore({"9": ["v1", "v2", V3]})), V3)
+            self.assertEqual(victim.read_text(), "keep", "the memo never writes through a planted link")
+
+    def test_confluence_page_identity_is_held(self):
+        site = "https://wiki.acme.test"
+        st = documents.Confluence({"site": site, "space": "ENG", "deployment": "dc"}, fetch=FakeConfluence(site, {
+            ("GET", "/rest/api/content?spaceKey=ENG&title=Acme%20%C2%B7%20p&type=page"): {"results": [{"id": "1"}, {"id": "2"}]},
+            ("GET", "/rest/api/content/7?expand=body.storage,version"): {"id": "7", "version": {"number": 1}, "body": {"storage": {"value": documents.wrap("p", "old")}}},
+            ("PUT", "/rest/api/content/7"): {"id": "8", "version": {"number": 2}, "body": {"storage": {"value": documents.wrap("p", "new")}}},
+        }), env={"CONFLUENCE_API_TOKEN": "t"})
+        with self.assertRaisesRegex(GateFault, "2 pages titled"):
+            st.publish(None, "Acme · p", "new")
+        with self.assertRaisesRegex(GateFault, "with page 8"):
+            st.publish("7", "Acme · p", "new")
+
+    def test_a_failing_built_command_never_echoes_its_stderr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            py = sys.executable
+            repo = self._repo(tmp, adapter="built", commands={"read": f"{py} leak.py", "publish": f"{py} leak.py"})
+            write(repo / "leak.py", "import sys\nprint('token=SECRETVALUE', file=sys.stderr)\nsys.exit(3)\n")
+            self._pin(repo, source="built")
+            with self.assertRaises(documents.StoreDown) as e:
+                documents.text(repo, DOC)
+            self.assertNotIn("SECRETVALUE", str(e.exception)); self.assertIn("exited 3", str(e.exception))
+
+    def test_an_endless_answer_is_refused(self):
+        class Big:
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self, n=-1): return b"x" * (n if n > 0 else 1)
+        with unittest.mock.patch.object(rest, "_OPEN", return_value=Big()), self.assertRaisesRegex(GateFault, "more than"):
+            rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/x", {})
+
+    def test_one_memo_per_profile_run_gone_after_it(self):
+        seen = {}
+        def members(repo, pr, base, br, cp, only, ctx, env):
+            seen["dir"] = env[documents.MEMO]; seen["there"] = Path(env[documents.MEMO]).is_dir()
+            return [], []
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Profile()._repo(tmp)
+            with unittest.mock.patch.object(profile, "_members", members):
+                profile.run(repo, branch="main", base="origin/main")
+        self.assertTrue(seen.get("there"), "every member of the run shares one memo")
+        self.assertFalse(Path(seen["dir"]).exists(), "nothing survives the run")
+
+    def test_a_store_that_does_not_keep_the_bytes_pins_nothing(self):
+        class Lossy(FakeStore):
+            def publish(self, pid, title, text):
+                return super().publish(pid, title, text.replace("APPROVED", "DRAFT"))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / DOC, V3)
+            with self.assertRaisesRegex(GateFault, "did not keep"):
+                documents.approve(repo, DOC, store=Lossy())
+            self.assertFalse((repo / (DOC + documents.PIN)).exists(), "nothing is pinned"); self.assertTrue((repo / DOC).is_file(), "the file stays")
+
+    def test_a_reapproval_of_the_same_bytes_keeps_its_pin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            before = (repo / (DOC + documents.PIN)).read_bytes()
+            write(repo / DOC, V3)
+            fs = FakeStore({"9": ["v1", "v2", V3]})
+            r = documents.approve(repo, DOC, store=fs, now="2026-11-09T12:00:00Z")
+            self.assertFalse(r["pin_moved"]); self.assertEqual((repo / (DOC + documents.PIN)).read_bytes(), before, "its approval date stands")
+            self.assertNotIn("publish", [c[0] for c in fs.calls]); self.assertFalse((repo / DOC).exists())
+
+    def test_one_approval_predicate(self):
+        for fm, ok in (({"verdict": "APPROVED (with notes)"}, True), ({"status": "APPROVED", "verdict": "REJECTED"}, False),
+                       ({"status": "accepted"}, True), ({"overall_verdict": "PASS"}, True), ({"status": "DRAFT"}, False),
+                       ({"status": ["APPROVED"]}, False), ({}, False)):
+            self.assertEqual(documents.approved(fm), ok, fm)
+        self.assertTrue(qa.approved({"verdict": "APPROVED (with notes)"}))
+        self.assertFalse(qa.approved({"status": "APPROVED", "verdict": "INVALIDATED"}))
+        self.assertFalse(qa.approved({"overall_verdict": "PASS"}), "a qa report passes only by APPROVED")
+
+    def test_an_outage_never_hides_a_red(self):
+        o = documents.Outage(); o.settle([])   # nothing noted: nothing to settle
+        o.note(store_fails()); o.note(documents.StoreDown("second"))
+        with self.assertRaises(documents.StoreDown) as e:
+            o.settle([])
+        self.assertNotIn("second", str(e.exception), "the first outage is the one named")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            o.settle(["a red"])
+        self.assertIn("WARN", err.getvalue())
+
+    def test_a_cut_response_is_the_transport(self):
+        with unittest.mock.patch.object(rest, "_OPEN", side_effect=http.client.IncompleteRead(b"")):
+            with self.assertRaises(rest.Unreachable):
+                rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/wiki/api/v2/pages/9", {})
+        for code, cls in ((400, GateFault), (404, GateFault), (401, rest.Unreachable), (403, rest.Unreachable), (500, rest.Unreachable), (503, rest.Unreachable)):
+            err = urllib.error.HTTPError("https://acme.atlassian.net/x", code, "x", {}, io.BytesIO(b"{}"))
+            with unittest.mock.patch.object(rest, "_OPEN", side_effect=err), self.assertRaises(cls) as e:
+                rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/x", {})
+            if cls is GateFault:
+                self.assertNotIsInstance(e.exception, rest.Unreachable, f"{code}: a request the store refuses is red, never an outage")
+        busy = lambda: urllib.error.HTTPError("https://acme.atlassian.net/x", 429, "x", {"Retry-After": "0"}, io.BytesIO(b""))
+        with unittest.mock.patch.object(rest, "_OPEN", side_effect=[busy(), busy()]), unittest.mock.patch.object(rest.time, "sleep"), \
+                self.assertRaises(rest.Unreachable):
+            rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/x", {})
 
     # ── the CLI ──
     def test_cli_verbs_are_exclusive(self):
@@ -10275,8 +10549,10 @@ else:
             repo = self._repo(tmp, adapter="none")
             run = lambda *a: subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "documents", *a], capture_output=True, text=True)
             self.assertEqual(run().returncode, 0)
-            for misuse in (("--read", DOC, "--pull", DOC), ("--ref", "HEAD"), ("--approve", DOC, "--probe"), ("--read", DOC, "--base", "x")):
+            for misuse in (("--read", DOC, "--pull", DOC), ("--ref", "HEAD"), ("--approve", DOC, "--probe"), ("--read", DOC, "--base", "x"),
+                           ("--read", ""), ("--approve", " "), ("--pull", "")):
                 self.assertEqual(run(*misuse).returncode, 2, misuse)
+            self.assertIn("empty path", run("--read", "").stderr, "an empty path is refused, never the bare check")
 
 
 # ── EVOL-080, the threaded gates: a pin (no file) changes each verdict exactly as the file would; the store down is StoreDown ──
@@ -10407,6 +10683,71 @@ class FrontmatterPinned(unittest.TestCase):
             pinned_docs(repo)
             with on_store(pin_moved(repo, "docs/spec/F-001/design.md", self.BASE + "body\n"), down="x"):
                 self.assertRaises(documents.StoreDown, frontmatter.check, repo, "main")
+
+    def test_a_red_found_stands_while_the_store_is_down(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp)); pinned_docs(repo)
+            rel, gone = "docs/spec/F-001/design.md", "docs/spec/F-001/user_journey.md"
+            write(repo / rel, self.BASE + "body\n"); write(repo / gone, "---\nstatus: APPROVED\n---\n")
+            pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "base"); pgit(repo, "branch", "-M", "main"); pgit(repo, "checkout", "-qb", "feature/F-001-x")
+            (repo / gone).unlink()
+            err = io.StringIO()
+            with on_store(pin_moved(repo, rel, self.BASE.replace("backend", "frontend") + "body\n"), down="x"), contextlib.redirect_stderr(err):
+                self.assertEqual([(x["path"], x["key"]) for x in frontmatter.check(repo, "main")], [(gone, "(deleted)")],
+                                 "the deletion found is never dropped by an outage on another artefact")
+            self.assertIn("WARN", err.getvalue(), "the unjudged artefact is named as a warning")
+        with tempfile.TemporaryDirectory() as tmp:   # the outage on a deleted pin's base bytes drops no other red either
+            repo = fixture_repo(Path(tmp)); pinned_docs(repo)
+            write(repo / rel, self.BASE + "body\n"); write(repo / gone, "---\nstatus: APPROVED\n---\n")
+            pages = pin_moved(repo, rel)
+            pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "base"); pgit(repo, "branch", "-M", "main"); pgit(repo, "checkout", "-qb", "feature/F-001-x")
+            (repo / gone).unlink(); (repo / (rel + documents.PIN)).unlink()
+            err = io.StringIO()
+            with on_store(pages, down="x"), contextlib.redirect_stderr(err):
+                self.assertEqual([(x["path"], x["key"]) for x in frontmatter.check(repo, "main")], [(gone, "(deleted)")])
+            self.assertIn("WARN", err.getvalue())
+
+    def _homed_base(self, tmp):
+        """main holds the design as a pin (v3); the branch starts from it."""
+        repo = fixture_repo(Path(tmp)); pinned_docs(repo)
+        rel = "docs/spec/F-001/design.md"
+        write(repo / rel, self.BASE + "body\n")
+        pages = pin_moved(repo, rel)
+        pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "base"); pgit(repo, "branch", "-M", "main"); pgit(repo, "checkout", "-qb", "feature/F-001-x")
+        return repo, rel, pages
+
+    def test_a_pin_to_pin_change_is_locked_like_the_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, rel, pages = self._homed_base(tmp)
+            moved = self.BASE.replace("backend", "frontend") + "body\n"
+            pages["9"].append(moved)
+            write(repo / (rel + documents.PIN), json.dumps({"source": "confluence", "id": "9", "version": 4,
+                                                            "approved_at": "2026-11-09T10:00:00Z", "sha256": documents.sha(moved)}))
+            with on_store(pages):
+                self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["scope"], "a re-pin that moves a locked key is locked")
+
+    def test_a_deleted_pin_is_a_deleted_artefact_and_a_draft_over_it_is_judged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, rel, pages = self._homed_base(tmp)
+            os.remove(repo / (rel + documents.PIN))
+            with on_store(pages):
+                self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["(deleted)"], "the pin gone, nothing left: deleted")
+            write(repo / rel, self.BASE.replace("backend", "frontend") + "body\n")
+            with on_store(pages):
+                self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["scope"], "a draft over the pin is held to the pinned bytes")
+            with on_store({"9": ["v1", "v2", "tampered"]}):
+                self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["(base)"], "approved bytes the store no longer holds: red")
+
+    def test_a_forged_pin_is_no_move_home(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = FrontmatterLock()._repo(tmp, self.BASE)
+            pinned_docs(repo)
+            rel = "docs/spec/F-001/design.md"
+            pin_moved(repo, rel, self.BASE + "body\n")
+            p = repo / (rel + documents.PIN)
+            for forged in ("{}", json.dumps({**json.loads(p.read_text()), "source": "built"})):
+                p.write_text(forged)
+                self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["(deleted)"], f"a pin that cannot stand is no move: {forged[:40]}")
 
 
 class ContractsPinned(unittest.TestCase):
@@ -10572,6 +10913,9 @@ class DeliveryPinned(unittest.TestCase):
                     delivery.pr(repo, base, "feature/F-1-inc-2-b")
             with on_store({**pages, "9": ["v1", "v2", store_fails()]}), self.assertRaises(documents.StoreDown):
                 delivery.pr(repo, base, "feature/F-1-inc-2-b")
+            with on_store({**pages, "9": ["v1", "v2", store_fails()]}):
+                rc, err = StoreDownCli()._main("--repo", str(repo), "delivery", "--pr", "--branch", "feature/F-1-inc-2-b", "--base", base)
+            self.assertEqual((rc, profile.classify("delivery", rc, err)[0]), (2, "n/a"), "the CLI: exit 2 on gate.py's fault line, never a red")
 
 
 class CoherencePinned(unittest.TestCase):
@@ -10596,3 +10940,48 @@ class CoherencePinned(unittest.TestCase):
             with on_store(pages):
                 reasons = {f["path"]: f["reason"] for f in coherence.currency(repo, "origin/main")[0]}
             self.assertIn("not tracked", reasons.get(loose + documents.PIN, ""), "an untracked pin is a verdict of record not versioned")
+
+    def test_a_verdict_gone_from_the_worktree_is_a_finding_never_a_crash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            c = Coherence()
+            repo = c._repo(tmp, "feature/F-001-x")
+            pinned_docs(repo)
+            rel = "docs/spec/F-001/qa/qa_report_final_20260101.md"
+            write(repo / rel, "---\nstatus: APPROVED\n---\n"); c._commit(repo, "verdict")
+            (repo / rel).unlink()
+            findings, faults = coherence.currency(repo, "origin/main")
+            self.assertEqual(faults, [])
+            self.assertIn("neither the file nor its pin", {f["path"]: f["reason"] for f in findings}.get(rel, ""))
+
+
+class StoreDownCli(unittest.TestCase):
+    """A direct call of a threaded gate whose store is down exits 2 on gate.py's own fault line — the profile's n/a + WARN,
+    never a red verdict (contracts, data, delivery catch GateFault themselves)."""
+
+    def _main(self, *argv):
+        spec = importlib.util.spec_from_file_location("gate_cli", HERE.parent / "gate.py")
+        m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            rc = m.main(list(argv))
+        return rc, err.getvalue()
+
+    def test_contracts_and_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            C = ContractsPinned("test_a_pinned_plan_plans_the_new_operation")
+            repo = fixture_repo(Path(tmp)); pinned_docs(repo); write(repo / C.API, C._api({("get", "/orders/{id}"): "getOrder"}))
+            C._branch(repo)
+            write(repo / C.API, C._api({("get", "/orders/{id}"): "getOrder", ("post", "/orders"): "createOrder"}))
+            pin_moved(repo, "docs/spec/F-1/test_plan.md", "| ID | Operation |\n|---|---|\n")
+            with on_store(down="x"):
+                rc, err = self._main("--repo", str(repo), "contracts", "--base", "main")
+            self.assertEqual(rc, 2, err)
+            self.assertEqual(profile.classify("contracts", rc, err)[0], "n/a", err)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, D = DataPinned("test_the_store_down_propagates")._repo(tmp, "accepted")
+            pin_moved(repo, DataPinned.FDR)
+            write(repo / DataPinned.MIG[0], DataPinned.MIG[1])
+            with on_store(down="x"):
+                rc, err = self._main("--repo", str(repo), "data", "--base", "HEAD")
+            self.assertEqual(rc, 2, err)
+            self.assertEqual(profile.classify("data", rc, err)[0], "n/a", err)

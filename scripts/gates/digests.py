@@ -107,7 +107,7 @@ def check(repo: Path, base: str, branch: str | None = None, control_point: str =
         except GateFault as e:
             fp, fp_error = None, str(e)
     rules = bound_rules(repo, base, cfg)
-    rows, red = [], []
+    rows, red, outage = [], [], documents.Outage()
     for a in present:
         p = folder / a
         rel = f"docs/spec/{fid}/{a}"
@@ -118,8 +118,8 @@ def check(repo: Path, base: str, branch: str | None = None, control_point: str =
             else:   # pinned: the approved bytes, read live at the pinned version
                 text = documents.text(repo, rel) or ""
                 fm = frontmatter_of(text)
-        except documents.StoreDown:
-            raise
+        except documents.StoreDown as e:
+            outage.note(e); continue   # unjudged: settled below, never a lost red
         except GateFault as e:
             rows.append({"artefact": rel, "ok": False, "reason": f"unreadable frontmatter: {e}"}); red.append(rel); continue
         have = str(fm.get(DIGEST_KEY) or "").strip()
@@ -137,6 +137,7 @@ def check(repo: Path, base: str, branch: str | None = None, control_point: str =
         rows.append({"artefact": rel, "ok": not problems, "reason": "; ".join(problems) or "current and complete"})
         if problems:
             red.append(rel)
+    outage.settle(red)
     note = " (fingerprint n/a at ci: the snapshot is not on the runner)" if control_point == "ci" else ""
     return {"ok": not red, "feature": fid, "fingerprint": fp, "bound": rules, "artefacts": rows,
             "reason": (f"{len(red)} of {len(rows)} planning artefact(s) stale or incomplete" if red else f"{len(rows)} planning artefact(s) current and complete") + note}

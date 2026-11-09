@@ -96,6 +96,7 @@ FUNCTION qa_iteration_detection_gate(FEATURE_ID, command):
   # It ensures QA is not verifying stale code built against old specs.
 
   # Step 0: Legacy-Safe Defaults
+  # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
   spec_iteration = READ_FRONTMATTER("spec.feature", "iteration") OR 1
   tp_based_on = READ_FRONTMATTER("test_plan.md", "based_on_iteration") OR 1
   tp_pending = READ_FRONTMATTER("test_plan.md", "pending_iteration") OR NULL
@@ -316,6 +317,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       ❌ BLOCK: "`{INCREMENT_ID}` is not an increment id (INC-N)."
       STOP
     slice_report = "docs/spec/{FEATURE_ID}/smoke_e2e_report_{INCREMENT_ID}.md"
+    # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
     IF NOT FILE_EXISTS(slice_report):
       ❌ BLOCK: "The smoke for increment {INCREMENT_ID} has not run on its {preproduction} deployment."
       REDIRECT: "Walk the increment's cases plus every earlier increment's on the {preproduction} build, record them in {slice_report} (template .context/templates/qa/smoke_e2e_report_template.md, increment_id: {INCREMENT_ID}), then re-run."
@@ -400,6 +402,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
 
     # Verify the smoke report exists on disk and is still valid
     smoke_report = "docs/spec/{FEATURE_ID}/smoke_e2e_report.md"
+    # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
     IF FILE_EXISTS(smoke_report):
       fm = READ_FRONTMATTER(smoke_report)
       IF fm.status == "INVALIDATED":

@@ -7,9 +7,11 @@ call(service, site_hint, auth_hint, method, url, headers, body=None) → (status
   - `Unreachable` (a GateFault) is the transport class: no connection, a body that is not JSON, a 5xx, a repeated 429,
     401/403. Every other answer (a redirect, a 4xx) is a plain GateFault naming the status and the server's reason.
   - No message carries the URL's query or a header value — the credential never reaches a message.
+  - An answer larger than MAX_BODY is a fault: nothing holds the gate on an endless body.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import time
 import urllib.error
@@ -28,6 +30,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 _OPEN = urllib.request.build_opener(_NoRedirect).open
+MAX_BODY = 16 * 1024 * 1024
 
 
 def ascii_int(v) -> bool:
@@ -57,7 +60,10 @@ def call(service: str, site_hint: str, auth_hint: str, method: str, url: str, he
     for attempt in (1, 2):
         try:
             with _OPEN(req, timeout=30) as r:
-                raw = r.read().decode("utf-8")
+                blob = r.read(MAX_BODY + 1)
+                if len(blob) > MAX_BODY:
+                    raise GateFault(f"{service} answered {short} with more than {MAX_BODY // (1024 * 1024)} MB — refused")
+                raw = blob.decode("utf-8")
                 return r.status, (json.loads(raw) if raw.strip() else None)
         except urllib.error.HTTPError as e:
             with e:   # an HTTPError holds the response open: closed on every path
@@ -74,5 +80,11 @@ def call(service: str, site_hint: str, auth_hint: str, method: str, url: str, he
                 why = _reason(e)
                 cls = Unreachable if e.code >= 500 else GateFault
                 raise cls(f"{service} answered {e.code} for {short}" + (f" ({clean(why, 300)})" if why else "")) from None
-        except (urllib.error.URLError, OSError, ValueError) as e:
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:   # an answer that is not JSON: its position, never a header
+            raise Unreachable(f"{service} could not be reached at {short} (the answer is not JSON: {clean(e, 120)}) — transient: re-run; "
+                              "a fault, never a pass") from None
+        except ValueError:   # a header or URL refused before the request: its text may quote the header
+            raise Unreachable(f"{service} could not be asked at {short} (the request or its answer is not valid) — check the credential's "
+                              "value for a line break or a non-ASCII character; a fault, never a pass") from None
+        except (urllib.error.URLError, http.client.HTTPException, OSError) as e:   # a cut response is the transport too
             raise Unreachable(f"{service} could not be reached at {short} ({clean(e, 200)}) — transient: re-run; a fault, never a pass") from None

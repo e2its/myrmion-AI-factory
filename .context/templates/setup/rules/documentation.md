@@ -56,8 +56,8 @@ Every generated file opens with the traceability header in the stack's comment s
 Everything the code compiles, runs or machine-reads stays in the repo: Gherkin, contracts, tests, config and the mock. So do the plans and records that delivery state moves.
 
 With an `External` home:
-- **Approve.** The step that writes the artefact approved then runs `python3 scripts/gate.py documents --approve <path>`. It publishes the bytes as a new version, writes `<path>.pin.json {source, id, version, approved_at, sha256}`, and removes the file. Commit the pin.
-- **Read.** Read a pinned artefact with `python3 scripts/gate.py documents --read <path>`. You get the approved bytes at the pinned version, verified by hash. The store's latest version is never read. A file at the path is a draft, and it wins over the pin.
+- **Approve.** The step that writes the artefact approved then runs `python3 scripts/gate.py documents --approve <path>`. It publishes the bytes as a new version when they differ, writes `<path>.pin.json {source, id, version, approved_at, sha256}`, and removes the file. Commit the pin.
+- **Read.** Read a pinned artefact with `python3 scripts/gate.py documents --read <path>`. You get the approved bytes at the pinned version, verified by hash. The store's latest version is never read. A file at the path is a draft, and it wins over the pin. Every existence or frontmatter check on the artefact counts the pin and reads through `--read`.
 - **Refine.** A refine, or a cascade flip, on a pinned artefact first runs `python3 scripts/gate.py documents --pull <path>`. The pinned bytes come back as the draft, and the next approval re-pins.
 - **Never** edit the page in the store outside approval. A version the pin does not name is drift: the `documents` gate turns red until the owner phase re-approves it, or the pinned version is restored in the store.
 - **Store down.** The gate is n/a with a WARN. A direct `--read`, `--approve` or `--pull` exits 2: nothing rests on an unread source of truth. Wait, or fix the credential the message names. Never copy the artefact into the repo.

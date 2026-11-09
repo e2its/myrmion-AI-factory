@@ -89,6 +89,7 @@ LOAD (from feature):
 ### Step 3: Validate Feature Context
 ```yaml
 IF command requires FEATURE_ID:
+  # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
   CHECK design.md exists AND status == "APPROVED"
   CHECK test_plan.md exists AND status == "APPROVED"
   IF missing: ❌ BLOCK: "Run BLUEPRINT --approve {ID} first"

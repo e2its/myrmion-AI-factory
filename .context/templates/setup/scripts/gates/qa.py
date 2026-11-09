@@ -37,6 +37,7 @@ from pathlib import Path
 
 from . import documents
 from .common import GateFault, frontmatter_of, glob_match, key, rules_root
+from .common import approved as common_approved
 
 RANK = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 THRESHOLDS = ("critical", "high", "medium", "low")
@@ -73,12 +74,8 @@ def threshold(repo: Path) -> str:
 
 def approved(fm: dict) -> bool:
     """A qa_report is approved when its status, verdict or overall_verdict says APPROVED (case and decoration aside)
-    and none says REJECTED or INVALIDATED — the one definition the completion hook and `check` read."""
-    def head(k):
-        w = re.sub(r"[^A-Z_]", " ", str(fm.get(k) or "").upper()).split()
-        return w[0] if w else ""
-    heads = {head("status"), head("verdict"), head("overall_verdict")}
-    return "APPROVED" in heads and not heads & {"REJECTED", "INVALIDATED"}
+    and none says REJECTED or INVALIDATED — the completion hook and `check` read it; the predicate is common.approved."""
+    return common_approved(fm)
 
 
 def _uncomment(line: str) -> str:
