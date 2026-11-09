@@ -28,6 +28,7 @@
 #
 # Exit codes: 0 all assertions pass · 1 any failure · 2 infrastructure (never a silent pass).
 set -u
+. "$(dirname "${BASH_SOURCE[0]}")/git-test-env.sh"   # git isolated from the user's config: no gpg signing per commit
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/.context/templates/setup/subproducts/po-package"

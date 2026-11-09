@@ -4,6 +4,8 @@
     "project_mode": "Greenfield",
     "qa.smoke_cadence": "per-slice",
     "project_scope": "backend-only",
+    "quality.qa.blocking_severity": "high",
+    "qa.dast_tool": "skip",
     "domain.monetary_amounts": false,
     "backend.runtime": "Go",
     "frontend.framework": "None",
@@ -74,7 +76,7 @@
       ],
       "config/quality.json": [
         "\"execution\": \"ci\"",
-        "\"tool\": \"Terraform\""
+        "\"tool\": \"Terraform\"", "\"blocking_severity\": \"high\""
       ]
     }
   }

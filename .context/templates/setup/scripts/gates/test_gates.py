@@ -22,9 +22,14 @@ import urllib.parse
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+# git isolated from the user's and the system's config — no commit or tag signing (no gpg-agent per commit), no global
+# hook or alias, one identity: every subprocess of the suite inherits it, on any machine and in CI (the shell tests
+# source scripts/git-test-env.sh, the same keys; this module ships to projects alone)
+os.environ.update({"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "test@example.com",
+                   "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "test@example.com"})
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
+from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, qa, retired, runtime, scm, seal, traceability, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -8029,3 +8034,231 @@ class Delivery(unittest.TestCase):
             self.assertEqual(r.returncode, 1); self.assertIn("deploys from its pipeline", r.stderr)
             r = subprocess.run(gate + ["--last", "staging"], capture_output=True, text=True); self.assertEqual(r.returncode, 1)
             r = subprocess.run(gate + ["--run"], capture_output=True, text=True); self.assertIn("needs --env", r.stderr)
+
+
+def qa_report(sev=None, drop=(), extra="", status="APPROVED", findings=True) -> str:
+    """A QA report with every owed item done (EVOL-076); `sev` adds one finding at that severity, `drop` removes items."""
+    items = {"QA-PRE-DEPLOY": "deployed build reached, alive, migrated", "QA-GOV-1": "protected paths untouched",
+             "QA-GOV-PRIV": "privacy checklist", "QA-DAST-1": "baseline scan — 0 findings",
+             "QA-DAST-2": "full scan — n/a: no full scan in the test plan", "QA-DAST-3": "API scan — n/a: no API contract"}
+    body = "".join(f"- [x] [{i}] {d}\n" for i, d in items.items() if i not in drop) + extra
+    table = "\n## Findings\n| ID | Severity | Source | Finding | Evidence |\n|----|----------|--------|---------|----------|\n" + (
+        f"| F-1 | {sev} | SAST | string-built SQL | src/a.py:3 |\n" if sev else "") if findings else ""
+    return f"---\nstatus: {status}\nverdict: {status}\n---\n# QA\n## Verification Checklist\n{body}{table}\n## Final Verdict\n"
+
+
+class Qa(unittest.TestCase):
+    """EVOL-076, QA exit by severity: the verdict computed against qa.blocking_severity, QA's preconditions read from
+    #135's deploy record, the increment state against its QA report."""
+
+    def _git(self, repo, *c):
+        return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True, text=True).stdout
+
+    def _repo(self, tmp, thr="high", delivery_=True):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text())
+        if thr is not None:
+            q["qa"] = {"blocking_severity": thr}
+        if delivery_:
+            q["delivery"] = {"execution": "ci", "adapter": {"tool": "Terraform", "apply": "tf apply {env}", "url_from": {"kind": "stdout"}}, "migrate": None}
+        q["surface"] = {"runtime_surface": ["src/**"]}
+        write(repo / "config/quality.json", json.dumps(q))
+        self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "cfg")
+        return repo
+
+    def test_verdict_blocks_at_or_above_the_threshold_and_critical_always(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertTrue(qa.verdict(repo, qa_report())["ok"], qa.render(qa.verdict(repo, qa_report())))
+            for sev, ok in (("critical", False), ("high", False), ("medium", True), ("low", True), ("info", True), ("High", False), ("`high`", False), ("Medium", True), ("**low**", True)):
+                with self.subTest(sev=sev):
+                    self.assertEqual(qa.verdict(repo, qa_report(sev))["ok"], ok)
+            r = qa.verdict(repo, qa_report("high"))
+            self.assertIn("at or above the blocking severity `high`", qa.render(r))
+            self.assertFalse(qa.verdict(repo, qa_report("severe"))["ok"], "a severity outside the vocabulary is red, never read as harmless")
+            self.assertFalse(qa.verdict(repo, qa_report(findings=False))["ok"], "no Findings table: nothing proves the report carries none")
+            for thr in ("low", "medium", "critical"):
+                q = json.loads((repo / "config/quality.json").read_text()); q["qa"]["blocking_severity"] = thr
+                write(repo / "config/quality.json", json.dumps(q))
+                with self.subTest(thr=thr):
+                    self.assertFalse(qa.verdict(repo, qa_report("critical"))["ok"], "critical is a floor no answer removes")
+                    self.assertEqual(qa.verdict(repo, qa_report("low"))["ok"], thr != "low")
+        for thr in (None, "info", "{{QA_BLOCKING_SEVERITY}}", ["critical", "high"]):
+            with tempfile.TemporaryDirectory() as tmp, self.subTest(thr=thr):
+                repo = self._repo(tmp, thr=thr)
+                with self.assertRaises(GateFault, msg="an absent or unreadable threshold is never permissive") as cm:
+                    qa.verdict(repo, qa_report())
+                self.assertIn("is missing" if thr is None else "not one of", str(cm.exception))
+
+    def test_verdict_owes_privacy_ai_budget_protected_paths_and_every_dast_probe(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            for item in ("QA-PRE-DEPLOY", "QA-GOV-1", "QA-GOV-PRIV", "QA-DAST-1", "QA-DAST-2", "QA-DAST-3"):
+                with self.subTest(drop=item):
+                    r = qa.verdict(repo, qa_report(drop=(item,)))
+                    self.assertFalse(r["ok"]); self.assertIn(f"[{item}] is absent", qa.render(r))
+            self.assertIn("skipped in silence", qa.render(qa.verdict(repo, qa_report(drop=("QA-DAST-2",)))))
+            self.assertTrue(qa.verdict(repo, qa_report())["ok"], "no AI-budget rule materialised: the item is not owed")
+            write(repo / ".claude/rules/ai_budget_governance.md", "---\ndescription: ai\n---\n")
+            self.assertFalse(qa.verdict(repo, qa_report())["ok"], "the AI-budget rule is materialised: its item is owed")
+            self.assertTrue(qa.verdict(repo, qa_report(extra="- [x] [QA-GOV-AIB] AI budget within its limits\n"))["ok"])
+            for line, ok in (("- [x] [QA-DAST-3] API scan — n/a\n", False), ("- [x] [QA-DAST-3] API scan — N/A:   \n", False),
+                             ("- [x] [QA-DAST-3] API scan — n/a: <!-- why -->\n", False), ("- [x] [QA-DAST-3] API scan — n/a: no contract\n", True)):
+                with self.subTest(line=line):
+                    r = qa.verdict(repo, qa_report(drop=("QA-DAST-3",), extra="- [x] [QA-GOV-AIB] ok\n" + line))
+                    self.assertEqual(r["ok"], ok, qa.render(r))
+            self.assertFalse(qa.verdict(repo, qa_report(extra="- [x] [QA-GOV-AIB] ok\n- [ ] [QA-TC-1] login works\n"))["ok"], "an open item is not done (#115)")
+            self.assertFalse(qa.verdict(repo, qa_report(extra="- [x] [QA-GOV-AIB] ok\n- [!] [QA-TC-1] FAILED\n"))["ok"])
+
+    def test_verdict_reads_one_findings_section_aligned_rows_and_the_dast_answer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            sub = qa_report() + "### SAST\n| ID | Severity | Source | Finding | Evidence |\n|---|---|---|---|---|\n| S-1 | critical | SAST | x | y |\n"
+            body = qa_report().replace("\n## Final Verdict\n", "")
+            self.assertFalse(qa.verdict(repo, body + "### SAST\n| S-1 | critical | SAST | x | y |\n")["ok"], "a ### sub-table inside ## Findings stays inside it")
+            self.assertFalse(qa.verdict(repo, sub.replace("## Final Verdict\n### SAST", "### SAST"))["ok"])
+            two = qa_report() + "## Findings\n| ID | Severity | Source | Finding | Evidence |\n|---|---|---|---|---|\n"
+            self.assertFalse(qa.verdict(repo, two)["ok"], "two Findings sections: which one counts is not the writer's to choose")
+            esc = qa_report().replace("|----|", "|----|", 1).replace("|----------|--------|---------|----------|\n", "|----------|--------|---------|----------|\n| F\\|1 | info | SAST | a | b |\n", 1)
+            self.assertFalse(qa.verdict(repo, esc)["ok"], "a row whose cells do not line up with the header has no readable severity")
+            self.assertIn("do not line up with the header", qa.render(qa.verdict(repo, esc)))
+            hid = qa_report().replace("|----------|--------|---------|----------|\n", "|----------|--------|---------|----------|\n| F-1 \\| info | critical | SAST | a | b |\n", 1)
+            self.assertFalse(qa.verdict(repo, hid)["ok"], "an escaped pipe shifts the cells: the rendered critical is never read as info")
+            for line, ok in (("- [x] [QA-PRE-DEPLOY] n/a\n", False), ("- [x] [QA-PRE-DEPLOY] n/a: the project deploys nothing\n", True)):
+                with self.subTest(line=line):
+                    self.assertEqual(qa.verdict(repo, qa_report(drop=("QA-PRE-DEPLOY",), extra=line))["ok"], ok)
+            import time
+            t0 = time.monotonic()
+            self.assertFalse(qa.verdict(repo, qa_report(drop=("QA-DAST-3",), extra="- [x] [QA-DAST-3] n/a:" + " -" * 100000 + "\n"))["ok"])
+            self.assertLess(time.monotonic() - t0, 5, "NA_REASON is linear on a writer-controlled line")
+            na1 = qa_report(drop=("QA-DAST-1",), extra="- [x] [QA-DAST-1] baseline — n/a: not asked\n")
+            self.assertTrue(qa.verdict(repo, na1)["ok"], "no DAST answer: an n/a with its reason stands")
+            write(repo / "docs/setup.md", "---\nqa:\n  dast_tool: owasp-zap\n---\n")
+            r = qa.verdict(repo, na1); self.assertFalse(r["ok"]); self.assertIn("qa.dast_tool: owasp-zap", qa.render(r))
+            self.assertTrue(qa.verdict(repo, qa_report())["ok"], "owasp-zap: DAST-2 and DAST-3 may still say n/a with a reason")
+            ran = qa_report(drop=("QA-DAST-1",), extra="- [x] [QA-DAST-1] baseline ran, 0 alerts   <!-- n/a: qa.dast_tool is skip -->\n")
+            self.assertTrue(qa.verdict(repo, ran)["ok"], "the template's hint comment is never the writer's n/a: " + qa.render(qa.verdict(repo, ran)))
+            hint = qa_report(drop=("QA-PRE-DEPLOY",), extra="- [x] [QA-PRE-DEPLOY] reached, alive, migrated   <!-- or n/a: the reason -->\n")
+            self.assertTrue(qa.verdict(repo, hint)["ok"])
+            self.assertFalse(qa.verdict(repo, qa_report(drop=("QA-DAST-3",), extra="- [x] [QA-DAST-3] n/a <!-- unclosed n/a: x\n"))["ok"])
+
+    def test_approved_is_one_definition(self):
+        for fm, ok in (({"status": "APPROVED"}, True), ({"verdict": "APPROVED ✅"}, True), ({"status": "approved"}, True),
+                       ({"overall_verdict": "Approved"}, True), ({"status": "INVALIDATED", "verdict": "APPROVED"}, False),
+                       ({"status": "REJECTED", "verdict": "APPROVED"}, False), ({"status": "APPROVED", "verdict": "PENDING"}, True),
+                       ({"status": "DRAFT", "verdict": "PENDING"}, False), ({"verdict": "REJECTED"}, False), ({}, False)):
+            with self.subTest(fm=fm):
+                self.assertEqual(qa.approved(fm), ok)
+
+    def test_check_never_rejudges_an_increment_merged_before_the_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            plan = lambda st2: f"# Increment plan\n### INC-1 — login\n- **Status:** MERGED\n### INC-2 — logout\n- **Status:** {st2}\n"
+            write(repo / "docs/setup.md", "---\nproject_tracking:\n  feature_phases: full-sdlc\n---\n")
+            write(repo / "docs/spec/F-1/increment_plan.md", plan("BUILDING"))
+            write(repo / "docs/spec/F-1/qa/qa_report_INC-1_20260101T000000Z.md", "---\nstatus: APPROVED\n---\n- [x] [QA-GOV-1] ok\n")   # pre-10.1.0 shape
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "legacy"); base = self._git(repo, "rev-parse", "HEAD").strip()
+            write(repo / "docs/spec/F-1/increment_plan.md", plan("MERGED"))
+            write(repo / "docs/spec/F-1/qa/qa_report_INC-2_20261109T100000Z.md", qa_report())
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "inc2")
+            r = qa.check(repo, base); self.assertTrue(r["ok"], "INC-1 merged before the change: its legacy report stands — " + qa.render(r))
+            self.assertNotIn("INC-1", " ".join(e["id"] for e in r["entries"]))
+            write(repo / "docs/spec/F-1/qa/qa_report_INC-2_20261109T100000Z.md", qa_report(status="INVALIDATED"))
+            self._git(repo, "commit", "-qam", "inv")
+            self.assertFalse(qa.check(repo, base)["ok"], "INC-2 flipped to MERGED here: an INVALIDATED newest report is not approved")
+
+    def _record(self, repo, sha, payload, n):
+        return delivery.write_record(repo, "dev", sha, payload, good=True, now=dt.datetime(2026, 11, 9, 10, 0, n, tzinfo=dt.timezone.utc))
+
+    def test_ready_reads_the_deploy_record_reached_alive_migrated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = qa.ready(repo, "dev"); self.assertFalse(r["ok"]); self.assertIn("not reached", r["reason"])
+            head = self._git(repo, "rev-parse", "HEAD").strip()
+            good = {"probe": {"svc0": "up"}, "migrations": []}
+            cases = [({**good}, True), ({**good, "probe": {}}, False), ({**good, "probe": {"svc0": "up", "svc1": "down"}}, False),
+                     ({"probe": {"svc0": "up"}}, False), ({**good, "migrations": "V1.sql"}, False), ({**good, "migrations": ["migrations/V2.sql"]}, False)]
+            for n, (payload, ok) in enumerate(cases):
+                with self.subTest(payload=payload):
+                    self._record(repo, head, payload, n)
+                    r = qa.ready(repo, "dev"); self.assertEqual(r["ok"], ok, qa.render(r))
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["migrate"] = "mig up"
+            write(repo / "config/quality.json", json.dumps(q))
+            self.assertTrue(qa.ready(repo, "dev")["ok"], "a shipped migration with its runner configured: migrated")
+            q["delivery"]["migrate"] = None; write(repo / "config/quality.json", json.dumps(q))
+            write(repo / ".context/templates/setup/setup/discovery_registry.json", json.dumps({"questions": [{"id": "Q15.1", "keys": {"database.migrations_tool": {
+                "configures": {"DbUp": {"delivery.migrate": None}, "Flyway": {"delivery.migrate": "flyway migrate"}}}}}]}))
+            write(repo / "docs/setup.md", "---\ndatabase:\n  migrations_tool: DbUp\n---\n")
+            self.assertTrue(qa.ready(repo, "dev")["ok"], "DbUp migrates inside the application: no runner, the alive probe proves it")
+            write(repo / "docs/setup.md", "---\ndatabase:\n  migrations_tool: Flyway\n---\n")
+            r = qa.ready(repo, "dev"); self.assertFalse(r["ok"], "Flyway needs its runner: an answered tool is not an in-app migrator")
+            self.assertIn("nothing ran them", qa.render(r))
+            (repo / "docs/setup.md").unlink(); q["delivery"]["migrate"] = "mig up"; write(repo / "config/quality.json", json.dumps(q))
+            self._record(repo, head, {**good, "migrations": "migrations/V2.sql"}, 15)
+            r = qa.ready(repo, "dev"); self.assertFalse(r["ok"]); self.assertIn("no migration trace", qa.render(r))
+            self._record(repo, head, {**good, "migrations": ["migrations/V2.sql"]}, 16)
+            self._git(repo, "commit", "-qam", "runner")
+            write(repo / "docs/notes.md", "n\n"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "docs")
+            self._record(repo, head, good, 20)
+            r = qa.ready(repo, "dev"); self.assertTrue(r["ok"], "HEAD moved nothing on the runtime surface since the deployed build: " + qa.render(r))
+            write(repo / "src/app.py", "print(2)\n"); self._git(repo, "commit", "-qam", "code")
+            r = qa.ready(repo, "dev"); self.assertFalse(r["ok"]); self.assertIn("moved the runtime surface", qa.render(r))
+            self._git(repo, "checkout", "-q", "-b", "other", head); write(repo / "src/b.py", "x\n"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "elsewhere")
+            other = self._git(repo, "rev-parse", "HEAD").strip(); self._git(repo, "checkout", "-q", "-")
+            self._record(repo, other, good, 30)
+            r = qa.ready(repo, "dev"); self.assertFalse(r["ok"]); self.assertIn("not this branch's build", qa.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, delivery_=False)
+            r = qa.ready(repo, "dev"); self.assertTrue(r["ok"] and r.get("na"), "the project deploys nothing: n/a with its reason")
+
+    def test_check_a_merged_increment_and_an_approved_report_agree_with_the_verdict(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            plan = lambda st: f"# Increment plan\n### INC-1 — login\n- **Status:** {st}\n### INC-2 — logout\n- **Status:** READY\n"
+            write(repo / "docs/spec/F-1/increment_plan.md", plan("BUILDING"))
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "plan")
+            base = self._git(repo, "rev-parse", "HEAD").strip()
+            r = qa.check(repo, base); self.assertTrue(r.get("na"), "the fixture's preset is not full-sdlc: no QA phase"); self.assertIn("not full-sdlc", r["reason"])
+            write(repo / "docs/setup.md", "---\nproject_tracking:\n  feature_phases: full-sdlc\n---\n")
+            self._git(repo, "commit", "-qam", "preset"); base = self._git(repo, "rev-parse", "HEAD").strip()
+            write(repo / "docs/spec/F-1/increment_plan.md", plan("MERGED")); self._git(repo, "commit", "-qam", "merged")
+            r = qa.check(repo, base); self.assertFalse(r["ok"]); self.assertIn("MERGED with no QA report", qa.render(r))
+            rep = repo / "docs/spec/F-1/qa/qa_report_INC-1_20261109T100000Z.md"
+            write(rep, qa_report("high")); r = qa.check(repo, base)
+            self.assertIn(f"{rep.name} is not approvable", qa.render(r), "the merged increment's own report is judged, not only the changed-report pass")
+            for text, ok in ((qa_report(status="REJECTED"), False), (qa_report("high", status="REJECTED"), False), (qa_report(status="approved"), True), (qa_report(), True)):
+                write(rep, text)
+                with self.subTest(text=text[:40]):
+                    self.assertEqual(qa.check(repo, base)["ok"], ok, qa.render(qa.check(repo, base)))
+            write(repo / "docs/spec/F-1/qa/qa_report_INC-1_20261109T110000Z.md", qa_report(status="REJECTED"))
+            self.assertFalse(qa.check(repo, base)["ok"], "the NEWEST report decides: a later REJECTED one contradicts MERGED")
+            (repo / "docs/spec/F-1/qa/qa_report_INC-1_20261109T110000Z.md").unlink()
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "report")
+            write(repo / "docs/spec/F-1/qa/qa_report_INC-10_20261109T100000Z.md", qa_report(status="REJECTED"))
+            self.assertTrue(qa.check(repo, base)["ok"], "INC-10's report is not INC-1's")
+            write(repo / "docs/spec/F-1/qa/qa_report_final_20261109T120000Z.md", qa_report("critical"))
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "final")
+            r = qa.check(repo, base); self.assertFalse(r["ok"], "an APPROVED report in the diff with a blocking finding: written past the hook, red here")
+            self._git(repo, "rm", "-q", "docs/spec/F-1/qa/qa_report_final_20261109T120000Z.md"); self._git(repo, "commit", "-qm", "rm")
+            write(repo / "docs/spec/F-1/increment_plan.md", plan("MERGED") + "\n")
+            new_base = self._git(repo, "rev-parse", "HEAD").strip()
+            self.assertTrue(qa.check(repo, new_base).get("na"), "nothing of QA's in this diff: n/a")
+
+    def test_cli_and_profile_member(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            gate = [sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "qa"]
+            r = subprocess.run(gate + ["--verdict"], input=qa_report("high"), capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1, r.stderr); self.assertIn("at or above", r.stdout)
+            r = subprocess.run(gate + ["--verdict"], input=qa_report(), capture_output=True, text=True); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            f = repo / "r.md"; write(f, qa_report("critical"))
+            r = subprocess.run(gate + ["--verdict", "--file", str(f), "--json"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1); self.assertFalse(json.loads(r.stdout)["ok"])
+            r = subprocess.run(gate + ["--ready"], capture_output=True, text=True); self.assertEqual(r.returncode, 2); self.assertIn("needs --env", r.stderr)
+            r = subprocess.run(gate, capture_output=True, text=True); self.assertEqual(r.returncode, 2)
+            r = subprocess.run(gate + ["--verdict", "--file", str(repo / "absent.md")], capture_output=True, text=True); self.assertEqual(r.returncode, 2)
+            r = subprocess.run(gate + ["--verdict", "--file", "r.md"], capture_output=True, text=True, cwd=tmp + "/..")
+            self.assertEqual(r.returncode, 1, "a relative --file resolves against the repository, as gate.py checklist does: " + r.stderr)
+        self.assertIn("qa", [m[0] for m in profile.MEMBERS], "the QA agreement is a profile member")
+        row = [m for m in profile.MEMBERS if m[0] == "qa"][0]
+        self.assertFalse(row[1] or row[2], "light: no build, no database")

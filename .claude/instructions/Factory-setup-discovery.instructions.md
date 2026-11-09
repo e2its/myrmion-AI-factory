@@ -371,6 +371,22 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Persist:** `qa.browser_mcp` → the pinned, isolated server entry in `.mcp.json` (the registry's `configures → mcp.servers`; the upgrade anchor **browser-mcp (EVOL-077)** writes it) and the `[QA-VIS-{CASE}]` cases of the smoke
 - **After:** the `factory-qa` agent runs the visual walk on the isolated browser profile; the main session never drives the browser.
 
+#### Q23.6: QA blocking severity (EVOL-076)
+- **Options:** `critical` | `high` | `medium` | `low`
+- **Simplified:** es: "¿Desde qué gravedad un fallo encontrado por QA impide aprobar? (crítico siempre lo impide)" / en: "From which severity does a QA finding stop approval? (critical always does)"
+- **RDR Recommendation:** `high` — a finding with a real impact stops the release, a medium or low one is recorded without stopping it. `critical` only for a prototype; `medium` / `low` under a compliance regime (Q19).
+- **Tier-filtered:** ALL tiers.
+- **Persist:** `quality.qa.blocking_severity`
+- **After:** Materialization resolves `{{QA_BLOCKING_SEVERITY}}` in `config/quality.json → qa.blocking_severity`; `gate.py qa --verdict` and the completion hook refuse to approve a QA report with a finding at or above it. An unreadable value blocks every approval.
+
+#### Q23.7: DAST tool (EVOL-076, conditional: the scope serves HTTP)
+- **Options:** `owasp-zap` | `skip`
+- **Simplified:** es: "¿QA ataca la aplicación desplegada en busca de vulnerabilidades (OWASP ZAP)?" / en: "Does QA probe the deployed application for vulnerabilities (OWASP ZAP)?"
+- **RDR Recommendation:** `owasp-zap` — the baseline, full and API scans run against the deployed build (`scripts/security-scan.sh`). `skip` only where nothing is reachable over HTTP from the test environment; each DAST probe is then ticked `n/a: <reason>`, never dropped.
+- **Tier-filtered:** ALL tiers.
+- **Persist:** `qa.dast_tool`
+- **After:** `QA --verify` reads it (`Factory-qa-verify` § Script registry): the three DAST items are always in the checklist, run or `n/a: <reason>`.
+
 #### Q24: AI Capabilities
 - **3 boolean sub-questions:**
   - Q24a: Does your project involve AI model **training**? → triggers MLflow/W&B/custom questions

@@ -4,6 +4,8 @@
     "project_mode": "Greenfield",
     "qa.smoke_cadence": "feature-close",
     "project_scope": "integration",
+    "quality.qa.blocking_severity": "high",
+    "qa.dast_tool": "owasp-zap",
     "domain.monetary_amounts": true,
     "backend.runtime": "Java",
     "frontend.framework": "None",
@@ -24,6 +26,7 @@
     "performance.api_p95": "200 ms"
   },
   "expect": {
+    "contains": {"config/quality.json": ["\"blocking_severity\": \"high\""]},
     "landed": [
       ".claude/rules/database.md",
       "contracts/errors.yaml",

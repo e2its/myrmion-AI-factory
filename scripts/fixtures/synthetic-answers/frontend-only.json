@@ -3,6 +3,8 @@
   "answers": {
     "project_mode": "Greenfield",
     "project_scope": "frontend-only",
+    "quality.qa.blocking_severity": "high",
+    "qa.dast_tool": "owasp-zap",
     "backend.runtime": "None",
     "frontend.framework": "Angular",
     "frontend.meta_framework": "None",
@@ -45,7 +47,7 @@
         "DC-39"
       ]
     },
-    "contains": {
+    "contains": {"config/quality.json": ["\"blocking_severity\": \"high\""], 
       ".claude/rules/ux-constitution.md": [
         "### 3. Canonical Components"
       ]

@@ -50,7 +50,9 @@ Before processing commands, read:
 
 **Core Rules (ALWAYS):** architecture.md, security_policy.md, protected-code.md, protected-paths.json, branching.md, testing.md, api-standards.md, contract-first-policy.md, database.md, ux-constitution.md, ci-cd.md, iac.md, observability.md, performance.md, privacy.md, immutability_policy.md, review-policy.md, ai_budget_tracker.md, allowlist.json
 
-**NOT loaded by QA:** stateless.md, ai_budget_governance.md, frontend_architecture_compatibility.md, html-css.md, technology-specific rules
+**Loaded when materialised:** ai_budget_governance.md — its `[QA-GOV-AIB]` item (EVOL-076)
+
+**NOT loaded by QA:** stateless.md, frontend_architecture_compatibility.md, html-css.md, technology-specific rules
 
 ### Script-Based Validation Registry
 
@@ -61,9 +63,11 @@ MANDATORY Scripts (ALWAYS during --verify):
 
 Conditional Scripts:
   - security-scan.sh --drift-check: Protected paths (IF RED ZONE files)
-  - security-scan.sh --dast: ZAP baseline (IF DAST_TOOLS != "Skip")
-  - security-scan.sh --dast-full: ZAP full scan (IF test_plan specifies)
-  - security-scan.sh --dast-api: ZAP API scan (IF API contracts)
+  - gate.py qa --ready --env dev: the deployed build reached, alive and migrated, read from the deploy record (Gate 0, BLOCKING — EVOL-076)
+  - security-scan.sh --dast: ZAP baseline (IF docs/setup.md → qa.dast_tool == owasp-zap)
+  - security-scan.sh --dast-full: ZAP full scan (IF qa.dast_tool == owasp-zap AND test_plan specifies)
+  - security-scan.sh --dast-api: ZAP API scan (IF qa.dast_tool == owasp-zap AND API contracts)
+  # A DAST probe that does not run is ticked `n/a: <reason>` — never dropped (gate.py qa --verdict owes all three)
   - gate.py data: the data pack — migrations, destructive steps, the connection factory, seeds (IF database.migrations_tool is answered; n/a otherwise)
   - validate-iac.sh --strict: IaC governance (IF infra/ exists)
   - ux-validation.sh: WCAG compliance (IF has_ui)
@@ -162,6 +166,18 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
   # ALL prerequisites must pass or --verify is blocked.
   # INCREMENT_ID is the optional second arg from /qa --verify {ID} [INC-N].
   mode = INCREMENT_ID IS NOT NULL ? "slice" : "aggregate"
+
+  # Gate 0 (EVOL-076): the build QA verifies is reached, alive and migrated — read from #135's deploy record
+  # (gate.py delivery --last), never probed or traced here. n/a when the project deploys nothing.
+  pre_rc, pre = RUN("python3 scripts/gate.py qa --ready --env dev --json")   # dev: the deployment the smoke walks (Gate 4)
+  IF pre_rc == 2:
+    ❌ BLOCK: "QA does not start: the deploy record cannot be read — {stderr}"   # a fault carries no JSON
+    STOP
+  IF pre_rc != 0:
+    ❌ BLOCK: "QA does not start: {pre.reason} — {each red line of pre.entries}"
+    REDIRECT: "DEVOPS --deploy --env dev {FEATURE_ID} (the pipeline deploys HEAD and writes the record), then re-run."
+    STOP
+  # The result ticks [QA-PRE-DEPLOY]: run → its reason; pre.na → `n/a: {pre.reason}`
 
   # Gate 1: dev_plan.md status (mode-aware)
   dev_plan_path = "docs/spec/{FEATURE_ID}/dev_plan.md"
@@ -440,6 +456,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   checklist = []
 
   # Pre-Audit checks (always present)
+  checklist.push("- [ ] [QA-PRE-DEPLOY]: Deployed build reached, alive and migrated (gate.py qa --ready — Gate 0)")
   checklist.push("- [ ] [QA-PRE-1]: Dependency allowlist validation")
   IF MIGRATIONS_EXIST:
     checklist.push("- [ ] [QA-PRE-2]: Migration safety validation")
@@ -456,6 +473,9 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   checklist.push("- [ ] [QA-GOV-1]: Protected paths drift detection")
   checklist.push("- [ ] [QA-GOV-2]: Integration audit (system_resources + hardcoded config)")
   checklist.push("- [ ] [QA-GOV-3]: Static audit (code quality + test coverage + standards)")
+  checklist.push("- [ ] [QA-GOV-PRIV]: Privacy — personal data classified, minimised, consented and erasable as privacy.md requires (PLAW-07)")
+  IF FILE_EXISTS(".claude/rules/ai_budget_governance.md"):
+    checklist.push("- [ ] [QA-GOV-AIB]: AI budget — every model call of the change within ai_budget_governance.md's limits and tracked")
 
   # Test plan derived checks (one per test case, scenario-filtered in slice mode).
   # Per-family column mapping (EVOL-041 — the template has NO uniform scenario/type/description columns):
@@ -531,13 +551,13 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   IF g.sast IS NOT NULL:
     checklist.push("- [ ] [QA-STATIC-3]: SAST tool verification (independent re-execution)")
 
-  # DAST checks (conditional)
-  IF DAST_TOOLS != "Skip":
-    checklist.push("- [ ] [QA-DAST-1]: DAST baseline scan execution")
-    IF test_plan.dast_scan_type == "full":
-      checklist.push("- [ ] [QA-DAST-2]: DAST full scan execution")
-    IF API_CONTRACTS_EXIST:
-      checklist.push("- [ ] [QA-DAST-3]: DAST API scan execution")
+  # DAST checks — always all three (EVOL-076): run, or ticked `n/a: <reason>` when it does not apply; never dropped
+  dast = READ "docs/setup.md" → qa.dast_tool          # owasp-zap | skip | absent (not asked for this scope)
+  checklist.push("- [ ] [QA-DAST-1]: DAST baseline scan execution")
+  checklist.push("- [ ] [QA-DAST-2]: DAST full scan execution")
+  checklist.push("- [ ] [QA-DAST-3]: DAST API scan execution")
+  # n/a reasons: dast == skip → "n/a: qa.dast_tool is skip" · absent → "n/a: DAST not asked for this scope" ·
+  # QA-DAST-2 without test_plan.dast_scan_type == "full" → "n/a: no full scan in the test plan" · QA-DAST-3 without API contracts → "n/a: no API contract"
 
   # Defect Prevention Catalog items
   # One [QA-DC-N] checklist item per DC entry applicable to QA for this feature/stack.
@@ -619,6 +639,12 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
 3. **Static Audit:** Review code, tests, coverage vs test_plan.md
    - Pass → MARK `[QA-GOV-3]` [x] | Issues found → document in report
 
+3a. **Privacy (PLAW-07):** walk privacy.md's checklist against the change — every personal datum it adds or touches classified, minimised, under its consent, erasable.
+   - Each item held → MARK `[QA-GOV-PRIV]` [x], its evidence (the datum, file:line, the rule held) in § 1 | A gap → a `## Findings` row (`critical`: unconsented or unerasable personal data; `high`: unclassified or not minimised)
+
+3b. **AI budget** (only where ai_budget_governance.md is materialised): every model call the change adds or touches is within the rule's limits and tracked.
+   - Within → MARK `[QA-GOV-AIB]` [x], each call (file:line, its limit) in § 1 | Over a limit or untracked → a `## Findings` row (`high`)
+
 4. **Evidence Request:** Ask user for dynamic test logs
 
 5. **Log Analysis:** Verify PASS in all cases → STATIC_PASS or REJECTED
@@ -662,13 +688,9 @@ IF g.sast IS NOT NULL:
   sast_result = RUN_IN_TERMINAL(g.sast.command, timeout: 120000)
   sast_findings = parse_sast_results(sast_result.output, commands)  # From BVL
 
-  IF sast_findings.critical > 0 OR sast_findings.high > 0:
-    MARK [QA-STATIC-3] [!] FAILED
-    ADD_BLOCKER: "SAST found {sast_findings.critical} CRITICAL + {sast_findings.high} HIGH"
-  ELIF sast_findings.medium > 0:
-    MARK [QA-STATIC-3] [x]  # Non-blocking — documented
-  ELSE:
-    MARK [QA-STATIC-3] [x]
+  # EVOL-076: every finding is a `## Findings` row at its severity; the verdict decides, never this step
+  FOR EACH f IN sast_findings: ADD_FINDING(id, severity: f.severity mapped as the template's § Findings maps it, source: SAST, finding, evidence: file:line)
+  MARK [QA-STATIC-3] [x]   # the scan ran; a scan that could not run is [!] FAILED
 ```
 
 **5c-5h. DAST Phase (security pass, runtime):**
@@ -676,7 +698,7 @@ IF g.sast IS NOT NULL:
 - Pre-scan: Verify TARGET_URL, Docker, ZAP config
 - Execute: `scripts/security-scan.sh --dast` (baseline), `--dast-full`, or `--dast-api`
 - Parse ZAP report → vulnerabilities by risk level + OWASP Top 10 mapping
-- **Verdict:** High-risk → REJECT | Medium/Low → WARN (proceed) + MARK `[QA-DAST-*]` [x] | Clean → PASS + MARK `[QA-DAST-*]` [x]
+- **Findings:** every alert is a `## Findings` row of the qa_report at its severity (High → high, Medium → medium, Low → low, Informational → info); MARK the probe's `[QA-DAST-*]` [x] once it ran. Whether it blocks is `config/quality.json → qa.blocking_severity`'s, computed by `gate.py qa --verdict` (EVOL-076)
 - Generate `docs/spec/{{FEATURE_ID}}/qa/dast_report_{{timestamp}}.md` using DAST Report Template (below)
 
 ### DAST Report Template (`dast_report_{{timestamp}}.md`)
@@ -700,15 +722,15 @@ created_at: "{{ISO_8601}}"
 
 ## Active Findings (by Risk Level)
 
-### HIGH (BLOCKING)
+### HIGH
 | Alert | Risk | CWE | OWASP | Instances | URL |
 |-------|------|-----|-------|-----------|-----|
 
-### MEDIUM (WARNING)
+### MEDIUM
 | Alert | Risk | CWE | OWASP | Instances | URL |
 |-------|------|-----|-------|-----------|-----|
 
-### LOW (INFORMATIONAL)
+### LOW
 | Alert | Risk | CWE | OWASP | Instances | URL |
 |-------|------|-----|-------|-----------|-----|
 
@@ -740,117 +762,19 @@ Generate the mode-aware qa_report file:
 - Slice mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_{{INCREMENT_ID}}_{{timestamp}}.md`
 - Aggregate mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_final_{{timestamp}}.md` (with `aggregates:` frontmatter referencing the consumed slice reports)
 
-**Verification Checklist Completion Gate:** Before setting verdict, count the report with `python3 scripts/gate.py checklist --file {qa_report_path}` — only `[x]` is done; an open `[ ]` or a failed `[!]` is not (#115). Exit 1 → verdict MUST be REJECTED.
+**Computed verdict (EVOL-076):** Before setting the verdict, ask `python3 scripts/gate.py qa --verdict --file {qa_report_path}`. It checks four things:
+- every item done (`[x]` only, #115);
+- a severity on every `## Findings` row, none at or above `qa.blocking_severity` (critical always blocks);
+- `[QA-PRE-DEPLOY]`, `[QA-GOV-1]`, `[QA-GOV-PRIV]` present, plus `[QA-GOV-AIB]` where the AI-budget rule is materialised;
+- `[QA-PRE-DEPLOY]` and each `[QA-DAST-*]` run, or `n/a: <reason>` — with `qa.dast_tool: owasp-zap` answered, `[QA-DAST-1]` never says n/a.
 
-### QA Report Template (`qa_report_final_{{timestamp}}.md` / `qa_report_{{INC-N}}_{{timestamp}}.md`)
+Exit 1 → verdict MUST be REJECTED; exit 2 → the severity is unreadable, nothing is approved (SETUP --upgrade asks Q23.6). The completion hook asks the same before a report is written approved (`status` or `verdict` APPROVED, `gates/qa.py approved`).
 
-```yaml
----
-status: APPROVED | REJECTED | IN_PROGRESS
-feature_id: "{{FEATURE_ID}}"
-spec_iteration: N
-test_plan_version: N
-verdict: APPROVED | REJECTED
-report_scope: feature | increment-{{INC-N}}  # report-level scope (slice or aggregate); distinct from feature_scope inherited from spec.feature
-increment_id: null | "{{INC-N}}"             # populated when report_scope == increment-*
-aggregates: []                                # list of qa_report_{{INC-N}}_*.md paths consumed (aggregate mode only)
-total_checks: N
-checks_passed: N
-checks_failed: N
-created_at: "{{ISO_8601}}"
-reviewed_by: QA
----
+**Severity of a finding:** the closed vocabulary and its mapping live once, in the template's `## Findings` section — READ it; never re-type it here.
 
-## Executive Summary
-- **Feature:** {{FEATURE_ID}}
-- **Spec Iteration:** {{N}}
-- **Test Plan Version:** {{N}}
-- **Verification Date:** {{ISO_8601}}
-- **Overall Verdict:** {{APPROVED | REJECTED}}
-- **Checklist:** {{checks_passed}}/{{total_checks}} checks passed
+### QA Report Template
 
-## Verification Checklist
-
-### Pre-Audit
-- [ ] [QA-PRE-1]: Dependency allowlist validation
-- [ ] [QA-PRE-2]: Migration safety validation (if applicable)
-- [ ] [QA-PRE-3]: IaC governance validation (if applicable)
-- [ ] [QA-PRE-DATA]: Synthetic data verification (if UI feature on staging)
-- [ ] [QA-PRE-SCM]: Server-side branch protection (`gate.py scm-protection` green at ci, or the runbook checklist ticked — EVOL-054)
-
-### Governance
-- [ ] [QA-GOV-1]: Protected paths drift detection
-- [ ] [QA-GOV-2]: Integration audit (system_resources + hardcoded config)
-- [ ] [QA-GOV-3]: Static audit (code quality + test coverage + standards)
-
-### Test Cases (from test_plan.md)
-{{FOR EACH test_case IN test_plan.test_cases:}}
-- [ ] [QA-TC-{{test_case.id}}]: {{test_case.label}} — {{proof}}
-{{END FOR}}
-
-### Regression Suite
-- [ ] [QA-REG-1]: Unit test suite execution
-- [ ] [QA-REG-2]: Integration test suite execution
-- [ ] [QA-REG-3]: Contract test suite execution
-
-### DAST (if applicable)
-- [ ] [QA-DAST-1]: DAST baseline scan
-- [ ] [QA-DAST-2]: DAST full scan (if required)
-- [ ] [QA-DAST-3]: DAST API scan (if API contracts exist)
-
-## 1. Pre-Audit Checks
-| Check | Script | Result | Details |
-|-------|--------|--------|---------|
-| Dependency Allowlist | dependency-allowlist.sh --strict (exit 0 PASS, else FAIL) | PASS/FAIL | {{details}} |
-| Data pack | gate.py data (exit 0 PASS or n/a, else FAIL) | PASS/FAIL/N/A | {{details}} |
-| IaC Governance | validate-iac.sh --strict | PASS/FAIL/SKIP | {{details}} |
-
-## 2. Drift Detection
-| Check | Result | ADR Reference |
-|-------|--------|---------------|
-| Protected paths | PASS/FAIL | {{ADR or N/A}} |
-
-## 3. Integration Audit
-| Check | Script | Result |
-|-------|--------|--------|
-| System resources | check-integrations.sh --strict | PASS/FAIL |
-| Hardcoded config | Pattern scan | PASS/FAIL |
-
-## 4. Static Audit
-- **Code Quality:** {{PASS|ISSUES_FOUND}}
-- **Test Coverage vs test_plan.md:** {{N}}%
-- **Standards Compliance:** {{PASS|VIOLATIONS}}
-
-## 5. Regression Suite
-| Suite | Total | Passed | Failed | Flaky | Result |
-|-------|-------|--------|--------|-------|--------|
-| Unit | N | N | N | N | PASS/FAIL |
-| Integration | N | N | N | N | PASS/FAIL |
-| Contract | N | N | N | N | PASS/FAIL |
-
-## 6. DAST Summary
-- **Scan Executed:** {{YES|NO|SKIP}}
-- **DAST Report:** {{dast_report path or N/A}}
-- **High Findings:** {{N}} → {{BLOCKING if > 0}}
-- **Medium Findings:** {{N}} → {{WARNING}}
-- **Low Findings:** {{N}}
-- **DAST Verdict:** {{PASS|WARN|REJECT}}
-
-## 7. Blocking Issues (if REJECTED)
-| # | Category | Severity | Description | Remediation |
-|---|----------|----------|-------------|-------------|
-
-## 8. Warnings (non-blocking)
-| # | Category | Description | Recommendation |
-|---|----------|-------------|----------------|
-
-## 9. Final Verdict
-- **Static Audit:** {{PASS|FAIL}}
-- **Regression Suite:** {{PASS|FAIL}}
-- **DAST:** {{PASS|WARN|REJECT}}
-- **Checklist Completion:** {{checks_passed}}/{{total_checks}}
-- **OVERALL:** {{APPROVED | REJECTED}}
-```
+The one template is `.context/templates/qa/qa_report_template.md` (frontmatter, checklist groups, `## Findings`, verdict) — READ it; never re-type it here (EVOL-076).
 
 ### Auto-Approval Protocol (eliminates separate --approve command)
 
@@ -859,24 +783,29 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
   # After generating qa_report, auto-set final status based on verdict.
   # This replaces the former separate `--approve` command.
 
-  # Step 0: Verify Checklist Completion Gate (BLOCKING)
-  # The one done vocabulary (#115): only [x] is done; [ ], [!] FAILED and any other mark are not
-  counts = RUN("python3 scripts/gate.py checklist --json --file {qa_report_path}")   # exit 1 = an item is not done
+  # Step 0: the computed verdict (BLOCKING — EVOL-076): items done, no finding at or above the blocking severity, owed items present
+  rc, v = RUN("python3 scripts/gate.py qa --verdict --json --file {qa_report_path}")   # 1 = not approvable · 2 = severity unreadable
+  counts = RUN("python3 scripts/gate.py checklist --json --file {qa_report_path}")    # the frontmatter counts only
 
-  IF counts.not_done > 0:
+  IF rc == 2:
+    ❌ BLOCK: "The QA verdict cannot be computed: {stderr} — SETUP --upgrade (Q23.6), then re-run."   # no JSON on a fault
+    STOP
+  IF rc != 0:
     ❌ OVERRIDE verdict to REJECTED:
     verdict = "REJECTED"
-    LOG: "Checklist incomplete: {counts.not_done}/{counts.total} items not done ({counts.open} open, {counts.failed} failed) — verdict forced to REJECTED"
+    LOG: "Not approvable: {each red line of v.entries} — verdict forced to REJECTED"
 
   # Step 1: Update frontmatter based on verdict
-  UPDATE_FRONTMATTER(qa_report_path, "total_checks", total_checks)
-  UPDATE_FRONTMATTER(qa_report_path, "checks_passed", checked.count)
-  UPDATE_FRONTMATTER(qa_report_path, "checks_failed", unchecked.count)
+  UPDATE_FRONTMATTER(qa_report_path, "checklist_total", counts.total)
+  UPDATE_FRONTMATTER(qa_report_path, "checklist_passed", counts.done)
+  UPDATE_FRONTMATTER(qa_report_path, "checklist_failed", counts.not_done)
+  UPDATE_FRONTMATTER(qa_report_path, "blocker_count", COUNT(findings at or above v.threshold))
+  UPDATE_FRONTMATTER(qa_report_path, "warning_count", COUNT(findings below v.threshold))
 
   IF verdict == "APPROVED":
-    # All checks passed + all checkboxes [x] — auto-approve
+    # gate.py qa --verdict exit 0 — auto-approve
     UPDATE_FRONTMATTER(qa_report_path, "status", "APPROVED")
-    LOG: "QA auto-approved: all verification checks passed + all {total_checks} checkboxes [x]"
+    LOG: "QA auto-approved: computed verdict approvable — {counts.total} items done, no finding at or above {v.threshold}"
     APPEND_TO_WORKLOG:
       {"timestamp":"YYYY-MM-DD","phase":"QA","user_agent":"QA","action":"--verify {{FEATURE_ID}}","result":"APPROVED","feature_id":"{{FEATURE_ID}}","observations":"qa_report generated + auto-approved — verdict: APPROVED — MERGE + production deployment now enabled"}
   ELIF verdict == "REJECTED":
@@ -902,7 +831,7 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
   FOR EACH blocker IN blocking_issues:
     APPEND to qa_report "## Remediation Items":
       "- [ ] [FIX-{sequential}]: {blocker.description}"
-      "  - *Category: {blocker.category} — Severity: {blocker.severity}*"
+      "  - *Category: {blocker.category} — Severity: {blocker.severity}*"   # the Findings row's severity (critical | high | medium | low | info)
       "  - *Evidence: {blocker.evidence}*"
   ```
 - Route: bugs/regressions → `IMPLEMENT --fix` (must address all [FIX-N] items) | spec ambiguity → `CODESIGN --refine`

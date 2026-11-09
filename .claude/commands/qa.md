@@ -26,9 +26,10 @@ The optional second positional argument `{INC-N}` (e.g. `INC-2`) selects per-sli
 **Full protocol:** See `.claude/instructions/Factory-qa-verify.instructions.md`
 - Derive verification checklist from `test_plan.md` (scenario-filtered in slice mode) → generate `- [ ]` checkboxes in the mode-aware qa_report path
 - Execute each verification item → mark `- [x]` on completion
-- **Completion Gate:** NEVER set verdict to APPROVED while any item is not done — `python3 scripts/gate.py checklist`: only `[x]` is done; `[ ]` and `[!] FAILED` are not (#115)
+- **Completion Gate:** the verdict is computed — `python3 scripts/gate.py qa --verdict` (EVOL-076): every item `[x]` (#115), no `## Findings` row at or above `qa.blocking_severity` (critical always blocks), the privacy, AI-budget, protected-paths and deploy items present, every DAST probe run or `n/a: <reason>`; the completion hook refuses APPROVED otherwise
+- **Preconditions:** `python3 scripts/gate.py qa --ready --env dev` — the deployed build reached, alive and migrated, read from the deploy record (Gate 0)
 - Run DAST scanning (OWASP ZAP or equivalent)
-- Auto-approves when ALL checkboxes checked AND no blockers found
+- Auto-approves when `gate.py qa --verdict` exits 0
 
 ### `--reject {ID}`
 Reject feature with detailed failure report.

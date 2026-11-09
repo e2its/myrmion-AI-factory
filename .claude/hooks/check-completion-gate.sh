@@ -8,12 +8,16 @@
 #
 # Blocks if:
 #   - file is dev_plan.md or qa_report*.md (any path)
-#   - the frontmatter after the change says status: IMPLEMENTED_AND_VERIFIED or verdict: APPROVED on a top-level line,
-#     its value read by the one parser (scripts/gates/common.py); a comment or a per-increment status is not a marker
+#   - the frontmatter after the change is terminal on a top-level line, its value read by the one parser
+#     (scripts/gates/common.py); a comment or a per-increment status is not a marker. dev_plan.md: status:
+#     IMPLEMENTED_AND_VERIFIED or verdict: APPROVED. qa_report*.md: approved as gates/qa.py `approved` reads it
+#     (status or verdict APPROVED, not INVALIDATED — the one definition `gate.py qa --check` reads too)
 #   - the content after the change cannot be built (file unreadable, old_string absent), or its status/verdict line
 #     cannot be read — fail-closed
-#   - an item is not done — ONE vocabulary: python3 scripts/gate.py checklist (#115): only [x] is done;
+#   - dev_plan.md: an item is not done — ONE vocabulary: python3 scripts/gate.py checklist (#115): only [x] is done;
 #     an open [ ], a failed [!] and any other mark are not
+#   - qa_report*.md: the report is not approvable — python3 scripts/gate.py qa --verdict (EVOL-076): every item done,
+#     no finding at or above qa.blocking_severity, every owed item present; an unreadable severity blocks
 # Blocks with exit 2 + stderr (the Claude Code blocking contract; exit 1 would not block — EVOL-043).
 # ============================================================================
 
@@ -80,15 +84,22 @@ import re, sys
 sys.path.insert(0, "scripts")
 from gates.common import FM_RE, GateFault, parse_yaml
 m = FM_RE.match(sys.stdin.read())
-key = re.compile(r"[\"\x27]?(status|verdict)[\"\x27]?\s*:")   # any spelling of the key; the parser reads the value
+from gates.qa import approved
+key = re.compile(r"[\"\x27]?(status|verdict|overall_verdict)[\"\x27]?\s*:")   # any spelling of the key; the parser reads the value
 keys = [key.sub(r"\1:", ln, count=1) for ln in m.group(1).splitlines() if key.match(ln)] if m else []
+for ln in keys if sys.argv[1] != "dev_plan.md" else []:   # a qa_report: what this line says is what every reader reads
+    k, v = ln.split(":", 1)[0], ln.split(":", 1)[1].split(" #", 1)[0].strip()
+    if not v or v[0] in ">|":
+        print(f"its {k} line carries no one-line value (a block or an empty value) — write {k} on one line"); sys.exit(2)
 try:
     fm = parse_yaml("\n".join(keys)) if keys else {}
 except GateFault as e:
     print(e); sys.exit(2)
 fm = fm if isinstance(fm, dict) else {}
-sys.exit(0 if fm.get("status") == "IMPLEMENTED_AND_VERIFIED" or fm.get("verdict") == "APPROVED" else 5)
-' 2>&1) || TRC=$?
+if sys.argv[1] == "dev_plan.md":
+    sys.exit(0 if fm.get("status") == "IMPLEMENTED_AND_VERIFIED" or fm.get("verdict") == "APPROVED" else 5)
+sys.exit(0 if approved(fm) else 5)
+' "$BASENAME" 2>&1) || TRC=$?
 case "$TRC" in   # 0 terminal · 5 not terminal · anything else (a fault, an uncaught error) blocks
   0) ;;
   5) exit 0 ;;
@@ -96,7 +107,24 @@ case "$TRC" in   # 0 terminal · 5 not terminal · anything else (a fault, an un
   *) echo "BLOCKED: the governance reader (scripts/gates/) failed while reading the status of '$BASENAME'. Resolution: bash scripts/factory-sync.sh, then retry." >&2; exit 2 ;;
 esac
 RC=0
-COUNT=$(printf '%s\n' "$CONTENT" | python3 scripts/gate.py checklist 2>&1) || RC=$?
+if [[ "$BASENAME" == "dev_plan.md" ]]; then
+  COUNT=$(printf '%s\n' "$CONTENT" | python3 scripts/gate.py checklist 2>&1) || RC=$?
+else
+  COUNT=$(printf '%s\n' "$CONTENT" | python3 scripts/gate.py qa --verdict 2>&1) || RC=$?
+  case "$RC" in
+    0) exit 0 ;;
+    1)
+      {
+        echo "BLOCKED: '$BASENAME' cannot be approved — the verdict is computed, not written (gate.py qa --verdict):"
+        head -n 20 <<< "$COUNT" || true   # no pipe under pipefail: a long verdict never turns the block into a pass (DC-13)
+        echo "  Resolve each red line (fix the finding, run or justify the probe, tick the item), then QA --verify again; or write verdict: REJECTED."
+      } >&2
+      exit 2 ;;
+    *)
+      { echo "BLOCKED: the QA verdict of '$BASENAME' could not be computed (gate.py qa --verdict exit $RC):"; tail -n 3 <<< "$COUNT" || true; } >&2
+      exit 2 ;;
+  esac
+fi
 
 case "$RC" in
   0) exit 0 ;;

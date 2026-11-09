@@ -13,6 +13,7 @@
 #
 # Exit codes: 0 all assertions pass · 1 any failure · 2 infrastructure.
 set -u
+. "$(dirname "${BASH_SOURCE[0]}")/git-test-env.sh"   # git isolated from the user's config: no gpg signing per commit
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOOKS="$ROOT/.context/templates/setup/claude/hooks"
 [ -d "$HOOKS" ] || { echo "test-hooks: hooks template tree absent" >&2; exit 2; }
@@ -60,6 +61,7 @@ EOF
 cat > "$REPO/config/quality.json" <<'EOF'
 {"budgets": {"session_start": 2000, "prompt_submit": 16000, "pre_edit": 6000, "snapshot": 16000, "law_sentence_max_chars": 240, "dc_invariant_max_chars": 160},
  "documentation": {"paths": ["**/*.md", "docs/**"], "exclusions": [".github/workflows/**"]},
+ "qa": {"blocking_severity": "high"},
  "planning": {"governed_paths": ["src/**", "config/**", ".claude/rules/**"], "gate_inputs": ["docs/constitution.md", "config/**", ".claude/rules/**"], "exempt_classes": ["feature", "increment", "train", "sub-increment", "epic"], "plan_artefact": null, "adoption_window_minutes": 30}
 }
 EOF
@@ -394,6 +396,31 @@ run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path
 assert_pass "terminal status, all ticked: passes"
 run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/qa_report.md","content":"---\nverdict: APPROVED\n---\n- [x] lint\n- [!] FAILED complexity\n"}}'
 assert_block "terminal verdict with a failed [!] item and no [ ]: exit 2 (#115 — only [x] is done)" "1 failed"
+# EVOL-076 — a qa_report's verdict is computed: a finding at or above qa.blocking_severity cannot be written APPROVED
+QAREP() { python3 -c 'import json,sys; fm=sys.argv[2] if len(sys.argv) > 2 else "verdict: APPROVED"; rows=int(sys.argv[3]) if len(sys.argv) > 3 else 0; body="---\n" + fm + "\n---\n" + "".join(f"- [x] [{i}] done\n" for i in ("QA-PRE-DEPLOY","QA-GOV-1","QA-GOV-PRIV","QA-DAST-1")) + "- [x] [QA-DAST-2] full scan — n/a: no full scan in the test plan\n- [x] [QA-DAST-3] api scan — n/a: no API contract\n\n## Findings\n| ID | Severity | Source | Finding | Evidence |\n|---|---|---|---|---|\n" + (f"| F-1 | {sys.argv[1]} | SAST | sql built by concatenation | src/a.py:3 |\n" if sys.argv[1] else "") + "".join(f"| F-{n} | bogus | x | y | z |\n" for n in range(rows)); print(json.dumps({"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/qa/qa_report_final_1.md","content":body}}))' "$@"; }
+run_hook check-completion-gate.sh "$(QAREP high)"
+assert_block "APPROVED with a high finding at threshold high: exit 2, the finding named" "at or above the blocking severity"
+run_hook check-completion-gate.sh "$(QAREP medium)"
+assert_pass "APPROVED with a medium finding under threshold high: passes"
+run_hook check-completion-gate.sh "$(QAREP '')"
+assert_pass "APPROVED, every owed item present, no finding: passes"
+run_hook check-completion-gate.sh "$(QAREP high 'status: APPROVED')"
+assert_block "status: APPROVED (the auto-approve write) with a high finding: judged, exit 2" "at or above the blocking severity"
+run_hook check-completion-gate.sh "$(QAREP high 'status: approved')"
+assert_block "status: approved (any spelling — gates/qa.py approved): judged, exit 2" "at or above the blocking severity"
+run_hook check-completion-gate.sh "$(QAREP high $'status: INVALIDATED\nverdict: APPROVED')"
+assert_pass "INVALIDATED by the cascade, the old verdict left: not an approval, passes"
+run_hook check-completion-gate.sh "$(QAREP high $'status: >\n  APPROVED')"
+assert_block "a qa_report status written as a block scalar: exit 2 (the line every reader reads is one line)" "one-line value"
+run_hook check-completion-gate.sh "$(QAREP high $'status: REJECTED\nverdict: APPROVED')"
+assert_pass "status REJECTED with a stale verdict APPROVED: not an approval, passes"
+run_hook check-completion-gate.sh "$(QAREP '' 'verdict: APPROVED' 3000)"
+assert_block "APPROVED with 3000 red rows (>64 KB of verdict): exit 2 (DC-13 — no SIGPIPE skip)" "cannot be approved"
+cp "$REPO/config/quality.json" "$SANDBOX/quality.qa.bak"
+python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d.pop("qa"); json.dump(d,open(p,"w"))' "$REPO/config/quality.json"
+run_hook check-completion-gate.sh "$(QAREP '')"
+assert_block "APPROVED with no qa.blocking_severity answered: exit 2 (an unreadable severity is never permissive)" "could not be computed"
+cp "$SANDBOX/quality.qa.bak" "$REPO/config/quality.json"
 BIGPLAN=$(python3 -c 'print("---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n" + "- [x] done\n" * 9000 + "* [ ] open task\n")')
 run_hook check-completion-gate.sh "$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":sys.argv[1]}}))' "$BIGPLAN")"
 assert_block "large plan (>64 KB), terminal status on top, one '* [ ]' at the end: exit 2 (DC-13 — no SIGPIPE skip)" "Completion gate failed"
