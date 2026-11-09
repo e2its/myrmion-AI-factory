@@ -14,6 +14,8 @@
 
 A protected branch cannot be deleted through the UI or the API — deletion is covered by protection itself.
 
+**Deploying from CI (`delivery.execution: ci`).** The deploy records are tags: Settings → Repository → Protected tags, wildcards `deploy/*` and `lkg/*`, allowed to create: the role the pipeline's token holds. A protected tag cannot be moved or deleted. Every name in `delivery.secrets` is a CI/CD variable scoped to its environment, protected and masked. `scm-protection` does not read either: tick them.
+
 ## Checklist
 
 - [ ] no one may push directly to the protected branch (merge requests only)
@@ -21,4 +23,5 @@ A protected branch cannot be deleted through the UI or the API — deletion is c
 - [ ] force-push forbidden
 - [ ] the branch is protected (deletion forbidden)
 - [ ] approvals: {{SCM_APPROVALS}}
+- [ ] deploying from CI: protected tags `deploy/*` and `lkg/*`; deploy variables scoped to their environment
 - [ ] `python3 scripts/gate.py scm-protection --control-point ci` green in CI, or this checklist ticked by a maintainer when CI carries no token

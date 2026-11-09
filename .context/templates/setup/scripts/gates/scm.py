@@ -384,30 +384,59 @@ def _production_env(rm: dict, tok: str, fetch, branches: list[str]) -> tuple[lis
     return out, notes
 
 
-RECORD_TAGS = ("refs/tags/deploy/**", "refs/tags/lkg/**")
+RECORD_TAGS = ("refs/tags/deploy/**/*", "refs/tags/lkg/**/*")
+RECORD_SAMPLES = {"refs/tags/deploy/**/*": "refs/tags/deploy/production/20261109T120000Z",
+                  "refs/tags/lkg/**/*": "refs/tags/lkg/production/20261109T120000Z"}
 
 
-def _record_tags(rm: dict, tok: str, fetch) -> list[str]:
-    """EVOL-081 RDR 8: the deploy records are tags no person moves or deletes — an active tag ruleset includes
-    refs/tags/deploy/** and refs/tags/lkg/** (or ~ALL), excludes neither, and carries the `update` and `deletion` rules.
-    Creation stays open: the pipeline only creates, so no bypass actor is needed."""
+def _tag_match(pattern: str, ref: str) -> bool:
+    """GitHub's ruleset glob: File.fnmatch with FNM_PATHNAME — `*` and `?` stop at `/`, `**/` spans directories."""
+    if pattern == "~ALL":
+        return True
+    rx, i = "", 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            rx, i = rx + "(?:[^/]*/)*", i + 3
+        elif pattern[i] == "*":
+            rx, i = rx + "[^/]*", i + (2 if pattern.startswith("**", i) else 1)
+        elif pattern[i] == "?":
+            rx, i = rx + "[^/]", i + 1
+        else:
+            rx, i = rx + re.escape(pattern[i]), i + 1
+    return re.fullmatch(rx, ref) is not None
+
+
+def _record_tags(rm: dict, tok: str, fetch) -> tuple[list[str], list[str]]:
+    """EVOL-081 RDR 8: the deploy records are tags no person moves or deletes — an active tag ruleset whose patterns
+    cover a real record tag (`deploy/<env>/<ts>`, `lkg/<env>/<ts>`), excluded by none, with the `update` and `deletion`
+    rules and an empty bypass list. Creation stays open: the pipeline only creates, so no bypass actor is needed."""
     h = {"Authorization": f"Bearer {tok}", "X-GitHub-Api-Version": "2022-11-28"}
     api = "https://api.github.com" if rm["host"] == "github.com" else f"https://{rm['host']}/api/v3"
     base = f"{api}/repos/{rm['owner']}/{rm['repo']}"
-    held = {p: set() for p in RECORD_TAGS}
-    for rs in fetch(f"{base}/rulesets?targets=tag", h, missing_ok=True) or []:
+    held, out, notes = {p: set() for p in RECORD_TAGS}, [], []
+    for rs in fetch(f"{base}/rulesets?targets=tag&per_page=100", h, missing_ok=True) or []:
         d = fetch(f"{base}/rulesets/{rs.get('id')}", h, missing_ok=True) or {} if isinstance(rs, dict) else {}
         if d.get("target") != "tag" or d.get("enforcement") != "active":
             continue
         ref = (d.get("conditions") or {}).get("ref_name") or {}
         inc, exc = ref.get("include") or [], ref.get("exclude") or []
         types = {r.get("type") for r in d.get("rules") or [] if isinstance(r, dict)}
-        for p in RECORD_TAGS:
-            if (p in inc or "~ALL" in inc) and not any(str(x).startswith(p.rsplit("/", 1)[0]) or x == "~ALL" for x in exc):
-                held[p] |= types
+        covers = [p for p in RECORD_TAGS if any(_tag_match(str(x), RECORD_SAMPLES[p]) for x in inc)
+                  and not any(_tag_match(str(x), RECORD_SAMPLES[p]) for x in exc)]
+        if not covers:
+            continue
+        actors = d.get("bypass_actors")
+        if actors is None:
+            notes.append(f"the bypass list of tag ruleset «{d.get('name')}» (not exposed to this token)")
+        elif any(a.get("bypass_mode", "always") == "always" for a in actors if isinstance(a, dict)):
+            out.append(f"tag ruleset «{d.get('name')}» has {len(actors)} bypass actor(s) — each can still move or delete a deploy record; empty its bypass list")
+        for p in covers:
+            held[p] |= types
     missing = [p for p, t in held.items() if not {"update", "deletion"} <= t]
-    return [f"no active tag ruleset blocks update and deletion of {', '.join(missing)} — a person could move or delete a deploy record; "
-            "add one (Settings → Rules → Rulesets → New tag ruleset; rules: restrict updates, restrict deletions)"] if missing else []
+    if missing:
+        out.append(f"no active tag ruleset blocks update and deletion of {', '.join(missing)} — a person could move or delete a deploy record; "
+                   "add one (Settings → Rules → Rulesets → New tag ruleset; targets as written here; rules: restrict updates, restrict deletions)")
+    return out, notes
 
 
 def _ci_platform(repo: Path) -> str | None:
@@ -452,9 +481,13 @@ def check(repo: Path, control_point: str = "push", fetch=None, env: dict | None 
         norm = ADAPTERS[c["platform"]](rm, b, tok, fetch)
         f, u = judge(norm, c, b)
         branches[b] = {k: v for k, v in norm.items() if k not in ("extra",)}; findings += f; unverifiable += u
-    if c["platform"] == "GitHub" and (key(repo, "delivery.execution") or "local") == "ci" and _ci_platform(repo) == "GitHub Actions":
-        f, u = _production_env(rm, tok, fetch, c["branches"])
-        findings += f + _record_tags(rm, tok, fetch); unverifiable += u
+    from . import delivery
+    if c["platform"] == "GitHub" and (key(repo, "delivery.execution") or "local") == "ci" and delivery.deploys(repo):
+        f, u = _record_tags(rm, tok, fetch)   # the records live on the host, whatever CI pushes them
+        findings += f; unverifiable += u
+        if _ci_platform(repo) == "GitHub Actions":
+            f, u = _production_env(rm, tok, fetch, c["branches"])
+            findings += f; unverifiable += u
     reason = (f"{c['platform']} {rm['owner']}/{rm['repo']}: {len(findings)} missing setting(s) on {', '.join(c['branches'])} — apply {book}" if findings
               else f"{c['platform']} {rm['owner']}/{rm['repo']}: {', '.join(c['branches'])} protected as configured" + (f" (not exposed by the API, tick in {book}: {'; '.join(unverifiable)})" if unverifiable else ""))
     return {"ok": not findings, "status": "RED" if findings else "ok", "required": True, "platform": c["platform"], "repository": f"{rm['owner']}/{rm['repo']}",

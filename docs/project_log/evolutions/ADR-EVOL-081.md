@@ -88,13 +88,13 @@ Sources: developer.hashicorp.com (cli apply, plan, output, environment-variables
 **Second pass (docs reader, 2026-11-08, the rows' `destroy`, `delivery.migrate` and secret names).**
 - Terraform: `plan` and `destroy` run their own `init -input=false` first, because `validate` inits with `-backend=false`. `destroy` is `apply -destroy -input=false -auto-approve`; a plan file cannot take `-destroy`.
 - Pulumi `destroy --stack S --yes --non-interactive`, CDK `destroy --all --force`, Compose `down --remove-orphans` (volumes kept), flyctl `apps destroy A --yes`: verified.
-- Vercel `remove <project> --yes` deletes the whole project: this is the teardown.
+- Vercel `remove <project> --yes` deletes the whole project, every environment at once — so RDR 6 makes its `destroy` null.
 - Railway has no service teardown: `down` removes only the latest deployment, and `delete` removes the project with an account token. Its `destroy` is null, so the teardown fails closed and names the console.
 - Every `delivery.migrate` command was verified, with one note: goose reads `GOOSE_DRIVER` and `GOOSE_DBSTRING` from the environment. DbUp migrates inside the application (null).
 - The deny reads the last simple command of `apply` and `destroy`, so a chained `init` is never denied.
 
 **Tag protection (docs reader, 2026-11-09, for RDR 8).**
-- GitHub: a ruleset with `target: tag`, `conditions.ref_name.include: ["refs/tags/deploy/**", "refs/tags/lkg/**"]` and the rules `update` and `deletion` (no `creation`) leaves creation open; the pipeline only creates, so no bypass actor is needed (`GITHUB_TOKEN` is not a documented bypass actor). Read: `GET /repos/{o}/{r}/rulesets?targets=tag`, then `GET …/rulesets/{id}`, metadata read. Private repositories need Pro, Team or Enterprise (second-hand). Known-cold: whether `update` fires on a first push of a new tag — a throwaway tag proves it.
+- GitHub: a ruleset with `target: tag`, `conditions.ref_name.include: ["refs/tags/deploy/**/*", "refs/tags/lkg/**/*"]` and the rules `update` and `deletion` (no `creation`) leaves creation open. The patterns are `File.fnmatch` with `FNM_PATHNAME`: `*` stops at `/`, and `**/*` spans the `<env>/<ts>` segments (a trailing bare `**` is undocumented). `creation` is a rule of its own; `bypass_actors` is returned only to a token with write access to the ruleset; the pipeline only creates, so no bypass actor is needed (`GITHUB_TOKEN` is not a documented bypass actor). Read: `GET /repos/{o}/{r}/rulesets?targets=tag`, then `GET …/rulesets/{id}`, metadata read. Private repositories need Pro, Team or Enterprise (second-hand). Known-cold: whether `update` fires on a first push of a new tag — a throwaway tag proves it.
 - Bitbucket Cloud: no git-tag protection is documented; the feature request (BCLOUD-22619) is open.
 - Sources: docs.github.com — available-rules-for-rulesets, rest/repos/rules, creating-rulesets-for-a-repository, fine-grained PAT permissions; support.atlassian.com — use-branch-permissions; jira.atlassian.com BCLOUD-22619.
 
@@ -198,7 +198,7 @@ Recommendation: 1. It is the only one that prevents it by construction; the cost
 
 Owner's choice, verbatim: «1».
 
-Applied (docs reader, 2026-11-09): Terraform selects the environment in `plan` (`-backend-config=envs/{env}.backend.hcl`, `-var-file=envs/{env}.tfvars`, `-out=tfplan-{env}`) — a saved plan refuses `-var-file`; CDK passes `-c env={env}` (a global option); Vercel names `--environment={target}` on pull, build and deploy (`target`: staging → preview, production → production; there is no `--target`), and its `destroy` is null — `vercel remove` deletes every environment of the project; Railway `up --environment {env}`; flyctl and Compose take per-environment `app` / `host`; Compose and Railway read their URL from a per-environment `url` param — `url_from: config` read one URL for every environment and leaves the vocabulary.
+Applied (docs reader, 2026-11-09): Terraform selects the environment in `plan` (`-backend-config=envs/{env}.backend.hcl`, `-var-file=envs/{env}.tfvars`, `-out=tfplan-{env}`) — a saved plan refuses `-var-file`; CDK passes `-c env={env}` (a global option); Vercel names `--environment={target}` on pull, build and deploy (`target`: staging → preview, production → production; `--target` is its deprecated alias — docs and CLI source, 2026-11-09), and its `destroy` is null — `vercel remove` deletes every environment of the project; Railway `up --environment {env}`; flyctl and Compose take per-environment `app` / `host`; Compose and Railway read their URL from a per-environment `url` param — `url_from: config` read one URL for every environment and leaves the vocabulary. Sources: developer.hashicorp.com (cli plan, apply, init -backend-config), docs.aws.amazon.com (cdk ref-cli-cmd, context), vercel.com/docs/cli (build, deploy, pull, target) and the CLI source (`arg-common.ts`), docs.railway.com/cli (up), docs.fly.io/flyctl (deploy, config validate), docs.docker.com (compose, context).
 
 ### RDR 7 — a project with no deploy tool, or with «Other» (2026-11-09)
 
@@ -214,7 +214,7 @@ Owner's choice, verbatim: «7.1».
 ### RDR 8 — the deploy records cannot be moved or deleted (2026-11-09)
 
 Options posed:
-1. **Protect them on the server and verify the protection.** GitHub: a tag ruleset over `refs/tags/deploy/**` and `refs/tags/lkg/**` with `update` and `deletion` — creation open, no bypass actor; `scm-protection` reads it at `ci`. Bitbucket Cloud has none: declared.
+1. **Protect them on the server and verify the protection.** GitHub: a tag ruleset over `refs/tags/deploy/**/*` and `refs/tags/lkg/**/*` with `update` and `deletion` — creation open, no bypass actor; `scm-protection` reads it at `ci`. Bitbucket Cloud has none: declared.
 2. Declare the risk only.
 3. Sign every tag in the pipeline and verify the signature on read: a key per project to keep, rotate and revoke.
 
@@ -250,12 +250,12 @@ Applied: materialisation and `SETUP --upgrade` author the deploy pipeline on eve
   - Self-hosted gets Docker Compose or Terraform;
   - Vercel, Railway, Fly.io and Other are `decided_by` the provider: Vercel CLI, Railway CLI, flyctl and Other.
 - **`None` leaves the options.** This follows the owner's question «why not always force one?». PLAW-12 already says «infrastructure changes are made only as code» for every cloud project, so `None` for a cloud host contradicted the law whatever the CI. A project with no server is never asked Q20, so it is never asked Q20.1. No question moves.
-- **The adapter row.** Each option of `hosting.deploy_tool` carries its row as `configures`, the registry mechanism of EVOL-066. The row holds `tool`, `validate`, `plan`, `apply`, `destroy` and `url_from`, the vault secret names (never values), and `rollback: redeploy-lkg`.
+- **The adapter row.** Each option of `hosting.deploy_tool` carries its row as `configures`, the registry mechanism of EVOL-066. The row holds `tool`, `validate`, `plan`, `apply`, `destroy`, `url_from` and `params` (RDR 6), the vault secret names (never values), and `rollback: redeploy-lkg`.
   - It lands only the chosen row, in `config/quality.json → delivery.adapter`. A project never gets an adapter it did not choose.
   - The rows fill `IAC_CMD_*`, which leave `placeholder_baseline`.
 - **One executor.** `gate.py delivery --run --env E` runs the steps from the row: validate, plan, migrate, apply, probe, record and lkg, then the performance step. The pipeline YAML only orders jobs and environments and holds the approval. There is no branch per tool and no shell per platform.
 - **«Other» provider:** the deploy stage fails closed with a plain message. Discovery finalisation poses an RDR for a project-declared adapter row.
-- **The other Q21 platforms** (GitLab CI, Azure DevOps, Jenkins, CodePipeline, Cloud Build) keep their governance template. Discovery finalisation poses an RDR: write their own deploy pipeline, or choose a covered platform.
+- **The other Q21 platforms** (GitLab CI, Azure DevOps, Jenkins, CodePipeline, Cloud Build) keep their governance template, and SETUP authors their deploy pipeline (RDR 9). No discovery RDR.
 
 ### 3. The pipelines — GitHub Actions and Bitbucket Pipelines
 
@@ -294,9 +294,9 @@ Applied: materialisation and `SETUP --upgrade` author the deploy pipeline on eve
 
 - `--last {env}` and `--lkg {env}` return the latest record.
 - `--check` is a light member of the profile. It reads the materialised pipeline:
-  - every production stage requires approval;
-  - every deploy stage runs the probe and writes the record;
-  - no adapter row lacks `apply` or `url_from`.
+  - on a shipped template (GitHub Actions, Bitbucket Pipelines), every production stage requires approval;
+  - on every pipeline, shipped or authored (RDR 9), every deploy stage calls the executor, no stage applies directly, and each pushes only its own environment's tags — comment lines never count;
+  - no adapter row lacks `apply` or `url_from`, or leaves its environment unnamed (RDR 6).
 - `performance.py` reads its baseline through this reader. The `deploy-records` migration converts `performance_baseline.jsonl` lines into tags, then retires the file.
 
 ### 6. The defect class
@@ -355,8 +355,9 @@ Each change ships with its upgrade migration.
 - **Vercel's first deployment of a project is production.** Its docs say so whatever the flag; DEVOPS deploys production first on a new Vercel project, or a staging deploy lands there once.
 - **Two CLI facts are known-cold (docs reader, 2026-11-09).** `DOCKER_HOST=ssh://…` is documented for the docker CLI, not for its compose plugin; whether `railway domain --json` prints the URL is undocumented, so Railway and Compose read a per-environment `url` param.
 - **Bitbucket Cloud has no git-tag protection (RDR 8).** A user with write access can move or delete a record; the executor never reads a malformed one, and the light check names it red until deleted.
-- **An authored pipeline's approval is not read (RDR 9).** On a platform without a shipped template, `delivery --check` holds the executor calls and the tags, not production's approval; each template of epic #210 makes it mechanical.
-- **The tag ruleset's `update` rule on a first tag push is known-cold.** The runbook has the person who creates the ruleset push a throwaway tag and try to move it.
+- **GitLab and Azure DevOps record tags are the runbook's, not the gate's.** GitLab protected tags and Azure DevOps tag permissions hold them; `scm-protection` reads only GitHub's tag rulesets.
+- **An authored pipeline's approval and secret scope are not read (RDR 9).** On a platform without a shipped template, `delivery --check` holds the executor calls and the tags, not production's approval nor where production's credentials live; the materialisation report names both, and each template of epic #210 makes them mechanical.
+- **The tag ruleset's `update` rule on a first tag push is known-cold.** The runbook has the person try it on a scratch repository with the same ruleset: a throwaway tag in the project could not be deleted.
 - **The sweep and smoke verdicts depend on the agent.** Each is the agent's word, sealed to a SHA. The pipeline checks that the verdict exists, is fresh and is green, not how it was reached.
 
 ## Round-1 cures (critics, 2026-11-08)
@@ -379,6 +380,16 @@ Round 2, on the cure diff only (2026-11-09): `docker-compose` spelled `docker co
 Mutation sweep on the cures, in a scratch copy (2026-11-09): 26 mutants over the executor, the records, the check, the deny, `scm-protection` and the rejected-tag report (18 for round 1, 8 for round 2) — each turns its test class red; none survives. Suite, hooks (207), live pipeline schemas and the nine synthetic materialisations green.
 
 RDR 6–9 cures (2026-11-09): the rows per environment, the n/a without a deploy tool, the tag ruleset read by `scm-protection`, the authored pipeline held by `delivery --check` — 15 more mutants (7 for RDR 6, 8 for RDR 7–9), all killed; suite (319), the nine synthetic materialisations green.
+
+Round 1 on RDR 6–9 (four lenses, 2026-11-09), cured:
+- **One filling.** `fill` fills every command and the url template for one environment; a param may name `{env}`, never another param; a placeholder left over is a fault. The run fills the url template before its first step, so a null `url` param runs nothing.
+- **Teardown** asks the same row question as the run: an environment-blind `destroy` tears nothing down.
+- **Params** are one identifier, host or URL — no spaces, quotes or `$NAME`; a non-string value is red.
+- **Tag ruleset.** Patterns are matched as GitHub matches them (`FNM_PATHNAME`), against a real record tag; a bypass actor is red, a bypass list the token cannot see is a note; up to 100 rulesets are read; the ruleset is asked on every GitHub host deploying from CI, whatever the CI platform.
+- **Authored pipeline.** A commented-out call is no call; the authoring contract adds the runtime-surface skip, the dispatch on a ref, production's credentials only on production's stage, production from the main branch only, `--env` never interpolated into script text, and tag write rights only where tags are pushed.
+- **Runbooks.** GitLab and Azure DevOps name their record-tag protection; every name in `delivery.secrets` is an environment secret; the ruleset is tried on a scratch repository.
+- **One predicate: does the project deploy?** An adapter row, a deploy tool or a hosting provider answered — no server is Q20 unanswered, as RDR 7 says. Without it `delivery --check` is n/a, `scm-protection` asks neither the `production` environment nor the tag ruleset, no deploy pipeline lands (`hosting.provider exists` on the templates, already true during an upgrade, before the deploy-tool migration runs) and none is authored.
+- **Authored pipelines** name their trigger, approval and secret scope in the report; DEVOPS `--deploy` starts them by that trigger. DEVOPS `--configure` writes the Terraform row's per-environment backend and var files. DC-44 reads the authored pipeline files too.
 
 ## Alternatives considered
 

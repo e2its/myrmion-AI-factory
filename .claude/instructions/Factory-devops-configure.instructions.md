@@ -107,7 +107,8 @@ VERIFY the adapter row (config/quality.json → delivery.adapter, EVOL-081) — 
   RUN python3 scripts/gate.py delivery --check
   IF red (no row, no `apply`, no `url_from`): ❌ BLOCK "the deploy tool has no complete adapter row — run SETUP --upgrade, or declare the row (provider Other)"
   IF red (a plan / apply / destroy that names no environment, one value for two environments): ❌ BLOCK "a staging deploy could reach production — name {env} or a per-environment param in the row"
-FILL the row's `params` (EVOL-081 RDR 6): every null value — per environment for a map (`{staging: …, production: …}`: the app, the host, the URL), once for a string — asked as a fact, written to config/quality.json → delivery.adapter.params; a deploy refuses while one is null
+FILL the row's `params` (EVOL-081 RDR 6): every null value — per environment for a map (`{staging: …, production: …}`: the app, the host, the URL), once for a string — asked as a fact, written to config/quality.json → delivery.adapter.params; a deploy refuses while one is null. A value is one identifier, host or URL — a credential goes in `delivery.secrets`
+WRITE the per-environment files the row reads (Terraform: `envs/{env}.backend.hcl` — its own state key per environment — and `envs/{env}.tfvars`), one per environment, by branch + PR
 
 VERIFY cloud_provider compatibility:
   IF commands contain "aws" BUT cloud_provider != "AWS": ⚠️ WARN

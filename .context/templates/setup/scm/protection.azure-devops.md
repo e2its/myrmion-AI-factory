@@ -17,10 +17,13 @@
 | **Force push (rewrite history, delete branches and tags)** | Deny for every group but administrators | history is the audit trail; deletion forbidden |
 | **Bypass policies when pushing / when completing pull requests** | Deny | a bypass is a hole with a name |
 
+**Deploying from CI (`delivery.execution: ci`).** The deploy records are tags: on the repository's security, deny **Force push (rewrite history, delete branches and tags)** to every group, so nobody moves or deletes a `deploy/` or `lkg/` tag. Every name in `delivery.secrets` lives in a variable group bound to its environment, never in the pipeline's own variables. A person verifies both.
+
 ## Checklist
 
 - [ ] build validation policy required and blocking (the governance pipeline)
 - [ ] minimum reviewers: {{SCM_APPROVALS}}
 - [ ] force push / delete denied on the protected branch (permissions — not visible to the reader; tick by hand)
 - [ ] bypass policies denied
+- [ ] deploying from CI: tag force-push and delete denied on the repository; deploy variables per environment
 - [ ] `python3 scripts/gate.py scm-protection --control-point ci` green in CI for the policies, and the permissions ticked by a project administrator

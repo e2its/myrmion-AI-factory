@@ -354,14 +354,14 @@
       "version": "1.0.0",
       "content_type": "universal",
       "target": ".github/workflows/deploy.yml",
-      "stack_conditional": "ci_cd.platform == \"GitHub Actions\"",
+      "stack_conditional": "ci_cd.platform == \"GitHub Actions\" AND hosting.provider exists",
       "role": "The deploy pipeline (EVOL-081): PR sweep verdict, staging then production behind the protected environment, rollback / teardown dispatch — every stage through gate.py delivery."
     },
     "workflows/deploy.bitbucket.yml": {
       "version": "1.0.0",
       "content_type": "universal",
       "target": "bitbucket-pipelines.yml",
-      "stack_conditional": "ci_cd.platform == \"Bitbucket Pipelines\"",
+      "stack_conditional": "ci_cd.platform == \"Bitbucket Pipelines\" AND hosting.provider exists",
       "target_mode": "merge",
       "role": "The deploy pipeline (EVOL-081), merged into bitbucket-pipelines.yml: PR sweep verdict, deployments staging / production (manual), custom deploy / rollback / teardown per env — every stage through gate.py delivery."
     },
@@ -1134,7 +1134,7 @@
       "role": "The server-side branch protection runbook for GitHub (EVOL-054): the exact settings — pull request required, the required checks and the approvals as configured, no force-push, no deletion — and the checklist a repository administrator ticks; verified at ci by gate.py scm-protection where the platform has an API."
     },
     "scm/protection.gitlab.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "stack_conditional": "scm.platform == GitLab",
       "target": "docs/scm/protection.md",
@@ -1148,7 +1148,7 @@
       "role": "The server-side branch protection runbook for Bitbucket (EVOL-054): the exact settings — pull request required, the required checks and the approvals as configured, no force-push, no deletion — and the checklist a repository administrator ticks; verified at ci by gate.py scm-protection where the platform has an API."
     },
     "scm/protection.azure-devops.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "stack_conditional": "scm.platform == Azure DevOps",
       "target": "docs/scm/protection.md",

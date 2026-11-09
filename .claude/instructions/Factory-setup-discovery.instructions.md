@@ -588,7 +588,7 @@ Questions are organized in dependency order within tiers; conditions live in the
 ### Discovery Finalization (4.1.3)
 
 1. **Set phase:** Update `docs/setup.md` → `phase: COMPLETED`
-2a. **Delivery gaps — one RDR each, before VVP (EVOL-081):**
+2a. **Delivery gaps, before VVP (EVOL-081):**
    - `hosting.provider == Other` → the adapter row has no default. RDR: (1) declare the row — `tool`, `iac`, `validate`, `plan`, `apply`, `destroy`, `url_from {kind: command|stdout|template}`, `params` (every plan / apply / destroy names `{env}` or a per-environment param, RDR 6), `secrets` (vault names only), `rollback: redeploy-lkg`; (2) pick a covered host; (3) no deploy stage — the pipeline fails closed with a plain message. The row lands in `config/quality.json → delivery.adapter`.
    - `ci_cd.platform` not GitHub Actions / Bitbucket Pipelines / None → no deploy template ships for it yet (epic #210); materialisation authors the pipeline (Factory-setup-materialization § Delivery). No RDR.
 2. **Version Verification Protocol (VVP) — § 4.1.3.1:** Resolve and pin latest stable/LTS versions for all selected stack components. See below.

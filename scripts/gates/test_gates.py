@@ -3860,10 +3860,11 @@ class Scm(unittest.TestCase):
             def fetch_with(env, policies=None, tag_rulesets=None):
                 def f(url, headers, missing_ok=False):
                     trs = tags if tag_rulesets is None else tag_rulesets
-                    if url.endswith("/rulesets?targets=tag"):
+                    if "/rulesets?targets=tag" in url:
                         return [{"id": r["id"]} for r in trs]
-                    if url.endswith("/rulesets/90"):
-                        return next((r for r in trs if r["id"] == 90), None)
+                    m = re.search(r"/rulesets/(\d+)$", url)
+                    if m and int(m.group(1)) >= 90:
+                        return next((r for r in trs if r["id"] == int(m.group(1))), None)
                     if url.endswith("/environments/production"):
                         return env
                     if url.endswith("/environments/production/deployment-branch-policies"):
@@ -3873,7 +3874,9 @@ class Scm(unittest.TestCase):
             kw = dict(control_point="ci", env={"GH_TOKEN": "t"}, origin="git@github.com:acme/app.git")
             write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\n---\n# Setup\n")
             self.assertTrue(scm.check(repo, fetch=fetch_with(None), **kw)["ok"], "local execution: the environment is not asked")
-            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"] = {"execution": "ci"}; write(repo / "config/quality.json", json.dumps(q))
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"] = {"execution": "ci", "adapter": None}; write(repo / "config/quality.json", json.dumps(q))
+            self.assertTrue(scm.check(repo, fetch=fetch_with(None, None, []), **kw)["ok"], "RDR 7: nothing deploys — no environment, no tag ruleset asked")
+            q["delivery"]["adapter"] = {"tool": "Terraform"}; write(repo / "config/quality.json", json.dumps(q))
             r = scm.check(repo, fetch=fetch_with(None), **kw)
             self.assertFalse(r["ok"]); self.assertIn("the `production` environment does not exist", " ".join(r["findings"]))
             r = scm.check(repo, fetch=fetch_with({"protection_rules": [{"type": "wait_timer", "wait_timer": 5}]}), **kw)
@@ -3895,13 +3898,29 @@ class Scm(unittest.TestCase):
             for trs, why in (([], "no tag ruleset"), ([{**tags[0], "rules": [{"type": "deletion"}]}], "deletion only"),
                              ([{**tags[0], "enforcement": "evaluate"}], "evaluate mode"),
                              ([{**tags[0], "conditions": {"ref_name": {"include": ["refs/tags/deploy/**"], "exclude": []}}}], "lkg uncovered"),
-                             ([{**tags[0], "conditions": {"ref_name": {"include": ["~ALL"], "exclude": ["refs/tags/lkg/**"]}}}], "lkg excluded")):
+                             ([{**tags[0], "conditions": {"ref_name": {"include": ["~ALL"], "exclude": ["refs/tags/lkg/**/*"]}}}], "lkg excluded"),
+                             ([{**tags[0], "conditions": {"ref_name": {"include": ["refs/tags/deploy/**", "refs/tags/lkg/**"], "exclude": []}}}], "a trailing ** is one segment"),
+                             ([{**tags[0], "conditions": {"ref_name": {"include": ["~ALL"], "exclude": ["refs/tags/**/*"]}}}], "a blanket exclude"),
+                             ([{**tags[0], "id": 91, "rules": [{"type": "update"}]}, {**tags[0], "id": 92, "conditions": {"ref_name": {"include": ["refs/tags/deploy/**/*"], "exclude": []}}, "rules": [{"type": "deletion"}]}], "lkg deletion open")):
                 r = scm.check(repo, fetch=fetch_with(ok_env, main, trs), **kw)
                 self.assertFalse(r["ok"], why); self.assertIn("blocks update and deletion of", " ".join(r["findings"]), why)
             r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "conditions": {"ref_name": {"include": ["~ALL"], "exclude": []}}}]), **kw)
             self.assertTrue(r["ok"], "RDR 8: a ruleset over every tag holds the records too")
+            for inc in (["refs/tags/**/*"], ["refs/tags/deploy/*/*", "refs/tags/lkg/*/*"]):
+                r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "conditions": {"ref_name": {"include": inc, "exclude": ["refs/tags/deploy-old/**/*"]}}}]), **kw)
+                self.assertTrue(r["ok"], (inc, scm.render(r)))
+            split = [{**tags[0], "id": 91, "rules": [{"type": "update"}]}, {**tags[0], "id": 92, "rules": [{"type": "deletion"}]}]
+            self.assertTrue(scm.check(repo, fetch=fetch_with(ok_env, main, split), **kw)["ok"], "update and deletion over two rulesets hold")
+            r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "name": "records", "bypass_actors": [{"actor_type": "RepositoryRole", "actor_id": 5, "bypass_mode": "always"}]}]), **kw)
+            self.assertFalse(r["ok"]); self.assertIn("bypass actor(s)", " ".join(r["findings"]))
+            r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "bypass_actors": []}]), **kw)
+            self.assertTrue(r["ok"]); self.assertNotIn("bypass list of tag ruleset", " ".join(r["unverifiable"]))
+            r = scm.check(repo, fetch=fetch_with(ok_env, main), **kw)
+            self.assertIn("bypass list of tag ruleset", " ".join(r["unverifiable"]), "a list the token cannot see is a note")
             write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitLab CI\n---\n# Setup\n")
             self.assertTrue(scm.check(repo, fetch=fetch_with(None), **kw)["ok"], "GitHub-hosted on another CI: no GitHub deploy workflow, the environment is not asked")
+            r = scm.check(repo, fetch=fetch_with(None, None, []), **kw)
+            self.assertFalse(r["ok"], "the records live on the host: another CI pushes them, the ruleset is still asked"); self.assertIn("blocks update and deletion of", " ".join(r["findings"]))
 
 
 DISC_REGISTRY = {
@@ -7757,6 +7776,24 @@ class Delivery(unittest.TestCase):
             with self.assertRaisesRegex(GateFault, "does not name the environment"):
                 delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
             self.assertEqual(calls, [], "an env-blind row runs nothing")
+            with self.assertRaisesRegex(GateFault, "does not name the environment.*nothing was torn down"):
+                delivery.teardown(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertEqual(calls, [], "an env-blind destroy tears nothing down")
+        tpl = {"url_from": {"kind": "template", "template": "https://{app}.fly.dev"}, "params": {"app": "web-{env}"}}
+        self.assertEqual(delivery.url_of(Path("."), tpl, "", "staging", {}, None), "https://web-staging.fly.dev", "a param naming {env} fills in the template too")
+        per = {"url_from": {"kind": "template", "template": "{url}"}, "params": {"url": {"staging": "https://stg.example.com", "production": "https://example.com"}}}
+        self.assertEqual(delivery.url_of(Path("."), per, "", "staging", {}, None), "https://stg.example.com")
+        self.assertEqual(delivery.url_of(Path("."), per, "", "production", {}, None), "https://example.com")
+        with self.assertRaisesRegex(GateFault, r"\{other\}.*does not fill it"):
+            delivery.fill("{a}", {"a": "x-{other}"}, "staging")
+        for bad, why in (({"app": "web app"}, "a space"), ({"app": "$TOKEN"}, "a variable"), ({"app": 3}, "a number"), ({"app": {"staging": "a'b", "production": "p"}}, "a quote")):
+            self.assertIn("is one identifier, host or URL", " ".join(delivery.adapter_problems({**fly, "params": bad})), why)
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, adapter={**self.ROW, "url_from": {"kind": "template", "template": "{url}"}, "params": {"url": {"staging": None, "production": None}}})
+            calls = []
+            with self.assertRaisesRegex(GateFault, r"\{url\}.*does not fill it for staging"):
+                delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertEqual(calls, [], "a null url param runs nothing — never an apply nobody can probe")
 
     def test_variables_are_the_step_environment_and_every_command_is_filled_first(self):
         """Round-1 cure: `$NAME` is the step's value (a migrate row passes the database URL), an unset name is a fault;
@@ -7831,13 +7868,24 @@ class Delivery(unittest.TestCase):
             repo = self._repo(tmp)
             q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["adapter"] = None; write(repo / "config/quality.json", json.dumps(q))
             write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\n---\n# Setup\n")
-            r = delivery.check(repo); self.assertTrue(r.get("na"), delivery.render(r)); self.assertIn("no server to deploy", r["reason"])
+            r = delivery.check(repo); self.assertTrue(r.get("na"), delivery.render(r)); self.assertIn("no server", r["reason"])
             write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\nhosting:\n  deploy_tool: Terraform\n---\n# Setup\n")
             self.assertFalse(delivery.check(repo)["ok"], "a deploy tool answered and no row: red")
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\nhosting:\n  provider: AWS\n---\n# Setup\n")
+            self.assertFalse(delivery.check(repo)["ok"], "a server answered, its deploy tool not yet: red, never n/a")
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\nhosting:\n  provider: AWS\n  deploy_tool: Other\n---\n# Setup\n")
+            self.assertFalse(delivery.check(repo)["ok"], "Other with no row declared yet: red, never n/a")
             q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["adapter"] = {**self.ROW, "tool": "Other"}
             write(repo / "config/quality.json", json.dumps(q))
             write(repo / ".github/workflows/deploy.yml", (tpl / "deploy.github-actions.yml").read_text())
             self.assertIn("is `Other`", delivery.render(delivery.check(repo)), "Other stays red until its row is declared (RDR 2)")
+
+    def test_every_q21_platform_has_its_pipeline_file(self):
+        """RDR 9: every CI platform discovery offers names its deploy pipeline file — a new option without one is red here."""
+        reg = json.loads((HERE.parent.parent / ".context/templates/setup/setup/discovery_registry.json").read_text())
+        opts = next(q["keys"]["ci_cd.platform"]["options"] for q in reg["questions"] if "ci_cd.platform" in q.get("keys", {}))
+        self.assertEqual(sorted(o for o in opts if o != "None"), sorted(delivery.PIPELINE_FILE))
+        self.assertTrue(set(delivery.COVERED) <= set(delivery.PIPELINE_FILE))
 
     def test_check_holds_the_mode_key_and_the_covered_pipeline(self):
         """Round-1 cure: `execution` is ci_cd.platform's derivation; a covered platform deploying from CI has its pipeline;
@@ -7857,13 +7905,17 @@ class Delivery(unittest.TestCase):
             setup(repo, "Jenkins")
             out = delivery.render(delivery.check(repo))
             self.assertIn("Jenkinsfile.deploy does not call", out, "RDR 9: an uncovered platform's pipeline is authored at SETUP, and held")
-            self.assertIn("the AI Factory authors it at SETUP", out)
+            self.assertIn("SETUP authors it for this platform", out)
             write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('staging') { steps { sh 'python3 scripts/gate.py delivery --run --env staging' } } } }\n")
             r = delivery.check(repo); self.assertTrue(r["ok"], delivery.render(r))
             self.assertIn("approval is the platform's own", delivery.render(r))
-            write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('s') { steps { sh 'git push origin refs/tags/deploy/*' } } } }\n// gate.py delivery\n")
+            write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('s') { steps { sh 'python3 scripts/gate.py delivery --pr && git push origin refs/tags/deploy/*' } } } }\n")
             out = delivery.render(delivery.check(repo))
             self.assertIn("no stage that calls", out); self.assertIn("pushes every environment's tags", out)
+            write(repo / "Jenkinsfile.deploy", "// python3 scripts/gate.py delivery --run --env staging\npipeline { stages { stage('p') { steps { sh 'terraform apply -auto-approve' } } } }\n")
+            self.assertFalse(delivery.check(repo)["ok"], "a commented-out call is no call")
+            write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('p') { steps { sh 'python3 scripts/gate.py delivery --run --env production' } } } }\n  # python3 scripts/gate.py delivery --run --env staging\n")
+            self.assertTrue(delivery.check(repo)["ok"], "a real call beside a comment holds")
             (repo / "Jenkinsfile.deploy").unlink()
             setup(repo, "GitHub Actions")
             text = (tpl / "deploy.github-actions.yml").read_text()

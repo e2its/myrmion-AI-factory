@@ -23,7 +23,7 @@ config    `config/quality.json → delivery`: `execution` (ci | local, derived f
           has `apply` and `url_from`; `execution` is the derivation of ci_cd.platform (None → local, else ci).
           RED when the platform deploys from CI and its pipeline (PIPELINE_FILE) does not call the executor — a shipped
           template on GitHub Actions / Bitbucket Pipelines, one the AI Factory authors at SETUP on every other Q21
-          platform (RDR 9; epic #210 ships their templates); there the approval is the platform's own, not read here.
+          platform (EVOL-081 RDR 9); there the approval is the platform's own, not read here.
           n/a with `execution: local`, no block, or no deploy tool and none answered — no server, nothing deploys (RDR 7).
 record    annotated tag `deploy/{env}/{YYYYMMDDTHHMMSSZ}` on the deployed SHA, message = JSON {env, sha, at, adapter,
           probe, migrations, metrics, hosting[, rebaseline]}; `lkg/{env}/{ts}` lightweight on the same SHA. This module
@@ -32,7 +32,8 @@ Commands from the adapter row run without a shell: ` && ` splits steps, leading 
 environment, `{env}` is the environment name, `{param}` the row's `params` — a string holds for every environment (it may
 name `{env}`), a map {env: value} per environment — and `$NAME` / `${NAME}` the step environment's value (an unset name is a
 fault, never an empty word). Every plan / apply / destroy and a url_from template names its environment — `{env}`, or a
-per-environment param holding a value of its own per environment — or the row is red (RDR 6): a staging deploy never reaches production. Every command of the run is filled before its first step runs: one left unfilled runs nothing. Secrets: only the row's names and `delivery.secrets`, from the environment
+per-environment param holding a value of its own per environment — or the row is red (RDR 6): a staging deploy never reaches production. A param
+value is one identifier, host or URL. One function (`fill`) fills every command and the url template; every one the run needs is filled before its first step runs: one left unfilled runs nothing. Secrets: only the row's names and `delivery.secrets`, from the environment
 or the pipeline's `DELIVERY_SECRETS` JSON map, reach the commands; the map itself never does.
 """
 from __future__ import annotations
@@ -57,6 +58,8 @@ ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 URL_KINDS = ("command", "stdout", "template")
 ENV_BOUND = ("plan", "apply", "destroy")
 PH = r"(?<!\$)\{%s\}"
+PLACE = re.compile(PH % r"([A-Za-z_][A-Za-z0-9_-]*)")
+PARAM_OK = re.compile(r"[A-Za-z0-9._:/@%+=,{}-]+")   # an identifier, a host, a URL — never words, quotes or $NAME
 REFUSED = "This project deploys from its pipeline — run DEVOPS --deploy, which starts the pipeline and watches the run."
 RESOURCES = "config/system_resources.json"
 PIPELINE_FILE = {"GitHub Actions": ".github/workflows/deploy.yml", "Bitbucket Pipelines": "bitbucket-pipelines.yml",
@@ -86,6 +89,19 @@ def execution(c: dict | None) -> str:
     return v
 
 
+def deploys(repo: Path) -> bool:
+    """The one predicate (RDR 7): the project deploys — an adapter row, a deploy tool or a hosting provider answered (no
+    server = Q20 unanswered). Without it nothing
+    deploys: `--check` is n/a, `scm-protection` asks no production environment and no tag ruleset."""
+    from . import data
+    try:
+        c = cfg(repo) or {}
+    except GateFault:
+        return True   # an unreadable block never switches the server checks off
+    ans = data.answers(repo)
+    return c.get("adapter") is not None or bool(ans.get("hosting.deploy_tool")) or bool(ans.get("hosting.provider"))
+
+
 def adapter_problems(a) -> list[str]:
     if not isinstance(a, dict):
         return ["`delivery.adapter` is null — no deploy tool chosen (SETUP Q20.1)"]
@@ -101,26 +117,39 @@ def adapter_problems(a) -> list[str]:
     cmds = [(k, a.get(k)) for k in ENV_BOUND] + ([("url_from.template", u.get("template"))] if isinstance(u, dict) and u.get("kind") == "template" else [])
     for k, cmd in cmds:
         if isinstance(cmd, str) and cmd.strip() and not _env_bound(cmd, par):
-            out.append(f"`{k}` does not name the environment — a staging deploy could reach production; name {{env}} or a per-environment param (RDR 6)")
+            out.append(f"`{k}` does not name the environment — a staging deploy could reach production; name {{env}} or a per-environment param")
     for k, v in par.items():
-        if isinstance(v, dict):
-            seen = {}
-            for e, x in v.items():
-                if isinstance(x, str) and x.strip():
-                    if x in seen:
-                        out.append(f"`params.{k}` holds one value for {seen[x]} and {e} — one environment would deploy over the other")
-                    seen.setdefault(x, e)
+        seen = {}
+        for e, x in (v.items() if isinstance(v, dict) else [("every environment", v)]):
+            if x is None:
+                continue
+            if not isinstance(x, str) or not PARAM_OK.fullmatch(x):
+                out.append(f"`params.{k}` for {e} is {clean(repr(x), 40)} — a param is one identifier, host or URL (no spaces, quotes or $NAME); a secret goes in `delivery.secrets`")
+            elif isinstance(v, dict) and x in seen:
+                out.append(f"`params.{k}` holds one value for {seen[x]} and {e} — one environment would deploy over the other")
+            if isinstance(v, dict):
+                seen.setdefault(x, e)
     return out
 
 
 def _env_bound(cmd: str, par: dict) -> bool:
-    """The command names its environment: `{env}` once the shared params are filled, or a per-environment param."""
-    for k, v in par.items():
-        if isinstance(v, dict) and re.search(PH % re.escape(str(k)), cmd):
+    """The command names its environment: `{env}`, a per-environment param, or a shared param whose value names `{env}`."""
+    for name in PLACE.findall(cmd):
+        v = par.get(name)
+        if name == "env" or isinstance(v, dict) or (isinstance(v, str) and re.search(PH % "env", v)):
             return True
-        if isinstance(v, str):
-            cmd = re.sub(PH % re.escape(str(k)), lambda _m, v=v: v, cmd)
-    return bool(re.search(PH % "env", cmd))
+    return False
+
+
+def fill(text: str, params, env: str) -> str:
+    """The one filling of a row's text for one environment: `{env}`, and each `{param}` — whose value may name `{env}`,
+    never another param. A placeholder left over is a fault: nothing runs, nothing is probed."""
+    vals = {**_params(params, env), "env": env}
+    out = PLACE.sub(lambda m: re.sub(PH % "env", lambda _m: env, vals[m.group(1)]) if m.group(1) in vals else m.group(0), text)
+    left = PLACE.findall(out)
+    if left:
+        raise GateFault(f"the adapter row names {', '.join('{' + x + '}' for x in left)} and its `params` does not fill it for {env} — DEVOPS --configure fills it")
+    return out
 
 
 def _params(params, env: str) -> dict:
@@ -239,11 +268,7 @@ def steps(cmd: str, env: str, params: dict | None = None, environ: dict | None =
     `{env}` and each `{param}` of the row's `params` are filled — a placeholder left over is a fault, never run.
     With `environ`, `$NAME` / `${NAME}` in a word is that variable's value (the step's assignments first)."""
     out = []
-    for k, v in {**_params(params, env), "env": env}.items():
-        cmd = re.sub(PH % re.escape(str(k)), lambda _m, v=v: v, cmd)
-    left = re.findall(r"(?<!\$)\{([A-Za-z_]+)\}", cmd)
-    if left:
-        raise GateFault(f"the adapter command names {', '.join('{' + x + '}' for x in left)} and its row's `params` does not fill it for {env} — DEVOPS --configure fills it")
+    cmd = fill(cmd, params, env)
     for part in cmd.split(" && "):
         words = shlex.split(part)
         assign = {}
@@ -318,10 +343,7 @@ def url_of(repo: Path, adapter: dict, apply_out: str, env: str, environ: dict, r
     elif u["kind"] == "stdout":
         url = ([ln for ln in apply_out.splitlines() if ln.strip()] or [""])[-1]
     elif u["kind"] == "template":
-        try:
-            url = u["template"].format(**{**_params(adapter.get("params"), env), "env": env})
-        except (KeyError, IndexError, AttributeError, ValueError):
-            raise GateFault("url_from.template names a parameter the adapter's `params` does not hold") from None
+        url = fill(str(u.get("template") or ""), adapter.get("params"), env)
     return check_url(url.strip())
 
 
@@ -349,8 +371,11 @@ def _row(id_, problems, note=""):
 def _preflight(a: dict, c: dict, env: str, e: dict) -> None:
     """Fill every command the run will run before its first step: one unfilled placeholder or unset `$NAME` runs nothing."""
     cmds = [a.get(k) for k in ("validate", "plan", "apply")] + [c.get("migrate")]
-    if isinstance(a.get("url_from"), dict) and a["url_from"].get("kind") == "command":
-        cmds.append(a["url_from"].get("command"))
+    u = a.get("url_from") if isinstance(a.get("url_from"), dict) else {}
+    if u.get("kind") == "command":
+        cmds.append(u.get("command"))
+    if u.get("kind") == "template" and isinstance(u.get("template"), str):
+        fill(u["template"], a.get("params"), env)
     for cmd in cmds:
         if isinstance(cmd, str) and cmd.strip():
             steps(cmd, env, a.get("params"), e)
@@ -430,6 +455,9 @@ def teardown(repo: Path, env: str, environ=None, runner=subprocess.run) -> dict:
     a = (c or {}).get("adapter")
     if not isinstance(a, dict) or not isinstance(a.get("destroy"), str) or not a["destroy"].strip():
         raise GateFault("the deploy tool has no `destroy` command in its adapter row — tear the environment down with the host's own console; nothing was run")
+    bad = adapter_problems(a)
+    if bad:
+        raise GateFault("; ".join(bad) + " — nothing was torn down")
     e = _environ(a, environ, (c or {}).get("secrets"))
     steps(a["destroy"], env, a.get("params"), e)
     run_cmd(repo, a["destroy"], env, e, runner, "destroy", a.get("params"))
@@ -546,6 +574,11 @@ def pr(repo: Path, base: str, branch: str) -> dict:
     return {"ok": not red, "entries": rows, "reason": f"{len(red)} of {len(rows)} verdict(s) red" if red else f"{len(rows)} verdict(s) green"}
 
 
+def _uncommented(text: str) -> str:
+    """A pipeline's text without its whole-line comments (`#`, `//`): a commented-out call is no call."""
+    return "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith(("#", "//")))
+
+
 def check(repo: Path) -> dict:
     if context(repo) == "meta":
         return {"ok": True, "na": True, "reason": "the framework repo deploys nothing", "entries": []}
@@ -561,23 +594,25 @@ def check(repo: Path) -> dict:
                     "reason": "delivery.execution is not what ci_cd.platform derives"}
     if execution(c) == "local":
         return {"ok": True, "na": True, "reason": "delivery.execution is local — no pipeline deploys", "entries": []}
-    if c.get("adapter") is None and not data.answers(repo).get("hosting.deploy_tool"):
-        return {"ok": True, "na": True, "reason": "no deploy tool, none answered — the project has no server to deploy (RDR 7)", "entries": []}
-    calls = lambda p: (repo / p).is_file() and "gate.py delivery" in (repo / p).read_text(encoding="utf-8", errors="replace")
+    if not deploys(repo):
+        return {"ok": True, "na": True, "reason": "no server: no hosting provider, no deploy tool answered — nothing deploys", "entries": []}
+    body = lambda p: _uncommented((repo / p).read_text(encoding="utf-8", errors="replace"))
+    calls = lambda p: (repo / p).is_file() and "gate.py delivery" in body(p)
     want_file = PIPELINE_FILE.get(plat.strip()) if isinstance(plat, str) else None
     files = [want_file] if want_file and calls(want_file) else [] if want_file else [p for p in PIPELINE_FILE.values() if calls(p)]
     if not files:
         if want_file:
-            how = "SETUP --upgrade lands the deploy pipeline" if plat.strip() in COVERED else "the AI Factory authors it at SETUP for this platform (RDR 9; epic #210 ships its template)"
+            how = "SETUP --upgrade lands the deploy pipeline" if plat.strip() in COVERED else "SETUP authors it for this platform (SETUP --upgrade on an installed project)"
             return {"ok": False, "entries": [_row(want_file, [f"{plat} deploys from CI and {want_file} does not call `gate.py delivery --run` — {how}"])],
                     "reason": "the deploy pipeline is missing"}
         return {"ok": True, "na": True, "reason": "no deploy pipeline file and no CI platform answered", "entries": []}
     rows = [_row("delivery.adapter", adapter_problems(c.get("adapter")), str((c.get("adapter") or {}).get("tool")))]
     for rel in files:
-        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        raw = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        text = _uncommented(raw)
         shipped = rel in (PIPELINE_FILE[k] for k in COVERED)
         try:
-            doc = parse_yaml(text) if shipped else None
+            doc = parse_yaml(raw) if shipped else None
         except Exception as err:   # the mini parser's every failure is one finding, never a crash
             try:
                 import yaml  # type: ignore  # noqa: F401
@@ -588,14 +623,14 @@ def check(repo: Path) -> dict:
             continue
         probs = (_github if rel.startswith(".github/") else _bitbucket)(doc, rel) if shipped else []
         apply_cmd = ((c.get("adapter") or {}).get("apply") or "").split(" && ")[-1].strip()
-        if apply_cmd and re.search(re.sub(r"\\\{[A-Za-z_]+\\\}", r"\\S+", re.escape(apply_cmd)), text):   # a placeholder is any filled word
+        if apply_cmd and re.search(re.sub(r"\\\{[A-Za-z_](?:[A-Za-z0-9_]|\\-)*\\\}", r"\\S+", re.escape(apply_cmd)), text):   # a placeholder is any filled word
             probs.append(f"{rel} runs the adapter's apply directly — every deploy goes through `gate.py delivery --run` (probe + record)")
         if not CALL.search(text):
             probs.append(f"{rel} has no stage that calls `gate.py delivery --run --env …`")
         if ALL_ENVS_PUSH.search(text):
             probs.append(f"{rel} pushes every environment's tags — each stage pushes only its own (refs/tags/deploy/<env>/*, refs/tags/lkg/<env>/*)")
         rows.append(_row(rel, probs, "every deploy stage calls the executor; production waits for approval" if shipped
-                         else "every deploy stage calls the executor; production's approval is the platform's own (its template: epic #210)"))
+                         else "the executor is called, no direct apply, own tags only; production's approval is the platform's own and is not read here"))
     red = [r for r in rows if not r["ok"]]
     return {"ok": not red, "entries": rows, "reason": f"{len(red)} of {len(rows)} red" if red else f"{len(rows)} green"}
 
