@@ -57,12 +57,12 @@ Cross-epic: strict dependency order — an epic's first slice does NOT start unt
 
 ### 0.3 SSOT and Memory Cache (Dual-Mode)
 
-> **Clarification.** This protocol runs in one of two modes determined by the user's Q27 answer at SETUP time. The two modes are **parallel branches** of the same protocol — not an exceptional path layered on a file-mode default. BACKLOG agent code that reads or writes plan state MUST branch on `project_tracking.tool` and call the adapter accordingly.
+> **Clarification.** This protocol runs in one of two modes determined by the user's Q27 answer at SETUP time. The two modes are **parallel branches** of the same protocol — not an exceptional path layered on a file-mode default. BACKLOG agent code that reads or writes plan state MUST branch on `config/quality.json → tracker.adapter` (derived from Q27, EVOL-079) and call the adapter accordingly.
 
 | Mode | Selected when | SSOT for ordering | Local artefact | Cache file |
 | --- | --- | --- | --- | --- |
-| **File mode** | `project_tracking.tool == "None"` | `docs/backlog/execution-plan.md` | `docs/backlog/execution-plan.md` + `docs/backlog/state.md` + `docs/backlog/issue-bodies/*.md` | `/memories/repo/execution-plan-cache.md` |
-| **Board mode** | `project_tracking.tool != "None"` | The configured external board (read via `tool-adapter.md` → `query_board`) | `docs/backlog/project-config.json` only. **No** `execution-plan.md` is materialised in board mode — the board IS the plan | `/memories/repo/project-board-cache.md` |
+| **File mode** | `tracker.adapter == none` | `docs/backlog/execution-plan.md` | `docs/backlog/execution-plan.md` + `docs/backlog/state.md` + `docs/backlog/issue-bodies/*.md` | `/memories/repo/execution-plan-cache.md` |
+| **Board mode** | `tracker.adapter != none` | The configured external board (read via `tool-adapter.md` → `query_board`) | `docs/backlog/project-config.json` only. **No** `execution-plan.md` is materialised in board mode — the board IS the plan | `/memories/repo/project-board-cache.md` |
 
 **Core invariants applicable to both modes:**
 
@@ -71,15 +71,15 @@ Cross-epic: strict dependency order — an epic's first slice does NOT start unt
 3. Cross-mode operations (e.g., migrating from file mode to board mode mid-project) are **not supported** — requires `SETUP --upgrade` with an explicit discovery re-answer for Q27.
 4. The commands in § 1 below have the same name and contract in both modes; the adapter hides mode-specific details. The BACKLOG agent never dispatches on mode directly — it always delegates to the tool-adapter.
 
-**File mode details (when Q27 == "None"):**
+**File mode details (when `config/quality.json → tracker.adapter == none`):**
 - `docs/backlog/execution-plan.md` is produced by `--plan-execution` as a structured markdown document with the format in § 3.1.
-- `--update-execution` rewrites the checkbox state atomically and refreshes `execution-plan-cache.md`.
-- The tool-adapter rendered from `none.md` maps `query_board` → "parse `state.md`" and `move_to_column` → "rewrite state.md row", so the BACKLOG agent code path is identical to board mode.
+- `--update-execution` moves the item (`python3 scripts/gate.py tracker --move <ident> --to done`), rewrites the checkbox state atomically and refreshes `execution-plan-cache.md`.
+- The tool-adapter rendered from `none.md` maps `query_board` → "parse `state.md`"; a state change is `python3 scripts/gate.py tracker --move`, which rewrites the state.md row — the code path is identical to board mode.
 
-**Board mode details (when Q27 != "None"):**
+**Board mode details (when `tracker.adapter != none`):**
 - `docs/backlog/execution-plan.md` is **NOT** materialised by `SETUP --generate` or by `--plan-execution`. The entire document structure from § 3.1 is used only as an *in-memory* projection when computing cache state — never persisted to disk.
 - `--plan-execution` materialises the plan directly onto the board via the tool-adapter: milestones (epics), labels (slices, phases, clusters), and issues (features + gates + retrospectives).
-- `--update-execution` moves the relevant board item via `move_to_column` and refreshes `project-board-cache.md`.
+- `--update-execution` moves the relevant board item via `python3 scripts/gate.py tracker --move <ident> --to done` and refreshes `project-board-cache.md`.
 - `--sync-execution` re-queries the board via `query_board`, reconstructs the in-memory plan, and rewrites `project-board-cache.md`. Any manual edits on the board are absorbed; any drift with the cache is reported and auto-corrected to match the board.
 
 ---
@@ -89,7 +89,7 @@ Cross-epic: strict dependency order — an epic's first slice does NOT start unt
 | Command | Description (mode-agnostic contract) |
 | --- | --- |
 | `--plan-execution` | Analyse all planned features, compute dependency graph, form epics, materialise the plan on the configured SSOT (file or board), and refresh the memory cache |
-| `--update-execution {step_ref}` | Mark a step as completed (`[x]` on file SSOT, `move_to_column` to Done on board SSOT). Recalculate progress summary and refresh cache |
+| `--update-execution {step_ref}` | Mark a step as completed (`[x]` on file SSOT, `gate.py tracker --move <ident> --to done` on board SSOT). Recalculate progress summary and refresh cache |
 | `--sync-execution` | Re-read the SSOT and refresh the memory cache. Use after manual edits to the file (file mode) or manual edits to the board (board mode). Flags and auto-corrects drift |
 
 ---
@@ -283,7 +283,7 @@ FUNCTION form_slices(epic, graph):
 
 ## 3. EXECUTION PLAN GENERATION
 
-> **Mode scoping.** Sections 3.1–3.3 below describe the **file-mode** rendering of the plan — the markdown document layout and the step reference format. In **board mode** this document structure is used only as an in-memory projection when computing the `project-board-cache.md` entries; nothing is persisted to `docs/backlog/execution-plan.md`. Each file operation in the pseudocode (READ / UPDATE of `execution-plan.md`) has a board-mode counterpart routed through the tool-adapter: `query_board` for reads, `create_issue` / `move_to_column` / `add_sub_issue` for writes. The BACKLOG agent SHOULD NOT branch on the mode in its own code — it delegates to the adapter, which materialises the mode-specific commands.
+> **Mode scoping.** Sections 3.1–3.3 below describe the **file-mode** rendering of the plan — the markdown document layout and the step reference format. In **board mode** this document structure is used only as an in-memory projection when computing the `project-board-cache.md` entries; nothing is persisted to `docs/backlog/execution-plan.md`. Each file operation in the pseudocode (READ / UPDATE of `execution-plan.md`) has a board-mode counterpart routed through the tool-adapter: `query_board` for reads, `python3 scripts/gate.py tracker --ensure` / `--move` for item writes (EVOL-079). The BACKLOG agent SHOULD NOT branch on the mode in its own code — it delegates to the adapter, which materialises the mode-specific commands.
 
 ### 3.1 Plan Structure
 
@@ -397,7 +397,7 @@ The `<!-- {date} -->` comment is appended when the step is marked complete.
 
 ## 4. MEMORY CACHE PROTOCOL
 
-> **Mode scoping.** Cache location and invalidation rules differ between modes — file mode uses `/memories/repo/execution-plan-cache.md` and invalidates on `execution-plan.md` hash change; board mode uses `/memories/repo/project-board-cache.md` and invalidates on `query_board` snapshot hash change. The cache content schema is the same (see § 4.2). All pseudocode below assumes file mode for concreteness — the board-mode counterpart substitutes `query_board()` where `READ execution-plan.md` appears and `move_to_column()` where `UPDATE execution-plan.md` appears.
+> **Mode scoping.** Cache location and invalidation rules differ between modes — file mode uses `/memories/repo/execution-plan-cache.md` and invalidates on `execution-plan.md` hash change; board mode uses `/memories/repo/project-board-cache.md` and invalidates on `query_board` snapshot hash change. The cache content schema is the same (see § 4.2). All pseudocode below assumes file mode for concreteness — the board-mode counterpart substitutes `query_board()` where `READ execution-plan.md` appears and `gate.py tracker --move` where `UPDATE execution-plan.md` appears.
 
 ### 4.1 Cache Location
 
@@ -561,7 +561,7 @@ FUNCTION sync_execution():
     board_state = QUERY board via tool-adapter
     FOR EACH step IN steps:
       IF step.issue exists in board_state:
-        IF board_state[step.issue].status == "Done" AND step.checkbox == "[ ]":
+        IF board_state[step.issue].status == FLOW.done AND step.checkbox == "[ ]":   # FLOW = config/quality.json → tracker.flow
           WARN: "Step for #{step.issue} is Done on board but unchecked in plan"
           SUGGEST: mark as [x]
 
@@ -610,7 +610,7 @@ ELSE:
 ## 9. GUARDRAILS
 
 1. **DAG Invariant**: The dependency graph MUST be a Directed Acyclic Graph. If circular dependencies are detected, BLOCK and report.
-2. **SSOT (Dual-Mode)**: Exactly ONE source of truth per project. In **file mode** (Q27 == "None") it is `docs/backlog/execution-plan.md`. In **board mode** (Q27 != "None") it is the configured external board read via the tool-adapter's `query_board`. Memory cache is always an optimisation, never authoritative. See § 0.3.
+2. **SSOT (Dual-Mode)**: Exactly ONE source of truth per project. In **file mode** (`tracker.adapter == none`) it is `docs/backlog/execution-plan.md`. In **board mode** (`tracker.adapter != none`) it is the configured external board read via the tool-adapter's `query_board`. Memory cache is always an optimisation, never authoritative. See § 0.3.
 3. **Issue-Plan Consistency**: Every feature issue created by `--plan-feature` SHOULD have a corresponding step in the execution plan (file mode) or on the board with the correct phase label (board mode).
 4. **No Phantom Steps**: Do NOT add steps for features that don't exist in setup.md feature list.
 5. **Epic Boundaries**: A feature belongs to exactly one epic. If it spans multiple BCs, assign it to the epic of its primary BC.

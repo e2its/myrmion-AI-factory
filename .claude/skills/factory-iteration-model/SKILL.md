@@ -343,8 +343,8 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       # Reopen the CONTRACT-FREEZE gate issue on the backlog via tool-adapter
       ADAPTER = READ "docs/backlog/tool-adapter.md"
       gate_issue = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS FEATURE_ID
-      IF gate_issue AND gate_issue.status == "Done":
-        ADAPTER.move_to_column(gate_issue, column="Todo")
+      IF gate_issue AND gate_issue.status == FLOW.done:   # FLOW = config/quality.json → tracker.flow (EVOL-079)
+        RUN python3 scripts/gate.py tracker --move "[{FEATURE_ID}] CONTRACT-FREEZE:" --to ready   # reopens; re-reads the board
         ADAPTER.add_label(gate_issue, "stale-after-cascade")
       CONTINUE
 
@@ -363,8 +363,9 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       gate_label = "phase:preventive-sweep" IF artifact_name == "preventive_sweep_report" ELSE "phase:smoke-e2e"
       ADAPTER = READ "docs/backlog/tool-adapter.md"
       gate_issue = ADAPTER.query_board() → find WHERE labels CONTAINS gate_label AND title CONTAINS FEATURE_ID
-      IF gate_issue AND gate_issue.status == "Done":
-        ADAPTER.move_to_column(gate_issue, column="Todo")
+      gate_ident = "[{FEATURE_ID}] PREVENTIVE-SWEEP:" IF artifact_name == "preventive_sweep_report" ELSE "[{FEATURE_ID}] SMOKE-E2E"
+      IF gate_issue AND gate_issue.status == FLOW.done:
+        RUN python3 scripts/gate.py tracker --move "{gate_ident}" --to ready
         ADAPTER.add_label(gate_issue, "stale-after-cascade")
       CONTINUE
 
@@ -559,8 +560,8 @@ FUNCTION CASCADE_CONSUMERS(upstream_feature_id, target_iteration, schemas_versio
     #    on the consumer until the consumer's own contract re-freezes against the new upstream.
     ADAPTER = READ "docs/backlog/tool-adapter.md"
     consumer_cf_issue = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS consumer_id
-    IF consumer_cf_issue AND consumer_cf_issue.status == "Done":
-      ADAPTER.move_to_column(consumer_cf_issue, column="Todo")
+    IF consumer_cf_issue AND consumer_cf_issue.status == FLOW.done:
+      RUN python3 scripts/gate.py tracker --move "[{consumer_id}] CONTRACT-FREEZE:" --to ready
       ADAPTER.add_label(consumer_cf_issue, "stale-after-cascade")
       LOG: "CASCADE_CONSUMERS: re-opened CONTRACT-FREEZE for consumer {consumer_id} (stale-after-cascade applied)"
 
@@ -696,8 +697,8 @@ FUNCTION CASCADE_SLICE_PEERS(FEATURE_ID, target_iteration, affected_scopes):
 
   # 3. Reopen the slice integration-test gate issue on the board
   gate_issue = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:integration-test" AND title CONTAINS slice_ref
-  IF gate_issue AND gate_issue.status == "Done":
-    ADAPTER.move_to_column(gate_issue, column="Todo")
+  IF gate_issue AND gate_issue.status == FLOW.done:
+    RUN python3 scripts/gate.py tracker --move "[{slice_ref}] INTEGRATION-TEST:" --to ready
     ADAPTER.add_label(gate_issue, "stale-after-slice-peer-iterated")
 
 

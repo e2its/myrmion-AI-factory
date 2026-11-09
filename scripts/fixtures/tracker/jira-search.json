@@ -1,0 +1,80 @@
+{
+ "issues": [
+  {
+   "id": "10001",
+   "key": "ACME-1",
+   "self": "https://acme.atlassian.net/rest/api/3/issue/10001",
+   "fields": {
+    "summary": "[FEAT-001] CODESIGN: Spec BDD + UX Mock — Login",
+    "status": {
+     "id": "10002",
+     "name": "Done",
+     "statusCategory": {
+      "id": 3,
+      "key": "done",
+      "name": "done"
+     }
+    },
+    "labels": [
+     "phase:codesign"
+    ],
+    "issuetype": {
+     "id": "10001",
+     "name": "Task",
+     "subtask": false
+    }
+   }
+  },
+  {
+   "id": "10002",
+   "key": "ACME-2",
+   "self": "https://acme.atlassian.net/rest/api/3/issue/10002",
+   "fields": {
+    "summary": "[FEAT-001] BLUEPRINT: Architecture + Test Plan — Login",
+    "status": {
+     "id": "10000",
+     "name": "Backlog",
+     "statusCategory": {
+      "id": 2,
+      "key": "new",
+      "name": "new"
+     }
+    },
+    "labels": [
+     "phase:blueprint"
+    ],
+    "issuetype": {
+     "id": "10001",
+     "name": "Task",
+     "subtask": false
+    }
+   }
+  },
+  {
+   "id": "10003",
+   "key": "ACME-3",
+   "self": "https://acme.atlassian.net/rest/api/3/issue/10003",
+   "fields": {
+    "summary": "[FEAT-001] IMPLEMENT: Code + Tests — Login",
+    "status": {
+     "id": "10001",
+     "name": "Selected for Development",
+     "statusCategory": {
+      "id": 2,
+      "key": "new",
+      "name": "new"
+     }
+    },
+    "labels": [
+     "phase:implement"
+    ],
+    "issuetype": {
+     "id": "10001",
+     "name": "Task",
+     "subtask": false
+    }
+   }
+  }
+ ],
+ "isLast": true
+}

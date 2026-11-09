@@ -29,7 +29,7 @@ os.environ.update({"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", 
                    "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "test@example.com"})
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, bounds, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, proof, qa, retired, runtime, scm, seal, traceability, train  # noqa: E402
+from gates import agents, aligned, bounds, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, proof, qa, retired, runtime, scm, seal, traceability, tracker, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -5024,6 +5024,77 @@ class Discovery(unittest.TestCase):
                 else:
                     self.assertTrue(any(msg in f for f in v12), (label, v12))
 
+    def test_v12_http_rows(self):
+        """EVOL-079: a remote server row is {type: http, url} — https on an allowlisted host, no headers, no env."""
+        ok = {"type": "http", "url": "https://mcp.atlassian.com/v2/mcp"}
+        cases = [
+            ("green", {"atlassian": ok}, None),
+            ("other host", {"atlassian": {**ok, "url": "https://mcp.evil.test/v2/mcp"}}, "a remote server is https on one of"),
+            ("host as a prefix", {"atlassian": {**ok, "url": "https://mcp.atlassian.com.evil.test/mcp"}}, "a remote server is https on one of"),
+            ("userinfo", {"atlassian": {**ok, "url": "https://x@mcp.evil.test/mcp"}}, "a remote server is https on one of"),
+            ("plain http", {"atlassian": {**ok, "url": "http://mcp.atlassian.com/v2/mcp"}}, "a remote server is https on one of"),
+            ("headers", {"atlassian": {**ok, "headers": {"Authorization": "Bearer ${T}"}}}, "`headers` is not a remote-server field"),
+            ("env", {"atlassian": {**ok, "env": {"T": "x"}}}, "`env` is not a remote-server field"),
+            ("no url", {"atlassian": {"type": "http"}}, "a remote server is https on one of"),
+            ("a variable in the url", {"atlassian": {**ok, "url": "https://mcp.atlassian.com/v2/${HOME}"}}, "carries `$`"),
+        ]
+        for label, servers, msg in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                self._reg(repo, self._configures)
+                self._reg(repo, lambda r: next(s for q in r["questions"] for k, s in q["keys"].items() if k == "backend.runtime")["configures"]["Python"].__setitem__("mcp.servers", servers))
+                v12 = self._rule(discovery.validate(repo), "V12")
+                if msg is None:
+                    self.assertEqual(v12, [])
+                else:
+                    self.assertTrue(any(msg in f for f in v12), (label, v12))
+
+    def test_matches_derives_from_a_free_answer(self):
+        """EVOL-079: `matches` — case-insensitive substring, first wins, else + its warning; V1 holds the shape."""
+        m = {"key": "project_name", "values": {"acme": "a", "beta": "b"}, "else": "z", "warn": "`{answer}` matched nothing"}
+        reg = {"questions": [{"id": "Q1", "keys": {"project_name": {"free": "text"}}}], "derived": {"kind": {"from": "the name", "matches": m}}}
+        self.assertEqual(discovery.matched(reg, {"project_name": "The ACME shop"}), ({"kind": "a"}, []))
+        self.assertEqual(discovery.matched(reg, {"project_name": "Gamma"}), ({"kind": "z"}, ["`Gamma` matched nothing"]))
+        self.assertEqual(discovery.matched(reg, {}), ({}, []), "unanswered: nothing derived, no warning")
+        self.assertEqual(discovery.matched(reg, {"project_name": "Gam\x1b[31mma"})[1], ["`Gam?[31mma` matched nothing"], "the user's text is cleaned before the terminal")
+        self.assertEqual(discovery.decided(reg, {"project_name": "beta"}).get("kind"), "b", "conditions read it")
+        bad = [{**m, "key": "missing.key"}, {**m, "values": {}}, {**m, "else": ""}, {**m, "warn": " "}, {k: v for k, v in m.items() if k != "warn"}, {**m, "extra": 1}]
+        for i, b in enumerate([m] + bad):
+            with self.subTest(case=i), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                self._reg(repo, lambda r: r["derived"].__setitem__("kind", {"from": "the name", "matches": b}))
+                v1 = [f for f in self._rule(discovery.validate(repo), "V1") if "`kind`" in f]
+                (self.assertEqual if i == 0 else self.assertNotEqual)(v1, [], (i, v1))
+
+    def test_q27_tracker_adapter_is_derived(self):
+        """EVOL-079 (RDR G): the adapter follows Q27 — a tracker with no adapter takes the whole none set, with its warning."""
+        real = Path(__file__).resolve().parents[2]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        r = lambda tool, **more: discovery.resolve(real, {"project_tracking.tool": tool, **more})
+        lin = r("Linear")
+        self.assertEqual(lin["derived_answers"].get("project_tracking.adapter"), "none")
+        self.assertEqual(len(lin["warnings"]), 1); self.assertIn("`Linear` has no adapter", lin["warnings"][0])
+        self.assertIn("backlog/state.md", lin["landing"]); self.assertIn("backlog/project-config.json", lin["skipped"])
+        self.assertNotIn("backlog-tool-adapters/linear.md", lin["landing"] + lin["skipped"], "the stub is gone")
+        self.assertEqual(lin["placeholders"].get("TRACKER_ADAPTER"), "none", "a derived value fills its token")
+        self.assertIn("Q27.7", lin["pending"]); self.assertIn("Q27.1", lin["pending"])
+        self.assertNotIn("Q27.8", lin["pending"]); self.assertNotIn("Q27.9", lin["pending"])
+        for tool, adapter in (("GitHub Projects", "github"), ("jira", "jira"), ("None", "none")):
+            got = r(tool)
+            self.assertEqual((got["derived_answers"].get("project_tracking.adapter"), got["warnings"]), (adapter, []), tool)
+            self.assertEqual("backlog/state.md" in got["landing"], adapter == "none", tool)
+            self.assertEqual("backlog/project-config.json" in got["landing"], adapter != "none", tool)
+        jira = r("Jira")
+        self.assertTrue({"Q27.8", "Q27.9"} <= set(jira["pending"]))
+        self.assertEqual(discovery._specs(discovery.load_registry(real))["project_tracking.token"]["free"], "vault_name")
+        mcp = r("Jira", **{"project_tracking.transport": "mcp"})["configures"].get("mcp.servers")
+        self.assertEqual(mcp, {"atlassian": {"type": "http", "url": "https://mcp.atlassian.com/v2/mcp"}})
+        self.assertIsNone(r("Jira", **{"project_tracking.transport": "cli"})["configures"].get("mcp.servers"))
+        with self.assertRaises(GateFault) as cm:
+            r("Linear", **{"project_tracking.adapter": "jira"})
+        self.assertIn("derived, never answered", str(cm.exception))
+
     def test_q23_5_configures_the_browser_mcp(self):
         real = Path(__file__).resolve().parents[2]
         if not (real / discovery.REGISTRY).is_file():
@@ -9049,3 +9120,613 @@ class ContractStatuses(unittest.TestCase):
             self.assertTrue(self._st(repo, "main")[0]["ok"])
             write(repo / self.BL, json.dumps({"undeclared": ["status:../outside.py#500"]})); self._git(repo, "add", "-A")
             self.assertIn("`status:../outside.py#500` names no contract", contracts.render(contracts.check(repo, "main")), "a path leaving the repository is malformed, never read")
+
+
+TRACKER_FX = HERE.parent / "fixtures/tracker"
+
+
+class FakeGh:
+    """GitHub behind `gh api graphql`, answering in the recorded shapes (scripts/fixtures/tracker/github-*.json) from an
+    in-memory model the mutations change — the re-read sees what a write did."""
+
+    def __init__(self, page=None):
+        self.page = page   # a page size: the reader follows endCursor until hasNextPage is false
+        board = json.loads((TRACKER_FX / "github-board.json").read_text())["data"]["node"]
+        self.meta = {k: board[k] for k in ("id", "field")}
+        self.nodes = board["items"]["nodes"]
+        self.issues = {n["content"]["number"]: n["content"] for n in self.nodes if n["content"].get("__typename") == "Issue" and n["content"]["repository"]["nameWithOwner"] == "acme/app"}
+        for c in json.loads((TRACKER_FX / "github-issues.json").read_text())["data"]["repository"]["issues"]["nodes"]:
+            self.issues.setdefault(c["number"], {"__typename": "Issue", **c, "repository": {"nameWithOwner": "acme/app"}})
+        self.calls, self.seq = [], 100
+
+    def ops(self):
+        return [re.search(r"(?:query|mutation) (\w+)", a[3]).group(1) if a[:2] == ["api", "graphql"] else " ".join(a[:2]) for a in self.calls]
+
+    def _paged(self, nodes, v):
+        if not self.page:
+            return {"pageInfo": {"hasNextPage": False, "endCursor": None}, "nodes": nodes}
+        at = int(v.get("after", 0))
+        return {"pageInfo": {"hasNextPage": at + self.page < len(nodes), "endCursor": str(at + self.page)}, "nodes": nodes[at: at + self.page]}
+
+    def __call__(self, args):
+        self.calls.append(list(args))
+        if args[:2] == ["issue", "create"]:
+            n = max(self.issues) + 1
+            labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
+            self.issues[n] = {"__typename": "Issue", "id": f"I_{n}", "number": n, "title": args[args.index("--title") + 1], "state": "OPEN", "parent": None,
+                              "labels": {"nodes": [{"name": x} for x in labels]}, "repository": {"nameWithOwner": "acme/app"}}
+            return f"https://github.com/acme/app/issues/{n}\n"
+        q, v = args[3][len("query="):], dict(a.split("=", 1) for a in args[5::2])
+        op = re.search(r"(?:query|mutation) (\w+)", q).group(1)
+        byid = {c["id"]: c for c in self.issues.values()}
+        if op == "TrackerBoard":
+            return json.dumps({"data": {"node": {**self.meta, "items": self._paged(self.nodes, v)}}})
+        if op == "TrackerIssues":
+            return json.dumps({"data": {"repository": {"issues": self._paged(
+                [{k: x for k, x in c.items() if k not in ("__typename", "repository")} for c in self.issues.values() if c["state"] == "OPEN"], v)}}})
+        if op == "TrackerIssue":
+            return json.dumps({"data": {"repository": {"issue": {"id": self.issues[int(v["number"])]["id"]}}}})
+        if op == "TrackerAdd":
+            hit = next((n for n in self.nodes if n["content"].get("id") == v["content"]), None)
+            if not hit:
+                self.seq += 1
+                hit = {"id": f"PVTI_{self.seq}", "fieldValueByName": None, "content": byid[v["content"]]}
+                self.nodes.append(hit)
+            return json.dumps({"data": {"addProjectV2ItemById": {"item": {"id": hit["id"]}}}})
+        if op == "TrackerSet":
+            name = next(o["name"] for o in self.meta["field"]["options"] if o["id"] == v["option"])
+            next(n for n in self.nodes if n["id"] == v["item"])["fieldValueByName"] = {"name": name}
+            return json.dumps({"data": {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": v["item"]}}}})
+        if op in ("TrackerClose", "TrackerReopen"):
+            byid[v["id"]]["state"] = "CLOSED" if op == "TrackerClose" else "OPEN"
+            return json.dumps({"data": {}})
+        if op == "TrackerLink":
+            byid[v["child"]]["parent"] = {"number": byid[v["parent"]]["number"]}
+            return json.dumps({"data": {"addSubIssue": {"issue": {"id": v["parent"]}}}})
+        raise AssertionError(op)
+
+
+class FakeJira:
+    """Jira REST in the recorded shapes (scripts/fixtures/tracker/jira-*.json), Cloud or Data Center by the site."""
+
+    STATUS = {"10000": ("Backlog", "new"), "10001": ("Selected for Development", "new"), "3": ("In Progress", "indeterminate"), "10002": ("Done", "done")}
+
+    def __init__(self, site="https://acme.atlassian.net", page=None):
+        self.site, self.page = site, page   # page: Cloud pages of that size, a nextPageToken and no isLast until the last
+        self.config = json.loads((TRACKER_FX / "jira-configuration.json").read_text())
+        self.issues = {i["key"]: i for i in json.loads((TRACKER_FX / "jira-search.json").read_text())["issues"]}
+        self.trans = json.loads((TRACKER_FX / "jira-transitions.json").read_text())
+        self.project = json.loads((TRACKER_FX / "jira-project.json").read_text())
+        self.project["versions"] = [{"id": "20001", "name": "EPIC-1: Login"}]
+        self.calls = []
+
+    def _status(self, sid):
+        name, cat = self.STATUS[sid]
+        return {"id": sid, "name": name, "statusCategory": {"key": cat}}
+
+    def ops(self):
+        return [f"{m} {re.sub(r'^https://[^/]+', '', u).split('?')[0]}" for m, u, _, _ in self.calls]
+
+    def __call__(self, method, url, headers, body=None):
+        self.calls.append((method, url, headers, body))
+        path = urllib.parse.urlparse(url).path
+        if path.endswith("/configuration"):
+            return 200, self.config
+        if path.endswith("/search/jql"):
+            if not self.page:
+                return 200, {"issues": list(self.issues.values()), "isLast": True}
+            at, all_ = int(body.get("nextPageToken") or 0), list(self.issues.values())
+            more = at + self.page < len(all_)
+            return 200, {"issues": all_[at: at + self.page], **({"nextPageToken": str(at + self.page)} if more else {"isLast": True})}
+        if path.endswith("/search"):
+            got = list(self.issues.values())[body["startAt"]: body["startAt"] + 2]   # a server page of two, whatever was asked
+            return 200, {"issues": got}
+        m = re.search(r"/issue/([A-Z]+-\d+)(/transitions)?$", path)
+        if m and m.group(2) and method == "GET":
+            return 200, self.trans
+        if m and m.group(2):
+            to = next(t["to"]["id"] for t in self.trans["transitions"] if t["id"] == body["transition"]["id"])
+            self.issues[m.group(1)]["fields"]["status"] = self._status(to)
+            return 204, None
+        if m:
+            return 200, self.issues[m.group(1)]
+        if path.endswith("/project/ACME"):
+            return 200, self.project
+        if path.endswith("/issue") and method == "POST":
+            n = max(int(k.split("-")[1]) for k in self.issues) + 1
+            f = body["fields"]
+            sub = any(t["id"] == f["issuetype"]["id"] and t["subtask"] for t in self.project["issueTypes"])
+            self.issues[f"ACME-{n}"] = {"id": str(10000 + n), "key": f"ACME-{n}", "fields": {"summary": f["summary"], "status": self._status("10000"), "labels": f.get("labels", []),
+                                        "issuetype": {"subtask": sub}, **({"parent": {"key": f["parent"]["key"]}} if "parent" in f else {})}}
+            return 201, {"id": str(10000 + n), "key": f"ACME-{n}", "self": f"{self.site}/rest/api/3/issue/{10000 + n}"}
+        raise AssertionError((method, url))
+
+
+class Tracker(unittest.TestCase):
+    """EVOL-079, the backlog lifecycle: one reader and mover over every adapter (GitHub, Jira, none) — the item In Progress
+    before the work, a re-run that creates nothing, the flow's columns never a literal; recorded responses, never a live tracker."""
+
+    FLOW = ["Backlog", "Ready", "In Progress", "Done"]
+    JFLOW = ["Backlog", "Selected for Development", "In Progress", "Done"]
+    ENV = {"JIRA_API_TOKEN": "t0k", "JIRA_USER_EMAIL": "dev@acme.test"}
+    PLAN = "# Increment plan\n\n## 1. Increments\n\n### INC-1\n\n- SUB-1-1: login form · paths [src/login/**] · ~3 files · ~120 lines\n- SUB-1-2: session store · after [SUB-1-1]\n"
+
+    def _repo(self, tmp, adapter="none", flow=None, ids=None, phases="full-sdlc"):
+        repo = Path(tmp)
+        write(repo / "config/quality.json", json.dumps({"tracker": {"adapter": adapter, "flow": flow or self.FLOW}}))
+        write(repo / "docs/setup.md", f"---\nproject_tracking:\n  feature_phases: {phases}\n---\n")
+        if adapter == "none":
+            write(repo / tracker.STATE, (TRACKER_FX / "state.md").read_text())
+        else:
+            write(repo / tracker.CONFIG, json.dumps({"project_ids": ids or ({"owner": "acme", "repo": "acme/app", "project_number": "3", "project_node_id": "PVT_1"}
+                                                                            if adapter == "github" else {"site": "https://acme.atlassian.net", "project_key": "ACME", "board_id": "7"})}))
+        write(repo / "docs/spec/FEAT-001/increment_plan.md", self.PLAN)
+        return repo
+
+    # ── identity ──
+    def test_ident_is_the_title_head_and_a_title_continues_it(self):
+        self.assertEqual(tracker.head("[FEAT-001] IMPLEMENT: Code + Tests — Login"), "[FEAT-001] IMPLEMENT:")
+        self.assertEqual(tracker.head("[FEAT-001] INC-1 / SUB-1-2: session store"), "[FEAT-001] INC-1 / SUB-1-2:")
+        self.assertTrue(tracker.matches("[FEAT-001] IMPLEMENT: Code + Tests", "[FEAT-001] IMPLEMENT:"))
+        self.assertFalse(tracker.matches("[FEAT-001] IMPLEMENT-R1: rework", "[FEAT-001] IMPLEMENT:"), "a refinement item is another item")
+        self.assertFalse(tracker.matches("[FEAT-0011] IMPLEMENT: x", "[FEAT-001] IMPLEMENT:"))
+        self.assertTrue(tracker.matches("[FEAT-001] SMOKE-E2E (Browser): journeys", "[FEAT-001] SMOKE-E2E"), "the smoke item matches any scope variant")
+        self.assertTrue(tracker.matches("[FEAT-001] SMOKE-E2E: legacy", "[FEAT-001] SMOKE-E2E"))
+        self.assertEqual(tracker.phase_ident("FEAT-001", "blueprint", "simplified"), "[FEAT-001] SPEC:")
+        self.assertEqual(tracker.phase_ident("FEAT-001", "devops", "simplified"), "[FEAT-001] IMPLEMENT:")
+        self.assertEqual(tracker.phase_ident("FEAT-001", "smoke", "simplified"), "[FEAT-001] QA:")
+        self.assertEqual(tracker.phase_ident("FEAT-001", "qa", "full-sdlc"), "[FEAT-001] QA:")
+        b = {"items": [{"title": "[FEAT-001] Login", "key": "1"}, {"title": "[FEAT-001] COMPONENT: Button", "key": "2"}]}
+        self.assertEqual([i["key"] for i in tracker.find(b, tracker.phase_ident("FEAT-001", "qa", "single"))], ["1"], "single: the feature's one item, never a phase-headed one")
+        for bad in (("FEAT 1", "qa"), ("FEAT-001", "deploy")):
+            with self.assertRaises(GateFault):
+                tracker.phase_ident(*bad, "full-sdlc")
+
+    # ── parsing the recorded responses into the one shape ──
+    def test_github_board_parses_into_the_one_shape(self):
+        b = tracker.from_github([json.loads((TRACKER_FX / "github-board.json").read_text())], [json.loads((TRACKER_FX / "github-issues.json").read_text())], "acme/app")
+        self.assertEqual(b["columns"], self.FLOW)
+        got = {i["key"]: (i["column"], i["parent"], i["closed"]) for i in b["items"]}
+        self.assertEqual(got, {"#1": ("Done", None, True), "#2": ("Ready", None, False), "#3": ("Backlog", None, False), "#4": (None, "#3", False), "#5": (None, None, False)},
+                         "another repository's item and a draft are not this board's; an open issue off the project reads column None")
+        self.assertEqual(b["ref"]["options"]["In Progress"], "o3")
+
+    def test_jira_board_parses_columns_by_status_id(self):
+        b = tracker.from_jira(json.loads((TRACKER_FX / "jira-configuration.json").read_text()), [json.loads((TRACKER_FX / "jira-search.json").read_text())])
+        self.assertEqual(b["columns"], self.JFLOW)
+        self.assertEqual({i["key"]: i["column"] for i in b["items"]}, {"ACME-1": "Done", "ACME-2": "Backlog", "ACME-3": "Selected for Development"})
+        self.assertFalse(b["relink"], "Jira never links an existing item under a parent")
+
+    def test_local_board_parses_state_md(self):
+        b = tracker.from_state((TRACKER_FX / "state.md").read_text())
+        self.assertEqual(b["columns"], self.FLOW)
+        self.assertEqual([(i["key"], i["column"]) for i in b["items"]], [("L-001", "Done"), ("L-002", "Ready"), ("L-003", "Backlog")])
+        self.assertEqual(b["items"][1]["title"], "[FEAT-001] BLUEPRINT: Architecture | Test Plan — Login", "an escaped pipe stays in the title")
+        self.assertEqual(b["items"][2]["labels"], ["phase:implement", "scope:full-stack"])
+        with self.assertRaises(GateFault):
+            tracker.from_state("---\nlast_updated: null\n---\n| Local ID |\n")
+
+    # ── config ──
+    def test_config_is_four_columns_and_a_known_adapter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(tracker.cfg(repo)["flow"]["ready"], "Ready")
+            for bad in ({"adapter": "linear", "flow": self.FLOW}, {"adapter": "none", "flow": self.FLOW[:3]}, {"adapter": "none", "flow": ["", *self.FLOW[1:]]}, None):
+                write(repo / "config/quality.json", json.dumps({"tracker": bad} if bad else {}))
+                with self.assertRaises(GateFault):
+                    tracker.cfg(repo)
+
+    def test_a_flow_column_the_board_lacks_is_a_fault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, flow=["Backlog", "Todo", "In Progress", "Done"])
+            with self.assertRaises(GateFault) as e:
+                tracker.move(repo, "[FEAT-001] BLUEPRINT:", "ready")
+            self.assertIn("`Todo`", str(e.exception))
+
+    # ── start: In Progress before the work ──
+    def test_start_moves_the_phase_item_to_in_progress_on_every_adapter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = tracker.start(repo, "FEAT-001", "implement")
+            self.assertTrue(r["ok"], tracker.render(r)); self.assertIn("L-003 → In Progress", r["did"])
+            self.assertIn("| L-003 | FEAT-001 | [FEAT-001] IMPLEMENT: Code + Tests — Login | In Progress |", (repo / tracker.STATE).read_text())
+            self.assertEqual(tracker.start(repo, "FEAT-001", "implement")["did"], ["L-003 already In Progress"], "a second start moves nothing")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, gh = self._repo(tmp, "github"), FakeGh()
+            r = tracker.start(repo, "FEAT-001", "implement", gh=gh)
+            self.assertTrue(r["ok"], tracker.render(r))
+            self.assertEqual(gh.ops(), ["TrackerBoard", "TrackerIssues", "TrackerSet", "TrackerBoard", "TrackerIssues"], "one write, then the re-read")
+            self.assertEqual(dict(a.split("=", 1) for a in gh.calls[2][5::2])["option"], "o3", "the option resolved by name at run time")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, jr = self._repo(tmp, "jira", flow=self.JFLOW), FakeJira()
+            r = tracker.start(repo, "FEAT-001", "blueprint", fetch=jr, env=self.ENV)
+            self.assertTrue(r["ok"], tracker.render(r))
+            self.assertEqual(jr.issues["ACME-2"]["fields"]["status"]["id"], "3")
+            post = [c for c in jr.calls if c[1].endswith("/transitions") and c[0] == "POST"]
+            self.assertEqual([c[3] for c in post], [{"transition": {"id": "21"}}], "the transition whose target is in the column")
+            self.assertIn("GET /rest/api/3/issue/ACME-2", jr.ops(), "the written key read back one by one, not through the lagging search")
+
+    def test_flow_ready_maps_to_another_column_name(self):
+        """DoD red fixture: «Ready» is `Selected for Development` on this board — the item moves there, never to a literal."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, jr = self._repo(tmp, "jira", flow=self.JFLOW), FakeJira()
+            r = tracker.move(repo, "[FEAT-001] BLUEPRINT:", "ready", fetch=jr, env=self.ENV)
+            self.assertTrue(r["ok"], tracker.render(r)); self.assertEqual(r["did"], ["ACME-2 → Selected for Development"])
+            self.assertEqual([c[3] for c in jr.calls if c[0] == "POST" and c[1].endswith("/transitions")], [{"transition": {"id": "11"}}])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, flow=["Backlog", "Backlog", "In Progress", "Done"])
+            r = tracker.move(repo, "[FEAT-001] BLUEPRINT:", "ready")
+            self.assertEqual(r["did"], ["L-002 → Backlog"]); self.assertIn("| L-002 | FEAT-001 | [FEAT-001] BLUEPRINT: Architecture \\| Test Plan — Login | Backlog |", (repo / tracker.STATE).read_text())
+
+    def test_github_done_closes_and_a_reopened_phase_reopens(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, gh = self._repo(tmp, "github"), FakeGh()
+            self.assertTrue(tracker.move(repo, "[FEAT-001] BLUEPRINT:", "done", gh=gh)["ok"])
+            self.assertEqual(gh.issues[2]["state"], "CLOSED"); self.assertIn("TrackerClose", gh.ops())
+            gh.calls.clear()
+            self.assertTrue(tracker.move(repo, "[FEAT-001] CODESIGN:", "ready", gh=gh)["ok"], "the cascade reopens a gate to ready")
+            self.assertEqual(gh.issues[1]["state"], "OPEN"); self.assertIn("TrackerReopen", gh.ops())
+
+    def test_start_on_a_done_item_is_red_unless_a_ratified_realignment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = tracker.start(repo, "FEAT-001", "codesign")
+            self.assertFalse(r["ok"]); self.assertIn("refinement item ([FEAT-001] CODESIGN-R<k>:)", r["red"][0])
+            log = repo / "docs/project_log/features/FEAT-001.log.jsonl"
+            write(log, json.dumps({"action": "accepted-change", "id": "AC-FEAT-001-1", "rdr": "«1»"}) + "\n" + json.dumps({"action": "accepted-change", "id": "AC-FEAT-001-2"}) + "\n")
+            r = tracker.start(repo, "FEAT-001", "codesign", aligns="AC-FEAT-001-1")
+            self.assertTrue(r["ok"], tracker.render(r)); self.assertIn("stays Done", r["did"][0])
+            self.assertIn("| L-001 | FEAT-001 | [FEAT-001] CODESIGN: Spec BDD + UX Mock — Login | Done |", (repo / tracker.STATE).read_text(), "never moved")
+            self.assertIn("not ratified", tracker.start(repo, "FEAT-001", "codesign", aligns="AC-FEAT-001-2")["red"][0])
+            self.assertIn("no accepted change AC-FEAT-001-9", tracker.start(repo, "FEAT-001", "codesign", aligns="AC-FEAT-001-9")["red"][0])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, gh = self._repo(tmp, "github"), FakeGh()
+            self.assertFalse(tracker.start(repo, "FEAT-001", "codesign", gh=gh)["ok"], "a closed GitHub issue is done")
+            self.assertNotIn("TrackerSet", gh.ops())
+
+    def test_start_without_the_item_or_with_two_is_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertIn("no item `[FEAT-001] QA:`", tracker.start(repo, "FEAT-001", "qa")["red"][0])
+            st = repo / tracker.STATE
+            st.write_text(st.read_text().replace("## Next Action", "") .replace("| L-003 |", "| L-004 | FEAT-001 | [FEAT-001] IMPLEMENT: again | Backlog | — | — | — | — |\n| L-003 |"))
+            self.assertIn("matches 2 items (L-004, L-003)", tracker.start(repo, "FEAT-001", "implement")["red"][0])
+            before = st.read_text()
+            r = tracker.move(repo, "[FEAT-001] IMPLEMENT:", "ready")
+            self.assertIn("matches 2 items (L-004, L-003)", r["red"][0]); self.assertEqual(st.read_text(), before, "--move moves neither")
+
+    # ── ensure: idempotent creation ──
+    def _rerun(self, repo, **inj):
+        rows = tracker.sub_increment_rows(repo, "FEAT-001")
+        self.assertEqual([r["title"] for r in rows], ["[FEAT-001] INC-1 / SUB-1-1: login form", "[FEAT-001] INC-1 / SUB-1-2: session store"])
+        first = tracker.ensure(repo, rows, **inj)
+        self.assertTrue(first["ok"], tracker.render(first)); self.assertEqual([q["op"] for q in first["requests"]], ["create", "create"])
+        again = tracker.ensure(repo, rows, **inj)
+        self.assertTrue(again["ok"], tracker.render(again)); self.assertEqual(again["requests"], [], "DoD: re-running creates nothing new")
+        return first
+
+    def test_rerun_creates_nothing_new_on_every_adapter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._rerun(repo)
+            text = (repo / tracker.STATE).read_text()
+            self.assertIn("| L-004 | FEAT-001 | [FEAT-001] INC-1 / SUB-1-1: login form | Backlog | phase:implement | — | L-003 | — |", text)
+            self.assertIn("next_local_id: 6", text); self.assertIn("total_issues: 5", text)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, gh = self._repo(tmp, "github"), FakeGh()
+            self._rerun(repo, gh=gh)
+            self.assertEqual(gh.ops().count("issue create"), 2)
+            self.assertEqual({gh.issues[n]["parent"]["number"] for n in (6, 7)}, {3}, "each sub-item under IMPLEMENT")
+            self.assertEqual([n["fieldValueByName"]["name"] for n in gh.nodes if n["content"].get("number") in (6, 7)], ["Backlog", "Backlog"])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, jr = self._repo(tmp, "jira", flow=self.JFLOW), FakeJira()
+            self._rerun(repo, fetch=jr, env=self.ENV)
+            made = [c[3]["fields"] for c in jr.calls if c[0] == "POST" and c[1].endswith("/issue")]
+            self.assertEqual([(f["parent"]["key"], f["issuetype"]["id"]) for f in made], [("ACME-3", "10003")] * 2, "a sub-task of IMPLEMENT")
+            search = [c[3] for c in jr.calls if c[1].endswith("/search/jql")]
+            self.assertEqual(search[1].get("reconcileIssues"), [10004, 10005], "the run's own creations read after write")
+            self.assertEqual(search[1]["jql"], 'project = "ACME" ORDER BY key ASC')
+
+    def test_ensure_plans_the_requests_and_a_recorded_board_after_plans_none(self):
+        b = tracker.from_github([json.loads((TRACKER_FX / "github-board.json").read_text())], [json.loads((TRACKER_FX / "github-issues.json").read_text())], "acme/app")
+        flow = dict(zip(tracker.STATES, self.FLOW))
+        rows = [{"title": "[FEAT-001] QA: Verification — Login", "state": "backlog"}, {"title": "[FEAT-001] CONTRACT-FREEZE: x", "parent": "[FEAT-001] IMPLEMENT:"},
+                {"title": "[FEAT-001] PREVENTIVE-SWEEP: y", "parent": "[FEAT-001] IMPLEMENT:"}]
+        reqs, red = tracker.plan_ensure(b, rows, flow)
+        self.assertEqual(red, [])
+        self.assertEqual([(q["op"], q.get("key") or q.get("title"), q.get("column") or q.get("parent")) for q in reqs],
+                         [("move", "#5", "Backlog"), ("move", "#4", "Backlog"), ("create", "[FEAT-001] PREVENTIVE-SWEEP: y", "Backlog")],
+                         "an issue off the board is placed, an existing child left alone, only the missing one created")
+        for i in b["items"]:
+            i["column"] = i["column"] or "Backlog"
+        b["items"].append({"key": "#6", "title": "[FEAT-001] PREVENTIVE-SWEEP: y", "column": "Backlog", "parent": "#3", "labels": [], "closed": False, "ref": {}})
+        self.assertEqual(tracker.plan_ensure(b, rows, flow), ([], []), "the board after: nothing to do")
+
+    def test_ensure_refuses_a_duplicate_a_foreign_parent_and_a_jira_relink(self):
+        flow = dict(zip(tracker.STATES, self.FLOW))
+        b = {"columns": self.FLOW, "relink": True, "items": [
+            {"key": "1", "title": "[F-1] IMPLEMENT: a", "column": "Backlog", "parent": None}, {"key": "2", "title": "[F-1] IMPLEMENT: b", "column": "Backlog", "parent": None},
+            {"key": "3", "title": "[F-1] QA: c", "column": "Backlog", "parent": None}, {"key": "4", "title": "[F-1] SPEC: d", "column": "Backlog", "parent": "3"}]}
+        _, red = tracker.plan_ensure(b, [{"title": "[F-1] IMPLEMENT: x"}], flow)
+        self.assertIn("matches 2 items (1, 2)", red[0])
+        reqs, red = tracker.plan_ensure(b, [{"title": "[F-1] SPEC: d", "parent": "[F-1] NEW:"}, {"title": "[F-1] NEW: n"}], flow)
+        self.assertIn("is not on the board and no earlier row creates it", red[0], "a parent comes before its children")
+        b["items"][3]["parent"] = None
+        reqs, red = tracker.plan_ensure(b, [{"title": "[F-1] QA: c"}, {"title": "[F-1] SPEC: d", "parent": "[F-1] QA:"}], flow)
+        self.assertEqual(reqs, [{"op": "link", "key": "4", "parent": "[F-1] QA:"}])
+        b["relink"] = False
+        _, red = tracker.plan_ensure(b, [{"title": "[F-1] SPEC: d", "parent": "[F-1] QA:"}], flow)
+        self.assertIn("cannot link an existing item", red[0])
+        b["items"][3]["parent"] = "9"
+        _, red = tracker.plan_ensure(b, [{"title": "[F-1] SPEC: d", "parent": "[F-1] QA:"}], flow)
+        self.assertIn("never re-parents", red[0])
+        for bad in ([{"name": "x"}], [{"title": "t", "state": "doing"}], [{"title": "t", "labels": "a"}], [{"title": "t", "owner": "me"}]):
+            with self.assertRaises(GateFault):
+                tracker.plan_ensure(b, bad, flow)
+
+    def test_dry_run_plans_and_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            before = (repo / tracker.STATE).read_text()
+            r = tracker.ensure(repo, tracker.sub_increment_rows(repo, "FEAT-001"), dry_run=True)
+            self.assertTrue(r["ok"]); self.assertEqual(len(r["requests"]), 2); self.assertEqual((repo / tracker.STATE).read_text(), before)
+
+    def test_local_create_copies_the_body_and_fills_the_placeholder_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            tpl = (HERE.parent.parent / ".context/templates/setup/backlog/state.md")
+            if tpl.is_file():   # the shipped state.md, as it lands: its default columns are the default flow
+                write(repo / tracker.STATE, tpl.read_text())
+            else:
+                write(repo / tracker.STATE, "---\ntotal_issues: 0\nnext_local_id: 1\nboard_columns: " + json.dumps(self.FLOW) + "\n---\n| Local ID | Feature | Title | Status | Labels | Milestone | Parent | Body File |\n|---|---|---|---|---|---|---|---|\n| — | — | — | — | — | — | — | — |\n")
+            write(repo / "tmp/body.md", "Scope.\n")
+            r = tracker.ensure(repo, [{"title": "[FEAT-002] CODESIGN: a | b", "body": "tmp/body.md", "milestone": "EPIC-1: Login", "labels": ["phase:codesign"]}])
+            self.assertTrue(r["ok"], tracker.render(r))
+            text = (repo / tracker.STATE).read_text()
+            self.assertIn("| L-001 | FEAT-002 | [FEAT-002] CODESIGN: a \\| b | Backlog | phase:codesign | EPIC-1: Login | — | docs/backlog/issue-bodies/L-001.md |", text)
+            self.assertNotIn("| — | — | — |", text, "the placeholder row gives way")
+            self.assertEqual((repo / "docs/backlog/issue-bodies/L-001.md").read_text(), "Scope.\n")
+            write(repo / "docs/backlog/issue-bodies/feat-002-2-blueprint.md", "Design.\n")
+            r = tracker.ensure(repo, [{"title": "[FEAT-002] BLUEPRINT: b", "body": "docs/backlog/issue-bodies/feat-002-2-blueprint.md"}])
+            self.assertTrue(r["ok"], tracker.render(r))
+            self.assertIn("| docs/backlog/issue-bodies/feat-002-2-blueprint.md |", (repo / tracker.STATE).read_text(), "a body file already home is pointed at")
+            self.assertFalse((repo / "docs/backlog/issue-bodies/L-002.md").exists(), "never copied twice")
+
+    # ── Jira transport ──
+    def test_jira_site_decides_cloud_or_data_center(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, "jira", flow=self.JFLOW, ids={"site": "https://jira.acme.test", "project_key": "ACME", "board_id": "7"})
+            jr = FakeJira("https://jira.acme.test")
+            r = tracker.ensure(repo, [{"title": "[FEAT-001] QA: Verification", "body": "docs/setup.md", "milestone": "EPIC-1: Login"}], fetch=jr, env={"JIRA_API_TOKEN": "pat"})
+            self.assertTrue(r["ok"], tracker.render(r))
+            self.assertTrue(all(c[2]["Authorization"] == "Bearer pat" for c in jr.calls), "Data Center: a personal token, Bearer")
+            self.assertIn("POST /rest/api/2/search", jr.ops()); self.assertNotIn("POST /rest/api/2/search/jql", jr.ops())
+            self.assertEqual([c[3]["startAt"] for c in jr.calls if c[1].endswith("/search")][:3], [0, 2, 3], "paged by what the server returned, until an empty page")
+            made = next(c[3]["fields"] for c in jr.calls if c[0] == "POST" and c[1].endswith("/issue"))
+            self.assertIsInstance(made["description"], str, "a plain description on v2")
+            self.assertEqual(made["fixVersions"], [{"id": "20001"}], "the version by its id")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, jr = self._repo(tmp, "jira", flow=self.JFLOW), FakeJira()
+            r = tracker.ensure(repo, [{"title": "[FEAT-001] QA: Verification", "body": "docs/setup.md"}], fetch=jr, env=self.ENV)
+            self.assertTrue(r["ok"], tracker.render(r))
+            self.assertEqual(jr.calls[0][2]["Authorization"], "Basic " + base64.b64encode(b"dev@acme.test:t0k").decode())
+            made = next(c[3]["fields"] for c in jr.calls if c[0] == "POST" and c[1].endswith("/issue"))
+            self.assertEqual(made["description"]["type"], "doc", "ADF on Cloud v3")
+            for env, why in (({}, "JIRA_API_TOKEN"), ({"JIRA_API_TOKEN": "t"}, "JIRA_USER_EMAIL")):
+                with self.assertRaises(GateFault) as e:
+                    tracker.start(repo, "FEAT-001", "qa", fetch=jr, env=env)
+                self.assertIn(why, str(e.exception))
+            write(repo / tracker.CONFIG, json.dumps({"project_ids": {"site": "https://acme.atlassian.net", "project_key": 'ACME" OR 1=1', "board_id": "7"}}))
+            with self.assertRaises(GateFault):
+                tracker.start(repo, "FEAT-001", "qa", fetch=jr, env=self.ENV)
+            with self.assertRaises(GateFault):
+                tracker.ensure(self._repo(tmp, "jira", flow=self.JFLOW), [{"title": "[FEAT-001] QA: v", "milestone": "nope"}], fetch=FakeJira(), env=self.ENV)
+
+    def test_jira_without_a_transition_into_the_column_is_a_fault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, jr = self._repo(tmp, "jira", flow=self.JFLOW), FakeJira()
+            jr.trans["transitions"] = [t for t in jr.trans["transitions"] if t["id"] != "21"]
+            with self.assertRaises(GateFault) as e:
+                tracker.start(repo, "FEAT-001", "blueprint", fetch=jr, env=self.ENV)
+            self.assertIn("no transition into the `In Progress` column", str(e.exception))
+
+    def test_the_board_not_taking_a_write_is_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, gh = self._repo(tmp, "github"), FakeGh()
+            real = gh.__call__
+            gh_drop = lambda args: json.dumps({"data": {}}) if "mutation TrackerSet" in " ".join(args) else real(args)
+            r = tracker.start(repo, "FEAT-001", "implement", gh=gh_drop)
+            self.assertFalse(r["ok"]); self.assertIn("the board did not take `move` #3 → In Progress", r["red"][0])
+
+    # ── round-1 cures (the EVOL-079 critics) ──
+    def test_a_whole_title_ident_matches_only_itself(self):
+        self.assertFalse(tracker.matches("[F] COMPONENT: Button Group", "[F] COMPONENT: Button"))
+        self.assertTrue(tracker.matches("[F] COMPONENT: Button", "[F] COMPONENT: Button"))
+        self.assertFalse(tracker.matches("Setup CI pipeline", "Setup CI"), "an unbracketed title is itself")
+        self.assertTrue(tracker.matches("[F] QA: v", "[F] QA:")); self.assertFalse(tracker.matches("[F] QA:v", "[F] QA:"), "a head goes on with a space")
+        flow = dict(zip(tracker.STATES, self.FLOW))
+        b = {"columns": self.FLOW, "relink": True, "items": [{"key": "1", "title": "[F] COMPONENT: Button Group", "column": "Backlog", "parent": None}]}
+        reqs, red = tracker.plan_ensure(b, [{"title": "[F] COMPONENT: Button", "ident": "[F] COMPONENT: Button"}], flow)
+        self.assertEqual((red, [q["op"] for q in reqs]), ([], ["create"]), "a longer sibling never stands in for the missing item")
+        self.assertEqual(tracker.plan_ensure(b, [{"title": "[F] COMPONENT: Button Group", "ident": "[F] COMPONENT: Button Group"}], flow), ([], []))
+
+    def test_two_rows_naming_one_item_are_red(self):
+        flow = dict(zip(tracker.STATES, self.FLOW))
+        reqs, red = tracker.plan_ensure({"columns": self.FLOW, "relink": True, "items": []}, [{"title": "[F] COMPONENT: A"}, {"title": "[F] COMPONENT: B"}], flow)
+        self.assertEqual(len(reqs), 1); self.assertIn("two rows name the item `[F] COMPONENT:`", red[0])
+
+    def test_what_the_replan_still_finds_red_is_red(self):
+        """Jira links nothing afterwards: a child whose parent the server dropped is red at the settle, never green."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, jr = self._repo(tmp, "jira", flow=self.JFLOW), FakeJira()
+
+            def drop_parent(method, url, headers, body=None):
+                if method == "POST" and url.endswith("/issue"):
+                    body = {**body, "fields": {k: v for k, v in body["fields"].items() if k != "parent"}}
+                return jr(method, url, headers, body)
+            r = tracker.ensure(repo, tracker.sub_increment_rows(repo, "FEAT-001"), fetch=drop_parent, env=self.ENV)
+            self.assertFalse(r["ok"]); self.assertIn("cannot link an existing item", r["red"][0])
+
+    def test_a_flow_column_off_the_board_faults_on_every_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, flow=["Backlog", "Todo", "In Progress", "Done"])
+            with self.assertRaises(GateFault) as e:
+                tracker.ensure(repo, [{"title": "[FEAT-001] QA: v"}], dry_run=True)
+            self.assertIn("`Todo`", str(e.exception), "the upgrade's dry-run names a flow column the board lacks")
+            with self.assertRaises(GateFault):
+                tracker.start(repo, "FEAT-001", "implement")
+
+    def test_aligns_names_a_change_of_the_item_feature(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "docs/project_log/features/FEAT-002.log.jsonl", json.dumps({"action": "accepted-change", "id": "AC-FEAT-002-1", "rdr": "«1»"}) + "\n")
+            r = tracker.start(repo, "FEAT-001", "codesign", aligns="AC-FEAT-002-1")
+            self.assertFalse(r["ok"]); self.assertIn("an accepted change of FEAT-002, not of FEAT-001", r["red"][0])
+            r = tracker.start(repo, None, None, item="[FEAT-001] CODESIGN:", aligns="AC-FEAT-002-1")
+            self.assertFalse(r["ok"], "an --item's feature is its title's")
+
+    def test_a_body_is_a_markdown_file_checked_before_any_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            before = (repo / tracker.STATE).read_text()
+            write(repo / ".env", "TOKEN=x\n")
+            for body in (".env", "missing.md", "../outside.md"):
+                with self.assertRaises(GateFault) as e:
+                    tracker.ensure(repo, [{"title": "[FEAT-009] QA: v", "body": body}])
+                self.assertIn("not a markdown file", str(e.exception))
+            self.assertEqual((repo / tracker.STATE).read_text(), before, "nothing written")
+            self.assertFalse((repo / tracker.BODIES / "L-004.md").exists())
+
+    def test_every_body_is_read_before_any_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            before = (repo / tracker.STATE).read_text()
+            write(repo / "ok.md", "fine\n"); (repo / "bad.md").write_bytes(b"\xff\xfe not utf-8")
+            with self.assertRaises(GateFault) as e:
+                tracker.ensure(repo, [{"title": "[FEAT-009] QA: v", "body": "ok.md"}, {"title": "[FEAT-009] DEVOPS: v", "body": "bad.md"}])
+            self.assertIn("cannot be read", str(e.exception))
+            self.assertEqual((repo / tracker.STATE).read_text(), before, "the first row is not written either")
+            self.assertFalse((repo / tracker.BODIES / "L-004.md").exists())
+
+    def test_a_repeated_page_token_is_a_fault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, jr, n = self._repo(tmp, "jira", flow=self.JFLOW), FakeJira(), [0]
+
+            def stuck(method, url, headers, body=None):
+                if url.endswith("/search/jql"):
+                    n[0] += 1
+                    if n[0] > 5:
+                        raise AssertionError("the search loops on a repeated token")
+                    return 200, {"issues": [], "nextPageToken": "same"}
+                return jr(method, url, headers, body)
+            with self.assertRaises(GateFault) as e:
+                tracker.move(repo, "[FEAT-001] IMPLEMENT:", "ready", fetch=stuck, env=self.ENV)
+            self.assertIn("twice", str(e.exception))
+
+    def test_a_short_local_row_reads_its_missing_cells_empty(self):
+        text = (TRACKER_FX / "state.md").read_text()
+        line = next(x for x in text.splitlines() if x.startswith("| L-003 |"))
+        b = tracker.from_state(text.replace(line, line + "\n| L-009 | FEAT-009 | [FEAT-009] QA: v | Backlog |"))
+        self.assertEqual([(i["key"], i["parent"], i["labels"]) for i in b["items"] if i["key"] == "L-009"], [("L-009", None, [])])
+
+    def test_every_page_is_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, gh = self._repo(tmp, "github"), FakeGh(page=1)
+            r = tracker.start(repo, "FEAT-001", "implement", gh=gh)
+            self.assertTrue(r["ok"], tracker.render(r))
+            boards = [dict(a.split("=", 1) for a in c[5::2]) for c in gh.calls if "query TrackerBoard" in c[3]]
+            self.assertGreater(len(boards), 2); self.assertEqual(boards[1].get("after"), "1", "GitHub: the cursor goes on")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, jr = self._repo(tmp, "jira", flow=self.JFLOW), FakeJira(page=1)
+            r = tracker.move(repo, "[FEAT-001] IMPLEMENT:", "ready", fetch=jr, env=self.ENV)
+            self.assertTrue(r["ok"], tracker.render(r))
+            tokens = [c[3].get("nextPageToken") for c in jr.calls if c[1].endswith("/search/jql")]
+            self.assertEqual(tokens[:3], [None, "1", "2"], "Jira Cloud: a page without isLast goes on while a nextPageToken comes")
+
+    def test_jira_http_maps_every_answer_and_never_follows_a_redirect(self):
+        import http.server
+        import socket
+        import threading
+        seen = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def _send(self, code, body=b"", headers=()):
+                self.send_response(code)
+                for k, v in headers:
+                    self.send_header(k, v)
+                self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+
+            def do_GET(self):
+                seen.append(self.path)
+                again = seen.count(self.path) > 1
+                answers = {"/redirect": (302, b"", [("Location", "/landing")]), "/401": (401, b"", []), "/429": (429, b"", [("Retry-After", "0")]),
+                           "/429-once": (200, b'{"ok": true}', []) if again else (429, b"", [("Retry-After", "0")]),
+                           "/429-odd": (200, b'{"ok": true}', []) if again else (429, b"", [("Retry-After", "\u00b2")]),
+                           "/500": (500, b'{"errorMessages": ["boom"]}', []), "/html": (200, b"<html>", [])}
+                self._send(*answers.get(self.path, (200, b'{"ok": true}', [])))
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close); self.addCleanup(srv.shutdown)
+        base, auth = f"http://127.0.0.1:{srv.server_address[1]}", {"Authorization": "Bearer s3cret"}
+        px = unittest.mock.patch.dict(os.environ, {"no_proxy": "127.0.0.1", "NO_PROXY": "127.0.0.1"})   # a CI proxy never sees the local server
+        px.start(); self.addCleanup(px.stop)
+        self.assertEqual(tracker._http("GET", base + "/ok", auth), (200, {"ok": True}))
+        with unittest.mock.patch.object(tracker.time, "sleep") as nap:
+            self.assertEqual(tracker._http("GET", base + "/429-odd", auth), (200, {"ok": True}), "a Retry-After that is no ASCII number waits the default")
+        nap.assert_called_once_with(5)
+        self.assertEqual(tracker._http("GET", base + "/429-once", auth), (200, {"ok": True}), "a 429 waits its Retry-After once")
+        with socket.socket() as so:
+            so.bind(("127.0.0.1", 0)); closed = so.getsockname()[1]
+        for url, why in ((base + "/redirect", "redirected"), (base + "/401", "JIRA_API_TOKEN"), (base + "/429", "kept rate-limiting"),
+                         (base + "/500", "(boom)"), (base + "/html", "could not be reached"), (f"http://127.0.0.1:{closed}/x", "could not be reached")):
+            with self.assertRaises(GateFault) as e:
+                tracker._http("GET", url, auth)
+            self.assertIn(why, str(e.exception)); self.assertNotIn("s3cret", str(e.exception))
+        self.assertNotIn("/landing", seen, "the token never follows a redirect")
+
+    def test_gh_failures_are_faults_with_their_remedy(self):
+        for exc, why in ((FileNotFoundError(), "not installed"), (subprocess.TimeoutExpired("gh", 60), "did not answer")):
+            with unittest.mock.patch.object(tracker.subprocess, "run", side_effect=exc), self.assertRaises(GateFault) as e:
+                tracker._gh(["api"])
+            self.assertIn(why, str(e.exception))
+        with unittest.mock.patch.object(tracker.subprocess, "run", return_value=subprocess.CompletedProcess(["gh"], 1, "", "gh: HTTP 401: Bad credentials\n")):
+            with self.assertRaises(GateFault) as e:
+                tracker._gh(["api"])
+        self.assertIn("gh auth login", str(e.exception))
+
+    def test_config_names_are_refused_before_any_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for adapter, ids in (("jira", {"site": "https://u:p@acme.atlassian.net", "project_key": "ACME", "board_id": "7"}),
+                                 ("jira", {"site": "https://acme.atlassian.net", "project_key": "ACME\n", "board_id": "7"}),
+                                 ("github", {"owner": "host/org", "repo": "app", "project_number": "3"}),
+                                 ("github", {"owner": "acme", "repo": "app", "project_number": "\u00b2"}),
+                                 ("jira", {"site": "https://acme.atlassian.net", "project_key": "ACME", "board_id": "\u00b2"})):
+                repo = self._repo(tmp, adapter, flow=self.JFLOW, ids=ids)
+                with self.assertRaises(GateFault) as e:
+                    tracker.start(repo, "FEAT-001", "qa", fetch=FakeJira(), gh=FakeGh(), env=self.ENV)
+                self.assertIn("GitHub names" if ids.get("owner") == "host/org" else "project_ids needs", str(e.exception))
+
+    def test_cli(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            run = lambda *a: subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "tracker", *a], capture_output=True, text=True)
+            r = run("--start", "--feature", "FEAT-001", "--phase", "implement")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr); self.assertIn("tracker (none): GREEN", r.stdout)
+            self.assertEqual(run("--start", "--feature", "FEAT-001", "--phase", "codesign").returncode, 1)
+            r = run("--ensure", "--sub-increments", "FEAT-001", "--dry-run", "--json")
+            self.assertEqual(r.returncode, 0, r.stderr); self.assertEqual(len(json.loads(r.stdout)["requests"]), 2)
+            write(repo / "rows.json", json.dumps([{"title": "[FEAT-001] QA: v"}]))
+            self.assertEqual(run("--ensure", "rows.json").returncode, 0)
+            self.assertEqual(run("--move", "[FEAT-001] QA:", "--to", "done").returncode, 0)
+            self.assertEqual(run("--start").returncode, 2, "--start names a feature and a phase, or an item")
+            before = (repo / tracker.STATE).read_text()
+            for misuse in (("--move", "[FEAT-001] QA:", "--to", "backlog", "--dry-run"), ("--move", "[FEAT-001] QA:", "--to", "backlog", "--aligns", "AC-FEAT-001-1"),
+                           ("--start", "--feature", "FEAT-001", "--phase", "qa", "--to", "done"), ("--ensure", "rows.json", "--item", "x")):
+                self.assertEqual(run(*misuse).returncode, 2, misuse)
+            self.assertEqual((repo / tracker.STATE).read_text(), before, "a flag the action does not take is a fault, never ignored — nothing written")
+            self.assertEqual(run("--move", "x").returncode, 2)
+            write(repo / "config/quality.json", "{}")
+            self.assertEqual(run("--start", "--item", "[FEAT-001] QA:").returncode, 2, "a missing config is a fault, never a verdict")

@@ -754,23 +754,23 @@ Add `src/shared/` or equivalent anti-corruption layer directories based on topol
 If `ai.training`, `ai.inference`, or `ai.agentic` enabled:
 - `src/ai/models/`, `src/ai/pipelines/`, `src/ai/agents/`, `src/ai/tools/`, `src/ai/prompts/`
 
-**Step 6 — Backlog Scaffolding (conditional on project_tracking.tool — SSOT):**
+**Step 6 — Backlog Scaffolding (conditional on project_tracking.adapter — SSOT):**
 
 The scaffolded artifacts depend on the SSOT mode and, in every mode, include a **tool-adapter** rendered from the canonical per-tool templates in `.context/templates/setup/backlog-tool-adapters/`.
 
 ### Step 6.1 — Adapter Template Selection (MANDATORY — all modes)
 
-Read `project_tracking.tool` from `docs/setup.md` (Q27) and pick exactly one template using case-insensitive regex matching:
+The adapter is the derived `project_tracking.adapter` (`gate.py discovery --resolve → derived_answers`; EVOL-079) — no regex here:
 
-| `project_tracking.tool` pattern | Template source | Integration |
+| `project_tracking.adapter` | Template source | Agent reads through |
 | --- | --- | --- |
-| `/github/i` (e.g. "GitHub Projects", "GitHub") | `.context/templates/setup/backlog-tool-adapters/github-project.md` | `cli` (`gh`) |
-| `/jira/i` | `.context/templates/setup/backlog-tool-adapters/jira.md` | `cli` (`jira`) — **stub** |
-| `/linear/i` | `.context/templates/setup/backlog-tool-adapters/linear.md` | `mcp` — **stub** |
-| `"None"` (exact, case-sensitive) | `.context/templates/setup/backlog-tool-adapters/none.md` | `file` |
-| Any other value (fallback) | `.context/templates/setup/backlog-tool-adapters/none.md` | `file` |
+| `github` | `.context/templates/setup/backlog-tool-adapters/github-project.md` | `cli` (`gh`) |
+| `jira` | `.context/templates/setup/backlog-tool-adapters/jira.md` | `project_tracking.transport` (Q27.8): `cli` (`jira`) or `mcp` (the `atlassian` row in `.mcp.json`) |
+| `none` | `.context/templates/setup/backlog-tool-adapters/none.md` | `file` |
 
-> **Fallback behaviour.** When the user answered Q27 with a tool name that has no dedicated adapter (e.g. "Azure Boards", "Shortcut", "Notion"), SETUP materialises the `none.md` template as a safe default and emits a WARN-level diagnostic: `Q27 tool "{tool}" has no dedicated adapter — materialising local file mode. To add native integration, author an adapter based on .context/templates/setup/backlog-tool-adapters/jira.md and register it in README.md § Selection.` The user keeps a working backlog (local mode) and the warning stays in the setup worklog until an adapter lands.
+> **No adapter for the answer.** `--resolve` prints the WARN of an answer with no adapter (`warnings`); copy it verbatim into `MATERIALIZATION_REPORT.md`. The whole `none` set lands (`state.md`, `none.md`, no `project-config.json`) — the manifest conditions read the derived adapter.
+
+**`config/quality.json → tracker`** renders `TRACKER_ADAPTER` (the derived adapter) and `TRACKER_FLOW` (Q27.7 as a JSON array of four column names; every one must be a Q27.1 column — else ask again). Every write to the board goes through `python3 scripts/gate.py tracker`.
 
 ### Step 6.2 — Placeholder Resolution at Materialisation
 
@@ -833,11 +833,11 @@ When `feature_phases != "full-sdlc"`, SKIP this section — the rendered adapter
 
 **Captured post-init (leave `{{…}}` verbatim):**
 
-Placeholders such as `{{PROJECT_NUMBER}}`, `{{PROJECT_NODE_ID}}`, `{{STATUS_FIELD_ID}}`, option IDs, `{{JIRA_PROJECT_KEY}}`, `{{LINEAR_TEAM_ID}}`, etc. are resolved during the first `BACKLOG --init-board` run and persisted into `docs/backlog/project-config.json`. Any `{{…}}` token not listed in the "resolvable at materialisation" table above MUST remain unchanged in the materialised `tool-adapter.md`.
+Placeholders such as `{{PROJECT_NUMBER}}`, `{{PROJECT_NODE_ID}}`, `{{JIRA_PROJECT_KEY}}`, etc. are resolved during the first `BACKLOG --init-board` run and persisted into `docs/backlog/project-config.json`. Any `{{…}}` token not listed in the "resolvable at materialisation" table above MUST remain unchanged in the materialised `tool-adapter.md`.
 
 ### Step 6.3 — Artifact Layout
 
-**If `project_tracking.tool != "None"` (External mode):**
+**If `project_tracking.adapter != none` (External mode):**
 ```
 docs/backlog/
 docs/backlog/project-config.json    # from .context/templates/setup/backlog/project-config.json
@@ -845,7 +845,7 @@ docs/backlog/tool-adapter.md         # RENDERED from selected adapter template (
 ```
 > No `state.md` or `issue-bodies/` — the external tool is the single source of truth.
 
-**If `project_tracking.tool == "None"` (Local mode):**
+**If `project_tracking.adapter == none` (Local mode):**
 ```
 docs/backlog/
 docs/backlog/issue-bodies/
@@ -858,9 +858,8 @@ docs/backlog/tool-adapter.md         # RENDERED from none.md adapter (§ 6.1 + �
 ### Step 6.4 — Invariants
 
 1. **`docs/backlog/tool-adapter.md` is always rendered.** Both modes emit it. The adapter is the single lookup surface the BACKLOG agent uses for every operation, including file-mode operations in local mode.
-2. **Never copy a stub without a WARN.** If the selected template has `stub: true` in its frontmatter (currently `jira.md` and `linear.md`), SETUP MUST emit a WARN diagnostic and leave the STUB banner intact in the rendered file so the user knows the adapter needs contributor validation before use.
-3. **Never embed credentials.** The rendered `tool-adapter.md` MUST NOT contain API tokens, passwords, or secrets. Authentication is handled entirely by the user via CLI login or MCP server configuration. The adapter references only the CLI binary name and non-sensitive identifiers.
-4. **Never hand-write adapter commands.** If the user requests a tool with no adapter template, always fall back to `none.md` with the warning above — do NOT inline-generate a new adapter on the fly. New adapters must live as committed template files so they survive across projects.
+2. **Never embed credentials.** The rendered `tool-adapter.md` MUST NOT contain API tokens, passwords, or secrets. A Jira token lives in the vault under the name `project_tracking.token` records; the adapter names only that entry, the CLI binary and non-sensitive identifiers.
+3. **Never hand-write adapter commands.** A tool with no adapter takes the `none` path with its WARN — do NOT inline-generate an adapter. A new adapter is an executor in `scripts/gates/tracker.py` with recorded fixtures, a committed template and a registry `matches` value.
 
 **Step 6.5 — Seed Registry Scaffolding (conditional: synthetic_data.enabled == true):**
 Create Shared Seed Registry and fixture directories:

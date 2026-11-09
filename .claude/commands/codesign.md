@@ -89,4 +89,5 @@ Every feature declares two frontmatter fields in `spec.feature` that shape the r
 ## Pre-Command Protocol (MANDATORY)
 - **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
 - This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking
+- **Tracker (EVOL-079):** after Step -1, before the first artefact write, `--start` / `--refine` / `--sync {ID}` run `python3 scripts/gate.py tracker --start --feature {ID} --phase codesign` — the item to the in-progress column of `tracker.flow`. Red stops the command: new work on a Done item goes to its refinement item (`[{ID}] CODESIGN-R<k>:`, `--item`), or a ratified realignment passes `--aligns AC-{ID}-<N>`.
 - Branch naming: `--vision` / `--sync VISION` use `feature/UX-VISION-global-app-design`; `--start {ID}` / `--sync {ID}` use `feature/{ID}-{slug}`

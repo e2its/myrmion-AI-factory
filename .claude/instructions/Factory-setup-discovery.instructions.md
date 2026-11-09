@@ -440,20 +440,21 @@ Questions are organized in dependency order within tiers; conditions live in the
 
 #### Q27: Project Tracking Tool
 - **Type:** Open text with suggestions
-- **Suggestions:** `GitHub Projects` (native, free, integrated with Issues/PRs) | `Jira` | `Linear` | `Azure Boards` | `Shortcut` | `Notion` | (any tool name the user provides) | `None` (no external tool — local tracking only)
+- **Suggestions:** `GitHub Projects` (native, free, integrated with Issues/PRs) | `Jira` (Cloud or Data Center) | `None` (no external tool — local tracking in `docs/backlog/state.md`). Any other name is accepted and takes the `none` path with a warning (EVOL-079): the framework drives no board it has no adapter for.
 - **Value:** The exact tool name provided by the user (free text), or `"None"` for local-only mode
 - **Simplified:** es: "¿Qué herramienta usas para gestionar las tareas del proyecto? (escribe el nombre o 'None')" / en: "What tool do you use to manage project tasks? (type the name or 'None')"
 - **RDR Recommendation:** GitHub Projects (native integration with GitHub Issues, zero setup cost, Kanban board via API). If the user already uses another tool, respect that choice.
-- **Tier-filtered:** ALL tiers. The framework is tool-agnostic — any external tool the user specifies will be supported via tool-adapter protocol materialized during `--generate`.
+- **Tier-filtered:** ALL tiers.
+- **Derived `project_tracking.adapter` (EVOL-079):** `github` | `jira` | `none`, computed from the answer (`gate.py discovery --resolve` prints it, and its warning for an answer with no adapter). It selects the adapter file, the manifest rows (`state.md` on `none`, `project-config.json` otherwise) and `config/quality.json → tracker.adapter`.
 - **Persist:** `project_tracking.tool`
 - **Conditional unlock:** registry `when`.
-- **Integration model (Q27 != "None"):** The framework integrates with external tools exclusively via **pre-authenticated CLI tools** (e.g., `gh` for GitHub, `jira` CLI) or **MCP servers** — NEVER via raw API tokens or stored credentials. During `SETUP --generate`, a `docs/backlog/tool-adapter.md` is materialized with the specific CLI/MCP commands and setup instructions for the chosen tool.
+- **Integration model:** the board moves only through `python3 scripts/gate.py tracker` (GitHub through the pre-authenticated `gh`; Jira through its REST API with the token the vault puts in the environment — Q27.9 names the entry, never the value; `none` through `docs/backlog/state.md`). The agent's own reads go through the CLI or the MCP server (Q27.8). `SETUP --generate` lands `docs/backlog/tool-adapter.md` for the derived adapter.
 
-#### Q27.1: Kanban Board Columns (conditional: Q27 != "None")
+#### Q27.1: Kanban Board Columns (every adapter — EVOL-079)
 - **Type:** Multi-select with ordering
-- **Options:** Default preset `[Todo, In Progress, Review, Done]` | Custom (user defines column names and order)
+- **Options:** Default preset `[Backlog, Ready, In Progress, Done]` | Custom (user defines column names and order)
 - **Simplified:** es: "¿Qué columnas quieres en tu tablero Kanban?" / en: "What columns do you want on your Kanban board?"
-- **RDR Recommendation:** Default [Todo, In Progress, Review, Done] — covers standard SDLC flow with minimal overhead
+- **RDR Recommendation:** Default [Backlog, Ready, In Progress, Done] — one column per lifecycle state, nothing the gate cannot move
 - **Persist:** `project_tracking.board_columns[]`
 
 #### Q27.2: Feature Issue Structure (conditional: Q27 != "None")
@@ -496,6 +497,26 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **When work exceeds appetite → STOP and re-shape.** Overrun is a signal that either the appetite was wrong or the scope grew; both need an explicit call, not silent extension.
 - **Tier-filtered:** ALL tiers.
 - **Persist:** `project_tracking.appetite_sizing_enabled` (boolean). When `true`, SETUP materialization adds the field to the tool-adapter's label/field preset and extends the feature issue body template with an `Appetite:` line left blank by default.
+
+#### Q27.7: Lifecycle Flow (every adapter — EVOL-079)
+- **Type:** Ordered list of four column names, each one of Q27.1's columns
+- **Options:** Default = Q27.1 when it has four columns | Custom (the column for backlog, ready, in progress, done — in that order)
+- **Simplified:** es: "¿Qué columna del tablero corresponde a cada estado: pendiente, listo, en curso, hecho?" / en: "Which board column is each state: backlog, ready, in progress, done?"
+- **RDR Recommendation:** the default — the gate moves items only into these four columns; any other column stays the team's own.
+- **Persist:** `project_tracking.flow` → `config/quality.json → tracker.flow`
+
+#### Q27.8: Jira Agent Transport (conditional: registry `when`)
+- **Type:** Single-select
+- **Options:** `cli` (jira-cli, authenticated by the same token) | `mcp` (the Atlassian remote MCP server — OAuth in the harness, no credential in the project)
+- **Simplified:** es: "¿Cómo lee Jira el agente: con la CLI o con el servidor MCP de Atlassian?" / en: "How does the agent read Jira: the CLI or the Atlassian MCP server?"
+- **RDR Recommendation:** `mcp` when the team already authorises Atlassian apps (no token on the machine for reads); `cli` for Data Center (the remote server serves Cloud only). The board moves through `gate.py tracker` either way.
+- **Persist:** `project_tracking.transport` — `mcp` adds the `atlassian` remote server row to the project's MCP servers.
+
+#### Q27.9: Jira Token Vault Entry (conditional: registry `when`)
+- **Type:** Free text — the vault entry's NAME
+- **Simplified:** es: "¿Cómo se llama en tu bóveda el secreto con el token de Jira?" / en: "What is the vault entry holding the Jira token called?"
+- **RDR Recommendation:** a dedicated bot account's token, least privilege on the one project. The value never enters the repository: the vault exports it as `JIRA_API_TOKEN` (and `JIRA_USER_EMAIL` on Cloud).
+- **Persist:** `project_tracking.token`
 
 #### Q28: Synthetic Data for Staging
 - **Type:** Boolean

@@ -13,14 +13,16 @@ applicable_when:
 
 ## 0. SINGLE SOURCE OF TRUTH (SSOT)
 
-> **Invariant:** There MUST be exactly ONE source of truth for backlog state. The operating mode is determined by `project_tracking.tool` from SETUP.
+> **Invariant:** There MUST be exactly ONE source of truth for backlog state. The operating mode is the derived adapter `project_tracking.adapter` (`config/quality.json → tracker.adapter`; github | jira | none — EVOL-079).
 
 | Mode | Condition | Source of Truth | Local Artifacts |
 | --- | --- | --- | --- |
-| **External** | `tool != "None"` | The configured external tool (name from SETUP Q27) | Only `docs/backlog/project-config.json` (connection params) |
-| **Local** | `tool == "None"` | Local files | `docs/backlog/state.md` + `docs/backlog/issue-bodies/*.md` |
+| **External** | `adapter != none` | The configured external tool (GitHub Projects or Jira) | Only `docs/backlog/project-config.json` (connection params) |
+| **Local** | `adapter == none` | Local files | `docs/backlog/state.md` + `docs/backlog/issue-bodies/*.md` |
 
-**External mode:** Do NOT create or update `state.md` or `issue-bodies/`. Pass issue body content inline to the tool CLI/API (not via local files). The external tool is the canonical record.
+**The board moves through one command (EVOL-079).** Every lifecycle write — create, place, move, close, nest — is `python3 scripts/gate.py tracker` on every adapter; the agent reads through the adapter's read ops and never moves an item by hand. Columns are never literals: `config/quality.json → tracker.flow` names the board column for backlog, ready, in progress, done.
+
+**External mode:** Do NOT create or update `state.md` or `issue-bodies/`. The issue body reaches the tool through `gate.py tracker --ensure`: the row's `body` is a scratch `.md` file the gate reads and never keeps (§ 5). The external tool is the canonical record.
 
 **Local mode:** Do NOT create `project-config.json`. All issue state lives in `state.md`. Body content persisted in `issue-bodies/`. No API calls to external tools.
 
@@ -33,12 +35,10 @@ All constants are derived from SETUP --init decisions in `docs/setup.md`. This s
 ```yaml
 # Read from governance snapshot (## Setup Configuration) or fallback to docs/setup.md
 project_tracking:
-  tool: "{{project_tracking_tool}}"           # Q27: any tool name (free text) or "None" for local-only mode
-  board_columns:                               # Q27.1: Kanban columns
-    - "{{col_1}}"                              # Default: Todo
-    - "{{col_2}}"                              # Default: In Progress
-    - "{{col_3}}"                              # Default: Review
-    - "{{col_4}}"                              # Default: Done
+  tool: "{{project_tracking_tool}}"           # Q27: free text — GitHub Projects | Jira | None (any other name → adapter none + WARN)
+  adapter: "{{adapter}}"                       # derived from Q27: github | jira | none (EVOL-079)
+  board_columns: ["{{col}}", …]                # Q27.1: Kanban columns — default [Backlog, Ready, In Progress, Done]
+  flow: ["{{backlog}}", "{{ready}}", "{{in_progress}}", "{{done}}"]   # Q27.7 → config/quality.json → tracker.flow
   feature_phases: "{{preset_string}}"          # Q27.2: Preset string — "full-sdlc" | "simplified" | "single"
                                                # BACKLOG expands preset into phase objects at runtime (see § 1.1)
   milestone_strategy: "{{milestone_strategy}}" # Q27.3: epic-based | phase-based | sprint-based | none
@@ -99,9 +99,9 @@ Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missi
 | PREVENTIVE-SWEEP (suffix 6) | IMPLEMENT → DEVOPS `--deploy --env {preproduction}` | [Factory-devops-provision-deploy.instructions.md](Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | `DEVOPS --deploy --env {preproduction}` (`delivery.preproduction`, EVOL-106) — the factory-preventive-sweep SKILL must have run against the feature's code (parallel scope sub-agents derived from DC catalog) and returned zero open C-severity findings. Catches the class of defects invisible to static gates (unused imports, missing null checks, broken teardown, env-var drift). |
 | SMOKE-E2E (suffix 8 — scope-aware variants: `smoke-e2e-browser` / `smoke-e2e-integration` / `smoke-e2e-hybrid`) | DEVOPS `--deploy --env {preproduction}` → QA `--verify` pass | [Factory-qa-verify.instructions.md](Factory-qa-verify.instructions.md) § Verify Preconditions | `QA --verify` pass — scope-appropriate smoke blocks must pass on the pre-production deploy. The cadence is the project's answer (`docs/setup.md → qa.smoke_cadence`, EVOL-077): this issue closes at feature close; with `per-slice` each increment closes on its own report (`smoke_e2e_report_{INC}.md`), never on a board issue. A walked case with no automated test is red (`gate.py traceability`). One SMOKE-{N} block per `user_journey.md § 3` Path (expanded Paso → BDD Scenario → test_plan TC). Frontend-only → browser mode. Backend-only/integration → caller-harness + downstream-state + observability mode, plus MANDATORY reliability blocks (SMOKE-REL-*, test_plan § 2.2 / design.md § Reliability Contract) for `integration`. Full-stack → hybrid. Replaces ad-hoc smoke with a reproducible DoD artefact. |
 
-**Sub-issue nesting.** The three gate phases (phase labels: `phase:contract-freeze`, `phase:preventive-sweep`, `phase:smoke-e2e-*`) are logically **sub-issues of IMPLEMENT** (suffix 5). Adapters that declare `add_sub_issue: native` (e.g. `github-project.md`) materialise them as real sub-issues so holistic progress tracking on the board reflects feature completion. Adapters that declare `add_sub_issue: no-op` (e.g. `none.md`) materialise them as standalone siblings with a `> Parent: IMPLEMENT issue` cross-reference line in the body — the `--next-task` resolver reads the cross-reference to reconstruct the hierarchy.
+**Sub-issue nesting.** The three gate phases (phase labels: `phase:contract-freeze`, `phase:preventive-sweep`, `phase:smoke-e2e-*`) are logically **sub-issues of IMPLEMENT** (suffix 5). Their `--ensure` rows name `parent: "[{ID}] IMPLEMENT:"` and the gate nests them on every adapter (GitHub sub-issues, Jira sub-tasks, the `Parent` column of `state.md`) — the board reflects feature completion and `--next-task` reads the parent from the board.
 
-**Sub-increment items (EVOL-045).** When `increment_plan.md § 1` declares sub-increments for an increment, each sub-increment is a backlog sub-item of the increment's IMPLEMENT issue — title `[{ID}] INC-{N} / SUB-{N}-{M}: {scope}`, created via `add_sub_issue` where the adapter declares it `native`; adapters without it degrade to a first body line `> Parent: #{N}` (the existing rule) — the `--next-task` resolver reads it. One PR per sub-item into the train.
+**Sub-increment items (EVOL-045).** When `increment_plan.md § 1` declares sub-increments for an increment, each sub-increment is a backlog sub-item of the increment's IMPLEMENT issue — title `[{ID}] INC-{N} / SUB-{N}-{M}: {scope}`, created under it by `gate.py tracker --ensure --sub-increments {ID}` on every adapter. One PR per sub-item into the train.
 
 **Iteration of the preset.** The 8-phase expansion was introduced (derived from the production experience of the first materialised product after months of real use: contract drift killed six features, fifteen runtime defects slipped past static gates into dev, and unstructured smoke testing produced inconsistent Done criteria). Projects materialised before EVOL-014 with the legacy 5-phase expansion keep their existing issue sets — gate issues are backfilled manually by `--plan-feature {ID}` when run on a legacy feature.
 
@@ -109,9 +109,9 @@ Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missi
 
 ## 2. RUNTIME CONSTANTS (External mode only — post --init-board)
 
-> **SSOT:** This section applies ONLY in external mode (`project_tracking.tool != "None"`). In local mode, no external connection config is needed.
+> **SSOT:** This section applies ONLY in external mode (`project_tracking.adapter != none`). In local mode, no external connection config is needed.
 
-> **🔒 SECURITY INVARIANT — ZERO CREDENTIALS:** `project-config.json` MUST NEVER contain credentials, API tokens, passwords, or secrets. Authentication is handled entirely by the CLI tool (e.g., `gh auth login`) or the MCP server — the framework never touches credentials. Only non-sensitive identifiers (project IDs, field IDs, repo slugs) are persisted.
+> **🔒 SECURITY INVARIANT — ZERO CREDENTIALS:** `project-config.json` MUST NEVER contain credentials, API tokens, passwords, or secrets. GitHub authenticates through `gh auth login`; Jira through the token the vault exports as `JIRA_API_TOKEN` (+ `JIRA_USER_EMAIL` on Cloud) — `project_tracking.token` names the vault entry, never the value. Only non-sensitive identifiers (project IDs, repo slugs, site, project key, board id) are persisted.
 
 After `--init-board` creates the external project, persist these to `docs/backlog/project-config.json`:
 
@@ -125,11 +125,11 @@ After `--init-board` creates the external project, persist these to `docs/backlo
 }
 ```
 
-- `tool` — The exact tool name from SETUP Q27 (e.g., `"GitHub Projects"`, `"Jira"`, `"Linear"`, or any user-specified tool)
-- `integration` — **Enum: `"cli"` or `"mcp"`**. How the agent interacts with the tool. `"cli"` = authenticated CLI binary; `"mcp"` = MCP server. Exactly one value — never both.
-- `cli_command` — The CLI binary name (e.g., `"gh"`, `"jira"`, `"linear"`) — must be pre-authenticated by the user. **Only when `integration == "cli"`**; set to `null` when `integration == "mcp"`.
-- `project_ids` — Non-sensitive tool-specific identifiers populated by `--init-board` (e.g., project node ID, repo slug). Schema depends on the tool. **No secrets.**
-- `board_field_mapping` — Tool-specific field/column IDs populated by `--init-board` (e.g., status field ID, column option IDs). Schema depends on the tool.
+- `tool` — The exact tool name from SETUP Q27 (`"GitHub Projects"` or `"Jira"`)
+- `integration` — **Enum: `"cli"` or `"mcp"`**. How the agent READS the tool (Jira: Q27.8 `project_tracking.transport`). Writes go through `gate.py tracker` either way.
+- `cli_command` — The CLI binary name (`"gh"`, `"jira"`). **Only when `integration == "cli"`**; `null` when `integration == "mcp"`.
+- `project_ids` — Non-sensitive identifiers populated by `--init-board`, read by `gate.py tracker`: GitHub `owner`, `repo`, `project_number` (`project_node_id` when known); Jira `site`, `project_key`, `board_id`. **No secrets.**
+- `board_field_mapping` — optional; the gate resolves the Status field, its options and the Jira transitions by name at each run and stores no id.
 
 The exact fields inside `project_ids` and `board_field_mapping` are determined by the **tool-adapter** (`docs/backlog/tool-adapter.md`) materialized during `SETUP --generate`.
 
@@ -137,7 +137,7 @@ The exact fields inside `project_ids` and `board_field_mapping` are determined b
 
 ## 3. ISSUE NAMING CONVENTIONS
 
-> **Tool-agnostic schema.** The patterns below are the canonical title schema for all issues generated by the BACKLOG agent. The tool-adapter renders them into the target tool's native representation (GitHub Issue title, Jira summary, Linear title, `state.md` row, etc.) without changing the pattern itself.
+> **Tool-agnostic schema.** The patterns below are the canonical title schema for all issues generated by the BACKLOG agent. The tool-adapter renders them into the target tool's native representation (GitHub Issue title, Jira summary, `state.md` row) without changing the pattern itself.
 
 ### 3.0 Title Schema Reference
 
@@ -271,22 +271,22 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
   # Worklog
   APPEND_TO_WORKLOG: {phase: "RETROSPECTIVE", action: "writeback", added_dcs: [...]}
 
-  # Now the gate issue can move to Done
-  ADAPTER.move_to_column(retrospective_issue, column="Done")
+  # Now the gate issue can move to Done — the flow's done column, through the one mover
+  RUN python3 scripts/gate.py tracker --move "[EPIC-{N}] RETROSPECTIVE:" --to done
 ```
 
 **Invariants:**
 
 1. **The gate does NOT close without running the write-back.** Moving the RETROSPECTIVE issue to Done manually (without invoking the write-back procedure) is a governance violation, because the "zero candidates" branch is still a valid and explicit decision — it must be logged, not implied.
 2. **Zero candidates is a valid outcome.** An epic that produced no novel patterns closes the gate cleanly with a narrative-only issue body and the explicit "no new DC candidates" log line.
-3. **Write-back is additive and tool-agnostic.** It only appends to `.claude/rules/defect-prevention.md` and bumps `governance_versions.json`. It does NOT touch per-feature artefacts, does NOT invoke any tool-adapter operation beyond `read_issue` + `move_to_column`, and does NOT trigger cascade invalidation (cataloging a new pattern is forward-only — it does not retroactively invalidate past work).
+3. **Write-back is additive and tool-agnostic.** It only appends to `.claude/rules/defect-prevention.md` and bumps `governance_versions.json`. It does NOT touch per-feature artefacts, does NOT touch the board beyond `read_issue` + one `gate.py tracker --move … --to done`, and does NOT trigger cascade invalidation (cataloging a new pattern is forward-only — it does not retroactively invalidate past work).
 4. **Discovery Protocol alignment.** Write-back is the canonical execution of the Discovery Protocol documented in `.claude/rules/defect-prevention.md` § Discovery Protocol; a class worth every project is proposed upstream (§ Promotion). Agents that discover novel patterns during development (IMPLEMENT --fix, BVL failure, preventive sweep finding a pattern not in the catalog) SHOULD still add them immediately, not wait for the retrospective — but they MUST also mirror the addition into the current epic's retrospective issue body so the closing write-back is idempotent.
 
 ---
 
 ## 4. LABEL AND MILESTONE SCHEMA
 
-> **Tool-agnostic schema.** These are the canonical label and milestone taxonomies. The tool-adapter maps them to each tool's native representation: GitHub labels/milestones, Jira labels/components/fix-versions, Linear labels/cycles, or rows in `docs/backlog/state.md` (local mode).
+> **Tool-agnostic schema.** These are the canonical label and milestone taxonomies. The tool-adapter maps them to each tool's native representation: GitHub labels/milestones, Jira labels/fix-versions, or rows in `docs/backlog/state.md` (local mode).
 
 ### 4.1 Label Taxonomy
 
@@ -318,7 +318,7 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
 
 > **Appetite label materialisation.** The three `appetite:*` labels are created at `--init-board` via `create_label` ONLY when `project_tracking.appetite_sizing_enabled == true` (Q27.6). The adapter `## Appetite` section rendered by SETUP materialisation (Factory-setup-materialization.instructions.md § Step 6.2.1) documents this. When Q27.6 == false, omit the labels entirely — do not create them with zero usage.
 >
-> **Blocked-by label creation.** The `blocked-by:#{N}` label is NOT pre-created at `--init-board` because the value `#{N}` is per-issue. **`add_label` does NOT auto-create missing labels** — on GitHub, `gh issue edit --add-label` rejects unknown labels; Jira and Linear behave similarly (unknown labels are rejected by their create/apply calls). The BACKLOG agent (or any automation wrapping it) MUST explicitly call `create_label` for `blocked-by:#{N}` **before** the first `add_label` invocation with that value. `create_label` is idempotent on every supported adapter (GitHub via `gh label create … --force`; other tools via their native upsert). Once created, the label persists for reuse on later issues.
+> **Blocked-by label creation.** The `blocked-by:#{N}` label is NOT pre-created at `--init-board` because the value `#{N}` is per-issue. **`add_label` does NOT auto-create missing labels** — on GitHub, `gh issue edit --add-label` and `gh issue create --label` reject unknown labels (Jira creates a label on first use). The BACKLOG agent (or any automation wrapping it) MUST explicitly call `create_label` for `blocked-by:#{N}` **before** the first `add_label` invocation with that value. `create_label` is idempotent on every supported adapter (GitHub via `gh label create … --force`; other tools via their native upsert). Once created, the label persists for reuse on later issues.
 >
 > **`kind:follow-up` vs `enhancement`.** `enhancement` flags that an issue is an incremental addition to an already-delivered feature. `kind:follow-up` flags that an issue was intentionally spun out of a larger scope to defer the work (typical source: RETROSPECTIVE gate splitting an oversized bucket, or a scope-carve-out during CODESIGN). An issue can carry both labels simultaneously.
 
@@ -341,7 +341,7 @@ Milestone naming follows `milestone_strategy` from Q27.3:
 
 ## 5. BODY FILE CONVENTIONS
 
-> **SSOT:** Body files are ONLY created in **local mode** (`project_tracking.tool == "None"`). In external mode, body content is generated in-memory and passed inline to the tool's CLI/API — the external tool holds the canonical body. The same templates below are used to generate the inline content, but NO files are persisted locally.
+> **SSOT:** Body files are ONLY kept in **local mode** (`project_tracking.adapter == none`). In external mode the body is written to a scratch file the gate reads (`--ensure` row `body`) and is never kept — the external tool holds the canonical body. A body outside `issue-bodies/` is copied there as `L-NNN.md`; one already there is pointed at.
 
 ### Storage Path (local mode only)
 
@@ -446,7 +446,7 @@ Build the code primitive for design-system component **{component_name}** (`{ds_
 - [ ] Registry entry: `cip_name` set, `status: IMPLEMENTED`
 ```
 
-Parent: the IMPLEMENT issue of the catalog feature (`add_sub_issue`; adapters without it ⇒ first body line `> Parent: #{N}`).
+Parent: the IMPLEMENT issue of the catalog feature (the `--ensure` row's `parent`; the gate nests it on every adapter).
 
 ### Body File Template — Gate Issue (CONTRACT-FREEZE / PREVENTIVE-SWEEP / SMOKE-E2E / INTEGRATION-TEST / RETROSPECTIVE)
 
@@ -529,7 +529,7 @@ The other gate types (CONTRACT-FREEZE, PREVENTIVE-SWEEP, INTEGRATION-TEST, RETRO
 
 ## Resolution command
 
-> Gate issues do NOT have a direct Factory slash-command to run. The work is performed via the tool, the skill, or the user action listed here. When complete, move the issue to Done via `BACKLOG --update-execution {step_ref}` or the equivalent tracker UI action.
+> Gate issues do NOT have a direct Factory slash-command to run. The work is performed via the tool, the skill, or the user action listed here. It opens with `python3 scripts/gate.py tracker --start --feature {ID} --phase contract-freeze|preventive-sweep|smoke` and closes with `BACKLOG --update-execution {step_ref}` (§ 6.5).
 
 {Literal instructions: "Run factory-preventive-sweep skill against FEATURE_ID", "Execute the numbered smoke blocks on the pre-production deploy", "Produce OpenAPI + contract harness", "Run retrospective write-back procedure (Factory-backlog-operations.instructions.md § 3.4.1)".}
 
@@ -548,7 +548,7 @@ When the iteration-model cascade reopens this gate (applying the `stale-after-ca
 
 > The framework is **tool-agnostic**. Tool-specific CLI/MCP commands are NOT hardcoded in operational files. Instead, they are materialized by `SETUP --generate` into `docs/backlog/tool-adapter.md`, which contains the exact commands for the configured tool.
 
-> **🔒 SECURITY:** The tool-adapter uses ONLY pre-authenticated CLI tools or MCP servers. The framework NEVER stores, reads, or transmits credentials. The user is responsible for authenticating the CLI/MCP before running BACKLOG commands (e.g., `gh auth login` for GitHub, Jira CLI login, Linear MCP server config).
+> **🔒 SECURITY:** The framework NEVER stores a credential. GitHub: `gh auth login`. Jira: the vault exports the token as `JIRA_API_TOKEN` (+ `JIRA_USER_EMAIL` on Cloud) for the gate and jira-cli; the MCP transport authorises through OAuth in the harness.
 
 **Before any external mode operation, the agent MUST:**
 1. Read `docs/backlog/tool-adapter.md` for tool-specific CLI/MCP command patterns
@@ -563,19 +563,21 @@ The tool-adapter defines commands for these abstract operations:
 | Operation | Required | Description |
 | --- | --- | --- |
 | `create_project` | ✅ | Create a new project/board and return its identifiers |
-| `configure_board` | ✅ | Set up board columns from `board_columns` (Q27.1) |
+| `configure_board` | ✅ | Set up board columns from `board_columns` (Q27.1); every `tracker.flow` column must exist |
 | `create_label` | ✅ | Create a label with name and (optional) color. Used to materialize the full label taxonomy (§ 4.1) at init time |
-| `create_milestone` | ⚠️ optional | Create a milestone/fix-version/cycle with a name. Skipped when `milestone_strategy == "none"` or when the tool has no native milestone concept |
+| `create_milestone` | ⚠️ optional | Create a milestone/fix-version with a name. Skipped when `milestone_strategy == "none"` or when the tool has no native milestone concept |
 
-**Issue lifecycle operations** (called by `--plan-feature`, `--create-issue`, `--update-execution`, and by cascade invalidation):
-| Operation | Required | Description |
-| --- | --- | --- |
-| `create_issue` | ✅ | Create an issue with title, body, labels, milestone, assignee |
-| `add_to_board` | ✅ | Add an issue to the project board |
-| `move_to_column` | ✅ | Move an issue to a specific board column |
-| `close_issue` | ✅ | Close or delete an issue (used for rollback). Accepts issue number/ID |
-| `add_label` | ✅ | Apply an existing label to an existing issue (e.g., `stale-after-cascade`, `stale-after-slice-peer-iterated`). Used by [factory-iteration-model](.claude/skills/factory-iteration-model/SKILL.md) § CASCADE_PENDING_ITERATION to mark gate issues as stale after an upstream cascade reopens them. Distinct from `create_label` (which creates the label definition at `--init-board`). Tools MUST either implement this natively or provide a composed fallback (e.g., fetching the existing labels, appending, and issuing a full update) |
-| `add_sub_issue` | ⚠️ optional | Nest a child issue under a parent issue. Used when a preset declares sub-issue nesting (e.g. gate phases nested under IMPLEMENT). Tools without native sub-issue support SHOULD implement a fallback (e.g. Jira sub-tasks, Linear parent-child, or a prominent cross-link in the body) — or declare the operation as a no-op, in which case the gates become standalone siblings. Also nests EVOL-045 sub-increment items under the increment's IMPLEMENT issue. |
+**Issue lifecycle operations — one command on every adapter (EVOL-079).** Create, place, move, close and nest are `python3 scripts/gate.py tracker`; no adapter carries them as hand commands and the agent never runs a tool's write call:
+
+| Need | Command |
+| --- | --- |
+| Create the missing items, each in its state's column, a parentless child linked | `gate.py tracker --ensure FILE [--dry-run]` — FILE is a JSON list of rows `{title, ident?, body?, labels?, parent?, milestone?, state?}` (`body` a markdown path; in external mode a scratch file, never `docs/backlog/`; `ident` defaults to the title head — pass the full title when items share a head, e.g. `[F] COMPONENT:`) |
+| Sub-increment items of a train (EVOL-045) | `gate.py tracker --ensure --sub-increments F` (rows from `increment_plan.md § 1`) |
+| A phase starts | `gate.py tracker --start --feature F --phase P [--item IDENT] [--aligns AC-F-N]` (§ 6.5) |
+| Any other move | `gate.py tracker --move IDENT --to backlog\|ready\|in-progress\|done` (done closes; leaving done reopens) |
+| Stale marker after a cascade | `add_label` — the adapter's command (a label, not a column) |
+
+The gate reads the board, plans only what is missing, writes, re-reads the keys it wrote and plans again: a board already in the wanted state plans nothing, so **a re-run is the recovery** — nothing is rolled back. Red, never silent: two items on one ident, a child under another parent (never re-parented), a parent that does not exist, a column `tracker.flow` names that the board lacks, a write the board did not take.
 
 **Query and verification operations** (called by `--next-task`, `--status`, Final Verification Gate § 6.4):
 | Operation | Required | Description |
@@ -586,7 +588,7 @@ The tool-adapter defines commands for these abstract operations:
 | `verify_issue` | ✅ | Verify an issue exists with expected title, labels, and status. Returns issue metadata for comparison |
 | `verify_board_placement` | ✅ | Verify an issue is on the project board in the expected column. Returns current column/status |
 
-> **Tech-Agnostic Invariant:** ALL operations above — including verification, rollback, and optional nesting — are **abstract**. The tool-adapter materializes them with tool-specific CLI/MCP commands during `SETUP --generate`. The BACKLOG agent NEVER hardcodes tool-specific commands; it ALWAYS delegates to the tool-adapter. For **required** operations, if a tool does not support them natively, the tool-adapter MUST define a composed multi-step workaround. For **optional** operations, the tool-adapter MAY declare them as no-ops — the BACKLOG agent then falls back to the documented alternative (e.g. standalone sibling gates instead of sub-issues).
+> **Tech-Agnostic Invariant:** ALL read operations above are **abstract**. The tool-adapter materializes them with tool-specific CLI/MCP commands during `SETUP --generate`. The BACKLOG agent NEVER hardcodes tool-specific commands; it ALWAYS delegates to the tool-adapter. For **required** operations, if a tool does not support them natively, the tool-adapter MUST define a composed multi-step workaround. For **optional** operations, the tool-adapter MAY declare them as no-ops — the BACKLOG agent then falls back to the documented alternative. Writes are never here: every lifecycle write is `gate.py tracker` (§ 6.0).
 
 The tool-adapter also includes a `## Prerequisites` section with setup instructions and a `## Troubleshooting` section with error resolution guidance.
 
@@ -670,48 +672,19 @@ When ANY tool-adapter command fails, the agent MUST:
 Once you have resolved it, confirm and I will retry the command.
 ```
 
-### 6.1 Single Issue — External Mode
+### 6.1 Single Issue (every adapter)
 
-1. Generate body content in-memory using templates from § 5
-2. Execute tool-adapter `create_issue` command with: title, body, labels, milestone, assignee
-3. **MANDATORY — Parse output**: Extract issue number/URL from command output. If parsing fails → STOP and show raw output to user
-4. **MANDATORY — Add to board**: Execute tool-adapter `add_to_board` with the captured issue number
-5. **MANDATORY — Set status**: Execute tool-adapter `move_to_column` to place issue in initial column (first board_column, typically "Todo")
-6. **MANDATORY — Verify**: Execute tool-adapter `verify_board_placement` with issue reference + expected column. If verification fails → retry once → if still fails, report error with full diagnostics
-
-> **SSOT:** No local file persistence for body content in external mode.
-> **INVARIANT:** Steps 2-6 form an atomic sequence. Skipping any step is a protocol violation.
-> **Tech-Agnostic:** All commands (steps 2-6) are abstract operations from the tool-adapter. The agent NEVER constructs tool-specific CLI commands directly.
-
-### 6.1L Single Issue — Local Mode
-
-1. Generate body file in `docs/backlog/issue-bodies/{filename}.md` using templates from § 5
-2. Assign a sequential local ID (e.g., `L-001`, `L-002`...)
-3. Add entry to `docs/backlog/state.md` with: local ID, title, first column status, body file path
-4. **MANDATORY — Verify**: Re-read `state.md` to confirm entry was written correctly with correct status
+1. Generate body content using templates from § 5 into a markdown file (local mode: `docs/backlog/issue-bodies/` is written by the gate; external mode: a scratch file)
+2. Write one row and run `python3 scripts/gate.py tracker --ensure FILE` — the gate creates, places in the row's state column (default backlog), nests and verifies by re-reading
+3. Red → read the reason, fix the cause (§ 6.0.1 for a tool failure), re-run the same command
 
 ### 6.2 Full Feature (N issues per feature_phases)
 
-Execute in strict phase order (suffix 1 → N). **Track progress for each phase.**
+One rows file, suffix order 1 → N, the gate phases with `parent` = the IMPLEMENT title head; one `gate.py tracker --ensure FILE`. A failure mid-batch leaves the created items in place: fix the cause and re-run — the items already there plan nothing. Then run the Final Verification Gate (§ 6.4).
 
-- **External mode**: For EACH phase, execute the full 6.1 sequence (steps 2-6). After each phase:
-  - Log: `✅ Phase {suffix}/{total}: Issue #{number} created → board: {column}`
-  - If any phase fails after retry → execute Rollback Protocol (close all previously created issues in this batch) → STOP
-  - After ALL phases complete → run Final Verification Gate (§ 6.4)
-- **Local mode**: For EACH phase, execute the full 6.1L sequence. After each phase:
-  - Verify entry in `state.md`
-  - If any phase fails → remove all previously created entries and body files → STOP
-  - After ALL phases complete → re-read `state.md` to confirm all N entries present
+### 6.3 Board placement
 
-### 6.3 After Creation — Project Board Update (External mode only)
-
-> **SSOT:** This step applies ONLY in external mode. In local mode, `state.md` already reflects the board state.
-> **NOTE:** In the improved protocol, board addition and status assignment are now part of the atomic § 6.1 sequence (steps 4-5). This section documents the legacy standalone flow — if § 6.1 steps 4-5 were already completed during creation, do NOT repeat them here.
-
-1. Execute tool-adapter `add_to_board` command with the newly created issue reference
-2. Execute tool-adapter `move_to_column` command to place the issue in the first column (e.g., Todo)
-3. All commands use the pre-authenticated CLI/MCP — no credentials in the command arguments
-4. **MANDATORY — Verify board placement**: Confirm issue appears on board with correct status
+Part of `--ensure` (§ 6.1): nothing to repeat.
 
 ### 6.4 Final Verification Gate (MANDATORY — after --plan-feature)
 
@@ -759,6 +732,12 @@ FUNCTION final_verification_gate(feature_id, expected_count, expected_issues):
     ⚠️ "Verification found discrepancies — review report above"
 ```
 
+### 6.5 Phase start and ratified realignment (EVOL-079)
+
+Every phase command opens with `python3 scripts/gate.py tracker --start --feature F --phase P` before its first artefact write: the phase's item moves to the `in-progress` column. A Done item is red — reworking delivered work is a refinement item (`{head}-R<k>:`, § 3.3), never a reopened one — unless the change is a ratified realignment (LAW-17): `--aligns AC-F-N` names the accepted change and the item stays Done. `--item IDENT` names an item that is not the phase's own (a refinement, a sub-increment). A gate item opens the same way (`--phase contract-freeze|preventive-sweep|smoke`, § 5 Gate Issue).
+
+**Done.** A phase command never closes its own item: `BACKLOG --update-execution {step_ref}` does, on every adapter (`gate.py tracker --move IDENT --to done`; GitHub closes the issue, `none` rewrites the row).
+
 ---
 
 ## 7. PROJECT BOARD OPERATIONS
@@ -770,8 +749,8 @@ FUNCTION final_verification_gate(feature_id, expected_count, expected_issues):
 1. **Verify CLI/MCP readiness**: Execute Preflight Check (§ 6.0.2). If it fails → resolve with user before proceeding.
 2. **Execute tool-adapter `create_project`**: Create the project/board in the external tool
 3. **Execute tool-adapter `configure_board`**: Set up board columns from `board_columns` setup decisions
-4. **Retrieve project identifiers**: Extract non-sensitive IDs (project ID, field IDs, column option IDs) from command outputs
-5. **Persist to `docs/backlog/project-config.json`**: Write the tool name, integration method, CLI command, project IDs, and field mappings — **zero credentials**
+4. **Retrieve project identifiers**: the keys the gate reads — GitHub `owner`, `repo`, `project_number` (and `project_node_id`); Jira `site`, `project_key`, `board_id`. No field, option or transition id: the gate resolves columns by name at run time
+5. **Persist to `docs/backlog/project-config.json → project_ids`**: those keys, the tool name and the integration method — **zero credentials**
 6. **Inform user**: Display the project URL and note any manual steps from the tool-adapter
 
 #### Local Mode
@@ -783,16 +762,16 @@ Initialize `docs/backlog/state.md` with the Kanban table structure:
 last_updated: {date}
 total_issues: 0
 next_local_id: 1
-board_columns: [{col_1}, {col_2}, {col_3}, {col_4}]
+board_columns: [{Q27.1 columns}]
 ---
 
 # Backlog State
 
 ## Board
 
-| Local ID | Feature | Title | Status | Body File |
-|----------|---------|-------|--------|-----------|
-| — | — | — | — | — |
+| Local ID | Feature | Title | Status | Labels | Milestone | Parent | Body File |
+|----------|---------|-------|--------|--------|-----------|--------|-----------|
+| — | — | — | — | — | — | — | — |
 
 ## Next Action
 
@@ -803,34 +782,22 @@ Create `docs/backlog/issue-bodies/.gitkeep` to track the directory.
 
 ### 7.2 Move Issues (--move)
 
-#### External Mode
-
-1. Read current board state via tool-adapter `query_board` to confirm issues exist and their current status
-2. Execute tool-adapter `get_item_id` to resolve issue numbers to board item IDs
-3. Read column option IDs from `project-config.json` → `board_field_mapping` (needed to map target column name to field value)
-4. Execute tool-adapter `move_to_column` for each issue using the resolved field value from step 3
-5. **MANDATORY — Verify each move**: Execute tool-adapter `verify_board_placement` for each issue to confirm status matches target column. Report per-issue result: `✅ #{N}: {old_status} → {new_status}` or `❌ #{N}: move failed`
-
-#### Local Mode
-
-1. Read current `state.md` to confirm issue IDs exist
-2. Update the `Status` column for the specified local IDs in `docs/backlog/state.md`
-3. **MANDATORY — Verify**: Re-read `state.md` to confirm status values were updated correctly
+`python3 scripts/gate.py tracker --move IDENT --to backlog|ready|in-progress|done` per item, on every adapter. The gate resolves the column from `tracker.flow`, writes, re-reads and reports `<key> → <column>` (or `<key> already <column>`); red names what the board refused.
 
 ### 7.3 Board Status (--status)
 
 #### External Mode
 
-Execute tool-adapter `query_board` command to retrieve all items with their current status column. Parse the output and display the summary table. Include issue count per column and total.
+Execute tool-adapter `query_board` command to retrieve all items with their current status column. Parse the output and display the summary table, columns in `board_columns` order. Include issue count per column and total.
 
 #### Both Modes — Display Format
 
 ```
 | Column       | Count | Issues |
 |-------------|-------|--------|
-| Todo         | 5     | #10, #11, #12, #13, #14 |
+| Backlog      | 5     | #10, #11, #12, #13, #14 |
+| Ready        | 1     | #6 |
 | In Progress  | 2     | #7, #8 |
-| Review       | 1     | #6 |
 | Done         | 3     | #1, #2, #3 |
 ```
 
@@ -840,28 +807,28 @@ In local mode, "Issues" column shows local IDs (e.g., `L-001`, `L-002`).
 
 ## 8. STATE TRACKING (Local mode only)
 
-> **SSOT:** This section applies ONLY in **local mode** (`project_tracking.tool == "None"`). In external mode, the external tool IS the state tracker — do NOT create or update `state.md`.
+> **SSOT:** This section applies ONLY in **local mode** (`project_tracking.adapter == none`). In external mode, the external tool IS the state tracker — do NOT create or update `state.md`.
 
 Path: `docs/backlog/state.md`
 
-This file IS the backlog in local mode. It serves as both the issue registry and the Kanban board. Update it after every operation:
+This file IS the backlog in local mode. It serves as both the issue registry and the Kanban board. Only `gate.py tracker` writes its rows (§ 6.0):
 
 ```markdown
 ---
 last_updated: {date}
 total_issues: {N}
 next_local_id: {N+1}
-board_columns: [Todo, In Progress, Review, Done]
+board_columns: [Backlog, Ready, In Progress, Done]
 ---
 
 # Backlog State
 
 ## Board
 
-| Local ID | Feature | Title | Status | Body File |
-|----------|---------|-------|--------|-----------|
-| L-001 | FEAT-001 | [FEAT-001] CODESIGN: Spec BDD + UX Mock — Auth | Todo | issue-bodies/feat-001-1-codesign.md |
-| L-002 | FEAT-001 | [FEAT-001] BLUEPRINT: Architecture — Auth | Todo | issue-bodies/feat-001-2-blueprint.md |
+| Local ID | Feature | Title | Status | Labels | Milestone | Parent | Body File |
+|----------|---------|-------|--------|--------|-----------|--------|-----------|
+| L-001 | FEAT-001 | [FEAT-001] CODESIGN: Spec BDD + UX Mock — Auth | Backlog | phase:codesign | EPIC-1: Auth | — | docs/backlog/issue-bodies/feat-001-1-codesign.md |
+| L-002 | FEAT-001 | [FEAT-001] BLUEPRINT: Architecture — Auth | Backlog | phase:blueprint | EPIC-1: Auth | — | docs/backlog/issue-bodies/feat-001-2-blueprint.md |
 
 ## Next Action
 
@@ -904,7 +871,7 @@ The execution plan (`docs/backlog/execution-plan.md`) organizes feature delivery
 | Operation | Execution Plan Action |
 | --- | --- |
 | `--plan-feature` | After creating issues, update execution-plan.md step lines with issue references |
-| `--move {ISSUES} --to Done` | Suggest `--update-execution` to mark corresponding plan steps as complete |
+| `--move {IDENT} --to done` | Suggest `--update-execution` to mark corresponding plan steps as complete |
 | `--status` | Include execution plan progress summary if plan exists |
 
 ### 10.2 Memory Cache

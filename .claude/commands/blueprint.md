@@ -92,3 +92,4 @@ See `.claude/instructions/Factory-blueprint-validation.instructions.md` for the 
 ## Pre-Command Protocol (MANDATORY)
 - **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
 - This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking
+- **Tracker (EVOL-079):** after Step -1, before the first artefact write, `--start` / `--refine {ID}` run `python3 scripts/gate.py tracker --start --feature {ID} --phase blueprint` — the item to the in-progress column of `tracker.flow`. Red stops the command: new work on a Done item goes to its refinement item (`[{ID}] BLUEPRINT-R<k>:`, `--item`), or a ratified realignment passes `--aligns AC-{ID}-<N>`.

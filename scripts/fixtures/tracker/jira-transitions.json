@@ -1,0 +1,62 @@
+{
+ "expand": "transitions",
+ "transitions": [
+  {
+   "id": "11",
+   "name": "Select for development",
+   "hasScreen": false,
+   "isGlobal": true,
+   "isInitial": false,
+   "isAvailable": true,
+   "isConditional": false,
+   "isLooped": false,
+   "to": {
+    "id": "10001",
+    "name": "Selected for Development",
+    "statusCategory": {
+     "id": 2,
+     "key": "new",
+     "name": "To Do"
+    }
+   }
+  },
+  {
+   "id": "21",
+   "name": "Start progress",
+   "hasScreen": false,
+   "isGlobal": true,
+   "isInitial": false,
+   "isAvailable": true,
+   "isConditional": false,
+   "isLooped": false,
+   "to": {
+    "id": "3",
+    "name": "In Progress",
+    "statusCategory": {
+     "id": 4,
+     "key": "indeterminate",
+     "name": "In Progress"
+    }
+   }
+  },
+  {
+   "id": "31",
+   "name": "Done",
+   "hasScreen": false,
+   "isGlobal": true,
+   "isInitial": false,
+   "isAvailable": true,
+   "isConditional": false,
+   "isLooped": false,
+   "to": {
+    "id": "10002",
+    "name": "Done",
+    "statusCategory": {
+     "id": 3,
+     "key": "done",
+     "name": "Done"
+    }
+   }
+  }
+ ]
+}

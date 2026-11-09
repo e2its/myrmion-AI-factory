@@ -1,188 +1,127 @@
 ---
-description: "Tool adapter STUB for Jira (Atlassian Cloud / Server). Materialised by SETUP --generate into docs/backlog/tool-adapter.md when project_tracking.tool matches /jira/i. Contributors: fill in the concrete commands for each abstract operation, then remove the STUB banner."
+description: "Tool adapter for Jira (Cloud or Data Center). Materialised by SETUP --generate into docs/backlog/tool-adapter.md when the derived project_tracking.adapter is jira (EVOL-079)."
 tool: "Jira"
-integration: "cli"
+integration: "cli | mcp"
 cli_binary: "jira"
-stub: true
 ---
 
-# Tool Adapter: Jira (STUB)
+# Tool Adapter: Jira
 
-> ⚠️ **STUB ADAPTER.** This file is a template skeleton. Each abstract operation below lists the expected behaviour and a recommended CLI invocation, but the exact commands must be validated against your Jira instance (Cloud vs. Server, API version, installed `jira` CLI variant — `ankitpokhrel/jira-cli` is the reference).
->
-> Once validated, remove this banner and the `stub: true` frontmatter.
+Two paths, never mixed:
+
+- **Lifecycle** (create, place, move, close, nest) — only `python3 scripts/gate.py tracker …`, over the Jira REST API. Never a hand-run transition.
+- **Reads** by the agent — the transport in `docs/setup.md → project_tracking.transport` (Q27.8): `cli` (jira-cli) or `mcp` (Atlassian's remote server).
 
 ## 0. Prerequisites
 
-### Recommended CLI
+### Site
 
-[`ankitpokhrel/jira-cli`](https://github.com/ankitpokhrel/jira-cli) — Go-based, supports Jira Cloud and Server.
+| Site | API | Auth the gate sends |
+| --- | --- | --- |
+| Cloud (host under `atlassian.net`) | REST v3 | Basic: account email + API token |
+| Data Center (any other host) | REST v2 | Bearer: personal access token |
+
+### Token
+
+`docs/setup.md → project_tracking.token` (Q27.9) names the vault entry — never the value. The vault exports it before a BACKLOG command:
+
+- `JIRA_API_TOKEN` — the API token (Cloud) or personal access token (Data Center).
+- `JIRA_USER_EMAIL` — Cloud only: the token's account email.
+
+Use a bot account with rights on this one project. Nothing writes the token to a file.
+
+### Transport `cli`
+
+[jira-cli](https://github.com/ankitpokhrel/jira-cli) 1.7.0. It reads the same `JIRA_API_TOKEN`.
 
 ```bash
-# macOS
-brew install ankitpokhrel/jira-cli/jira-cli
-
-# Linux: see https://github.com/ankitpokhrel/jira-cli/releases
+jira init                       # server URL, login, project; Data Center: JIRA_AUTH_TYPE=bearer
+jira me                         # verify
 ```
 
-### Authenticate
+### Transport `mcp`
 
-```bash
-jira init        # prompts for server URL, email, API token
-```
+Atlassian's remote MCP server, `https://mcp.atlassian.com/v2/mcp` — the `atlassian` row in the project's MCP servers. OAuth runs in the harness; no credential sits in the project. Cloud only: a Data Center site uses `cli`. Every call takes the site's `cloudId` (`getAccessibleAtlassianResources`).
 
-API token is generated at <https://id.atlassian.com/manage-profile/security/api-tokens>. The token is stored by the CLI in `~/.config/.jira/.config.yml` — the framework never reads it.
-
-### Verify
-
-```bash
-jira me
-```
-
-### Required Permissions
+### Required permissions
 
 | Permission | Why |
 | --- | --- |
-| Browse Projects | `read_issue`, `query_board` |
-| Create Issues | `create_issue` |
-| Edit Issues | `move_to_column`, `close_issue`, `add_sub_issue` |
-| Manage Sprints (if sprint-based) | `create_milestone` when strategy is sprint-based |
+| Browse Projects | reads, the gate's board read |
+| Create Issues | `gate.py tracker --ensure` |
+| Edit Issues | labels, `add_label` |
+| Transition Issues | `gate.py tracker --start` / `--move` |
+| Administer Projects (once) | `create_project`, `configure_board`, versions |
 
 ---
 
-## 1. Runtime Config (populated by `--init-board`)
+## 1. Runtime Config (written by `--init-board`)
 
 ```json
 {
   "tool": "Jira",
-  "integration": "cli",
-  "cli_command": "jira",
   "project_ids": {
+    "site": "https://<your-site>",
     "project_key": "{{JIRA_PROJECT_KEY}}",
     "board_id": "{{JIRA_BOARD_ID}}"
-  },
-  "board_field_mapping": {
-    "status_transitions": {
-      "Todo": "{{TRANSITION_ID_TODO}}",
-      "In Progress": "{{TRANSITION_ID_IN_PROGRESS}}",
-      "Review": "{{TRANSITION_ID_REVIEW}}",
-      "Done": "{{TRANSITION_ID_DONE}}"
-    }
   }
 }
 ```
 
-Jira transitions have IDs that vary per workflow — capture via `jira issue transition list` on a sample issue during `--init-board`.
+No transition id is stored. The gate reads the board configuration: a column is the set of statuses mapped to it. A move takes the transition whose target status is in the flow column (`config/quality.json → tracker.flow`, Q27.7).
 
 ---
 
-## 2. Abstract Operations → Jira CLI Commands
+## 2. Abstract Operations
 
 ### 2.1 Bootstrap
 
-#### `create_project` — **MANUAL**
-Jira project creation typically requires admin rights and custom workflows. **Recommend:** instruct the user to create the Jira project manually via the web UI, then supply the project key during `--init-board`.
+#### `create_project` — manual
+A Jira admin creates the project. `--init-board` records `site`, `project_key` and `board_id` (`jira board list` / `listJiraBoards`).
 
-#### `configure_board` — **STUB**
-Column mapping in Jira depends on the workflow. The BACKLOG agent MUST query the workflow transitions for the configured project and map `{{BOARD_COLUMNS}}` to the closest matching transitions.
+#### `configure_board` — manual
+The board's columns are `{{BOARD_COLUMNS}}` (Q27.1). Every column of `tracker.flow` exists on the board, maps at least one status, and the workflow reaches it by a transition. Check: `python3 scripts/gate.py tracker --ensure <rows.json> --dry-run` names a missing column.
 
-```bash
-# TODO: implement
-jira issue transition list --project {{JIRA_PROJECT_KEY}}
-```
+#### `create_label` — no-op
+Jira labels are free strings; applying one creates it.
 
-#### `create_label` — **STUB**
-Jira labels are free-form strings on issues — they do not need pre-declaration. This operation is effectively a no-op (labels are created implicitly when applied to an issue).
+#### `create_milestone` — manual
+A milestone is a version (Project settings → Releases), named per `milestone_strategy` (Q27.3). The gate sets it as the item's `fixVersions`, by id from the version's name. A missing version is red, never created by the gate.
 
-#### `create_milestone` — **STUB (depends on strategy)**
-- `epic-based`: create an Epic issue type to represent the milestone
-- `sprint-based`: use Sprints (`jira sprint create`)
-- `phase-based`: use Fix Versions (`jira version create`)
+### 2.2 Lifecycle — `gate.py tracker` only
 
----
+| Operation | Command |
+| --- | --- |
+| `create_issue`, `add_to_board`, `add_sub_issue` | `python3 scripts/gate.py tracker --ensure <rows.json> [--dry-run]` |
+| sub-increment items | `python3 scripts/gate.py tracker --ensure --sub-increments <F>` |
+| phase start (In Progress) | `python3 scripts/gate.py tracker --start --feature <F> --phase <P> [--item <IDENT>] [--aligns AC-…]` |
+| `move_to_column`, `close_issue` | `python3 scripts/gate.py tracker --move <IDENT> --to backlog\|ready\|in-progress\|done` |
 
-### 2.2 Issue Lifecycle
+- Rows file: a JSON list of `{title, ident?, body?, labels?, parent?, milestone?, state?}`. `body` is a file path; `state` defaults to `backlog`.
+- An item with a `parent` is created as the project's sub-task type under it; any other as `Task` (else the first standard type).
+- A Jira item cannot be linked to a parent after creation. An item under another parent is red — never re-parented.
+- Re-running creates nothing: an item found by its ident (the title head) is left as it is. Two items on one ident: red.
+- Done = the item sits in the flow's done column.
 
-#### `create_issue` — **STUB**
-```bash
-# TODO: validate
-jira issue create \
-  --project {{JIRA_PROJECT_KEY}} \
-  --type "Task" \
-  --summary "<title>" \
-  --body "<body>" \
-  --label "<label1>" --label "<label2>" \
-  --parent "<epic_key_if_any>"
-```
+#### `add_label`
 
-#### `add_to_board` — **NO-OP**
-Jira issues are automatically on the board for their project. No explicit add step.
+| cli | mcp |
+| --- | --- |
+| `jira issue edit <KEY> -l <label> --no-input` (appends) | `editJiraIssue` — add the label to `labels` |
 
-#### `move_to_column` — **STUB**
-```bash
-# TODO: validate
-jira issue move <issue_key> "<target_status>"
-```
+Idempotent: a label already on the issue changes nothing.
 
-Uses the Jira transition API. The `{{TRANSITION_ID_*}}` mapping captured at init time selects the right transition.
+### 2.3 Reads
 
-#### `close_issue` — **STUB**
-Move to `Done` status and optionally resolve:
-```bash
-jira issue move <issue_key> "Done"
-```
+| Operation | cli | mcp |
+| --- | --- | --- |
+| `query_board` | `jira issue list -q 'project = {{JIRA_PROJECT_KEY}}' --plain` | `searchJiraIssuesUsingJql` (`project = {{JIRA_PROJECT_KEY}}`) |
+| `get_item_id` | the issue key | the issue key |
+| `read_issue` | `jira issue view <KEY> --plain` | `getJiraIssue` |
+| `verify_issue` | `read_issue` + compare | `read_issue` + compare |
+| `verify_board_placement` | `read_issue` status vs the column's statuses | `getJiraIssue` + `getJiraBoardConfig` |
 
-#### `add_label` — **STUB**
-Jira labels are free-form strings. Add a label to an existing issue:
-```bash
-# TODO: validate — Jira CLI may require a fetch-modify-update cycle instead of a direct add flag
-jira issue edit <issue_key> --label "<label_name>"
-```
-Used by the iteration-model cascade (e.g., `stale-after-cascade`). Must be idempotent — if the label already exists on the issue, calling this is a no-op.
-
-#### `add_sub_issue` — **STUB**
-Jira has **Sub-tasks** (native sub-issue equivalent). Create the child as a sub-task of the parent:
-```bash
-# TODO: validate
-jira issue create \
-  --project {{JIRA_PROJECT_KEY}} \
-  --type "Sub-task" \
-  --parent "<parent_issue_key>" \
-  --summary "<title>"
-```
-
-Note: this means sub-tasks are created directly, not converted from standalone issues. The `create_issue` implementation should accept an optional `parent_key` parameter and dispatch to the sub-task path when provided.
-
----
-
-### 2.3 Query / Verification
-
-#### `query_board` — **STUB**
-```bash
-# TODO: validate
-jira issue list \
-  --project {{JIRA_PROJECT_KEY}} \
-  --status "~Done" \
-  --plain --no-headers
-```
-
-Returns structured issue list. Parse into `{key, title, status, labels, parent}` rows.
-
-#### `get_item_id` — **STUB**
-Jira issue keys (e.g., `PROJ-42`) are the native ID — return the key directly.
-
-#### `read_issue` — **STUB**
-```bash
-jira issue view <issue_key> --plain
-```
-
-#### `verify_issue` — **COMPOSED**
-Run `read_issue` and compare against expected metadata.
-
-#### `verify_board_placement` — **STUB**
-```bash
-jira issue view <issue_key> --plain | grep "^Status:"
-```
+The gate re-reads every item it writes; its exit code is the placement proof.
 
 ---
 
@@ -190,9 +129,9 @@ jira issue view <issue_key> --plain | grep "^Status:"
 
 | Placeholder | Resolved by | When |
 | --- | --- | --- |
-| `{{JIRA_PROJECT_KEY}}` | User prompt during `--init-board` | First init |
-| `{{JIRA_BOARD_ID}}` | `jira board list --project {{JIRA_PROJECT_KEY}}` | First init |
-| `{{TRANSITION_ID_*}}` | `jira issue transition list` on a sample issue | First init |
+| `{{BOARD_COLUMNS}}` | SETUP --generate from Q27.1 | Materialisation |
+| `{{JIRA_PROJECT_KEY}}` | `--init-board` | First init |
+| `{{JIRA_BOARD_ID}}` | `--init-board` (`jira board list` / `listJiraBoards`) | First init |
 
 ---
 
@@ -200,10 +139,16 @@ jira issue view <issue_key> --plain | grep "^Status:"
 
 | Symptom | Cause | Resolution |
 | --- | --- | --- |
-| `jira: command not found` | CLI not installed | See § 0 |
-| `401 Unauthorized` | Expired API token | `jira init` to re-enter token |
-| `Cannot transition issue` | Target status not in workflow | List transitions with `jira issue transition list <key>` and update mapping |
-| `No Sub-task type in project` | Project doesn't have sub-task issue type | Ask Jira admin to enable Sub-task; meanwhile declare `add_sub_issue: no-op` in § 5 |
+| `JIRA_API_TOKEN is not set` / `JIRA_USER_EMAIL is not set` | the vault did not export it | export from the entry `project_tracking.token` names |
+| `Jira refused … (401/403)` | token expired, wrong account, or missing permission | new token in the vault; check § 0 permissions |
+| `no transition into the `X` column` | the workflow cannot reach that column from the item's status | add the transition in the workflow, or fix `tracker.flow` |
+| `the flow names column `X` and the board has none` | board columns ≠ `tracker.flow` | rename the board column or fix `tracker.flow` |
+| `has no version `X`` | milestone not created | `create_milestone`, then re-run |
+| re-run right after another tool created an item does not see it | Cloud search is eventually consistent; the gate reconciles only its own creations (`reconcileIssues`, then GET by key) | re-run in a few minutes; a doubled item is red, never silent |
+| `has no sub-task issue type` | project without sub-tasks | an admin enables a sub-task type |
+| `mcp` transport on Data Center | the remote server serves Cloud only | set `project_tracking.transport: cli` |
+
+Data Center differs only in API v2, Bearer auth, `search` with `startAt` paging and a plain-text description.
 
 ---
 
@@ -211,28 +156,21 @@ jira issue view <issue_key> --plain | grep "^Status:"
 
 ```yaml
 required_ops:
-  create_project:        manual    # admin action, not CLI-automatable
-  configure_board:       TODO
-  create_label:          no-op     # labels created implicitly
-  create_issue:          TODO
-  add_to_board:          no-op     # implicit
-  move_to_column:        TODO
-  close_issue:           TODO
-  add_label:             TODO      # jira issue edit --label — validate idempotency
-  query_board:           TODO
-  get_item_id:           native    # issue key
-  read_issue:            TODO
+  create_project:        manual     # Jira admin
+  configure_board:       manual     # board columns = tracker.flow, each reachable by a transition
+  create_label:          no-op      # labels created on use
+  create_issue:          gate       # gate.py tracker --ensure
+  add_to_board:          gate       # implicit: a project issue is on its board
+  move_to_column:        gate       # gate.py tracker --move / --start
+  close_issue:           gate       # --move … --to done
+  add_label:             native     # jira issue edit -l / editJiraIssue
+  query_board:           native
+  get_item_id:           native     # issue key
+  read_issue:            native
   verify_issue:          composed
-  verify_board_placement: TODO
+  verify_board_placement: native
 
 optional_ops:
-  create_milestone:      TODO      # strategy-dependent
-  add_sub_issue:         TODO      # via Sub-task issue type
+  create_milestone:      manual     # a version; the gate sets fixVersions by id
+  add_sub_issue:         gate       # created as a sub-task under its parent; never re-parented
 ```
-
-**Contributor checklist:**
-- [ ] Replace every `TODO` with a validated command
-- [ ] Capture the Jira Cloud vs. Server differences if any
-- [ ] Remove the `stub: true` frontmatter flag
-- [ ] Remove the STUB banner at the top of the file
-- [ ] Update [`README.md`](./README.md) selection table if the tool name matching pattern needs refinement

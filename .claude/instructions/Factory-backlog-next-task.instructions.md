@@ -14,9 +14,9 @@ applicable_when:
 
 ## 0. Source Of Truth (Dual-Mode)
 
-> The resolver branches on `project_tracking.tool` (from Q27). Both modes are parallel — the resolver itself is mode-agnostic in its code path and always delegates to the tool-adapter. See [Factory-backlog-execution-plan.instructions.md § 0.3](Factory-backlog-execution-plan.instructions.md) for the full dual-mode contract.
+> The resolver branches on `config/quality.json → tracker.adapter` (derived from Q27, EVOL-079); `FLOW` below is `tracker.flow` — the done and ready columns are read there, never a literal. Both modes are parallel — the resolver itself is mode-agnostic in its code path and always delegates to the tool-adapter. See [Factory-backlog-execution-plan.instructions.md § 0.3](Factory-backlog-execution-plan.instructions.md) for the full dual-mode contract.
 
-### File mode (`project_tracking.tool == "None"`)
+### File mode (`tracker.adapter == none`)
 
 1. `/memories/repo/execution-plan-cache.md` (fast path — cache, checked first)
 2. `docs/backlog/execution-plan.md` (primary source of truth for ordering/dependencies)
@@ -28,7 +28,7 @@ If sources disagree in file mode:
 - task details/command precedence: body file at `docs/backlog/issue-bodies/{local_id}.md`
 - always report mismatch explicitly.
 
-### Board mode (`project_tracking.tool != "None"`)
+### Board mode (`tracker.adapter != none`)
 
 1. `/memories/repo/project-board-cache.md` (fast path — cache, checked first)
 2. The configured external board, read via tool-adapter `query_board` (primary source of truth for ordering/dependencies AND issue metadata in board mode — the board IS the plan; `execution-plan.md` does NOT exist on disk in this mode)
@@ -95,7 +95,7 @@ IF blocked_by_labels is not empty:
         status: "MISSING",
         title:  "Resolve dangling blocked-by label (references missing issue " + dep_ref + ")"
       })
-    ELIF dep_issue.status != "Done":
+    ELIF dep_issue.status != FLOW.done:
       unresolved_deps.append({ref: dep_ref, status: dep_issue.status, title: dep_issue.title})
 
   IF unresolved_deps is not empty:
@@ -164,7 +164,7 @@ IF candidate is a feature phase issue:
       IF upstream_cf IS NULL:
         unresolved_upstreams.append({ ref: upstream_id, reason: "CONTRACT-FREEZE issue missing", status: "MISSING" })
         CONTINUE
-      IF upstream_cf.status != "Done":
+      IF upstream_cf.status != FLOW.done:
         unresolved_upstreams.append({ ref: upstream_id, reason: "CONTRACT-FREEZE not Done", status: upstream_cf.status, issue_ref: upstream_cf.ref })
         CONTINUE
       IF "stale-after-cascade" IN upstream_cf.labels:
@@ -257,7 +257,7 @@ FUNCTION handle_gate(gate_name, gate, candidate, blocker_shape):
     LOG: "Gate {gate_name} SKIPPED (mode=off) for {candidate.feature_id} — governance override active"
     RETURN null   # proceed with candidate unchanged
 
-  IF gate IS NULL OR gate.status != "Done":
+  IF gate IS NULL OR gate.status != FLOW.done:
     IF mode == "warn":
       # Emit warn line on the response envelope; do NOT block.
       ATTACH warn = {
@@ -310,7 +310,7 @@ IF candidate is the first phase issue of a feature in epic {N+1}:
 
 > **Gate enforcement modes.** The resolver reads a three-level fallback chain for each gate: the gate issue's own `## Mode` section body (per-gate ADR-documented override; a single `enforce`/`warn`/`off` token inside the section) → the adapter's `## Gate Enforcement Mode` section (project-level default written by SETUP materialisation from Q27.5) → the governance snapshot's `project_tracking.gate_enforcement_mode` field (last-resort fallback). Unknown or missing values bottom out at `enforce` — the safest default. `warn` attaches a warn line to the response envelope (§ 2) and returns the downstream candidate; `off` skips the gate silently with a log entry; `enforce` produces the hard block documented above.
 
-> **Tool-agnostic invariant.** The resolver NEVER runs `gh` / `jira` / `linear` / `state.md` queries directly. All board reads go through `query_board` on the tool-adapter, which materialisation picks per project per Q27 answer (see `Factory-setup-materialization.instructions.md` § 6.1).
+> **Tool-agnostic invariant.** The resolver NEVER runs `gh` / `jira` / `state.md` queries directly. All board reads go through `query_board` on the tool-adapter, which materialisation picks per project from `tracker.adapter` (see `Factory-setup-materialization.instructions.md` § 6.1). A state change it suggests is `python3 scripts/gate.py tracker --move <ident> --to <state>` — the resolver itself writes nothing.
 
 > **Stale-after-cascade tag handling.** When a gate issue carries the label `stale-after-cascade` or `stale-after-slice-peer-iterated` (placed by the iteration model — see `Factory-iteration-model/SKILL.md` § CASCADE_PENDING_ITERATION), the resolver treats the gate as NOT Done regardless of the board's status field. The label takes precedence until the gate is re-run and the label removed.
 
@@ -329,20 +329,20 @@ From the selected line, extract:
 ```yaml
 IF issue reference is null → SKIP this step
 
-READ governance snapshot (.context/governance_snapshot.md) → project_tracking.tool
+READ config/quality.json → tracker.adapter   # derived from Q27 (EVOL-079)
 
-IF project_tracking.tool is undefined:
+IF tracker.adapter is undefined:
   WARN: "Issue reference exists ({issue_reference}) but project tracking configuration is missing. Continuing with execution-plan data only."
   PROCEED with execution-plan data
 
-IF project_tracking.tool == "None"  (local mode):
+IF tracker.adapter == none  (local mode):
   NORMALIZE issue reference to local_id
     → supports "#13" and "L-001"
   READ docs/backlog/state.md
   FIND entry for local_id and EXTRACT stored body_path
   READ local file from body_path
 
-IF project_tracking.tool != "None"  (external mode):
+IF tracker.adapter != none  (external mode):
   READ docs/backlog/project-config.json → integration, cli_command, tool_adapter_id
   READ docs/backlog/tool-adapter.md
   IF integration == "cli":
@@ -421,7 +421,7 @@ Pending gates (warn): {rendered_warns_or_none}
 ```
 
 
-> **Note:** Always include `Issue context`, `Plan↔issue mismatch`, and `Pending gates (warn)` fields. If issue content is not available, use `N/A` for context, `none` for mismatch, and `none` for warns. Render the `warns` list as `GATE=status` pairs joined by `, ` (e.g. `CONTRACT-FREEZE=Todo, PREVENTIVE-SWEEP=MISSING`); the user sees a one-line summary of every gate the resolver walked past in `warn` mode.
+> **Note:** Always include `Issue context`, `Plan↔issue mismatch`, and `Pending gates (warn)` fields. If issue content is not available, use `N/A` for context, `none` for mismatch, and `none` for warns. Render the `warns` list as `GATE=status` pairs joined by `, ` (e.g. `CONTRACT-FREEZE=Ready, PREVENTIVE-SWEEP=MISSING` — the status is the item's column, a `tracker.flow` name); the user sees a one-line summary of every gate the resolver walked past in `warn` mode.
 
 ---
 
@@ -435,8 +435,8 @@ Pending gates (warn): {rendered_warns_or_none}
 2. **Cache is optimization, never state.** Read-through caches (`/memories/repo/execution-plan-cache.md` in file mode, `/memories/repo/project-board-cache.md` in board mode) MAY be consulted as fast paths but NEVER treated as authoritative. Cache mismatches refresh from SSOT; they never override it.
 3. **Same filter chain as `--next-task`.** A terminal feature's item (§ 5.3 step 0) is excluded — not pending, not blocked. Eligibility = the item would NOT be rejected by any of: intra-feature prerequisite gate (§ 1.3), `blocked-by:#{N}` filter (§ 1.3.4), hard-gate enforcement with mode fallback (§ 1.3.5). Items gated by `warn` mode are ELIGIBLE but flagged; items gated by `enforce` are INELIGIBLE; items gated by `off` are ELIGIBLE with no flag.
 4. **Dual-mode source of truth** (same as `--next-task` § 0):
-   - File mode (`tool == "None"`): enumerate pending checklist items from `docs/backlog/execution-plan.md`.
-   - Board mode (`tool != "None"`): enumerate pending items from `ADAPTER.query_board()`; `execution-plan.md` does NOT exist on disk — do not read or write it.
+   - File mode (`tracker.adapter == none`): enumerate pending checklist items from `docs/backlog/execution-plan.md`.
+   - Board mode (`tracker.adapter != none`): enumerate pending items from `ADAPTER.query_board()`; `execution-plan.md` does NOT exist on disk — do not read or write it.
 
 ### 5.2 Algorithm
 
@@ -449,9 +449,7 @@ FUNCTION compute_eligible_pool(limit=20):
     candidates = [line for line in plan if line.starts_with("- [ ]")]
   ELSE:  # board mode
     items = ADAPTER.query_board()
-    candidates = [i for i in items if i.status NOT IN terminal_statuses()]
-    # terminal_statuses() derived from project_tracking.board_columns — last column
-    # (typically "Done") plus any user-customised closed column. Tool-agnostic.
+    candidates = [i for i in items if i.status != FLOW.done AND NOT i.closed]   # tracker.flow's done column; tool-agnostic
 
   # Step 1b — a terminal feature's items are not pending work (§ 5.3 step 0)
   pending = [c for c in candidates if NOT terminal_feature(c)]
@@ -511,7 +509,7 @@ FUNCTION apply_filter_chain(candidate):
     mode = resolve_gate_mode(gate, governance_snapshot)
     IF mode == "off":
       CONTINUE
-    IF gate IS NULL OR gate.status != "Done":
+    IF gate IS NULL OR gate.status != FLOW.done:
       IF mode == "warn":
         warns.append({gate: gate_name, status: gate.status if gate else "MISSING"})
       ELSE:   # enforce
@@ -541,7 +539,7 @@ FUNCTION apply_filter_chain(candidate):
       title: "[FEAT-013] IMPLEMENT: Code + Tests — Auth gateway",
       labels: ["phase:implement", "slice:EPIC-2.1", "appetite:medium"],
       appetite: "medium"  |  null,        # parsed from labels when Q27.6 == true
-      warns: [{gate: "CONTRACT-FREEZE", status: "Todo"}]  |  []
+      warns: [{gate: "CONTRACT-FREEZE", status: FLOW.ready}]  |  []
     },
     ...
   ]

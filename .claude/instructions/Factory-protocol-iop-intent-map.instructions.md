@@ -122,7 +122,7 @@ FUNCTION route_by_category(classification):
 ```yaml
 # Patterns evaluated in order of specificity. First confident match wins.
 # {ID} = Feature ID extracted from context. {ENV} = from .claude/rules/ci-cd.md.
-# {ISSUES} = Comma-separated issue numbers. {STATUS} = Target Kanban column name.
+# {IDENT} = the item's title head (e.g. `[FEAT-001] QA:`). {STATE} = backlog | ready | in-progress | done (the column comes from tracker.flow).
 
 INTENT_MAP:
 
@@ -220,8 +220,8 @@ INTENT_MAP:
     command: BACKLOG --plan-feature {ID}
   "(create.*issue|crear.*issue|new.*issue)":
     command: BACKLOG --create-issue
-  "(move.*issue|mover.*issue).*{ISSUES}.*(to|a|→).*{STATUS}":
-    command: BACKLOG --move {ISSUES} --to {STATUS}
+  "(move.*issue|mover.*issue).*{IDENT}.*(to|a|→).*{STATE}":
+    command: BACKLOG --move {IDENT} --to {STATE}
   "(board.*status|backlog.*status|estado.*tablero|kanban)":
     command: BACKLOG --status
   "(plan.*ejecuci[oó]n|execution.*plan|generar.*plan.*epic|domain.*epic|ordenar.*features|generar.*plan.*cluster|domain.*cluster)":

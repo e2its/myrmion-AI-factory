@@ -1,0 +1,47 @@
+{
+ "id": 7,
+ "name": "ACME board",
+ "type": "kanban",
+ "self": "https://acme.atlassian.net/rest/agile/1.0/board/7/configuration",
+ "columnConfig": {
+  "columns": [
+   {
+    "name": "Backlog",
+    "statuses": [
+     {
+      "id": "10000",
+      "self": "https://acme.atlassian.net/rest/api/2/status/10000"
+     }
+    ]
+   },
+   {
+    "name": "Selected for Development",
+    "statuses": [
+     {
+      "id": "10001",
+      "self": "https://acme.atlassian.net/rest/api/2/status/10001"
+     }
+    ]
+   },
+   {
+    "name": "In Progress",
+    "statuses": [
+     {
+      "id": "3",
+      "self": "https://acme.atlassian.net/rest/api/2/status/3"
+     }
+    ]
+   },
+   {
+    "name": "Done",
+    "statuses": [
+     {
+      "id": "10002",
+      "self": "https://acme.atlassian.net/rest/api/2/status/10002"
+     }
+    ]
+   }
+  ],
+  "constraintType": "issueCount"
+ }
+}

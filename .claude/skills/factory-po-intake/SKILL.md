@@ -65,13 +65,14 @@ missing = [c FOR c IN registry.components IF c.status == "DESIGNED" AND c.backlo
 IF missing AND registry.catalog_feature IS NULL:
   RDR: foundational Component Catalog feature (recommended) / refinement issues on the consuming features only / defer
   ON foundational: ratify {ID} per project naming → `/backlog --plan-feature {ID} "Component Catalog"` → registry.catalog_feature = {ID}
-FOR c IN missing:
-  first round  : `/backlog --create-issue "[{ID}] COMPONENT: {c.name}"` — labels phase:implement, scope:frontend-only, kind:component-catalog ; sub-issue of the IMPLEMENT issue (`add_sub_issue`; adapters without it ⇒ `> Parent: #{N}` line)
-  later rounds : Refinement Issue `[{ID}] IMPLEMENT-R{k}: Extension — Component {c.name}` (+ enhancement)
-  registry: c.backlog_ref = issue ref ; c.status = PLANNED
+rows = FOR c IN missing:   # one rows file, one call — idempotent: a re-run creates only what is missing (EVOL-079)
+  first round  : {title: "[{ID}] COMPONENT: {c.name}", ident: <the full title>, labels: [phase:implement, scope:frontend-only, kind:component-catalog], parent: "[{ID}] IMPLEMENT:"}
+  later rounds : {title: "[{ID}] IMPLEMENT-R{k}: Extension — Component {c.name}", ident: <the full title>, labels: [phase:implement, enhancement]}
+`python3 scripts/gate.py tracker --ensure <rows>`
+registry: c.backlog_ref = issue ref ; c.status = PLANNED
 ```
 
-Everything through `/backlog` and the tool-adapter. NEVER call a tracker directly.
+`ident` is the full title: component items share their head (`[{ID}] COMPONENT:`, `[{ID}] IMPLEMENT-R{k}:`). Everything through `/backlog` and `gate.py tracker`. NEVER call a tracker directly.
 
 ## Beat 5 — Close the loop
 

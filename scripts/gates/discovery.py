@@ -4,6 +4,9 @@
 registry    `.context/templates/setup/setup/discovery_registry.json` — `questions[{id, tier, since, when?, keys}]`, a key
             spec is exactly one of `options` | `options_by {key, values}` | `free` (a closed kind), plus `record_only`
             (a reason) and, on `free: text` only, `suggestions` (the literals a condition may compare it to); top-level `derived {key: {from}}` — values earlier answers decide, never asked.
+            A derived entry may carry `matches {key, values: {<substring>: value}, else, warn}` (EVOL-079): the value is computed
+            from a free answer — case-insensitive, the first substring the answer contains wins, else `else` and the `warn`
+            (`{answer}` names the answer) in resolve's `warnings`; conditions read it, its literals are its values and `else`.
             `decided_by {key, values: {<parent literal>: <value>}}` (EVOL-071): an asked key an earlier answer may decide —
             when the parent's answer is listed the key is derived, never pending: resolve reports it in `derived_answers`
             (materialisation writes it beside the answers), conditions and placeholders read it, and an answer must equal it.
@@ -37,7 +40,9 @@ validate    V1 schema · V2 a single option not derived (a one-literal row its d
             (fills | derived fills | constants | baseline), and every entry names a token some template carries · V11 every
             migration row parses and its anchor exists · V12 every `configures` row: a key's literal is offered or decided, a
             gate row is {command, scoped?, red_link?, report?} with a command, `defect_prevention.classes` a list of
-            `DC-NN`, an `mcp.servers` row {<name>: {command, args}} — pinned `pkg@x.y.z`, `--isolated`, no env, no url (EVOL-077) · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
+            `DC-NN`, an `mcp.servers` row {<name>: {command, args}} — pinned `pkg@x.y.z`, `--isolated`, no env, no url (EVOL-077) —
+            or {type: http, url}: https on a host of MCP_HOSTS (the tracker vendor's own server, OAuth in the harness), no
+            headers, no env — no credential in the entry (EVOL-079) · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
             configured id a row, a row no option configures names no STACK_LABEL_KEYS label.
 configures  EVOL-067 — a key spec's `configures {<option literal>: {<config pointer>: value}}` and a derived entry's
             `configures {<config pointer>: value}` (unconditional, or only when its `when` condition holds — EVOL-074; V5 checks
@@ -54,7 +59,7 @@ import json
 import re
 from pathlib import Path
 
-from .common import FM_RE, GateFault, parse_yaml, read_frontmatter, tracked_files
+from .common import FM_RE, GateFault, clean, parse_yaml, read_frontmatter, tracked_files
 
 REGISTRY = ".context/templates/setup/setup/discovery_registry.json"
 MANIFEST = ".context/templates/setup/governance_versions.json"
@@ -73,6 +78,7 @@ MCP_POINTER = "mcp.servers"   # EVOL-077: the MCP target — lands in the projec
 MCP_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MCP_PIN = re.compile(r"^(?:@[a-z0-9][\w.-]*/)?[a-z0-9][\w.-]*@\d+\.\d+\.\d+$")
 MCP_COMMAND = "npx"   # a local server fetched at one exact version — never a shell, never a path
+MCP_HOSTS = ("mcp.atlassian.com",)   # EVOL-079: a remote server only on the vendor's own host — OAuth in the harness, never a credential in the entry
 MCP_FLAGS = ("-y", "--isolated", "--headless", "--no-usage-statistics", "--no-performance-crux", "--no-javascript-evaluation", "--no-file-navigations")   # the only flags a row carries: no registry, no config file; only the opt-outs (telemetry, script evaluation, file: URLs)
 DC_UNIVERSAL = re.compile(r"^DC-\d+$")
 TEMPLATE_CATALOG = TEMPLATE_ROOT + "rules/defect-prevention.md"
@@ -292,7 +298,24 @@ def decided(reg: dict, ans: dict) -> dict:
         v = db["values"].get(canon(ans.get(db["key"])))
         if v is not None:
             out[k] = v
+    out.update(matched(reg, ans)[0])
     return out
+
+
+def matched(reg: dict, ans: dict) -> tuple[dict, list[str]]:
+    """EVOL-079 — the derived keys a free answer selects (`matches`): {key: value} and the warnings of every `else`."""
+    out, warn = {}, []
+    for k, s in _derived(reg).items():
+        m = s.get("matches") if isinstance(s, dict) else None
+        if not isinstance(m, dict) or not isinstance(m.get("values"), dict) or ans.get(m.get("key")) in (None, ""):
+            continue
+        text = canon(ans[m["key"]]).lower()
+        hit = next((v for sub, v in m["values"].items() if sub.lower() in text), None)
+        if hit is None:
+            hit = m.get("else")
+            warn.append(str(m.get("warn") or "").replace("{answer}", clean(canon(ans[m["key"]]), 200)))   # the user's text: no control byte reaches the terminal
+        out[k] = hit
+    return out, warn
 
 
 def with_decided(reg: dict, ans: dict) -> dict:
@@ -333,8 +356,15 @@ def check(ast: list[list[dict]], reg: dict) -> list[str]:
             if spec.get("free") == "list":
                 out.append(f"`{k}` is a list answer — it may only be tested with `exists`")
                 continue
-            if k in derived:
+            m = derived.get(k, {}).get("matches") if isinstance(derived.get(k), dict) else None
+            if k in derived and not isinstance(m, dict):
                 continue   # a derived key: computed, no list to hold a literal to
+            if isinstance(m, dict):   # a matched key (EVOL-079): its values and its else
+                offered = sorted({canon(x) for x in [*(m.get("values") or {}).values(), m.get("else")] if x is not None})
+                for lit in ([c["value"]] if "value" in c else c["values"]):
+                    if lit is not None and canon(lit) not in offered:
+                        out.append(f"`{canon(lit)}` is not a value of `{k}` ({' | '.join(offered)})")
+                continue
             offered = _offered(spec)
             if offered is None:   # free text: only its suggestions (or null) — a literal nobody offers is drift
                 offered = sorted({canon(x) for x in spec.get("suggestions") or [] if isinstance(spec.get("suggestions"), list)})
@@ -394,6 +424,9 @@ def _offered_for(spec: dict, ans: dict) -> list[str] | None:
 def _check_answers(reg: dict, ans: dict):
     """An answer outside its key's options is a fault naming the key — never a silent skip."""
     dec = decided(reg, ans)
+    for k, v in matched(reg, ans)[0].items():
+        if ans.get(k) is not None and canon(ans[k]) != canon(v):
+            raise GateFault(f"the answer `{k}` = `{canon(ans[k])}` contradicts `{_derived(reg)[k]['matches']['key']}`, which selects `{canon(v)}` — the key is derived, never answered")
     for k, spec in _specs(reg).items():
         v = ans.get(k)
         if k in dec:
@@ -478,8 +511,10 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
         (landing if not c or evaluate(parse(c), ans) else skipped).append(k)
     since = {q.get("id"): q.get("since") for q in _questions(reg)}
     fills = {t: ans.get(k) for k, s in _specs(reg).items() for t in (s.get("fills") or [])}
+    fills.update({t: ans[k] for k, s in _derived(reg).items() if isinstance(s, dict) and ans.get(k) is not None
+                  for t in (s.get("fills") or [])})   # a decided value fills its token too (EVOL-079: TRACKER_ADAPTER)
     out = {"pending": pending, "pending_since": {q: since.get(q) for q in pending}, "landing": landing, "skipped": skipped,
-           "placeholders": fills, "derived_answers": derived_answers, "configures": configures(reg, ans)}
+           "placeholders": fills, "derived_answers": derived_answers, "configures": configures(reg, ans), "warnings": matched(reg, ans)[1]}
     out["defect_classes"] = defect_classes(repo, reg, out["configures"], ans, pending, project)
     lacking = _unverified_parts(reg, ans)
     if lacking:
@@ -672,6 +707,7 @@ def render_resolve(r: dict) -> str:
     lines = [f"discovery: {len(r['pending'])} pending question(s)" + (f": {pend}" if r["pending"] else " — every question that applies is answered")]
     if r.get("stop"):
         lines.append(f"  stop: {r['stop']}")
+    lines += [f"  WARN: {w}" for w in r.get("warnings") or []]
     if r.get("derived_answers"):
         lines.append("  derived — an earlier answer decides them, never asked: " + ", ".join(f"{k} = {canon(v)}" for k, v in r["derived_answers"].items()))
     empty = sorted(t for t, v in r.get("placeholders", {}).items() if v is None)
@@ -793,9 +829,14 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
         for k, s in d.items():
             if k in specs:
                 out.append(f"V1 · `{k}` is both asked and derived")
-            if not isinstance(s, dict) or not isinstance(s.get("from"), str) or not s["from"].strip() or set(s) - {"from", "fills", "configures", "when"} \
+            if not isinstance(s, dict) or not isinstance(s.get("from"), str) or not s["from"].strip() or set(s) - {"from", "fills", "configures", "when", "matches"} \
                     or ("when" in s and not (isinstance(s["when"], str) and "configures" in s)):
-                out.append(f"V1 · derived `{k}`: the spec is {{from: \"<how earlier answers decide it>\", fills?: [TOKEN, …], configures?: {{<config pointer>: value}}, when?: \"<condition>\" (with configures)}}")
+                out.append(f"V1 · derived `{k}`: the spec is {{from: \"<how earlier answers decide it>\", fills?: [TOKEN, …], configures?: {{<config pointer>: value}}, when?: \"<condition>\" (with configures), matches?: {{key, values, else, warn}}}}")
+            m = s.get("matches") if isinstance(s, dict) else None
+            if m is not None and not (isinstance(m, dict) and set(m) == {"key", "values", "else", "warn"} and specs.get(m["key"], {}).get("free") == "text"
+                                      and isinstance(m["values"], dict) and m["values"] and all(isinstance(a, str) and a and isinstance(b, str) and b for a, b in m["values"].items())
+                                      and isinstance(m["else"], str) and m["else"] and isinstance(m["warn"], str) and m["warn"].strip()):
+                out.append(f"V1 · derived `{k}`: matches is {{key: <a free-text registry key>, values: {{<substring>: <value>}}, else: <value>, warn: \"<why, {{answer}}>\"}}")
     return out
 
 
@@ -1288,6 +1329,15 @@ def _mcp_rows(where: str, servers) -> list[str]:
     for name, row in servers.items():
         if not MCP_NAME.match(str(name)):
             out.append(f"V12 · {where}: {MCP_POINTER} server name `{name}` is not [a-z0-9-]+ — the harness names its tools mcp__<name>__*")
+        if isinstance(row, dict) and row.get("type") == "http":   # EVOL-079: a vendor's remote server, authorised in the harness
+            url = row.get("url") if isinstance(row.get("url"), str) else ""
+            host = re.match(r"^https://([^/:?#]+)(?:/|$)", url)
+            out += [f"V12 · {where}: {MCP_POINTER} `{name}`: `{f}` is not a remote-server field (type, url) — no headers, no env: no credential in the entry" for f in row if f not in ("type", "url")]
+            if not host or host.group(1) not in MCP_HOSTS:
+                out.append(f"V12 · {where}: {MCP_POINTER} `{name}`: url `{url}` — a remote server is https on one of {', '.join(MCP_HOSTS)}")
+            elif "$" in url:
+                out.append(f"V12 · {where}: {MCP_POINTER} `{name}`: url `{url}` carries `$` — the harness expands it, so no variable rides to the server")
+            continue
         if not isinstance(row, dict) or not isinstance(row.get("command"), str) or not row["command"].strip() \
                 or not isinstance(row.get("args"), list) or not all(isinstance(a, str) for a in row["args"]):
             out.append(f"V12 · {where}: {MCP_POINTER} `{name}` is {{command, args}} — a command and a list of string arguments"); continue

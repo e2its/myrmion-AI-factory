@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.2.0",
+  "framework_version": "10.3.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-09",
   "governance_features": {
@@ -171,13 +171,13 @@
       "version": "1.0.0",
       "content_type": "project_data",
       "target": "docs/backlog/project-config.json",
-      "stack_conditional": "project_tracking.tool != \"None\""
+      "stack_conditional": "project_tracking.adapter != \"none\""
     },
     "backlog/state.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "project_data",
       "target": "docs/backlog/state.md",
-      "stack_conditional": "project_tracking.tool == \"None\""
+      "stack_conditional": "project_tracking.adapter == \"none\""
     },
     "scripts/check-integrations.sh": {
       "version": "1.0.0",
@@ -452,34 +452,29 @@
       "upgrade_strategy": "smart-additive-merge"
     },
     "setup/setup_master_template.md": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md"
     },
     "backlog-tool-adapters/README.md": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "docs/backlog-tool-adapters/README.md"
     },
     "backlog-tool-adapters/github-project.md": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/github-project.md"
     },
     "backlog-tool-adapters/none.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/none.md"
     },
     "backlog-tool-adapters/jira.md": {
-      "version": "1.1.1",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/jira.md"
-    },
-    "backlog-tool-adapters/linear.md": {
-      "version": "1.1.1",
-      "content_type": "stack_configured",
-      "target": "docs/backlog-tool-adapters/linear.md"
     },
     "upgrade_safety_protocol.md": {
       "version": "1.2.2",
@@ -492,7 +487,7 @@
       "target": "config/coherence-context.json"
     },
     "config/quality.json": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "content_type": "stack_configured",
       "target": "config/quality.json"
     },
@@ -903,7 +898,7 @@
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**)."
     },
     "scripts/gate.py": {
-      "version": "2.4.0",
+      "version": "2.5.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
@@ -945,7 +940,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.39.0",
+      "version": "1.40.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -1220,14 +1215,14 @@
       "target": "scripts/gates/dependencies.py"
     },
     "scripts/gates/discovery.py": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/discovery.py",
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
     },
     "setup/discovery_registry.json": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "content_type": "universal",
       "target": null,
       "role": "The SETUP discovery registry (EVOL-102) — consumed in place by SETUP and gate.py discovery, never copied: the questions, their tiers, keys, options and conditions; derived values never asked."
@@ -1410,6 +1405,12 @@
       "delivery": "both",
       "target": "scripts/gates/proof.py"
     },
+    "scripts/gates/tracker.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "delivery": "both",
+      "target": "scripts/gates/tracker.py"
+    },
     "scripts/gates/bounds.py": {
       "version": "1.0.0",
       "content_type": "universal",
@@ -1560,7 +1561,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.30.2",
+      "version": "2.31.0",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -1568,27 +1569,27 @@
       "path": ".claude/commands/audit.md"
     },
     "commands/backlog.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "path": ".claude/commands/backlog.md"
     },
     "commands/blueprint.md": {
-      "version": "1.11.0",
+      "version": "1.12.0",
       "path": ".claude/commands/blueprint.md"
     },
     "commands/codesign.md": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "path": ".claude/commands/codesign.md"
     },
     "commands/devops.md": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "path": ".claude/commands/devops.md"
     },
     "commands/implement.md": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "path": ".claude/commands/implement.md"
     },
     "commands/qa.md": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "path": ".claude/commands/qa.md"
     },
     "commands/setup.md": {
@@ -1636,7 +1637,7 @@
       "path": ".claude/instructions/Factory-implement-build.instructions.md"
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.23.0",
+      "version": "2.24.0",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md"
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
@@ -1648,27 +1649,27 @@
       "path": ".claude/instructions/Factory-qa-verify.instructions.md"
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.19.0",
+      "version": "1.20.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md"
     },
     "instructions/Factory-backlog-execution-plan.instructions.md": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "path": ".claude/instructions/Factory-backlog-execution-plan.instructions.md"
     },
     "instructions/Factory-backlog-next-task.instructions.md": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "path": ".claude/instructions/Factory-backlog-next-task.instructions.md"
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md"
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "4.2.0",
+      "version": "4.3.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md"
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md"
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
@@ -1680,7 +1681,7 @@
       "path": ".claude/instructions/Factory-protocol-cwd-discipline.instructions.md"
     },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
-      "version": "2.13.0",
+      "version": "2.14.0",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
@@ -1708,7 +1709,7 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.11.0",
+      "version": "2.12.0",
       "type": "skill",
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
@@ -1827,7 +1828,7 @@
       "path": ".claude/skills/factory-coherence-validation/SKILL.md"
     },
     "skills/factory-backlog-next-task/SKILL.md": {
-      "version": "1.4.2",
+      "version": "1.5.0",
       "type": "skill",
       "role": "Next Task Resolver — computes next executable backlog step from execution plan, with mandatory adapter-based issue fetch and discrepancy detection.",
       "path": ".claude/skills/factory-backlog-next-task/SKILL.md"
@@ -2285,7 +2286,7 @@
       "path": ".claude/instructions/Factory-codesign-sync.instructions.md"
     },
     "skills/factory-po-intake/SKILL.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "skill",
       "role": "PO Intake v1.0.0 — external CODESIGN authoring. Builds the PO package, validates a return with the subproduct's deterministic validator (self-test first, always), one RDR per change, writes the transient drop zone, calls /codesign --sync per ratified target, reconciles the component registry against the codebase inventory and plans component-catalog issues through /backlog only. Never edits docs/spec/** or docs/ux/vision/**, never fixes PO documents, never decides scope or ordering.",
       "path": ".claude/skills/factory-po-intake/SKILL.md"
@@ -2303,7 +2304,7 @@
       "path": ".claude/hooks/deliver-governance.sh"
     },
     "scripts/gate.py": {
-      "version": "2.4.0",
+      "version": "2.5.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
@@ -2339,13 +2340,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.39.0",
+      "version": "1.40.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.37.0",
+      "version": "1.38.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2600,7 +2601,7 @@
       "path": "scripts/gates/dependencies.py"
     },
     "scripts/gates/discovery.py": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "type": "script",
       "path": "scripts/gates/discovery.py",
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
@@ -2809,6 +2810,54 @@
       "path": "scripts/fixtures/proof/playwright-control.json",
       "role": "META-ONLY sanitised Playwright 1.65 JSON report of the shipped canary, read by the Proof tests (EVOL-106)."
     },
+    "scripts/fixtures/tracker/github-board.json": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/tracker/github-board.json",
+      "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
+    },
+    "scripts/fixtures/tracker/github-issues.json": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/tracker/github-issues.json",
+      "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
+    },
+    "scripts/fixtures/tracker/jira-configuration.json": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/tracker/jira-configuration.json",
+      "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
+    },
+    "scripts/fixtures/tracker/jira-create.json": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/tracker/jira-create.json",
+      "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
+    },
+    "scripts/fixtures/tracker/jira-project.json": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/tracker/jira-project.json",
+      "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
+    },
+    "scripts/fixtures/tracker/jira-search.json": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/tracker/jira-search.json",
+      "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
+    },
+    "scripts/fixtures/tracker/jira-transitions.json": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/tracker/jira-transitions.json",
+      "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
+    },
+    "scripts/fixtures/tracker/state.md": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/tracker/state.md",
+      "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
+    },
     "scripts/gates/contracts.py": {
       "version": "1.2.0",
       "type": "script",
@@ -2862,6 +2911,11 @@
       "version": "1.0.0",
       "type": "script",
       "path": "scripts/gates/proof.py"
+    },
+    "scripts/gates/tracker.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "path": "scripts/gates/tracker.py"
     },
     "scripts/gates/bounds.py": {
       "version": "1.0.0",

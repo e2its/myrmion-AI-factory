@@ -1799,10 +1799,6 @@
      "suggestions": [
       "GitHub Projects",
       "Jira",
-      "Linear",
-      "Azure Boards",
-      "Shortcut",
-      "Notion",
       "None"
      ]
     }
@@ -1812,7 +1808,6 @@
    "id": "Q27.1",
    "tier": 2,
    "since": "1.0.0",
-   "when": "project_tracking.tool != None",
    "keys": {
     "project_tracking.board_columns": {
      "free": "list",
@@ -1903,6 +1898,54 @@
      "fills": [
       "APPETITE_SIZING_ENABLED"
      ]
+    }
+   }
+  },
+  {
+   "id": "Q27.7",
+   "tier": 2,
+   "since": "10.3.0",
+   "keys": {
+    "project_tracking.flow": {
+     "free": "list",
+     "fills": [
+      "TRACKER_FLOW"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q27.8",
+   "tier": 2,
+   "since": "10.3.0",
+   "when": "project_tracking.adapter == jira",
+   "keys": {
+    "project_tracking.transport": {
+     "options": [
+      "cli",
+      "mcp"
+     ],
+     "configures": {
+      "mcp": {
+       "mcp.servers": {
+        "atlassian": {
+         "type": "http",
+         "url": "https://mcp.atlassian.com/v2/mcp"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "Q27.9",
+   "tier": 2,
+   "since": "10.3.0",
+   "when": "project_tracking.adapter == jira",
+   "keys": {
+    "project_tracking.token": {
+     "free": "vault_name"
     }
    }
   },
@@ -2413,6 +2456,22 @@
    "fills": [
     "FEATURE_ID_PATTERN"
    ]
+  },
+  "project_tracking.adapter": {
+   "from": "Q27 project_tracking.tool: GitHub Projects → github, Jira → jira, anything else → none (the local state.md tracker) and a warning naming the answer (EVOL-079)",
+   "matches": {
+    "key": "project_tracking.tool",
+    "values": {
+     "github": "github",
+     "jira": "jira",
+     "none": "none"
+    },
+    "else": "none",
+    "warn": "`{answer}` has no adapter — the backlog lives in docs/backlog/state.md (the none adapter); the board stays the team's own"
+   },
+   "fills": [
+    "TRACKER_ADAPTER"
+   ]
   }
  },
  "constants": {
@@ -2423,21 +2482,16 @@
   "CONTRACTS_BASE_PATH": "fixed by the framework layout",
   "DATE": "the system clock when the file is written",
   "DC_ENTRIES": "the project's own starter classes, PDC-numbered, the stack selects at --generate (Factory-setup-materialization § defect-prevention seed)",
-  "DONE_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "END": "an example in the document's prose — never substituted",
   "FEATURE": "a runtime literal of the shipped script — never substituted",
   "FEATURE_ID": "filled per feature by the agent that writes the artefact",
   "GENERATED_TIMESTAMP": "the system clock when the file is written",
   "GENERATION_DATE": "the system clock when the file is written",
   "ID": "a runtime literal of the shipped script — never substituted",
-  "IN_PROGRESS_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "JIRA_BOARD_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "JIRA_PROJECT_KEY": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "LAST_UPDATE": "the system clock when the file is written",
   "LAST_UPDATED": "the system clock when the file is written",
-  "LINEAR_PROJECT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
-  "LINEAR_TEAM_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
-  "LINEAR_WORKSPACE_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "M": "a runtime literal of the shipped script — never substituted",
   "MATERIALIZATION_STATUS": "written by the materialisation run into its own report",
   "N": "an example in the document's prose — never substituted",
@@ -2455,23 +2509,12 @@
   "RANGE_HEAD": "a runtime literal of the shipped script — never substituted",
   "REPO_SLUG": "read from `git remote get-url origin` at --generate (owner/repo); the user is asked when there is no remote",
   "RESOURCE_NAME": "an example in the document's prose — never substituted",
-  "REVIEW_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "S": "a runtime literal of the shipped script — never substituted",
   "SCREAMING_SNAKE": "an example in the document's prose — never substituted",
   "SCRIPTS_BASE_PATH": "fixed by the framework layout",
   "SETUP_MD5_CHECKSUM": "written by the materialisation run into its own report",
-  "STATE_ID_DONE": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
-  "STATE_ID_IN_PROGRESS": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
-  "STATE_ID_REVIEW": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
-  "STATE_ID_TODO": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
-  "STATUS_FIELD_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "TIMESTAMP": "the system clock when the file is written",
-  "TODO_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "TOTAL_TASKS": "written by the materialisation run into its own report",
-  "TRANSITION_ID_DONE": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
-  "TRANSITION_ID_IN_PROGRESS": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
-  "TRANSITION_ID_REVIEW": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
-  "TRANSITION_ID_TODO": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "VAR": "an example in the document's prose — never substituted",
   "VARIABLE": "an example in the document's prose — never substituted",
   "VAR_NAME": "an example in the document's prose — never substituted",
@@ -2819,6 +2862,12 @@
    "since": "10.2.0",
    "detect": "config/quality.json#/proof",
    "apply": "proof-at-the-close (EVOL-106)"
+  },
+  {
+   "id": "tracker (EVOL-079)",
+   "since": "10.3.0",
+   "detect": "config/quality.json#/tracker",
+   "apply": "tracker (EVOL-079)"
   }
  ]
 }

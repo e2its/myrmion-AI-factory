@@ -380,6 +380,13 @@ PY
 4. **Client bounds.** `hosting.type == function` → the pack for `backend.runtime` lands (`templates_to_add`); another runtime gets its pack built as materialisation builds it, held by `semgrep --test`. Write `quality.bounds` (the pack's name, `[]` when none). Then run `python3 scripts/gate.py bounds --baseline --init` once and commit the baseline: today's unbounded clients are the debt; it only shrinks.
 5. **Statuses.** Re-run the contracts seed above (`gate.py contracts --json` → `undeclared` → `docs/project_log/crud_baseline.json`): the `status:<path>#<code>` entries the code already carries enter once; nothing new enters later.
 
+**tracker (EVOL-079).** One row, four writes:
+
+1. **The answers.** `--resolve` derives `project_tracking.adapter` (and prints its WARN for a tracker with no adapter) and lists the pending Q27.1 (a `None` project never answered it), Q27.7 and, for Jira, Q27.8–Q27.9; ask them (RDR). Q27.7's recommendation maps the board's existing columns to backlog, ready, in progress, done — no column is renamed.
+2. **The tracker block.** Add the template's `tracker` block to `config/quality.json`: `adapter` ← the derived adapter, `flow` ← Q27.7. Check: `python3 scripts/gate.py tracker --ensure <a one-row file naming an existing item> --dry-run` plans nothing — every flow column exists on the board.
+3. **The adapter.** Re-render `docs/backlog/tool-adapter.md` from the derived adapter's template (Jira loses its stub banner). A tracker with no adapter (Linear and any other): the derived adapter is `none` — `state.md` lands (`templates_to_add`); copy the open items into it with one `gate.py tracker --ensure` (one row per item, its state), then remove `project-config.json` (`templates_to_remove`). The old stub files under `docs/backlog-tool-adapters/` stay; the team's own board is no longer driven. Jira with Q27.8 `mcp`: run the browser-mcp block above — it merges every `configures → mcp.servers` row, the `atlassian` row included, by the same rule.
+4. **Nothing moves at upgrade.** The next phase command's `tracker --start` moves its item; an item in a column outside the flow stays where it is.
+
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).
