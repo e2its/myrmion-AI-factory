@@ -147,6 +147,7 @@ for tok, k, dflt in (("DOCUMENTS_SITE", "documents.site", ""), ("DOCUMENTS_SPACE
                      ("DOCUMENTS_HOME_REPORT", "deliverables.report.home", "Repo")):
     NUM[tok] = str(A.get(k) or dflt)   # not asked → "" / Repo (Factory-setup-materialization § Deliverable homes)
 NUM["DOCUMENTS_DEPLOYMENT"] = str(RES["placeholders"].get("DOCUMENTS_DEPLOYMENT") or "")
+NUM["DOCUMENTS_VERIFY"] = str(A.get("documents.verify") or "ci")   # Q38.8; not asked → ci, the strict answer
 NUM["E2E_TOOL"] = str(RES["placeholders"].get("E2E_TOOL") or A.get("testing.e2e_tool") or "none").strip().lower()   # Q23.8 (EVOL-106): the answered tool, or none
 if isinstance(A.get("surface.runtime_surface"), list):
     NUM["RUNTIME_SURFACE"] = json.dumps(A["surface.runtime_surface"])

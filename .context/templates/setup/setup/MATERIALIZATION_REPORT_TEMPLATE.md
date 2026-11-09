@@ -465,6 +465,10 @@ python3 subproducts/po-package/build_po_package.py                # first packag
 - **Runbook:** `docs/scm/protection.md` — the exact settings for the protected branch; applied by a repository administrator, never by the materialisation.
 - **Token wired in CI:** [yes — the profile step exports the platform token | no — the runbook checklist is the record until it does]. Verified by `python3 scripts/gate.py scm-protection --control-point ci` on the first pull request (RED = apply the runbook; n/a = no token).
 
+### Deliverable homes — next steps (EVOL-080)
+- **Store (Q38):** [None | Confluence Cloud | Confluence Data Center | built: <answer>] — homes business [Repo | External], design [Repo | External], report [Repo | External] (`config/quality.json → documents`).
+- **Verification in CI (Q38.8):** [ci — set `CONFLUENCE_API_TOKEN` (and `CONFLUENCE_USER_EMAIL` on Cloud; a built store: each name in `documents.credentials`) as CI secrets from a read-only service account, limited to the one space and with an expiry; checked on the first pull request: missing or refused = RED | local — accepted risk: the CI never reads the pins; they are verified on developers' machines only].
+
 ### Measurement — next steps
 - **Surface ceiling (Q31, EVOL-045):** `config/quality.json → surface.ceiling_files / ceiling_lines` = [30] / [800] — every push measures its diff against them (`gate.py surface`); the plan splits over-ceiling increments into sub-increments on a train.
 - **Reader:** `subproducts/measure/` — the project's SDLC cost from local transcripts and git; nothing leaves the machine. Window `{{MEASURE_REPORT_INTERVAL_DAYS}}` days, retention `{{MEASURE_RETENTION_DAYS}}` days (Q30).

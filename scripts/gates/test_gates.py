@@ -10543,6 +10543,163 @@ else:
                 self.assertRaises(rest.Unreachable):
             rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/x", {})
 
+    # ── the CI's credential (owner RDR 2026-11-09: «1, y sino se provee 3 coo backup»; the backup declared at SETUP: «1») ──
+    def _set(self, repo, **kv):
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["documents"].update(kv)
+        write(repo / "config/quality.json", json.dumps(q))
+
+    NO_CRED = {"CONFLUENCE_API_TOKEN": "", "CONFLUENCE_USER_EMAIL": ""}
+
+    def test_verify_is_ci_or_local_and_ci_when_unanswered(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(documents.cfg(repo)["verify"], "ci", "unanswered is the strict answer")
+            for good in documents.VERIFY:
+                self._set(repo, verify=good)
+                self.assertEqual(documents.cfg(repo)["verify"], good)
+            for bad in ("CI", "", "none", 1):
+                self._set(repo, verify=bad)
+                with self.assertRaises(GateFault, msg=bad) as e:
+                    documents.cfg(repo)
+                self.assertNotIsInstance(e.exception, documents.StoreDown, "a typo is the team's config, never an outage")
+                self.assertIn("ci or local", str(e.exception))
+
+    def test_a_missing_credential_at_the_ci_is_a_wiring_red_unless_declared_local(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            with unittest.mock.patch.dict(os.environ, self.NO_CRED):
+                r = documents.check(repo, control_point="ci")
+                self.assertFalse(r["ok"], "verify: ci — the CI carries the credential, or the pull request is red")
+                out = documents.render(r)
+                self.assertIn("wiring", out); self.assertIn("CONFLUENCE_API_TOKEN", out); self.assertIn("documents.verify", out)
+                with self.assertRaises(documents.StoreDown):
+                    documents.check(repo)   # the push, on a machine without the credential: n/a + WARN, as before
+                with self.assertRaises(documents.StoreDown):
+                    documents.check(repo, control_point="static")
+                with unittest.mock.patch.dict(os.environ, {"CONFLUENCE_API_TOKEN": "$(CONFLUENCE_API_TOKEN)", "CONFLUENCE_USER_EMAIL": "u@acme.test"}):
+                    self.assertIn("has no credential in the CI", documents.render(documents.check(repo, control_point="ci")),
+                                  "an Azure Pipelines macro left unexpanded is an undefined secret, never a credential to send")
+                self._set(repo, verify="local")
+                r = documents.check(repo, control_point="ci")
+                self.assertTrue(r["ok"], "verify: local — declared at SETUP, the backup is n/a with its WARN")
+                self.assertIn("verified locally only (declared", documents.render(r))
+                self._pin(repo, rel="docs/spec/FEAT-001/spec.feature")
+                r = documents.check(repo, control_point="ci")
+                self.assertFalse(r["ok"], "an offline red stands under the declared backup")
+                self.assertIn("verified locally only (declared", documents.render(r))
+            with unittest.mock.patch.dict(os.environ, self.ENV):
+                self._set(repo, verify="ci")
+                (repo / "docs/spec/FEAT-001/spec.feature.pin.json").unlink()
+                fs = FakeStore({"9": ["v1", "v2", V3]})
+                self.assertTrue(documents.check(repo, store=fs, control_point="ci")["ok"], "with the credential the CI reads the pin")
+
+    def test_a_credential_the_store_refuses_at_the_ci_is_a_wiring_red(self):
+        site = "https://acme.atlassian.net"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            fc = FakeConfluence(site, {("GET", "/wiki/api/v2/pages/9?body-format=storage"): rest.Refused("Confluence refused x (401) — y")})
+            st = documents.Confluence(documents.cfg(repo), fetch=fc, env=self.ENV)
+            r = documents.check(repo, store=st, control_point="ci")
+            self.assertFalse(r["ok"], "an expired or revoked CI token is wiring to fix, never an outage")
+            self.assertIn("refuses the CI's credential", documents.render(r))
+            with self.assertRaises(documents.StoreDown):
+                documents.check(repo, store=st)   # the push: the developer's own credential — an outage, as before
+            self._set(repo, verify="local")
+            r = documents.check(repo, store=st, control_point="ci")
+            self.assertTrue(r["ok"]); self.assertIn("verified locally only (declared", documents.render(r))
+            fc2 = FakeConfluence(site, {("GET", "/wiki/api/v2/pages/9?body-format=storage"): rest.Unreachable("Confluence could not be reached")})
+            self._set(repo, verify="ci")
+            with self.assertRaises(documents.StoreDown) as e:
+                documents.check(repo, store=documents.Confluence(documents.cfg(repo), fetch=fc2, env=self.ENV), control_point="ci")
+            self.assertNotIsInstance(e.exception, documents.NoCredential, "an outage at the CI stays n/a + WARN (ADR § 4)")
+
+    def test_rest_names_a_refused_credential(self):
+        for code, refused in ((401, True), (403, True), (500, False), (404, False)):
+            err = urllib.error.HTTPError("https://acme.atlassian.net/x", code, "x", {}, io.BytesIO(b"{}"))
+            with unittest.mock.patch.object(rest, "_OPEN", side_effect=err), self.assertRaises(GateFault) as e:
+                rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/x", {})
+            self.assertEqual(isinstance(e.exception, rest.Refused), refused, code)
+            if refused:
+                self.assertIsInstance(e.exception, rest.Unreachable, "a refused credential stays an outage to every other reader")
+
+    def test_under_the_profile_the_credential_goes_only_to_the_base_address(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, git=True)
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base")
+            self._git(repo, "checkout", "-qb", "feature/F-1-x")
+            self._set(repo, site="https://evil.example", space="X", deployment="dc")
+            with unittest.mock.patch.dict(os.environ, {**self.ENV, documents.BASE: "main"}):
+                st = documents.open_store(repo, fetch=lambda *a: None)
+                self.assertEqual((st.site, st.space, st.cloud), ("https://acme.atlassian.net", "ENG", True), "the base's address, never the branch's")
+                self._pin(repo)
+                r = documents.check(repo, store=FakeStore({"9": ["v1", "v2", V3]}))
+                self.assertIn("changes in this pull request", documents.render(r))
+            with unittest.mock.patch.dict(os.environ, self.ENV):
+                os.environ.pop(documents.BASE, None)
+                self.assertEqual(documents.open_store(repo, fetch=lambda *a: None).site, "https://evil.example", "a direct call reads the tree")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, adapter="none", git=True)
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "no store yet")
+            self._git(repo, "checkout", "-qb", "feature/F-1-x")
+            self._set(repo, adapter="confluence")
+            with unittest.mock.patch.dict(os.environ, {**self.ENV, documents.BASE: "main"}), self.assertRaises(documents.StoreDown) as e:
+                documents.open_store(repo, fetch=lambda *a: None)
+            self.assertIn("new in this pull request", str(e.exception))
+            self.assertNotIsInstance(e.exception, documents.NoCredential, "a store introduced by the pull request is verified after it merges")
+
+    def test_a_built_store_names_its_credentials(self):
+        c = {"adapter": "built", "commands": {"read": "true"}, "credentials": ["NOTION_TOKEN"]}
+        with unittest.mock.patch.dict(os.environ, {"NOTION_TOKEN": ""}), self.assertRaises(documents.NoCredential) as e:
+            documents.Built(c)
+        self.assertIn("NOTION_TOKEN", str(e.exception))
+        with unittest.mock.patch.dict(os.environ, {"NOTION_TOKEN": "t"}):
+            documents.Built(c)
+            documents.Built({**c, "credentials": None})
+            for bad in ("NOTION_TOKEN", ["bad name"], [1]):
+                with self.assertRaises(GateFault, msg=bad) as e:
+                    documents.Built({**c, "credentials": bad})
+                self.assertNotIsInstance(e.exception, documents.StoreDown)
+
+    def test_each_pin_is_compared_with_its_own_tip(self):
+        doc2, t4 = "docs/spec/FEAT-002/design.md", "---\nstatus: APPROVED\n---\n# Other\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, git=True)
+            self._pin(repo)
+            self._pin(repo, rel=doc2, pid="7", version=4, text=t4)
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "both approved")
+            self._git(repo, "checkout", "-qb", "feature/F-1-x")
+            out = documents.render(documents.check(repo, base="main", store=FakeStore({"9": ["v1", "v2", V3, V4], "7": ["a", "b", "c", t4]})))
+            self.assertIn("an edit in the store is drift", out, "the design page moved in the store; its own pin on the base is v3")
+            self.assertNotIn("rebase", out, "another pin's version on the base never speaks for this one")
+
+    def test_the_profile_hands_the_documents_member_its_control_point_and_the_base(self):
+        args = {m[0]: m[4] for m in profile.MEMBERS}
+        self.assertIn("{control_point}", args["documents"])
+        seen = {}
+        def members(repo, pr, base, br, cp, only, ctx, env):
+            seen["base"] = env.get(documents.BASE)
+            return [], []
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Profile()._repo(tmp)
+            with unittest.mock.patch.object(profile, "_members", members):
+                profile.run(repo, branch="main", base="origin/main", control_point="ci")
+        self.assertEqual(seen["base"], "origin/main", "every reader under the profile sends the credential only to the base's address")
+
+    def test_every_ci_template_wires_the_store_credential(self):
+        wf = HERE.parent.parent / ".context/templates/setup/workflows"
+        if not wf.is_dir():
+            self.skipTest("the CI templates live in the framework repository")
+        for f in sorted(wf.glob("governance-check.*")):
+            t = f.read_text()
+            for name in ("CONFLUENCE_API_TOKEN", "CONFLUENCE_USER_EMAIL", "documents.credentials"):
+                self.assertIn(name, t, f"{f.name}: {name}")
+        gh = (wf / "governance-check.github-actions.yml").read_text()
+        self.assertIn("CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}", gh)
+        self.assertIn("CONFLUENCE_API_TOKEN: $(CONFLUENCE_API_TOKEN)", (wf / "governance-check.azure-devops.yml").read_text())
+
     # ── the CLI ──
     def test_cli_verbs_are_exclusive(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -168,6 +168,7 @@ documents:
   space: null                         # Q38.2, confluence — the space key
   token: null                         # Q38.3, confluence — the vault entry's NAME, never the value
   user: null                          # Q38.4, Confluence Cloud — the vault entry's NAME holding the account email
+  verify: null                        # Q38.8 — ci (the CI carries a read-only credential) | local (verified locally only, declared)
 deliverables:
   business:
     home: null                        # Q38.5 — External | Repo (user journey, slice map, vision, navigation map)

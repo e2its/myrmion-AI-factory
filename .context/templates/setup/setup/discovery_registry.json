@@ -2382,6 +2382,23 @@
      ]
     }
    }
+  },
+  {
+   "id": "Q38.8",
+   "tier": 2,
+   "since": "10.4.0",
+   "when": "documents.adapter IN [confluence, built]",
+   "keys": {
+    "documents.verify": {
+     "options": [
+      "ci",
+      "local"
+     ],
+     "fills": [
+      "DOCUMENTS_VERIFY"
+     ]
+    }
+   }
   }
  ],
  "derived": {

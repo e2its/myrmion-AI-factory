@@ -21,6 +21,7 @@
     "documents.source": "Notion",
     "deliverables.business.home": "Repo",
     "deliverables.design.home": "Repo",
+    "documents.verify": "local",
     "deliverables.report.home": "Repo",
     "po_package.mode": "full",
     "po_package.ds_rebuild_command": null,

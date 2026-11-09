@@ -25,6 +25,7 @@
     "documents.user": "confluence/user-email",
     "deliverables.business.home": "External",
     "deliverables.design.home": "External",
+    "documents.verify": "ci",
     "deliverables.report.home": "Repo",
     "po_package.mode": "full",
     "po_package.ds_rebuild_command": null,

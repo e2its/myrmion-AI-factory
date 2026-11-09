@@ -25,7 +25,7 @@ from pathlib import Path
 
 from . import branch as branch_mod
 from .common import GateFault, context
-from .documents import DOWN, MEMO
+from .documents import BASE as DOCS_BASE, DOWN, MEMO
 
 MODES = ("development", "production")
 STRICTEST = "production"
@@ -53,7 +53,7 @@ MEMBERS = [
     ("qa",               False, False, "gate.py",                 ["gate", "qa", "--check", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
     ("proof",            False, False, "gate.py",                 ["gate", "proof", "--check"], False),
     ("traceability",     False, False, "gate.py",                 ["gate", "traceability"], False),
-    ("documents",        False, False, "gate.py",                 ["gate", "documents", "--base", "{base}"], False),
+    ("documents",        False, False, "gate.py",                 ["gate", "documents", "--base", "{base}", "--control-point", "{control_point}"], False),
     ("discovery",        False, False, "gate.py",                 ["gate", "discovery"], True),   # the SETUP question registry lives in the framework repo; a project consumes it in place
     ("scm-protection",   False, False, "gate.py",                 ["gate", "scm-protection", "--control-point", "{control_point}"], False),
     ("governance",       False, False, "validate-governance.sh (framework repo: manifest drift / orphan / stale)", ["bash", "scripts/validate-governance.sh", "--base", "{base_branch}"], True),   # a project has no framework manifest; manifest-parity covers its own
@@ -150,7 +150,7 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
                 "verdict": "RED", "summary": f"no diff base — nothing was measured: {e}"}
     ctx = context(repo)
     with tempfile.TemporaryDirectory(prefix="gate-documents-") as memo:   # one run reads each pinned artefact once; nothing survives the run (EVOL-080)
-        results, elsewhere = _members(repo, pr, base, br, control_point, only, ctx, {**os.environ, MEMO: memo})
+        results, elsewhere = _members(repo, pr, base, br, control_point, only, ctx, {**os.environ, MEMO: memo, DOCS_BASE: base})
     red = [r["member"] for r in results if r["status"] == "RED"]
     faults = [r["member"] for r in results if r["status"] == "FAULT"]
     verdict = "RED" if red else ("FAULT" if faults else "ok")

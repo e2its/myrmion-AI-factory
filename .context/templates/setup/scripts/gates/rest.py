@@ -5,7 +5,7 @@ call(service, site_hint, auth_hint, method, url, headers, body=None) → (status
   - A redirect is answered, never followed: the credential is sent to the configured site only.
   - A 429 waits its Retry-After once (an ASCII decimal, at most 60 s; anything else waits 5 s); a second 429 is a fault.
   - `Unreachable` (a GateFault) is the transport class: no connection, a body that is not JSON, a 5xx, a repeated 429,
-    401/403. Every other answer (a redirect, a 4xx) is a plain GateFault naming the status and the server's reason.
+    401/403 (`Refused`, its subclass: the credential is missing, expired or not allowed). Every other answer (a redirect, a 4xx) is a plain GateFault naming the status and the server's reason.
   - No message carries the URL's query or a header value — the credential never reaches a message.
   - An answer larger than MAX_BODY is a fault: nothing holds the gate on an endless body.
 """
@@ -22,6 +22,11 @@ from .common import GateFault, clean
 
 class Unreachable(GateFault):
     """The service could not answer: the transport, the server or the credential — an infrastructure fault."""
+
+
+class Refused(Unreachable):
+    """401/403: the service refused the credential — an outage to every reader; the documents gate names it at the ci
+    control point as wiring to fix (EVOL-080: the CI's credential is missing, expired or not allowed)."""
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -76,7 +81,7 @@ def call(service: str, site_hint: str, auth_hint: str, method: str, url: str, he
                 if 300 <= e.code < 400:
                     raise GateFault(f"{service} redirected {short} ({e.code}) — the token is never sent on: {site_hint}") from None
                 if e.code in (401, 403):
-                    raise Unreachable(f"{service} refused {short} ({e.code}) — {auth_hint}") from None
+                    raise Refused(f"{service} refused {short} ({e.code}) — {auth_hint}") from None
                 why = _reason(e)
                 cls = Unreachable if e.code >= 500 else GateFault
                 raise cls(f"{service} answered {e.code} for {short}" + (f" ({clean(why, 300)})" if why else "")) from None

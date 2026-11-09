@@ -314,7 +314,7 @@
       "delivery": "both"
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "2.7.0",
+      "version": "2.8.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd.platform == \"GitHub Actions\""
@@ -492,38 +492,38 @@
       "target": "config/quality.json"
     },
     "workflows/governance-check.gitlab-ci.yml": {
-      "version": "1.1.1",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".gitlab/governance-check.yml",
       "stack_conditional": "ci_cd.platform == \"GitLab CI\""
     },
     "workflows/governance-check.bitbucket.yml": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "bitbucket-pipelines.yml",
       "stack_conditional": "ci_cd.platform == \"Bitbucket Pipelines\"",
       "target_mode": "merge"
     },
     "workflows/governance-check.azure-devops.yml": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "governance-check-pipeline.yml",
       "stack_conditional": "ci_cd.platform == \"Azure DevOps\""
     },
     "workflows/governance-check.aws-codebuild.yml": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "buildspec-governance.yml",
       "stack_conditional": "ci_cd.platform == \"AWS CodePipeline\""
     },
     "workflows/governance-check.gcp-cloudbuild.yaml": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "cloudbuild-governance.yaml",
       "stack_conditional": "ci_cd.platform == \"GCP Cloud Build\""
     },
     "workflows/governance-check.jenkins.groovy": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "Jenkinsfile.governance",
       "stack_conditional": "ci_cd.platform == \"Jenkins\""
@@ -556,7 +556,7 @@
       "target": "docs/project_log/adr/ADR-SETUP.md"
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md"
     },
@@ -2328,7 +2328,7 @@
       "path": "scripts/gates/__init__.py"
     },
     "scripts/gates/common.py": {
-      "version": "1.4.1",
+      "version": "1.5.0",
       "type": "script",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/common.py"

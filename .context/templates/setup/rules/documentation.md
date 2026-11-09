@@ -61,6 +61,8 @@ With an `External` home:
 - **Refine.** A refine, or a cascade flip, on a pinned artefact first runs `python3 scripts/gate.py documents --pull <path>`. The pinned bytes come back as the draft, and the next approval re-pins.
 - **Never** edit the page in the store outside approval. A version the pin does not name is drift: the `documents` gate turns red until the owner phase re-approves it, or the pinned version is restored in the store.
 - **Store down.** The gate is n/a with a WARN. A direct `--read`, `--approve` or `--pull` exits 2: nothing rests on an unread source of truth. Wait, or fix the credential the message names. Never copy the artefact into the repo.
+- **In CI.** With `documents.verify: ci` (Q38.8), the CI carries a read-only service-account credential, and a missing or refused one is a red wiring finding. With `local`, the CI reports n/a with a WARN: the pins are verified on developers' machines only, a declared risk.
+- **The store's address.** Under the gate profile, the store's address (site, space, deployment) is read from the base: a pull request never sends the credential to an address it names. Moving the store therefore takes two pull requests: first the address, then the re-approvals.
 
 ## Template lookup
 

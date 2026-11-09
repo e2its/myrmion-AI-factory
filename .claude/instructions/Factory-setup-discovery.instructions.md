@@ -672,6 +672,12 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Simplified:** es: "¿Dónde viven los informes aprobados de QA, revisión, humo y auditoría?" / en: "Where do the approved QA, review, smoke and audit reports live?"
 - **Persist:** `deliverables.report.home`
 
+#### Q38.8: Verification in CI (conditional: registry `when`)
+- **Options:** `ci` (the CI carries a read-only credential and reads every pinned artefact on each pull request) | `local` (no CI credential: the pins are verified on the developers' machines only, a declared and recorded risk)
+- **Simplified:** es: "¿La CI tendrá una credencial de solo lectura para comprobar los documentos aprobados?" / en: "Will the CI carry a read-only credential to check the approved documents?"
+- **RDR Recommendation:** `ci` — a dedicated service account, read access to the one space, with an expiry. With `ci`, a credential missing or refused at the CI is a RED wiring finding; with `local`, the gate is n/a with a WARN at the CI and `MATERIALIZATION_REPORT.md` records the accepted risk (owner RDR, EVOL-080).
+- **Persist:** `documents.verify`
+
 > **Never asked (EVOL-080):** the Gherkin, the contracts, the tests, the config, the mocks, the plans and the records live in the repo only — the code compiles, runs or machine-reads them, or delivery state moves them without an approval.
 
 > **Derived, no question (EVOL-051 / EVOL-053):** `verification.gates` (the path-to-gate map) and `traceability.home` (the one place a test states its case: the pytest `case` marker for Python, the title tag otherwise) are derived from the stack answers (Q5 runtime, Q33 runtime surface) at `--generate` — see Factory-setup-materialization. They are project configuration, editable after materialisation; they are never asked.

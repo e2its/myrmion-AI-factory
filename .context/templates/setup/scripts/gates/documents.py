@@ -43,6 +43,10 @@ from .common import approved as common_approved
 PIN = ".pin.json"
 DOWN = "the source of truth is down"
 MEMO = "GATE_DOCUMENTS_MEMO"
+BASE = "GATE_DOCUMENTS_BASE"   # set by the profile: the store's address is read from the base (EVOL-080, owner RDR «1»)
+VERIFY = ("ci", "local")   # documents.verify (Q38.8): the CI carries a read credential, or verification is local only (declared)
+TRUSTED = ("site", "space", "deployment")   # where the credential goes: under the profile, the base's values
+_ENV_NAME = re.compile(r"[A-Z_][A-Z0-9_]{0,63}")
 ADAPTERS = ("none", "confluence", "built")
 HOMES = ("Repo", "External")
 
@@ -77,6 +81,15 @@ FLOOR = ".claude/skills/factory-pr-review/scripts/detect_change_type.py"   # the
 
 class StoreDown(GateFault):
     """The store could not answer — an infrastructure fault, reported as a warning at the gate, never a pass in silence."""
+
+
+class NoCredential(StoreDown):
+    """The store's credential is missing or refused. An outage on a developer's machine; at the ci control point a RED
+    wiring finding, unless the project declared `documents.verify: local` at SETUP (owner RDR, 2026-11-09)."""
+
+    def __init__(self, msg: str, refused: bool = False):
+        super().__init__(msg)
+        self.refused = refused
 
 
 class Outage:
@@ -122,7 +135,10 @@ def cfg(repo: Path) -> dict:
             raise GateFault(f"config/quality.json → documents.homes.{k} must be Repo or External, not {clean(v, 40)!r}")
     if d.get("deployment") not in (None, "", "cloud", "dc"):
         raise GateFault(f"config/quality.json → documents.deployment must be cloud or dc, not {clean(d.get('deployment'), 40)!r}")
-    return {**d, "adapter": d.get("adapter", "none"), "homes": homes}
+    verify = d.get("verify", "ci")   # unanswered: the strict answer
+    if verify not in VERIFY:
+        raise GateFault(f"config/quality.json → documents.verify must be ci or local (Q38.8), not {clean(verify, 40)!r}")
+    return {**d, "adapter": d.get("adapter", "none"), "homes": homes, "verify": verify}
 
 
 def asked() -> list[str]:
@@ -230,10 +246,36 @@ def _write_pin(repo: Path, rel: str, pin: dict):
 
 # ─── the one reader ─────────────────────────────────────────────────────────────
 
+def _trusted(repo: Path, c: dict) -> dict:
+    """Under the profile (BASE set), Confluence's address — site, space, deployment — is the base's: a pull request never
+    sends the credential to an address it names. A store new in the pull request is read after it merges."""
+    ref = os.environ.get(BASE)
+    if not ref or c["adapter"] != "confluence":
+        return c
+    raw = _at(repo, ref, "config/quality.json")
+    try:
+        b = json.loads(raw).get("documents") if raw else None
+    except (ValueError, AttributeError):
+        raise GateFault(f"config/quality.json at {clean(ref, 80)} is not a JSON object — the base's store address cannot be read") from None
+    if not isinstance(b, dict) or b.get("adapter") != "confluence":
+        raise _down(f"the Confluence address is new in this pull request — the profile sends the credential only to the base's "
+                    "address (config/quality.json at the base); the pins are read once it merges")
+    return {**c, **{k: b.get(k) for k in TRUSTED}}
+
+
+def moved(repo: Path, c: dict) -> list[str]:
+    """The trusted keys this tree changes against the base (under the profile; [] otherwise)."""
+    try:
+        t = _trusted(repo, c)
+    except StoreDown:
+        return []
+    return [k for k in TRUSTED if t is not c and (t.get(k) or "") != (c.get(k) or "")]
+
+
 def open_store(repo: Path, c: dict | None = None, **inject):
     c = c or cfg(repo)
     if c["adapter"] == "confluence":
-        return Confluence(c, **inject)
+        return Confluence(_trusted(repo, c), **inject)
     if c["adapter"] == "built":
         return Built(c, repo)
     raise GateFault("a pin names a store, but config/quality.json → documents names none — answer Q38 (SETUP --upgrade) or restore the file")
@@ -400,7 +442,23 @@ def _files(repo: Path) -> list[str]:
     return [f for f in tracked_files(repo) if (repo / f).is_file()]
 
 
-def check(repo: Path, base: str | None = None, store=None) -> dict:
+def _secret(env, name: str) -> str:
+    """The variable's value; an Azure Pipelines macro left unexpanded (`$(NAME)`: the secret is not defined) is unset."""
+    v = env.get(name) or ""
+    return "" if v == f"$({name})" else v
+
+
+def _wiring(e: NoCredential) -> str:
+    what = "refuses the CI's credential" if e.refused else "has no credential in the CI"
+    return (f"wiring: the store {what} — {clean(str(e).removeprefix(DOWN + ' — '), 300)}. Export a read-only service-account "
+            "credential from the CI's secrets (MATERIALIZATION_REPORT.md → Deliverable homes), or declare verification local only: "
+            "config/quality.json → documents.verify: local (SETUP Q38.8)")
+
+
+LOCAL = "verified locally only (declared: config/quality.json → documents.verify: local) — the CI carries no store credential"
+
+
+def check(repo: Path, base: str | None = None, store=None, control_point: str = "push") -> dict:
     """{ok, na, reds, warns, read}. Offline checks first (shape, admissibility, re-approval, approved copies); then each
     admissible pin read live. The store down raises StoreDown — unless an offline red already holds, which reports
     with the warning."""
@@ -408,6 +466,7 @@ def check(repo: Path, base: str | None = None, store=None) -> dict:
     files = _files(repo)
     pins = [f for f in files if f.endswith(PIN)]
     reds, warns, live = [], [], []
+    warns += [f"WARN documents.{k} changes in this pull request — the profile reads the base's address until it merges" for k in moved(repo, c)]
     fork = None
     if base:
         from .seal import _reference
@@ -467,7 +526,7 @@ def check(repo: Path, base: str | None = None, store=None) -> dict:
             try:
                 cur, _ = _verified(st, rel, pin)
                 if cur != pin["version"]:
-                    tip = _tip_version(repo, base, p)
+                    tip = _tip_version(repo, base, rel + PIN)
                     reds.append(f"{rel}: the base approved v{cur} after this branch forked (pinned v{pin['version']}) — rebase onto the base"
                                 if tip == cur else
                                 f"{rel}: the page moved to v{cur} without re-approval (pinned v{pin['version']}) — an edit in the store is drift: "
@@ -477,6 +536,17 @@ def check(repo: Path, base: str | None = None, store=None) -> dict:
                 raise
             except GateFault as e:
                 reds.append(str(e) if str(e).startswith(rel) else f"{rel}: {e}")
+    except NoCredential as e:
+        if control_point != "ci":
+            if not reds:
+                raise
+            warns.append(f"WARN {e}")
+        elif c["verify"] == "ci":
+            reds.append(_wiring(e))
+        else:
+            warns.append(f"WARN {LOCAL}")
+            if not reds:
+                return {"ok": True, "na": LOCAL, "reds": [], "warns": warns, "read": n}
     except StoreDown as e:
         if not reds:
             raise
@@ -608,6 +678,7 @@ class Confluence:
         self.site, self.space = site, str(c.get("space") or "")
         self.cloud = (c.get("deployment") or ("cloud" if u.hostname.endswith(".atlassian.net") else "dc")) == "cloud"
         env = os.environ if env is None else env
+        env = {n: _secret(env, n) for n in ("CONFLUENCE_API_TOKEN", "CONFLUENCE_USER_EMAIL")}
         tok = env.get("CONFLUENCE_API_TOKEN")
         for name in ("CONFLUENCE_API_TOKEN", "CONFLUENCE_USER_EMAIL"):
             v = env.get(name) or ""
@@ -615,11 +686,11 @@ class Confluence:
                 raise GateFault(f"{name} carries a space, a line break or a non-ASCII character — re-export it from the vault "
                                 "entry (its value is never shown)")
         if not tok:
-            raise _down("CONFLUENCE_API_TOKEN is not set — export it from the vault entry named in docs/setup.md → documents.token")
+            raise NoCredential(f"{DOWN} — CONFLUENCE_API_TOKEN is not set — export it from the vault entry named in docs/setup.md → documents.token")
         if self.cloud:
             mail = env.get("CONFLUENCE_USER_EMAIL")
             if not mail:
-                raise _down("CONFLUENCE_USER_EMAIL is not set — Confluence Cloud authenticates the API token with the account's email "
+                raise NoCredential(f"{DOWN} — CONFLUENCE_USER_EMAIL is not set — Confluence Cloud authenticates the API token with the account's email "
                             "(the vault entry named in docs/setup.md → documents.user)")
             self.h = {"Authorization": "Basic " + base64.b64encode(f"{mail}:{tok}".encode()).decode()}
         else:
@@ -631,6 +702,8 @@ class Confluence:
     def _call(self, method: str, path: str, body=None):
         try:
             out = self.fetch(method, self.site + path, dict(self.h), body)
+        except rest.Refused as e:
+            raise NoCredential(f"{DOWN} — {clean(e, 300)}", refused=True) from None
         except rest.Unreachable as e:
             raise _down(e) from None
         return out[1] if isinstance(out, tuple) else out
@@ -716,6 +789,12 @@ class Built:
         self.cmds = c.get("commands") or {}
         if not isinstance(self.cmds, dict) or not isinstance(self.cmds.get("read"), str) or not self.cmds["read"].strip():
             raise GateFault("config/quality.json → documents.commands.read is missing — the built store is read through it")
+        names = c.get("credentials") or []
+        if not isinstance(names, list) or not all(isinstance(n, str) and _ENV_NAME.fullmatch(n) for n in names):
+            raise GateFault("config/quality.json → documents.credentials must list the environment names the commands read (A-Z, 0-9, _)")
+        gone = [n for n in names if not _secret(os.environ, n)]
+        if gone:
+            raise NoCredential(f"{DOWN} — {', '.join(gone)} is not set — export it from the vault entry the built store names")
 
     def _run(self, op: str, subs: dict) -> dict:
         try:

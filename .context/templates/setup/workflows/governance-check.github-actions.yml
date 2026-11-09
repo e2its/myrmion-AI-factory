@@ -43,6 +43,9 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
+          # EVOL-080: when config/quality.json → documents names a store, the documents member reads the approved artefacts kept outside the repo with a read-only service-account credential — CONFLUENCE_API_TOKEN (and CONFLUENCE_USER_EMAIL on Cloud), or each name in documents.credentials for a built store; missing or refused at the ci control point is a RED wiring finding, unless documents.verify: local (declared at SETUP)
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_USER_EMAIL: ${{ secrets.CONFLUENCE_USER_EMAIL }}
           GH_TOKEN: ${{ github.token }}   # EVOL-054: the scm-protection member reads this repository's rulesets at the ci control point (metadata: read is enough; a runner whose token is not exported is a RED wiring finding)
         run: |
           python3 scripts/gate.py profile --run --control-point ci --base "origin/${BASE_REF}" --branch "$HEAD_REF"

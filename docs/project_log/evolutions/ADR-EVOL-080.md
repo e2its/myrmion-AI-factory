@@ -137,6 +137,7 @@ The issue states the what; everything below is the how, resolved from the SDLC.
   - Q38.3 `documents.token`: `vault_name`.
   - Q38.4 `documents.user`: `vault_name`, asked when the deployment is `cloud`. This is the account email, a personal datum, so it is kept as a vault name too.
   - Q38.5–Q38.7 `deliverables.{business,design,report}.home`, options `Repo | External`, asked when `documents.adapter IN [confluence, built]` (a condition on an unanswered key never holds). Recommendation: External for a category the team reads outside the code.
+  - Q38.8 `documents.verify`, options `ci | local`, with the same condition (owner RDR, § Owner decisions). Recommendation: `ci`, a read-only service-account credential exported by the governance-check workflow. A missing or refused credential at the `ci` control point is red; `local` gives n/a + WARN, a declared risk. Under the profile, the store's address is the base's (`GATE_DOCUMENTS_BASE`).
 - **Source and home count.** One declared source per project: the grammar tests a list only with `exists`, and three asked categories need no second store. `External` is that source.
 - **A code-run category home in an answer** is an unknown key, so discovery rejects it (V-unknown).
 - **Config.** `config/quality.json → documents {adapter, site, space, deployment, title_prefix, homes {business, design, report}, commands}` is rendered from the answers (`DOCUMENTS_*` placeholders). Materialisation asks for `--probe` on a built adapter. `none` adds nothing.
@@ -204,3 +205,7 @@ Migration row `documents (EVOL-080)`, since 10.4.0, detect `config/quality.json#
 - No dedicated exit code for the store down: exit 2 plus the fault line is the contract `profile.classify` reads.
 - The `vault_name` answer shape and owner-typed placeholders (pre-existing, outside this change).
 - `approved_at` / `approved_by` in the lock's permitted keys predate this change.
+
+### Owner decisions
+- **RDR CI verification of pins (2026-11-09).** Owner, verbatim: «1, y sino se provee 3 coo backup». CI carries a read-only credential: the site and space are read from the base config, a missing credential is a wiring finding, and an outage stays n/a + WARN. Without a credential, verification is local only (option 3), documented as a known risk. How the backup is selected: pending.
+- **RDR backup selection (2026-11-09).** Owner, verbatim: «1». It is declared at SETUP. `documents.verify: ci|local` is asked only when an external store is answered. With `ci`, a missing credential at the `ci` control point is a RED wiring finding. With `local`, the result is n/a + WARN «verified locally only (declared)», and the materialisation report records the accepted risk.

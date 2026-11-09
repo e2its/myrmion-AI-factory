@@ -42,4 +42,7 @@ stages:
               python3 scripts/gate.py one-definition
             displayName: 'Gate profile (one definition) + one-definition'
             env:
+              # EVOL-080: when config/quality.json → documents names a store, the documents member reads the approved artefacts kept outside the repo with a read-only service-account credential — CONFLUENCE_API_TOKEN (and CONFLUENCE_USER_EMAIL on Cloud), or each name in documents.credentials for a built store; missing or refused at the ci control point is a RED wiring finding, unless documents.verify: local (declared at SETUP) (a secret variable reaches the script only when mapped here)
+              CONFLUENCE_API_TOKEN: $(CONFLUENCE_API_TOKEN)
+              CONFLUENCE_USER_EMAIL: $(CONFLUENCE_USER_EMAIL)
               AZURE_DEVOPS_TOKEN: $(System.AccessToken)   # EVOL-054: the scm-protection member reads the branch policies at the ci control point (Code: read); a runner whose token is not exported is a RED wiring finding
