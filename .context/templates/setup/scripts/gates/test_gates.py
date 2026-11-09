@@ -8395,7 +8395,14 @@ class Proof(unittest.TestCase):
             write(repo / "bad.json", "{not json")
             self.assertRaisesRegex(GateFault, "not readable JSON", proof.load, repo, proof.cfg(repo), "bad.json")
             write(repo / "deep.json", "[" * 100000 + "]" * 100000)
-            self.assertRaisesRegex(GateFault, "not readable JSON", proof.load, repo, proof.cfg(repo), "deep.json")   # a deep nest is a fault, never a trace
+            self.assertRaises(GateFault, proof.load, repo, proof.cfg(repo), "deep.json")   # a deep nest is a fault, never a trace (unparsed or a list root)
+            for doc, rx in (([], "root is not an object"), ({"suites": [1]}, "`suites` is not a list of objects"), ({"suites": "x"}, "`suites` is not a list"),
+                            ({"suites": [{"specs": [{"tests": [{"results": [{"steps": [3]}]}]}]}]}, "`steps` is not a list"),
+                            ({"suites": [{"specs": [{"tests": [{"annotations": "control"}]}]}]}, "`annotations` is not a list")):
+                with self.subTest(doc=doc):
+                    write(repo / "odd.json", json.dumps(doc))
+                    self.assertRaisesRegex(GateFault, rx, proof.load, repo, proof.cfg(repo), "odd.json")   # r2 (CI 3.14): never an AttributeError
+            self.assertRaisesRegex(GateFault, "not the proof shape", proof._shape, {"tests": [{"title": "t", "status": "passed", "steps": [3], "annotations": []}]})
             self.assertRaisesRegex(GateFault, "does not exist", proof.load, repo, proof.cfg(repo), "absent.json")
             self._proof_cfg(repo, {"tool": "cypress", "convert": "python3 conv.py {report}", "helper": "cy/clauses.ts", "canary": "cy/canary.cy.ts"})
             write(repo / "conv.py", "import json, sys\nd = json.load(open(sys.argv[1]))\nm = d.get('mode')\n"

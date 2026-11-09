@@ -153,24 +153,36 @@ def _fits(kw: str, text: str, got: str) -> bool:
 
 # ─── the shape: Playwright's JSON reporter, or the built converter ─────────────
 
-def from_playwright(doc: dict) -> dict:
+def _objs(node: dict, key: str) -> list[dict]:
+    """`node[key]` as a list of objects; absent is empty; anything else is no Playwright report."""
+    v = node.get(key)
+    if v is None:
+        return []
+    if not isinstance(v, list) or not all(isinstance(x, dict) for x in v):
+        raise GateFault(f"`{key}` is not a list of objects — not a Playwright JSON report")
+    return v
+
+
+def from_playwright(doc) -> dict:
+    if not isinstance(doc, dict):
+        raise GateFault("the report's root is not an object — not a Playwright JSON report")
     tests: list[dict] = []
 
     def walk(suite: dict) -> None:
-        for s in suite.get("suites") or []:
+        for s in _objs(suite, "suites"):
             walk(s)
-        for spec in suite.get("specs") or []:
-            for t in spec.get("tests") or []:
-                res = t.get("results") or []
+        for spec in _objs(suite, "specs"):
+            for t in _objs(spec, "tests"):
+                res = _objs(t, "results")
                 lastr = res[-1] if res else {}
                 ann = []   # the test's and the result's annotations — the same mark may sit in both
-                for a in list(t.get("annotations") or []) + list(lastr.get("annotations") or []):
+                for a in _objs(t, "annotations") + _objs(lastr, "annotations"):
                     if a not in ann:
                         ann.append(a)
                 tests.append({"title": str(spec.get("title") or ""), "status": str(lastr.get("status") or "skipped"),
-                              "steps": [{"title": str(st.get("title") or ""), "error": bool(st.get("error"))} for st in lastr.get("steps") or []],
+                              "steps": [{"title": str(st.get("title") or ""), "error": bool(st.get("error"))} for st in _objs(lastr, "steps")],
                               "annotations": ann})
-    for s in doc.get("suites") or []:
+    for s in _objs(doc, "suites"):
         walk(s)
     return {"tests": tests}
 
@@ -178,7 +190,8 @@ def from_playwright(doc: dict) -> dict:
 def _shape(doc) -> dict:
     ok = isinstance(doc, dict) and isinstance(doc.get("tests"), list) and all(
         isinstance(t, dict) and isinstance(t.get("title"), str) and isinstance(t.get("status"), str)
-        and isinstance(t.get("steps"), list) and isinstance(t.get("annotations"), list) for t in doc["tests"])
+        and isinstance(t.get("steps"), list) and isinstance(t.get("annotations"), list)
+        and all(isinstance(s, dict) and isinstance(s.get("title"), str) for s in t["steps"]) for t in doc["tests"])
     if not ok:
         raise GateFault("the report is not the proof shape {tests: [{title, status, steps, annotations}]} — the adapter is broken")
     return doc
