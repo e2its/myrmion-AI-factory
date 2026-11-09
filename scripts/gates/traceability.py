@@ -28,6 +28,8 @@ walks       EVOL-077 — the drift contract: every smoke report beside a plan (`
             `[QA-VIS-<id>]` visual tokens, outside code fences. Each walked id is a declared, non-manual case with a
             linking test: malformed, unknown, manual, unlinked or still in the baseline is red. `walks {report: [ids]}`
             is what QA reads for the per-slice regression (each slice report covers every earlier one's ids).
+retired     EVOL-106 — a plan's `| Retired ID | Reason |` table: a retired id is not declared (red when it is) and
+            states its reason (red when empty); `--refresh` drops it from the baseline like any id no longer declared.
 baseline    `--init` records the unlinked set once (refused when the file exists, and refused when no case links at
             all — a home or a root that matches nothing is a misconfiguration, not debt); `--refresh` removes entries
             that are linked or gone — never adds.
@@ -143,23 +145,8 @@ def declared(repo: Path, c: dict, listing: list[str] | None = None) -> tuple[dic
         feature = Path(plan).parent.name
         if not FEATURE.match(feature):
             bad.append({"path": plan, "reason": f"plan folder `{feature}` is not a feature id — plans live at docs/spec/{{FEATURE}}/ (traceability.plans)"}); continue
-        header: list[str] | None = None
-        fence = False
-        lines = (repo / plan).read_text(encoding="utf-8", errors="replace").splitlines()
-        for n, line in enumerate(lines, 1):
-            if line.lstrip().startswith(("```", "~~~")):
-                fence = not fence; header = None; continue
-            if fence:
-                continue
-            m = re.match(r"^\s*\|(.*)\|\s*$", line)
-            if not m:
-                header = None; continue
-            cells = [_cell(x) for x in m.group(1).split("|")]
-            if cells and all(set(x) <= set("-: ") for x in cells):
-                continue   # the separator row keeps the header
-            if header is None or (cells and cells[0].upper() == "ID"):
-                header = [x.upper() for x in cells]; continue
-            if not header or header[0] != "ID" or not cells or not cells[0]:
+        for n, header, cells in _rows((repo / plan).read_text(encoding="utf-8", errors="replace")):
+            if header[0] != "ID" or not cells or not cells[0]:
                 continue   # a table that declares no cases
             cell = cells[0]
             tool_i = header.index("TOOL") if "TOOL" in header else -1
@@ -169,7 +156,48 @@ def declared(repo: Path, c: dict, listing: list[str] | None = None) -> tuple[dic
                 bad.append({"path": f"{plan}:{n}", "reason": f"`{cell}` in an ID table fails the grammar traceability.id_pattern"}); continue
             if qid in out:
                 bad.append({"path": f"{plan}:{n}", "reason": f"`{qid}` is declared twice (first at {out[qid]['at']}) — one case, one row"}); continue
-            out[qid] = {"at": f"{plan}:{n}", "manual": manual}
+            out[qid] = {"at": f"{plan}:{n}", "manual": manual, "cells": dict(zip(header, cells))}
+    return out, bad
+
+
+def _rows(text: str):
+    """(line, HEADER, cells) for every body row of every table, outside code fences — the one table walk."""
+    header: list[str] | None = None
+    fence = False
+    for n, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith(("```", "~~~")):
+            fence = not fence; header = None; continue
+        if fence:
+            continue
+        m = re.match(r"^\s*\|(.*)\|\s*$", line)
+        if not m:
+            header = None; continue
+        cells = [_cell(x) for x in m.group(1).split("|")]
+        if cells and all(set(x) <= set("-: ") for x in cells):
+            continue   # the separator row keeps the header
+        if header is None or (cells and cells[0].upper() in ("ID", "RETIRED ID")):
+            header = [x.upper() for x in cells]; continue
+        if header:
+            yield n, header, cells
+
+
+def retired(repo: Path, c: dict, listing: list[str], dec: dict) -> tuple[dict[str, dict], list[dict]]:
+    """EVOL-106 — qualified id → {at, reason} from each plan's `| Retired ID | Reason |` table; findings: a retired id
+    still declared, or retired with no reason. A retired id leaves the baseline through --refresh (it is not declared)."""
+    out: dict[str, dict] = {}
+    bad: list[dict] = []
+    for plan in [p for p in listing if _root_match(p, [c["plans"]])]:
+        feature = Path(plan).parent.name
+        for n, header, cells in _rows((repo / plan).read_text(encoding="utf-8", errors="replace")):
+            if header[0] != "RETIRED ID" or not cells or not cells[0]:
+                continue
+            qid, where = f"{feature}/{cells[0]}", f"{plan}:{n}"
+            why = cells[header.index("REASON")] if "REASON" in header and header.index("REASON") < len(cells) else ""
+            if not why.strip():
+                bad.append({"path": where, "reason": f"`{qid}` is retired without its reason — a retired case says why it no longer applies"})
+            if qid in dec:
+                bad.append({"path": where, "reason": f"`{qid}` is both retired and declared (at {dec[qid]['at']}) — a case is one or the other"})
+            out[qid] = {"at": where, "reason": why}
     return out, bad
 
 
@@ -345,7 +373,8 @@ def check(repo: Path) -> dict:
     lnk, bad_lnk = links(repo, c, listing)
     base = read_baseline(repo, c)
     walked, bad_walk = walks(repo, c, listing, dec, lnk, base)
-    findings = list(bad_dec) + list(bad_lnk) + list(bad_walk)
+    _, bad_ret = retired(repo, c, listing, dec)
+    findings = list(bad_dec) + list(bad_lnk) + list(bad_walk) + list(bad_ret)
     if (repo / c["baseline"]).is_file() and not is_tracked(repo, c["baseline"]):
         findings.append({"path": c["baseline"], "reason": "the baseline is on disk but git does not track it — commit it (CI reads the commit; an uncommitted baseline is a push that is green here and red there)"})
     for qid in sorted(set(lnk) - set(dec)):

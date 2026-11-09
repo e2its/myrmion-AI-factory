@@ -12,7 +12,7 @@
     "database.primary.engine": "PostgreSQL",
     "database.migrations_tool": "golang-migrate",
     "hosting.provider": "AWS",
-    "hosting.type": "container",
+    "hosting.type": "function",
     "hosting.deploy_tool": "Terraform",
     "ci_cd.platform": "GitHub Actions",
     "scm.platform": "GitHub",
@@ -29,7 +29,8 @@
     "contains": {"config/quality.json": ["\"blocking_severity\": \"critical\""]},
     "landed": [
       ".claude/rules/database.md",
-      "contracts/errors.yaml"
+      "contracts/errors.yaml",
+      "security/bounds/go.yml"
     ],
     "absent": [
       ".claude/rules/monetary-amounts.md"
@@ -54,7 +55,8 @@
       "build": "go build ./...",
       "sca": "govulncheck ./...",
       "secrets": "bash scripts/security-scan.sh --secrets --require-scanner",
-      "sast": "semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet ."
+      "sast": "semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .",
+      "bounds": "python3 scripts/gate.py bounds"
     },
     "red": true,
     "red_sources": [

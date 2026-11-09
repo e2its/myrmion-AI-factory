@@ -372,6 +372,14 @@ print("deploy-records: every line is a record tag on origin; the baseline file i
 PY
 ```
 
+**proof-at-the-close (EVOL-106).** One row, five writes:
+
+1. **The answer.** `--resolve` lists Q23.8 `testing.e2e_tool` as pending where a frontend exists; ask it (RDR). Not asked → `none`. Write it to `docs/setup.md → testing.e2e_tool`.
+2. **The proof block.** Add the template's `proof` block to `config/quality.json`, `tool` ← the answer. `playwright` → `tests/e2e/support/clauses.ts` and `tests/e2e/specs/canary.spec.ts` land (`templates_to_add`). Existing specs keep running; each gains its `[F/C]` title and its clause steps when its feature next moves. Another tool → its helper, canary and converter are built as materialisation builds them (Factory-setup-materialization § End-to-end adapter), and `gate.py proof --check` is green before the upgrade closes.
+3. **Delivery.** Add `delivery.preproduction` (the environment the close deploys to before production; the template's `staging`, or the project's name for it) and `delivery.populated: null` — `DEVOPS --configure` writes the row-count command. Each feature still open gets its `devops_plan.md` `## Rollback` section at its next `DEVOPS --configure`. Each open increment plan gains `**Upgrade over data:**` — the pre-production name where its diff carries a migration, `none` otherwise.
+4. **Client bounds.** `hosting.type == function` → the pack for `backend.runtime` lands (`templates_to_add`); another runtime gets its pack built as materialisation builds it, held by `semgrep --test`. Write `quality.bounds` (the pack's name, `[]` when none). Then run `python3 scripts/gate.py bounds --baseline --init` once and commit the baseline: today's unbounded clients are the debt; it only shrinks.
+5. **Statuses.** Re-run the contracts seed above (`gate.py contracts --json` → `undeclared` → `docs/project_log/crud_baseline.json`): the `status:<path>#<code>` entries the code already carries enter once; nothing new enters later.
+
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).

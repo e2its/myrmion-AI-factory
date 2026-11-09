@@ -62,7 +62,9 @@
   gate.py discovery                                validate the SETUP question registry (EVOL-102, V1–V13): schema, single options, credential keys, consumers, conditions, instruction + template parity, consumer literals, snapshot keys, one source per placeholder, migration rows, configures rows, the template defect catalog; exit 1 findings · 2 fault
   gate.py discovery --resolve [--answers FILE] [--json]   the pending questions (tier order, each with its since), the placeholders the answers fill and the template entries that land / are skipped, for one answer set (docs/setup.md frontmatter, or FILE {"answers": {...}}); against the project (no FILE) also the migrations owed and the templates to add / remove; an answer outside its options exits 2
   gate.py discovery --eval COND [--answers FILE]   evaluate one condition of the discovery grammar; exit 0 holds · 1 does not hold · 2 fault (unparseable, unknown key, a literal outside the options, an absent or fence-less docs/setup.md, --answers / --json without a mode, --json with --eval)
-  gate.py qa --verdict [--file F] | --ready --env E | --check [--base B] [--json]   QA's exit (EVOL-076): a report approvable only when every item is done, no finding at or above qa.blocking_severity and every owed item present (DAST run or n/a with its reason); the deploy record proves the build reached, alive and migrated; a MERGED increment or an APPROVED report in the diff agrees
+  gate.py qa --verdict [--file F] | --ready --env E [--feature F] | --check [--base B] [--json]   QA's exit (EVOL-076): a report approvable only when every item is done, no finding at or above qa.blocking_severity and every owed item present (DAST run or n/a with its reason); EVOL-106: a ticked [QA-TC-X] with no trace evidence is red, an aggregate report needs the feature's whole trace green; the deploy record proves the build reached, alive and migrated, and with --feature (the close) upgraded over data, lkg, production-filled and its rollback stated; a MERGED increment or an APPROVED report in the diff agrees
+  gate.py proof --record --green R --control C --env E | --report R [--control C] | --trace F | --check [--json]   EVOL-106: a case is proven by its run — each [F/C] test's steps are its clauses in order, every Then asserted, the control run fails on a Then; the adapter canary judges its planted cases as expected (else «the adapter is broken»); --record writes docs/spec/F/qa/proof.json (refused when qa --ready is red); --trace walks scenario → AC row → test → evidence (proof.json for e2e, the seal for unit); --check (light) the answered tool's helper, canary and converter in place; n/a with proof.tool none
+  gate.py bounds [--baseline --init|--refresh] [--json]   EVOL-106, the loop member where hosting.type == function: the packs under security/bounds find every external client — an unbounded one outside the shrink-only baseline is red, a literal bound no function declares under clients: is red, a function whose clients' worst case exceeds timeout_seconds is red
   gate.py scm-protection [--control-point P] [--json]   the server defends the branch rule (config: scm): at ci, with a token, the platform's API is asked per protected branch — a missing setting is RED; no token / no adapter / push / static → n/a with the checklist (docs/scm/protection.md)
   gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
   gate.py agents --resolve --class C [--surface S --files N --lines M --round R --pass discovery|alignment]   per-spawn model alias + effort; exit 1 when the round is over the class cap a phase agent has no pass, or a pass names a class that takes none (EVOL-105)
@@ -87,7 +89,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, aligned as aligned_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, delivery as delivery_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, qa as qa_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
+    from gates import agents as agents_mod, aligned as aligned_mod, bounds as bounds_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, delivery as delivery_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, proof as proof_mod, qa as qa_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
     from gates.common import GateFault, clean, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -543,15 +545,43 @@ def cmd_qa(repo, a):
                     raise GateFault(f"the QA report {a.file} cannot be read ({e.strerror}) — nothing can be approved") from None
             else:
                 text = sys.stdin.read()
-            r = qa_mod.verdict(repo, text)
+            r = qa_mod.verdict(repo, text, a.control_point)
         elif acts[0] == "ready":
-            r = qa_mod.ready(repo, a.env)
+            r = qa_mod.ready(repo, a.env, a.feature or None)
         else:
-            r = qa_mod.check(repo, _base(repo, a))
+            r = qa_mod.check(repo, _base(repo, a), a.control_point)
     except branch_mod.UnknownBranch as e:
         print(f"qa: RED — {clean(e)}", file=sys.stderr)
         return 1
     print(json.dumps(r) if a.json else qa_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
+def cmd_proof(repo, a):
+    acts = [x for x in ("record", "report", "trace", "check") if getattr(a, x)]
+    usage = ("name one of --record, --report R, --trace F, --check" if len(acts) != 1 else
+             "--record needs --green R --control C --env E (both runs' reports and the stage they ran on)"
+             if acts[0] == "record" and not (a.green and a.control and a.env) else "")
+    if usage:
+        print(f"proof: RED — {usage}", file=sys.stderr)
+        return 1
+    # a fault (an unreadable report, a broken adapter) reaches main: exit 2, never a verdict
+    r = {"record": lambda: proof_mod.record(repo, a.green, a.control, a.env),
+         "report": lambda: proof_mod.report(repo, a.report, a.control or None),
+         "trace": lambda: proof_mod.trace(repo, a.trace),
+         "check": lambda: proof_mod.check(repo)}[acts[0]]()
+    print(json.dumps(r, default=sorted) if a.json else proof_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
+def cmd_bounds(repo, a):
+    # a fault (semgrep absent, an unreadable baseline) reaches main: exit 2, never a verdict
+    if a.baseline:
+        r = bounds_mod.baseline(repo, init=a.init, refresh=a.refresh)
+        print(json.dumps(r) if a.json else f"bounds: baseline {'recorded' if a.init else 'shrunk'} → {r['path']} ({sum(r['unbounded'].values())} unbounded)")
+        return 0
+    r = bounds_mod.check(repo)
+    print(json.dumps(r) if a.json else bounds_mod.render(r))
     return 0 if r["ok"] else 1
 
 
@@ -789,7 +819,9 @@ def build_parser():
     p = sub.add_parser("data"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_data)
     p = sub.add_parser("performance"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--run", action="store_true"); p.add_argument("--site", default=""); p.add_argument("--url", default=""); p.add_argument("--rebaseline", default=None); p.set_defaults(fn=cmd_performance)
     p = sub.add_parser("delivery"); p.add_argument("--run", action="store_true"); p.add_argument("--rollback", action="store_true"); p.add_argument("--teardown", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--pr", action="store_true", help="the verdicts the PR demands: sweep + smoke (owed: feature branch, full-sdlc, not docs only)"); p.add_argument("--base", default=None); p.add_argument("--branch", default=""); p.add_argument("--last", default=None, metavar="ENV"); p.add_argument("--lkg", default=None, metavar="ENV"); p.add_argument("--env", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_delivery)
-    p = sub.add_parser("qa"); p.add_argument("--verdict", action="store_true"); p.add_argument("--ready", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--file", default=None); p.add_argument("--env", default=""); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_qa)
+    p = sub.add_parser("qa"); p.add_argument("--verdict", action="store_true"); p.add_argument("--ready", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--file", default=None); p.add_argument("--env", default=""); p.add_argument("--feature", default=""); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_qa)
+    p = sub.add_parser("proof"); p.add_argument("--record", action="store_true"); p.add_argument("--report", default=None, metavar="REPORT"); p.add_argument("--trace", default=None, metavar="FEATURE"); p.add_argument("--check", action="store_true"); p.add_argument("--green", default=None); p.add_argument("--control", default=None); p.add_argument("--env", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_proof)
+    p = sub.add_parser("bounds"); p.add_argument("--baseline", action="store_true"); p.add_argument("--init", action="store_true"); p.add_argument("--refresh", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_bounds)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("write-target"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_write_target)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)

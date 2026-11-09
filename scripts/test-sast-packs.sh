@@ -13,6 +13,10 @@
 #       when some pack's stack_conditional holds;
 #   (f) the debug rules' exclusions are anchored: a debug switch under src/devices/ or src/auth/local/ is red; under the
 #       root's dev/, in settings.dev.py or local_settings.py green.
+# The client-bounds packs (EVOL-106, security/bounds + scripts/fixtures/bounds) owe (a), (b) and (d) too, and:
+#   (g) the reader agrees — the packs over their fixtures through gate.py bounds' own scan: every rule fires, every rule
+#       carries `bounds: unbounded | extract` and a client, every extract message is in the reader's grammar, and no
+#       construction is both extracted and unbounded.
 set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PACKS="$ROOT/.context/templates/setup/security/sast"
@@ -25,8 +29,10 @@ command -v semgrep >/dev/null 2>&1 || { echo "FAIL: semgrep is absent — run th
 SG=(--metrics=off --disable-version-check)
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 
-# (a) both ways, and the rule count for (d)
-N=$(python3 -I - "$PACKS" "$FIX" <<'PY'
+# (a) both ways, and the rule count for (d) — per pack family
+prove_packs() {   # PACKS FIX LABEL
+local packs=$1 fix=$2 label=$3 N r
+N=$(python3 -I - "$packs" "$fix" <<'PY'
 import re, sys
 from pathlib import Path
 packs, fix = Path(sys.argv[1]), Path(sys.argv[2])
@@ -41,24 +47,27 @@ for p in sorted(packs.glob("*.yml")):
             bad.append(f"{p.name}: rule `{i}` is not named <pack>-<class>")
         for kind in ("ruleid", "ok"):
             if not re.search(rf"\b{kind}: (\S+, )*{re.escape(i)}(?![\w-])", text):
-                bad.append(f"{p.name}: rule `{i}` has no `{kind}:` annotation in scripts/fixtures/sast/{p.stem}.*")
+                bad.append(f"{p.name}: rule `{i}` has no `{kind}:` annotation in {fix.name} fixtures {p.stem}.*")
     n += len(ids)
 for b in bad:
     print("FAIL: " + b, file=sys.stderr)
 print(n if not bad else 0)
 PY
 )
-if [ "${N:-0}" -gt 0 ]; then ok "(a) every one of the $N rules fires on a ruleid line and has an ok line"; else fail "(a) a rule is not proven both ways"; fi
+if [ "${N:-0}" -gt 0 ]; then ok "(a) $label: every one of the $N rules fires on a ruleid line and has an ok line"; else fail "(a) $label: a rule is not proven both ways"; fi
 
 # (b) + (d)
-semgrep --test "${SG[@]}" --config "$PACKS" "$FIX" >"$WORK/test.out" 2>&1; r=$?
+semgrep --test "${SG[@]}" --config "$packs" "$fix" >"$WORK/test.out" 2>&1; r=$?
 if [ "$r" -ne 0 ]; then
-  cat "$WORK/test.out"; fail "(b) semgrep --test exited $r"
+  cat "$WORK/test.out"; fail "(b) $label: semgrep --test exited $r"
 elif grep -q "^$N/$N: ✓ All tests passed" "$WORK/test.out"; then
-  ok "(b)(d) semgrep --test: $N/$N rule tests passed"
+  ok "(b)(d) $label: semgrep --test: $N/$N rule tests passed"
 else
-  grep "tests passed\|All tests" "$WORK/test.out"; fail "(d) semgrep --test did not test all $N rules"
+  grep "tests passed\|All tests" "$WORK/test.out"; fail "(d) $label: semgrep --test did not test all $N rules"
 fi
+}
+prove_packs "$PACKS" "$FIX" sast
+prove_packs "$ROOT/.context/templates/setup/security/bounds" "$ROOT/scripts/fixtures/bounds" bounds
 
 # (c) per answer set
 printf '{"answers": {"backend.runtime": "Ruby", "frontend.framework": "None", "surface.runtime_surface": ["src/**"]}}\n' >"$WORK/no-pack.json"
@@ -148,6 +157,39 @@ printf 'DEBUG = True\n' >"$X/dev/settings.py"; printf 'DEBUG = True\n' >"$X/conf
 (cd "$X" && semgrep scan --config security/sast --error "${SG[@]}" --quiet .) >"$WORK/excl.green" 2>&1; g=$?
 if [ "$red" -eq 0 ] && [ "$g" -eq 0 ]; then ok "(f) a debug switch under src/devices/ or src/auth/local/ is red; under dev/, in settings.dev.py or local_settings.py green"
 elif [ "$g" -ne 0 ]; then cat "$WORK/excl.green"; fail "(f) dev/ + settings.dev.py + local_settings.py exit $g, not 0"; fi
+
+# (g) the bounds reader agrees with its packs
+B="$WORK/bounds"; mkdir -p "$B/security/bounds" "$B/src"
+cp "$ROOT"/.context/templates/setup/security/bounds/*.yml "$B/security/bounds/"; cp "$ROOT"/scripts/fixtures/bounds/* "$B/src/"
+python3 -I - "$ROOT" "$B" <<'PY' && ok "(g) bounds: every rule fires, carries its kind and client; every extract parses; none both" || fail "(g) the bounds packs and gate.py bounds disagree"
+import re, sys
+from pathlib import Path
+root, b = Path(sys.argv[1]), Path(sys.argv[2]); sys.path.insert(0, str(root / "scripts"))
+from gates import bounds
+from gates.common import GateFault
+bad, seen, kinds = [], set(), {}
+for p in sorted((b / "security/bounds").glob("*.yml")):
+    text = p.read_text(encoding="utf-8")
+    for block in re.split(r"(?m)^  - id: ", text)[1:]:
+        rid = block.split()[0]
+        if not re.search(r"\bbounds: (unbounded|extract)\b", block) or not re.search(r"\bclient: [^\s,}]", block):
+            bad.append(f"{p.name}: rule `{rid}` lacks metadata bounds: unbounded | extract, or a client")
+        seen.add(rid)
+found = bounds.scan(b)
+fired = {f["rule"] for f in found}
+bad += [f"rule `{r}` fires on none of its fixtures" for r in sorted(seen - fired)]
+for f in found:
+    kinds.setdefault((f["path"], f["line"]), set()).add(f["kind"])
+    if f["kind"] == "extract":
+        try:
+            bounds.normalise(f["message"])
+        except GateFault as e:
+            bad.append(f"{f['rule']} at {f['path']}:{f['line']}: `{f['message']}` — {e}")
+bad += [f"{p}:{l} is both extracted and unbounded" for (p, l), k in sorted(kinds.items()) if len(k) > 1]
+for x in bad:
+    print("FAIL: (g) " + x, file=sys.stderr)
+sys.exit(1 if bad or not found else 0)
+PY
 
 [ "$FAIL" -eq 0 ] && echo "test-sast-packs: OK" || echo "test-sast-packs: FAILED"
 exit "$FAIL"

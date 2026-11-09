@@ -31,6 +31,9 @@ And on every changed plan, each `### INC-N` section not BUILDING or MERGED (EVOL
                           operation belongs to another INC's `Scenarios covered` / `Contract surface`, not its own.
   (i) surface declared    unless the plan is `slicing_strategy: monolithic`: the INC has no `Estimated surface:` with
                           `~N files` and `~N lines`, or one of its `SUB-` rows lacks them (CVP Check 21, owner RDR «1»).
+  (j) upgrade over data   (EVOL-106) the INC has no `**Upgrade over data:** <stage> | none`, or names anything but
+                          `delivery.preproduction`'s stage or `none` («never» is no stage). And on an increment or
+                          sub-increment branch whatever plan changed: its diff adds a migration while its INC says `none`.
 
 A seam table is one whose header carries `use case` and `sub`; the template's placeholder row in a plan that declares
 no sub is nothing to judge. Nothing to judge → `train: n/a`. `--figures` counts per INC: subs, unique paths, path-touches, re-touch, train total.
@@ -57,6 +60,7 @@ HEAD_RE = re.compile(r"(?m)^#{1,3}\s")
 ACCEPT_RE = re.compile(r"(?m)^(?P<ind>[ \t]*)-\s*\*\*Acceptance\b.*$")
 ITEM_RE = re.compile(r"^\s+-\s*\[[ xX]\]\s*(?P<text>\S.*)$")
 SPAN_RE = re.compile(r"`([^`]+)`")
+UPGRADE_RE = re.compile(r"\*\*Upgrade over data:\*\*[ \t]*([^\n]*)")
 ESTIMATE = (re.compile(r"~\s*\d+\s*files?\b"), re.compile(r"~\s*\d+\s*lines?\b"))
 STATUS_RE = re.compile(r"\*\*Status:\*\*\s*`?([A-Za-z]+)")
 FROZEN = ("BUILDING", "MERGED")   # immutability policy: a frozen increment is never edited, so (h) and (i) skip it (owner RDR «1»)
@@ -215,6 +219,14 @@ def _field(body: str, label: str) -> list[str]:
     return _items(m.group(1)) if m else []
 
 
+def _upgrade(v: str) -> str:
+    """The `Upgrade over data` value; the template's `*(…)*` guidance after it is no value. String ops, never a regex: linear."""
+    v = v.strip()
+    if v.endswith(")*") and "*(" in v:
+        v = v[:v.index("*(")]
+    return v.strip().strip("`*").strip()
+
+
 def increments(text: str) -> list[dict]:
     """Each `### INC-N` section: its scenarios, operations, exit criteria, estimate and sub rows."""
     out, text = [], text or ""
@@ -235,7 +247,8 @@ def increments(text: str) -> list[dict]:
                     criteria.append(m.group("text").strip())
         est = re.search(r"\*\*Estimated surface:\*\*([^\n]*)", body)
         st = STATUS_RE.search(body)
-        out.append({"id": f"INC-{h.group(1)}", "scenarios": set(_field(body, "Scenarios covered")),
+        up = UPGRADE_RE.search(body)
+        out.append({"upgrade": _upgrade(up.group(1)) if up else None, "id": f"INC-{h.group(1)}", "scenarios": set(_field(body, "Scenarios covered")),
                     "operations": set(_field(body, "Contract surface")), "criteria": criteria,
                     "status": st.group(1).upper() if st else None,
                     "estimate": est.group(1) if est else None,
@@ -243,8 +256,8 @@ def increments(text: str) -> list[dict]:
     return out
 
 
-def judge_exits(text: str) -> list[str]:
-    """Clauses (h) and (i) on one plan; each problem opens with its clause, as CVP Checks 13 and 21 select them."""
+def judge_exits(text: str, stage: str = "staging") -> list[str]:
+    """Clauses (h), (i) and (j) on one plan; each problem opens with its clause, as CVP Checks 13 and 21 select them."""
     incs, problems = increments(text), []
     strategy = re.search(r"(?m)^slicing_strategy:\s*\"?(\w+)", text or "")
     estimated = not (strategy and strategy.group(1).lower() == "monolithic")
@@ -274,7 +287,47 @@ def judge_exits(text: str) -> list[str]:
             for sid, rest in inc["subs"]:
                 if not all(r.search(rest) for r in ESTIMATE):
                     problems.append(f"(i) {sid}: no estimated surface (~N files · ~N lines) — measure the sub against the ceiling")
+        up = inc["upgrade"]
+        if not up:
+            problems.append(f"(j) {inc['id']}: no `**Upgrade over data:** {stage} | none` — state the stage where its upgrade meets "
+                            "populated data, or `none` when it adds no migration (BLUEPRINT Step B.4)")
+        elif up.lower() not in (stage, "none"):
+            problems.append(f"(j) {inc['id']}: Upgrade over data is «{up}» — it names the pre-production stage `{stage}` "
+                            "or `none`; any other value is no stage")
     return problems
+
+
+def _stage(repo: Path) -> str:
+    from . import delivery
+    try:
+        return delivery.preproduction(repo)
+    except GateFault:
+        return delivery.PREPRODUCTION
+
+
+def upgrade(repo: Path, branch: str | None, changed: set[str]) -> dict | None:
+    """Clause (j) on the push: an increment branch whose diff adds a migration while its INC says `none`. None off one."""
+    from . import data
+    try:
+        info = branch_mod.branch_class(repo, branch)
+    except GateFault:
+        return None
+    m = branch_mod.INC_RE.match(info["branch"]) if info["class"] in ("increment", "sub-increment", "train") else None
+    if not m:
+        return None
+    plan, inc = f"docs/spec/{m.group('id')}/increment_plan.md", f"INC-{m.group('n')}"
+    if not (repo / plan).is_file():
+        return None
+    mine = next((i for i in increments(_read(repo, plan)) if i["id"] == inc), None)
+    if not mine or (mine["upgrade"] or "").lower() != "none":
+        return None
+    layouts, tests = data._globs(repo)
+    added = sorted(p for p in changed if (repo / p).is_file() and data.is_migration(p, layouts, tests))
+    if not added:
+        return {"id": f"{inc} upgrade", "ok": True, "problems": [], "note": "Upgrade over data: none, and the diff adds no migration"}
+    return {"id": f"{inc} upgrade", "ok": False, "note": "", "problems": [
+        f"(j) {inc} says `Upgrade over data: none` and this diff adds {', '.join(added[:3])}{' …' if len(added) > 3 else ''} — "
+        f"name the stage `{_stage(repo)}` where the upgrade meets populated data (BLUEPRINT --refine)"]}
 
 
 def order(subs: list[dict]) -> list[str]:
@@ -377,7 +430,7 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
                 rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} {inc}", "ok": not problems, "problems": problems, "note": f"{len(subs)} sub(s) stacked by file"})
             text = _read(repo, plan)
             if increments(text):
-                problems = judge_exits(text)
+                problems = judge_exits(text, _stage(repo))
                 rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} exits", "ok": not problems, "problems": problems,
                              "note": f"{len(increments(text))} increment(s): exit criteria and estimates judged, BUILDING and MERGED skipped"})
             if live_seams(text) or ratified(text) or any(s["tasks"] or s["measured"] for ss in parse(text).values() for s in ss):
@@ -387,6 +440,9 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
     led = ledger(repo, branch, changed)
     if led:
         rows.append(led)
+    upg = upgrade(repo, branch, changed)
+    if upg:
+        rows.append(upg)
     if not rows:
         why = "the change's increment plan(s) declare no sub-increment" if plans else "no increment plan in the change (docs/spec/*/increment_plan.md) and not a sub-increment branch"
         return {"ok": True, "plans": plans, "entries": [], "reason": f"{why} — nothing to judge"}

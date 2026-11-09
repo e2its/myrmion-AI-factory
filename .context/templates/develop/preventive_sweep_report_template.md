@@ -35,7 +35,7 @@ cascade_scope: []
 
 # Preventive Defect Sweep Report — {{FEATURE_ID}}
 
-> **Purpose.** Runtime defect scan derived from `.claude/rules/defect-prevention.md`. Catches the class of defects invisible to static gates (lint / typecheck / SAST / unit tests). Gates `DEVOPS --deploy --env dev` via the PREVENTIVE-SWEEP gate issue — see [Factory-devops-provision-deploy.instructions.md](.claude/instructions/Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Status Gate.
+> **Purpose.** Runtime defect scan derived from `.claude/rules/defect-prevention.md`. Catches the class of defects invisible to static gates (lint / typecheck / SAST / unit tests). Gates `DEVOPS --deploy --env {preproduction}` (`delivery.preproduction`) via the PREVENTIVE-SWEEP gate issue — see [Factory-devops-provision-deploy.instructions.md](.claude/instructions/Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Status Gate.
 
 ## Scope
 

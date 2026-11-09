@@ -83,6 +83,7 @@ iterations: []
 - **depends_on_feature:** []      *(inherited — cross-feature dep, `[FEAT-Y@SLICE-Y-Z]`)*
 - **seam:** null                  *(inherited — `{ at: "<contract op / scenario / journey step>", resolves: "<SLICE-X | FEAT-Y@SLICE-Y-Z>" }` when a dep is declared; CVP Check 19)*
 - **Deployable:** production
+- **Upgrade over data:** none   *(`<pre-production environment>` | `none` — the increment ships a migration → it is applied over a populated copy there before the close (`delivery.preproduction`, `delivery.populated`); `none` → `gate.py train` (j) is red when the diff carries a migration — EVOL-106)*
 - **Functional definition:** "After merging INC-1, the user can {{minimal end-to-end capability}}."
 - **Acceptance — exit criteria (each measurable on its own):**   *(mergeable = 100% functional. One item per criterion, each naming in backticks the measure that decides it: one of THIS increment's scenarios or contract operations, a case id, or a command — never another increment's, never prose alone; `gate.py train` (h) is red otherwise)*
   - [ ] `{{Scenario name 1}}` passes its E2E test   *(one item per scenario covered — scope in [full-stack, frontend-only])*
@@ -114,6 +115,7 @@ iterations: []
 - **depends_on_feature:** []
 - **seam:** { at: "{{contract op / scenario / journey step}}", resolves: "SLICE-{{FEATURE_ID}}-1" }
 - **Deployable:** production
+- **Upgrade over data:** …
 - **Functional definition:** "After merging INC-2 (on top of INC-1), the user can additionally {{next capability}}."
 - **Acceptance — exit criteria (each measurable on its own):**
   - [ ] `{{Scenario name 3}}` passes its E2E test

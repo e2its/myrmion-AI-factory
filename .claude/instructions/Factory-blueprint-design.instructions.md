@@ -466,7 +466,10 @@ infrastructure_needs:
   # framework, build_command, output_dir, base_path, ssr (true|false)
   
   # For B9 (Serverless) projects, function resources include:
-  # handler, runtime, memory, timeout, trigger, contract_slug, endpoints
+  # handler, runtime, memory, timeout, trigger, contract_slug, endpoints, clients
+  # clients (EVOL-106): every external client the function calls — name, calls, and either connect_s + read_s +
+  # attempts (first try included) or deadline_s; [] when none. Σ calls × attempts × (connect_s + read_s), or
+  # calls × deadline_s, stays ≤ timeout_seconds; gate.py bounds holds the code's bounds to this list.
   
   external_integrations:
     - name: "integration_name"
@@ -863,6 +866,7 @@ CODESIGN owns capability-VALUE slicing and emits it as `slice_map.md`. BLUEPRINT
      - `cascade_source: SLICE-{{FEATURE_ID}}-N` — the authoritative slice this increment realizes (LAW-09 join key; CVP Check 18 resolves it).
      - `depends_on_slice` / `depends_on_feature` / `seam` — inherited from the realized slice (null-defaulted; empty stays a one-liner). These mirror the slice_map fields; `depends_on` stays the intra-feature INC→INC edge.
      - `Estimated surface` / `Escape` / `Sub-increments` — from Step B.4 (`Sub-increments:` only when over a ceiling; `Escape: none` otherwise).
+     - `Upgrade over data` — the increment ships a migration → the pre-production environment (`config/quality.json → delivery.preproduction`), where it meets a populated copy before the close; otherwise `none` (EVOL-106; `gate.py train` (j)).
    - For each realized slice, fill its `**Realized by increments:**` back-ref in slice_map.md with the citing INC ids. (slice_map.md stays APPROVED — this back-ref is the only field BLUEPRINT writes to it.)
    - § 0 **Refinement Record** — populate with: which SLICE each INC realizes; intra-slice layering justification (when a slice split, cite the surviving Recommendation Selection axis); any contract-forced deviation from CODESIGN's value-order (Step B.3) with its reason + ratification timestamp. BLUEPRINT does NOT author a slice-invention rationale (that authority moved to CODESIGN's slice_map § 0).
    - § 2 **Monolithic Escape Declaration** — emit ONLY when `slicing_strategy == monolithic`; include heuristic metrics.
@@ -881,6 +885,7 @@ BLUEPRINT MUST self-verify before exit:
 - **DAG:** `depends_on` across all increments is acyclic (topological sort succeeds). INC-1 has `depends_on: []`. Every referenced ID exists.
 - **Deployability:** every increment declares `deployable: production`. Any other value (e.g., `flagged_off`, `experimental`) → BLOCK. Feature-flag-OFF merges are NOT a valid escape. If the user argues for a flagged rollout, that MUST be expressed as an explicit follow-up increment with its own scenarios, not as an escape on a half-done slice.
 - **Exit criteria measurable on their own:** each increment lists its own exit criteria under **Acceptance**, each naming in backticks the measure that decides it — one of its own scenarios or contract operations, a case id, or a command; never «same as INC-1», never another increment's measure. (`gate.py train` (h); CVP Check 13.)
+- **Upgrade declared:** every increment carries `Upgrade over data:` — the pre-production name or `none`; `none` with a migration in its diff is red at push. (`gate.py train` (j), EVOL-106.)
 - **Surface declared:** every increment carries `Estimated surface:`; an increment over a ceiling carries `Sub-increments:` or an `Escape:` from the closed list. (`gate.py train` (i), blocking; CVP Check 21.)
 
 Violations are **BUGS in the refinement** — a coverage/seam mismatch loops back to Step B; a value-order conflict that contracts cannot satisfy is recorded as a § 0 deviation and surfaced to the user (CODESIGN may need `--refine`). Do NOT silently auto-correct slice assignment.

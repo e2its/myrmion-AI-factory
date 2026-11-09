@@ -1,5 +1,5 @@
 ---
-version: 3.1.0
+version: 3.2.0
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -109,6 +109,7 @@ branching:
   pr_merge_method: null
 testing:
   strategy: null
+  e2e_tool: null                      # Q23.8, when a frontend exists: playwright | none | another tool built at materialisation → config/quality.json proof.tool (EVOL-106)
 quality:
   complexity:
     mcp_server: null
@@ -130,6 +131,7 @@ quality:
   qa:
     blocking_severity: null           # Q23.6: critical | high | medium | low — at or above blocks QA approval (EVOL-076)
   sast: null                          # derived: the SAST packs that landed for the stack (EVOL-074)
+  bounds: null                        # derived: the client-bounds pack that landed, where hosting.type is function (EVOL-106)
   data: null                          # derived: the migration pack, where database.migrations_tool holds an answer (EVOL-071)
   performance: null                   # derived: the performance thresholds landed, where a surface exists (EVOL-073)
 ai:

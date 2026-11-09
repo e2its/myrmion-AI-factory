@@ -3,7 +3,8 @@
 Materialised by `QA --verify {{FEATURE_ID}} [{{INC-N}}]` as a checkbox-driven verification artefact. The verdict is computed, never written by hand (EVOL-076). `python3 scripts/gate.py qa --verdict` approves a report only when:
 - every `- [ ]` is `- [x]`;
 - no `## Findings` row is at or above `config/quality.json → qa.blocking_severity`;
-- every owed item is present.
+- every owed item is present;
+- every ticked `[QA-TC-*]` has its proof (`gate.py proof --trace`), and an aggregate report has the feature's whole trace green (EVOL-106).
 
 The completion hook refuses an approved report otherwise (`status` or `verdict` APPROVED).
 
@@ -75,7 +76,7 @@ warning_count: 0
 - [ ] [QA-GOV-AIB] AI budget within ai_budget_governance.md's limits   <!-- only where that rule is materialised -->
 
 ### Test cases (one per test_plan.md case — all ID families, scenario-filtered in slice mode)
-- [ ] [QA-TC-{id}]: {description} — {proof}   <!-- the linking test(s) file:line from gate.py traceability --json, MANUAL (no test owed), or UNLINKED (baseline) -->
+- [ ] [QA-TC-{id}]: {description} — {proof}   <!-- read from gate.py proof --trace {FEATURE_ID} --json (EVOL-106): `proof: <tests>` (proof.json, end-to-end), `seal: <tests>` (the loop's seal, unit/integration), `MANUAL — verify by hand`, or `NO EVIDENCE — <problems>` (stays unticked) -->
 
 ### Regression
 - [ ] [QA-REG-1] Unit test suite execution

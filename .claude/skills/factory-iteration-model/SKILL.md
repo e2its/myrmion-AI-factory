@@ -308,7 +308,7 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
     
     IF current_agent == "DEVOPS":
       targets = []
-      # re-deploy to dev invalidates the smoke blocks captured against the previous build — the aggregate report only:
+      # re-deploy to the pre-production environment (delivery.preproduction) invalidates the smoke blocks captured against the previous build — the aggregate report only:
       # an increment report (smoke_e2e_report_{INC}.md, per-slice cadence, EVOL-077) is frozen; the next increment re-walks its cases
       IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md") AND "redeploy_dev" IN affected_scopes:
         targets.push("smoke_e2e_report")
@@ -498,12 +498,12 @@ CASCADE_TRIGGERS:
     CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
     CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
 
-  # 5. DEVOPS --deploy --env dev complete
-  #    A new dev build replaces the one the smoke blocks were captured against.
+  # 5. DEVOPS --deploy --env {preproduction} complete (delivery.preproduction, EVOL-106)
+  #    A new pre-production build replaces the one the smoke blocks were captured against.
   ON_DEVOPS_REDEPLOY_DEV:
     affected_scopes = ["redeploy_dev"]
     CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
-    # Slice integration tests are smoke-dependent when multiple slice peers share a dev env
+    # Slice integration tests are smoke-dependent when multiple slice peers share the pre-production environment (the id keeps its name)
     CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
 
   # 6. BLUEPRINT --approve on an UPDATED contract

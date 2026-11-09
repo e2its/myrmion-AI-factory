@@ -4,6 +4,7 @@
     "project_mode": "Greenfield",
     "qa.smoke_cadence": "feature-close",
     "qa.browser_mcp": "playwright",
+    "testing.e2e_tool": "none",
     "project_scope": "full-stack",
     "quality.qa.blocking_severity": "medium",
     "qa.dast_tool": "owasp-zap",
@@ -28,7 +29,7 @@
   },
   "expect": {
     "landed": [".claude/rules/database.md", ".claude/rules/csharp.md", "buildspec-governance.yml", "security/sast/csharp.yml", "security/sast/javascript.yml", "security/sast/ui-templates.yml", "contracts/errors.yaml"],
-    "absent": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml", "security/sast/python.yml", ".claude/rules/monetary-amounts.md"],
+    "absent": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml", "security/sast/python.yml", ".claude/rules/monetary-amounts.md", "playwright.config.ts", "tests/e2e/pages/base.page.ts", "tests/e2e/support/clauses.ts", "tests/e2e/specs/canary.spec.ts"],
     "defect_classes": {"present": ["DC-44", "DC-43", "DC-40", "DC-41", "DC-42", "DC-31", "PDC-1", "DC-36", "DC-37", "DC-39", "DC-38"], "absent": ["DC-18"]},
     "contains": {"config/quality.json": ["\"blocking_severity\": \"medium\""], ".claude/rules/ux-constitution.md": ["### 3. Canonical Components"]},
     "gates": {"performance": "python3 scripts/gate.py performance --run", "contract-parity": "python3 scripts/gate.py contracts --parity", "tests": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage", "coverage": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage", "lint": "dotnet format --verify-no-changes", "build": "dotnet build --no-restore", "sca": "out=$(dotnet list package --vulnerable --include-transitive 2>&1) || { echo \"$out\"; exit 1; }; echo \"$out\"; ! printf '%s' \"$out\" | grep -qE 'has the following vulnerable packages|NU1900|Unable to load the service index'", "frontend-tests": "npx vitest run", "secrets": "bash scripts/security-scan.sh --secrets --require-scanner", "sast": "semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet ."},

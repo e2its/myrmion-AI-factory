@@ -1,5 +1,5 @@
 ---
-version: 1.0.1
+version: 1.1.0
 date: 2026-01-26
 ---
 
@@ -22,10 +22,14 @@ Defines strategy, best practices, and conventions for E2E testing (Playwright/Ne
 - Required structure under `tests/e2e/` with `pages/`, `fixtures/`, `specs/`.
 - Base class `BasePage`; feature pages inherit and encapsulate selectors/actions.
 
-## 4. Naming Conventions
+## 4. Naming Conventions and the Proof Contract (EVOL-106)
 - Files: `<feature>.spec.ts`
 - Suites: `test.describe('<Feature Name>')`
-- Cases: `test('should <expectation>')`
+- Cases: `test('[<FEATURE>/<CASE>] <scenario title>')`. The tag opens the title and names the case `test_plan.md` declares. A `describe` title links nothing.
+- Steps: one call of the clause helper per clause, in order — `given`, `when`, `then`, the clause text verbatim. A row with a `Gherkin Ref` takes its scenario's clauses (the Background first; `And` / `But` take the keyword before them). Any other row has one Then: its `Expected …` column.
+- Assertions: through the helper's `expect`, page objects included. A Then that asserts nothing throws.
+- Control: `control(page, url, mutate)` corrupts the decisive response in the control run (`CASE_CONTROL=1`); there the test must fail on a Then.
+- Every tool meets this contract. Playwright ships it: `tests/e2e/support/clauses.ts` and the canary `tests/e2e/specs/canary.spec.ts`. Any other tool gets its helper, canary and converter at materialisation. `gate.py proof` judges the run; never edit the canary.
 
 ## 5. Visual Regression
 - Use `expect(page).toHaveScreenshot()`; store baselines in `tests/e2e/specs/__snapshots__/`.

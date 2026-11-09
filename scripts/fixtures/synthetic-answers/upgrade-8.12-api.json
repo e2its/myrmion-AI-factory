@@ -59,6 +59,7 @@
       "Q23.5",
       "Q23.6",
       "Q23.7",
+      "Q23.8",
       "Q24",
       "Q25",
       "Q27.1",
@@ -122,7 +123,8 @@
       "browser-mcp (EVOL-077)",
       "deploy-tool (EVOL-081)",
       "delivery-execution (EVOL-081)",
-      "deploy-records (EVOL-081)"
+      "deploy-records (EVOL-081)",
+      "proof-at-the-close (EVOL-106)"
     ],
     "templates_to_add": [
       "workflows/deploy.github-actions.yml",

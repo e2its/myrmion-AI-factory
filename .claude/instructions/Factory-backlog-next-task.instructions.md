@@ -217,7 +217,7 @@ Before returning the candidate step, check whether the candidate command is one 
 | Candidate command | Blocking gate issue | Resolver action if gate not Done |
 | --- | --- | --- |
 | `IMPLEMENT --plan {ID}` | `[{ID}] CONTRACT-FREEZE: …` (phase label `phase:contract-freeze`) | Return CONTRACT-FREEZE as the next task instead |
-| `DEVOPS --deploy --env dev {ID}` | `[{ID}] PREVENTIVE-SWEEP: …` (phase label `phase:preventive-sweep`) | Return PREVENTIVE-SWEEP as the next task instead |
+| `DEVOPS --deploy --env {preproduction} {ID}` (`delivery.preproduction`, EVOL-106) | `[{ID}] PREVENTIVE-SWEEP: …` (phase label `phase:preventive-sweep`) | Return PREVENTIVE-SWEEP as the next task instead |
 | `QA --verify {ID}` | `[{ID}] SMOKE-E2E: …` (phase label `phase:smoke-e2e`) | Return SMOKE-E2E as the next task instead |
 | First `CODESIGN --start` of slice `{N}.{M+1}` within epic `{N}` | `[SLICE-{N}.{M}] INTEGRATION-TEST: …` (phase label `phase:integration-test`) | Return INTEGRATION-TEST as the next task instead |
 | First `CODESIGN --start` of epic `{N+1}` | `[EPIC-{N}] RETROSPECTIVE: …` (phase label `phase:retrospective`) | Return RETROSPECTIVE as the next task instead |
@@ -283,7 +283,7 @@ IF candidate.command matches "IMPLEMENT --plan {ID}":
   })
   IF blocker IS NOT NULL: RETURN blocker
 
-IF candidate.command matches "DEVOPS --deploy --env dev {ID}":
+IF candidate.command matches "DEVOPS --deploy --env {preproduction} {ID}":   # preproduction = config/quality.json → delivery.preproduction (EVOL-106)
   gate = find_gate_issue("phase:preventive-sweep", candidate.feature_id)
   blocker = handle_gate("PREVENTIVE-SWEEP", gate, candidate, { ...same shape, pointing to PREVENTIVE-SWEEP... })
   IF blocker IS NOT NULL: RETURN blocker

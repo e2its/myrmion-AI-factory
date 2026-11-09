@@ -33,6 +33,13 @@ judged. A path that resolves outside the repository is never read.
             `Operation` cell of a TC-API row of some docs/spec/*/test_plan.md — one contract test per operation, planned
             before the build (CONTRACT-FREEZE); `traceability` proves the case has its test, the seal's `red` member
             proves it red at the base.
+  statuses  (EVOL-106) each TC-API row's leading Expected Status code(s) are among its Operation's responses
+            (`default` and `4XX` cover); and every status literal in a tracked source file — a number in a status
+            position (`status_code=`, `.status(…)`, `WriteHeader(…)`, `HTTPException(…)`, …) or a named constant
+            read through the stdlib `http.HTTPStatus` phrases (`HttpStatus.NOT_FOUND`, `http.StatusNotFound`,
+            `StatusCodes.Status404NotFound`, `status.HTTP_404_NOT_FOUND`) — is among the responses of the operations
+            whose operationId the file names (a file naming none is not judged; tests are not judged). Older code
+            findings sit in the baseline as `status:<path>#<code>` and only shrink.
   journey   (with a base) a docs/spec/<F>/test_plan.md changed since the merge-base, whose feature has a user_journey.md,
             carries `### Journey coverage` (`| Paso | Operation |`): every `Paso N` of the journey a row, each cell an
             operationId of the tree or `none — <reason>`. The journey itself names no operation (LAW-16).
@@ -59,6 +66,7 @@ commands of the branch's governed config, with the trust of the project's own te
 from __future__ import annotations
 
 import copy
+import http
 import json
 import re
 import shlex
@@ -68,7 +76,7 @@ from pathlib import Path
 
 import unicodedata
 
-from .common import GateFault, clean as _clean, key, parse_yaml
+from .common import GateFault, clean as _clean, key, parse_yaml, tracked_files
 from .freeze import CONTRACT_RE, _load, _parse, _walk
 from .frontmatter import _at   # lenient: a base blob that is not UTF-8 reads, never faults
 from .seal import _git, _reference, _state_dir, scoped as _scoped, tree_entries, vcfg
@@ -90,6 +98,16 @@ NONE_CELL = re.compile(r"none\s*[—–-]\s*\S", re.I)
 OASDIFF = "1.15.2"   # the version meta CI proves (scripts/test-contract-parity.sh)
 EXCLUDE = "description,examples,title,summary,extensions"   # oasdiff 1.15: documentation and x- extensions are no parity
 TAIL = 15   # lines of a failed command shown
+STATUS_NUM = re.compile(r"(?:\b(?:status_code|statusCode|status|StatusCode|HttpStatusCode)\s*[=:]\s*"
+                        r"|\.(?:status|sendStatus|WriteHeader|code)\(\s*"
+                        r"|\b(?:HTTPException|abort|ResponseStatusException|StatusCode|Status)\(\s*(?:status_code\s*=\s*)?)([1-5]\d\d)\b")
+STATUS_NAMED = re.compile(r"\b(?:HTTPStatus|HttpStatus|HttpStatusCode|StatusCode)(?:\.|::)([A-Z][A-Za-z_]*[A-Za-z])\b|\bhttp\.Status([A-Z][A-Za-z]+)\b")
+STATUS_DIGITS = re.compile(r"\bstatus\.HTTP_([1-5]\d\d)_[A-Z_]+|\bStatusCodes\.Status([1-5]\d\d)[A-Za-z]*")
+PHRASES = {n.replace("_", ""): s.value for n, s in http.HTTPStatus.__members__.items()}
+CODE_SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".java", ".kt", ".rb", ".php", ".cs", ".scala", ".ex", ".exs")
+NOT_SOURCE = ("docs/", "config/", "contracts/", ".claude/", ".context/", "scripts/gates/", "node_modules/", "vendor/")
+TEST_PATH = re.compile(r"(?:^|/)(?:tests?|__tests__|e2e|spec)/|(?:^|/)test_[^/]*$|[._-](?:test|spec)\.[^/]+$|_test\.[^/]+$|Tests?\.[^/.]+$")
+LEAD_STATUS = re.compile(r"^\s*((?:[1-5]\d\d|[1-5]XX)(?:\s*[,/]\s*(?:[1-5]\d\d|[1-5]XX))*)\b")
 
 
 def _norm(meaning: str) -> str:
@@ -319,6 +337,12 @@ def _baseline(repo: Path, base: str | None, found: set[str], unread: set[str]) -
         owed: dict[str, set[str]] = {}
         for e in sorted(set(entries) - old):
             f = e.split("#", 1)[0]
+            sp, _, code = e[len("status:"):].rpartition("#")   # status:<path>#<code> — the code is the last segment
+            if e.startswith("status:") and "\x00" not in e and ".." not in sp.split("/"):
+                prior = _at(repo, base, sp)
+                if code not in {st for _, st in code_statuses(prior or "")}:
+                    problems.append(f"`{e}` is new since the base — the baseline only shrinks: declare the response instead")
+                continue
             if not CONTRACT_RE.fullmatch(f) or "\x00" in e or ".." in f.split("/"):
                 problems.append(f"`{e}` names no contract under {TREE}/** — the baseline only shrinks: remove it")
                 continue
@@ -331,6 +355,78 @@ def _baseline(repo: Path, base: str | None, found: set[str], unread: set[str]) -
     good = set(entries) & found
     return good, {"id": BASELINE, "ok": not problems, "problems": problems,
                   "note": f"{len(good)} operation(s) older than the law still owed — the list only shrinks"}
+
+
+def _covers(responses: set[str], status: str) -> bool:
+    return status in responses or "default" in responses or f"{status[:1]}XX" in responses
+
+
+def code_statuses(text: str) -> list[tuple[int, str]]:
+    """(line, status) of every status literal in one source text: a number in a status position or a named constant."""
+    out = []
+    for m in STATUS_NUM.finditer(text):
+        out.append((text.count("\n", 0, m.start()) + 1, m.group(1)))
+    for m in STATUS_DIGITS.finditer(text):
+        out.append((text.count("\n", 0, m.start()) + 1, m.group(1) or m.group(2)))
+    for m in STATUS_NAMED.finditer(text):
+        v = PHRASES.get((m.group(1) or m.group(2)).upper().replace("_", ""))
+        if v is not None:
+            out.append((text.count("\n", 0, m.start()) + 1, str(v)))
+    return sorted(set(out))
+
+
+def _named_ops(text: str, names: list[str]) -> set[str]:
+    return {n for n in names if re.search(rf"(?<![A-Za-z0-9_]){re.escape(n)}(?![A-Za-z0-9_])", text)}
+
+
+def statuses(repo: Path, docs: dict) -> tuple[dict[str, str], list[str]]:
+    """({`status:<path>#<code>`: finding} of the code, [TC-API row problems]) against the declared responses."""
+    ops: dict[str, set[str]] = {}
+    for d in docs.values():
+        for n, o in operations(d).items():
+            if o["named"]:
+                ops.setdefault(n, set()).update(o["responses"])
+    plan_probs = []
+    for p in sorted((repo / "docs/spec").glob("*/test_plan.md")) if (repo / "docs/spec").is_dir() else []:
+        if not _inside(repo, p):
+            continue
+        rel = p.relative_to(repo).as_posix()
+        for head, rows in _tables(p.read_text(encoding="utf-8", errors="replace")):
+            low = [h.lower() for h in head]
+            if low[:1] != ["id"] or "operation" not in low or "expected status" not in low:
+                continue
+            io, ist = low.index("operation"), low.index("expected status")
+            for r in rows:
+                if not (r and _bare(r[0]).startswith("TC-API-")) or len(r) <= max(io, ist):
+                    continue
+                m = LEAD_STATUS.match(_bare(r[ist]))
+                for op in (t for t in re.split(r"[\s,;]+", _bare(r[io])) if t in ops):
+                    for st in (re.split(r"\s*[,/]\s*", m.group(1)) if m else []):
+                        if not _covers(ops[op], st):
+                            plan_probs.append(f"{rel} {_bare(r[0])}: expects {st} from `{op}`, which its contract does not declare — declare the response, or fix the row")
+    found: dict[str, str] = {}
+    if not ops:
+        return found, plan_probs
+    names = sorted(ops, key=len, reverse=True)
+    try:
+        listing = tracked_files(repo)
+    except GateFault:
+        listing = []
+    for rel in listing:
+        if not rel.endswith(CODE_SUFFIXES) or rel.startswith(NOT_SOURCE) or TEST_PATH.search(rel) or not _inside(repo, repo / rel):
+            continue
+        try:
+            text = (repo / rel).read_text(encoding="utf-8", errors="replace")   # a non-UTF-8 byte is never a skipped file
+        except OSError:
+            continue
+        mine = _named_ops(text, names)
+        if not mine:
+            continue
+        allowed = set().union(*(ops[n] for n in mine))
+        for line, st in code_statuses(text):
+            if not _covers(allowed, st):
+                found.setdefault(f"status:{rel}#{st}", f"{rel}:{line}: raises {st}, which none of {', '.join(f'`{n}`' for n in sorted(mine))} declares — declare the response in the contract, or stop raising it")
+    return found, plan_probs
 
 
 def check(repo: Path, base: str | None = None) -> dict:
@@ -371,6 +467,8 @@ def check(repo: Path, base: str | None = None) -> dict:
         if openapi(doc):
             docs[f] = doc
     found = {k for _, fd in judged for k in fd}
+    st_found, st_plan = statuses(repo, docs) if docs else ({}, [])
+    found |= set(st_found)
     excused, brow = _baseline(repo, base, found, unread)
     for row, fd in judged:
         row["problems"] += [m for k, m in fd.items() if k not in excused]
@@ -378,6 +476,11 @@ def check(repo: Path, base: str | None = None) -> dict:
         if owed:
             row["note"] += f"; {owed} older than the law, in the baseline"
         row["ok"] = not row["problems"]
+    if docs:
+        owed = [k for k in st_found if k in excused]
+        rows.append({"id": "statuses", "ok": False, "problems": st_plan + [m for k, m in sorted(st_found.items()) if k not in excused],
+                     "note": "every expected and raised status is a declared response" + (f"; {len(owed)} older than the law, in the baseline" if owed else "")})
+        rows[-1]["ok"] = not rows[-1]["problems"]
     if brow:
         rows.append(brow)
     reg = registry(repo, dict(docs))

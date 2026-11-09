@@ -1,0 +1,271 @@
+{
+ "config": {
+  "argv": [
+   "/usr/bin/node",
+   "/work/node_modules/.bin/playwright",
+   "test"
+  ],
+  "configFile": "/work/playwright.config.ts",
+  "rootDir": "/work/tests/e2e/specs",
+  "failOnFlakyTests": false,
+  "forbidOnly": false,
+  "fullyParallel": false,
+  "globalSetup": null,
+  "globalTeardown": null,
+  "globalTimeout": 0,
+  "grep": {},
+  "grepInvert": null,
+  "maxFailures": 0,
+  "metadata": {
+   "actualWorkers": 1
+  },
+  "preserveOutput": "always",
+  "projects": [
+   {
+    "outputDir": "/work/test-results",
+    "repeatEach": 1,
+    "retries": 0,
+    "metadata": {
+     "actualWorkers": 1
+    },
+    "id": "",
+    "name": "",
+    "testDir": "/work/tests/e2e/specs",
+    "testIgnore": [],
+    "testMatch": [
+     "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+    ],
+    "timeout": 30000
+   }
+  ],
+  "filteredProjects": [
+   {
+    "grep": {},
+    "grepInvert": null,
+    "outputDir": "/work/test-results",
+    "repeatEach": 1,
+    "retries": 0,
+    "metadata": {
+     "actualWorkers": 1
+    },
+    "name": "",
+    "testDir": "/work/tests/e2e/specs",
+    "snapshotDir": "/work/tests/e2e/specs",
+    "testIgnore": [],
+    "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+    "timeout": 30000,
+    "use": {
+     "launchOptions": {
+      "executablePath": "/browsers/chrome-headless-shell"
+     }
+    },
+    "dependencies": [],
+    "ignoreSnapshots": false,
+    "__projectId": ""
+   }
+  ],
+  "quiet": false,
+  "reporter": [
+   [
+    "json",
+    {
+     "outputFile": "green.json"
+    }
+   ]
+  ],
+  "reportSlowTests": {
+   "max": 5,
+   "threshold": 300000
+  },
+  "shard": null,
+  "tags": [],
+  "updateSnapshots": "default",
+  "updateSourceMethod": "patch",
+  "version": "1.65.0",
+  "workers": 1,
+  "webServer": null
+ },
+ "suites": [
+  {
+   "title": "canary.spec.ts",
+   "file": "canary.spec.ts",
+   "column": 0,
+   "line": 0,
+   "specs": [
+    {
+     "title": "canary: green",
+     "ok": true,
+     "tags": [],
+     "tests": [
+      {
+       "timeout": 30000,
+       "annotations": [
+        {
+         "type": "asserted",
+         "description": "Then the canary shows its result"
+        }
+       ],
+       "expectedStatus": "passed",
+       "projectId": "",
+       "projectName": "",
+       "results": [
+        {
+         "workerIndex": 0,
+         "parallelIndex": 0,
+         "status": "passed",
+         "duration": 387,
+         "errors": [],
+         "stdout": [],
+         "stderr": [],
+         "retry": 0,
+         "steps": [
+          {
+           "title": "Given the canary page is open",
+           "duration": 52
+          },
+          {
+           "title": "When the canary acts",
+           "duration": 79
+          },
+          {
+           "title": "Then the canary shows its result",
+           "duration": 11
+          }
+         ],
+         "startTime": "2026-11-09T12:15:51.081Z",
+         "annotations": [
+          {
+           "type": "asserted",
+           "description": "Then the canary shows its result"
+          }
+         ],
+         "attachments": []
+        }
+       ],
+       "status": "expected"
+      }
+     ],
+     "id": "4e3dd37d8025f8a40c63-88462ac5253ce8ddcdfe",
+     "file": "canary.spec.ts",
+     "line": 42,
+     "column": 1
+    },
+    {
+     "title": "canary: order",
+     "ok": true,
+     "tags": [],
+     "tests": [
+      {
+       "timeout": 30000,
+       "annotations": [
+        {
+         "type": "asserted",
+         "description": "Then the canary shows its result"
+        }
+       ],
+       "expectedStatus": "passed",
+       "projectId": "",
+       "projectName": "",
+       "results": [
+        {
+         "workerIndex": 0,
+         "parallelIndex": 0,
+         "status": "passed",
+         "duration": 131,
+         "errors": [],
+         "stdout": [],
+         "stderr": [],
+         "retry": 0,
+         "steps": [
+          {
+           "title": "When the canary acts",
+           "duration": 78
+          },
+          {
+           "title": "Given the canary page is open",
+           "duration": 0
+          },
+          {
+           "title": "Then the canary shows its result",
+           "duration": 10
+          }
+         ],
+         "startTime": "2026-11-09T12:15:51.812Z",
+         "annotations": [
+          {
+           "type": "asserted",
+           "description": "Then the canary shows its result"
+          }
+         ],
+         "attachments": []
+        }
+       ],
+       "status": "expected"
+      }
+     ],
+     "id": "4e3dd37d8025f8a40c63-585d38cc635eafa5633b",
+     "file": "canary.spec.ts",
+     "line": 55,
+     "column": 1
+    },
+    {
+     "title": "canary: unasserted",
+     "ok": true,
+     "tags": [],
+     "tests": [
+      {
+       "timeout": 30000,
+       "annotations": [],
+       "expectedStatus": "passed",
+       "projectId": "",
+       "projectName": "",
+       "results": [
+        {
+         "workerIndex": 0,
+         "parallelIndex": 0,
+         "status": "passed",
+         "duration": 111,
+         "errors": [],
+         "stdout": [],
+         "stderr": [],
+         "retry": 0,
+         "steps": [
+          {
+           "title": "Given the canary page is open",
+           "duration": 14
+          },
+          {
+           "title": "When the canary acts",
+           "duration": 58
+          },
+          {
+           "title": "Then the canary shows its result",
+           "duration": 4
+          }
+         ],
+         "startTime": "2026-11-09T12:15:51.957Z",
+         "annotations": [],
+         "attachments": []
+        }
+       ],
+       "status": "expected"
+      }
+     ],
+     "id": "4e3dd37d8025f8a40c63-7987a105499b582b4d30",
+     "file": "canary.spec.ts",
+     "line": 66,
+     "column": 1
+    }
+   ]
+  }
+ ],
+ "errors": [],
+ "stats": {
+  "startTime": "2026-11-09T12:15:50.534Z",
+  "duration": 1611.6339999999998,
+  "expected": 3,
+  "skipped": 0,
+  "unexpected": 0,
+  "flaky": 0
+ }
+}

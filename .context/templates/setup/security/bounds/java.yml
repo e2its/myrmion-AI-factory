@@ -1,0 +1,107 @@
+# Client-bounds pack — Java (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function
+# Sourced forms: AWS SDK v2 ClientOverrideConfiguration apiCallTimeout (whole call), apiCallAttemptTimeout (one attempt) + retryStrategy(b -> b.maxAttempts(n)) (total); java.net.http HttpClient connectTimeout + HttpRequest timeout (no retry).
+# Known-cold forms are in no rule (ADR-EVOL-106).
+rules:
+  - id: java-aws-unbounded
+    languages: [java]
+    severity: WARNING
+    message: This AWS SDK client has no bound — it can hang until the function's platform timeout kills it. Set ClientOverrideConfiguration apiCallTimeout, or apiCallAttemptTimeout and retryStrategy maxAttempts; the function's timeout_seconds must cover their product.
+    metadata: {bounds: unbounded, client: aws-sdk-java-v2}
+    paths:
+      exclude: ["src/test/", "tests/", "test/", "*Test.java", "*Tests.java", "*IT.java"]
+    pattern-either:
+      - patterns:
+          - pattern: $X.builder(). ... .build()
+          - metavariable-regex:
+              metavariable: $X
+              regex: ^[A-Z][A-Za-z0-9]*(Async)?Client$
+          - pattern-not: $X.builder(). ... .overrideConfiguration(...). ... .build()
+      - patterns:
+          - pattern: ClientOverrideConfiguration.builder(). ... .build()
+          - pattern-not: ClientOverrideConfiguration.builder(). ... .apiCallTimeout(...). ... .build()
+          - pattern-not: ClientOverrideConfiguration.builder(). ... .apiCallAttemptTimeout(...). ... .retryStrategy(...). ... .build()
+          - pattern-not: ClientOverrideConfiguration.builder(). ... .retryStrategy(...). ... .apiCallAttemptTimeout(...). ... .build()
+  - id: java-aws-extract-deadline
+    languages: [java]
+    severity: WARNING
+    message: deadline $D $U
+    metadata: {bounds: extract, client: aws-sdk-java-v2}
+    paths:
+      exclude: ["src/test/", "tests/", "test/", "*Test.java", "*Tests.java", "*IT.java"]
+    patterns:
+      - pattern: $B.apiCallTimeout(Duration.$U($D))
+      - metavariable-regex:
+          metavariable: $U
+          regex: ^of(Seconds|Millis|Minutes)$
+      - metavariable-regex:
+          metavariable: $D
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$
+  - id: java-aws-extract-total
+    languages: [java]
+    severity: WARNING
+    message: bound total 0 s $R $U $N
+    metadata: {bounds: extract, client: aws-sdk-java-v2}
+    paths:
+      exclude: ["src/test/", "tests/", "test/", "*Test.java", "*Tests.java", "*IT.java"]
+    patterns:
+      # apiCallAttemptTimeout bounds one whole attempt, connect included: connect is emitted 0.
+      - pattern-either:
+          - pattern: ClientOverrideConfiguration.builder(). ... .apiCallAttemptTimeout(Duration.$U($R)). ... .retryStrategy($L -> $L.maxAttempts($N)). ... .build()
+          - pattern: ClientOverrideConfiguration.builder(). ... .retryStrategy($L -> $L.maxAttempts($N)). ... .apiCallAttemptTimeout(Duration.$U($R)). ... .build()
+      - pattern-not: ClientOverrideConfiguration.builder(). ... .apiCallTimeout(...). ... .build()
+      - metavariable-regex:
+          metavariable: $U
+          regex: ^of(Seconds|Millis|Minutes)$
+      - metavariable-regex:
+          metavariable: $R
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$
+      - metavariable-regex:
+          metavariable: $N
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$
+  - id: java-httpclient-unbounded
+    languages: [java]
+    severity: WARNING
+    message: This java.net.http client or request has no bound — it can hang until the function's platform timeout kills it. Set HttpClient connectTimeout and HttpRequest timeout (it does not retry); the function's timeout_seconds must cover their sum.
+    metadata: {bounds: unbounded, client: java-net-http}
+    paths:
+      exclude: ["src/test/", "tests/", "test/", "*Test.java", "*Tests.java", "*IT.java"]
+    pattern-either:
+      - pattern: HttpClient.newHttpClient()
+      - patterns:
+          - pattern: HttpClient.newBuilder(). ... .build()
+          - pattern-not: HttpClient.newBuilder(). ... .connectTimeout(...). ... .build()
+      - patterns:
+          - pattern: HttpRequest.newBuilder(...). ... .build()
+          - pattern-not: HttpRequest.newBuilder(...). ... .timeout(...). ... .build()
+  - id: java-httpclient-extract-total
+    languages: [java]
+    severity: WARNING
+    message: bound total $C $U1 $R $U2 1
+    metadata: {bounds: extract, client: java-net-http}
+    paths:
+      exclude: ["src/test/", "tests/", "test/", "*Test.java", "*Tests.java", "*IT.java"]
+    patterns:
+      # The request is extracted only when its client's connectTimeout is a literal in the same file scope.
+      - pattern-either:
+          - pattern-inside: |
+              $T $CL = HttpClient.newBuilder(). ... .connectTimeout(Duration.$U1($C)). ... .build();
+              ...
+          - pattern-inside: |
+              class $K {
+                ...
+                $T $CL = HttpClient.newBuilder(). ... .connectTimeout(Duration.$U1($C)). ... .build();
+                ...
+              }
+      - pattern: HttpRequest.newBuilder(...). ... .timeout(Duration.$U2($R)). ... .build()
+      - metavariable-regex:
+          metavariable: $U1
+          regex: ^of(Seconds|Millis|Minutes)$
+      - metavariable-regex:
+          metavariable: $U2
+          regex: ^of(Seconds|Millis|Minutes)$
+      - metavariable-regex:
+          metavariable: $C
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$
+      - metavariable-regex:
+          metavariable: $R
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$

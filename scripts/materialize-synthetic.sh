@@ -93,6 +93,12 @@ for key, e in m["templates"].items():
     else:
         shutil.copy2(src, dst)
     landed.append(tgt)
+# the agent templates land where factory-sync delivers them (same `.context/templates/{role}/` path) — an agent's pointer
+# into them resolves in a project, so it resolves here (EVOL-106)
+for key, e in m.get("agent_templates", {}).items():
+    if key.startswith("_") or not isinstance(e, dict) or not e.get("target"): continue
+    if not (T.parent / key).is_file(): sys.exit(f"the manifest lists agent template {key} and the template tree lacks it — a pointer into it would resolve to nothing")
+    (P / e["target"]).parent.mkdir(parents=True, exist_ok=True); shutil.copy2(T.parent / key, P / e["target"])
 # the constitution template lands as the project's index
 if (T / "constitution/constitution_template.md").is_file():
     (P / "docs").mkdir(exist_ok=True); shutil.copy2(T / "constitution/constitution_template.md", P / "docs/constitution.md"); landed.append("docs/constitution.md")
@@ -132,6 +138,7 @@ NUM["DELIVERY_EXECUTION"] = str(RES["configures"].get("delivery.execution") or "
 NUM["DELIVERY_MIGRATE"] = json.dumps(RES["configures"].get("delivery.migrate"))   # the migrations tool's deploy command, or null
 if RES["placeholders"].get("QA_BLOCKING_SEVERITY"):   # Q23.6 (EVOL-076): the answer lands, never the generic sample a threshold refuses
     NUM["QA_BLOCKING_SEVERITY"] = str(RES["placeholders"]["QA_BLOCKING_SEVERITY"])
+NUM["E2E_TOOL"] = str(RES["placeholders"].get("E2E_TOOL") or A.get("testing.e2e_tool") or "none").strip().lower()   # Q23.8 (EVOL-106): the answered tool, or none
 if isinstance(A.get("surface.runtime_surface"), list):
     NUM["RUNTIME_SURFACE"] = json.dumps(A["surface.runtime_surface"])
 if A.get("security.standard"):   # Q35 / Q35.1: standard `none` asks no level — the level renders `n/a` (Factory-setup-materialization)
@@ -262,8 +269,8 @@ if "| DC-18 |" not in cat:
     cases = cases.rstrip("\n") + "\n\n" + case(tcases, "DC-18").group(0)
 (proj / "defect-prevention.md").write_text(cat, encoding="utf-8"); (proj / "defect-prevention-cases.md").write_text(cases, encoding="utf-8")
 PY
-  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance` and no `delivery` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081) — their migrations are owed
-  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance`, no `delivery` and no `proof` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081, EVOL-106) — their migrations are owed
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery", "proof")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped (a `was` value — replaced), a
   # tests command the project edited (kept), no red_reads (added); no `sast` row (EVOL-074 — added), no `contract-parity` row (EVOL-070 — added where Q4.5 selects it), no `performance` row (EVOL-073 — added with a frontend)
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]
@@ -471,7 +478,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py surface 2>&1); RC=$?
 git -C "$P" -c user.name=t -c user.email=t@t commit -q --allow-empty -m $'chore: generated\n\nSurface-Escape: generated-code'
 OUT=$(cd "$P" && python3 scripts/gate.py surface 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'escape: generated-code' && ok "a Surface-Escape trailer from the closed list passes" || bad "valid escape not honoured (rc=$RC)" "$OUT"
-mkdir -p "$P/docs/spec/FEAT-001"; printf '### INC-1 — x\n- **Estimated surface:** paths [src/**] · ~2 files · ~20 lines\n- **Acceptance — exit criteria (each measurable on its own):**\n  - [ ] `pytest tests/` passes\n- **Sub-increments:**\n  - SUB-1-1: a · ~1 files · ~10 lines · branch feature/FEAT-001-inc-1-x-sub-1\n' > "$P/docs/spec/FEAT-001/increment_plan.md"
+mkdir -p "$P/docs/spec/FEAT-001"; printf '### INC-1 — x\n- **Estimated surface:** paths [src/**] · ~2 files · ~20 lines\n- **Upgrade over data:** none\n- **Acceptance — exit criteria (each measurable on its own):**\n  - [ ] `pytest tests/` passes\n- **Sub-increments:**\n  - SUB-1-1: a · ~1 files · ~10 lines · branch feature/FEAT-001-inc-1-x-sub-1\n' > "$P/docs/spec/FEAT-001/increment_plan.md"
 OUT=$(cd "$P" && python3 scripts/gate.py branch-class --branch feature/FEAT-001-inc-1-x --protected 2>&1); RC=$?
 [ "$RC" -eq 1 ] && ok "a per-increment branch with declared sub-increments is a protected train" || bad "train not protected (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py surface --base origin/main --branch feature/FEAT-001-inc-1-x 2>&1); RC=$?

@@ -75,7 +75,7 @@ SETUP (one-time)
   → CONTRACT-FREEZE                  [hard gate — blocks IMPLEMENT --plan]
   → DEVOPS --configure
   → IMPLEMENT (DEV↔REVIEW↔SEC)
-  → PREVENTIVE-SWEEP                 [hard gate — blocks DEVOPS --deploy dev]
+  → PREVENTIVE-SWEEP                 [hard gate — blocks DEVOPS --deploy --env {preproduction}]
   → QA
   → SMOKE-E2E                        [hard gate — blocks QA --verify pass]
   → MERGE

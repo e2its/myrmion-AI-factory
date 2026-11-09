@@ -11,6 +11,8 @@ class: worker
 
 Development worker for the end-to-end test surface (tests/**, e2e/**): writes the journey and smoke tests the plan declares, links every test to its case, returns with its governance block. Spawned by name from the IMPLEMENT build loop.
 
+Each test proves its case (`.context/templates/develop/e2e_spec_template.md` § Contract, EVOL-106): the `[F/C]` title, one clause-helper step per clause in order, every assertion through the helper's `expect`, the decisive response under `control`. Your local check: `python3 scripts/gate.py proof --report <results.json>` on your run.
+
 Policy: `rules/agents.md` (class `worker` — tools, budget, family, effort, the cap; the model is passed at your spawn from `gate.py agents --resolve`). Your spawn prompt opens with `effort:` and `turn cap:`; the harness stops you at the cap (`maxTurns`) — hand off before it rather than start a task you cannot finish. You consult the defect catalog before writing and cite the class you adjudicate.
 
 ## Your law

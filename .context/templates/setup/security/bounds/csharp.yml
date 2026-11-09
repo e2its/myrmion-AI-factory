@@ -1,0 +1,176 @@
+# Client-bounds pack — C# / .NET (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function
+# Sourced forms: System.Net.Http HttpClient.Timeout (whole request, no retry); Azure .NET Retry.MaxRetries (retries) + Retry.NetworkTimeout (per try); AWS .NET async calls bounded by a CancellationToken (AWS Timeout does not bind async calls, so a config is never the bound).
+# Known-cold forms are in no rule (ADR-EVOL-106).
+rules:
+  - id: csharp-httpclient-extract-deadline
+    languages: [csharp]
+    severity: WARNING
+    message: deadline $D $U
+    metadata: {bounds: extract, client: httpclient}
+    paths:
+      exclude: ["tests/", "test/", "*Tests/", "*Tests.cs", "*Test.cs"]
+    patterns:
+      - pattern-either:
+          - pattern: 'new HttpClient(...) { ..., Timeout = TimeSpan.$U($D), ... }'
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      var $C = new HttpClient(...);
+                      ...
+                  - pattern-inside: |
+                      $TY $C = new HttpClient(...);
+                      ...
+              - pattern: $C.Timeout = TimeSpan.$U($D);
+      - metavariable-regex:
+          metavariable: $U
+          regex: ^From(Seconds|Milliseconds|Minutes)$
+      - metavariable-regex:
+          metavariable: $D
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$
+  - id: csharp-httpclient-unbounded
+    languages: [csharp]
+    severity: WARNING
+    message: This HttpClient has no Timeout of its own (or an infinite one) — it waits 100 s by default and the function dies mid-call. Set Timeout = TimeSpan.FromSeconds(n); the function's timeout_seconds must cover it.
+    metadata: {bounds: unbounded, client: httpclient}
+    paths:
+      exclude: ["tests/", "test/", "*Tests/", "*Tests.cs", "*Test.cs"]
+    pattern-either:
+      - patterns:
+          - pattern: new HttpClient(...)
+          - pattern-not: 'new HttpClient(...) { ..., Timeout = $T, ... }'
+          - pattern-not-inside: |
+              var $C = new HttpClient(...);
+              ...
+              $C.Timeout = $T;
+          - pattern-not-inside: |
+              $TY $C = new HttpClient(...);
+              ...
+              $C.Timeout = $T;
+      - pattern: 'new HttpClient(...) { ..., Timeout = Timeout.InfiniteTimeSpan, ... }'
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  var $C = new HttpClient(...);
+                  ...
+              - pattern-inside: |
+                  $TY $C = new HttpClient(...);
+                  ...
+          - pattern: $C.Timeout = Timeout.InfiniteTimeSpan;
+  - id: csharp-azure-extract-retries
+    languages: [csharp]
+    severity: WARNING
+    # NetworkTimeout bounds one try, connect included, so the connect bound is emitted as 0.
+    message: bound retries 0 s $R $U $N
+    metadata: {bounds: extract, client: azure}
+    paths:
+      exclude: ["tests/", "test/", "*Tests/", "*Tests.cs", "*Test.cs"]
+    patterns:
+      - pattern-either:
+          - pattern: 'new $T(...) { ..., Retry = { ..., MaxRetries = $N, ..., NetworkTimeout = TimeSpan.$U($R), ... }, ... }'
+          - pattern: 'new $T(...) { ..., Retry = { ..., NetworkTimeout = TimeSpan.$U($R), ..., MaxRetries = $N, ... }, ... }'
+          - pattern: |
+              var $O = new $T(...);
+              ...
+              $O.Retry.MaxRetries = $N;
+              ...
+              $O.Retry.NetworkTimeout = TimeSpan.$U($R);
+          - pattern: |
+              var $O = new $T(...);
+              ...
+              $O.Retry.NetworkTimeout = TimeSpan.$U($R);
+              ...
+              $O.Retry.MaxRetries = $N;
+      - metavariable-regex:
+          metavariable: $T
+          regex: ^\w+ClientOptions$
+      - metavariable-regex:
+          metavariable: $U
+          regex: ^From(Seconds|Milliseconds|Minutes)$
+      - metavariable-regex:
+          metavariable: $R
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$
+      - metavariable-regex:
+          metavariable: $N
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$
+  - id: csharp-azure-unbounded
+    languages: [csharp]
+    severity: WARNING
+    message: These Azure client options leave Retry.MaxRetries or Retry.NetworkTimeout to the default — the function can die mid-call. Set both; the function's timeout_seconds must cover (MaxRetries + 1) x NetworkTimeout.
+    metadata: {bounds: unbounded, client: azure}
+    paths:
+      exclude: ["tests/", "test/", "*Tests/", "*Tests.cs", "*Test.cs"]
+    patterns:
+      - pattern-either:
+          - pattern: new $T(...)
+          - pattern: 'new $T(...) { ... }'
+      - metavariable-regex:
+          metavariable: $T
+          regex: ^\w+ClientOptions$
+      - pattern-not: 'new $T(...) { ..., Retry = { ..., MaxRetries = $N, ..., NetworkTimeout = $R, ... }, ... }'
+      - pattern-not: 'new $T(...) { ..., Retry = { ..., NetworkTimeout = $R, ..., MaxRetries = $N, ... }, ... }'
+      - pattern-not-inside: |
+          var $O = new $T(...);
+          ...
+          $O.Retry.MaxRetries = $N;
+          ...
+          $O.Retry.NetworkTimeout = $R;
+      - pattern-not-inside: |
+          var $O = new $T(...);
+          ...
+          $O.Retry.NetworkTimeout = $R;
+          ...
+          $O.Retry.MaxRetries = $N;
+  - id: csharp-aws-extract-deadline
+    languages: [csharp]
+    severity: WARNING
+    message: deadline $D $U
+    metadata: {bounds: extract, client: aws}
+    paths:
+      exclude: ["tests/", "test/", "*Tests/", "*Tests.cs", "*Test.cs"]
+    patterns:
+      - pattern-inside: |
+          var $C = new $T(...);
+          ...
+      - pattern-either:
+          - pattern: $C.$M(..., new CancellationTokenSource(TimeSpan.$U($D)).Token)
+          - patterns:
+              - pattern-inside: |
+                  var $CTS = new CancellationTokenSource(TimeSpan.$U($D));
+                  ...
+              - pattern: $C.$M(..., $CTS.Token)
+      - metavariable-regex:
+          metavariable: $T
+          regex: ^Amazon\w+Client$
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^\w+Async$
+      - metavariable-regex:
+          metavariable: $U
+          regex: ^From(Seconds|Milliseconds|Minutes)$
+      - metavariable-regex:
+          metavariable: $D
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$
+  - id: csharp-aws-unbounded
+    languages: [csharp]
+    severity: WARNING
+    message: This AWS SDK async call has no CancellationToken — the client's Timeout does not apply to async calls, so it can outlive the function. Pass a token from new CancellationTokenSource(TimeSpan.FromSeconds(n)); the function's timeout_seconds must cover it.
+    metadata: {bounds: unbounded, client: aws}
+    paths:
+      exclude: ["tests/", "test/", "*Tests/", "*Tests.cs", "*Test.cs"]
+    patterns:
+      - pattern-inside: |
+          var $C = new $T(...);
+          ...
+      - metavariable-regex:
+          metavariable: $T
+          regex: ^Amazon\w+Client$
+      - pattern-either:
+          - pattern: $C.$M()
+          - patterns:
+              - pattern: $C.$M(..., $LAST)
+              - metavariable-regex:
+                  metavariable: $LAST
+                  regex: ^(?!.*(\.Token|[cC]ancellationToken|[tT]oken|\bct)$)|^(CancellationToken\.None|default)$
+      - metavariable-regex:
+          metavariable: $M
+          regex: ^\w+Async$

@@ -13,7 +13,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [
     ['html', { outputFolder: 'playwright-report' }],
-    ['json', { outputFile: 'test-results/results.json' }],
+    ['json', { outputFile: process.env.PROOF_REPORT || 'test-results/results.json' }],   // EVOL-106: the green and the control run each write their own report
     ['junit', { outputFile: 'test-results/junit.xml' }]
   ],
   use: {

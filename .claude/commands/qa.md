@@ -27,7 +27,8 @@ The optional second positional argument `{INC-N}` (e.g. `INC-2`) selects per-sli
 - Derive verification checklist from `test_plan.md` (scenario-filtered in slice mode) → generate `- [ ]` checkboxes in the mode-aware qa_report path
 - Execute each verification item → mark `- [x]` on completion
 - **Completion Gate:** the verdict is computed — `python3 scripts/gate.py qa --verdict` (EVOL-076): every item `[x]` (#115), no `## Findings` row at or above `qa.blocking_severity` (critical always blocks), the privacy, AI-budget, protected-paths and deploy items present, every DAST probe run or `n/a: <reason>`; the completion hook refuses APPROVED otherwise
-- **Preconditions:** `python3 scripts/gate.py qa --ready --env dev` — the deployed build reached, alive and migrated, read from the deploy record (Gate 0)
+- **Preconditions:** `python3 scripts/gate.py qa --ready --env {preproduction}` (`delivery.preproduction`) — the deployed build reached, alive and migrated, read from the deploy record (Gate 0); at the close `--feature {ID}` adds the upgrade over real data, the last good state, the production values and the rollback statement (EVOL-106)
+- **Evidence:** each `[QA-TC-*]` from `python3 scripts/gate.py proof --trace {ID} --json` — ticked only with its evidence (EVOL-106)
 - Run DAST scanning (OWASP ZAP or equivalent)
 - Auto-approves when `gate.py qa --verdict` exits 0
 

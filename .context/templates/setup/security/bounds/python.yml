@@ -1,0 +1,187 @@
+# Client-bounds pack — Python (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function
+# Sourced forms: botocore Config(connect_timeout, read_timeout, retries total_max_attempts | max_attempts) on boto3.client; requests per-call timeout=(c, r) | t; httpx timeout= with HTTPTransport(retries=n).
+# Known-cold forms are in no rule (ADR-EVOL-106).
+# Units are seconds. Extract rules match only numeric literals; a bound read from configuration is still a bound, never extracted.
+rules:
+  # --- botocore / boto3 ------------------------------------------------------------------------------------------------
+  - id: python-boto3-unbounded
+    languages: [python]
+    severity: WARNING
+    message: An AWS client is built without a connect timeout, a read timeout and an attempt count (botocore defaults are 60 s + 60 s, 5 attempts), so a slow call outlives the function — pass config=botocore.config.Config(connect_timeout=..., read_timeout=..., retries={"total_max_attempts" ...}); the function's timeout_seconds must cover their product.
+    metadata: {bounds: unbounded, client: boto3}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "test_*.py", "*_test.*", "*.test.*", "*.spec.*", "conftest.py"]
+    pattern-either:
+      - patterns:
+          - pattern: boto3.client(...)
+          - pattern-not: boto3.client(..., config=$CFG, ...)
+      - patterns:
+          - pattern: botocore.config.Config(...)
+          - pattern-not: botocore.config.Config(..., connect_timeout=$C, ...)
+      - patterns:
+          - pattern: botocore.config.Config(...)
+          - pattern-not: botocore.config.Config(..., read_timeout=$R, ...)
+      - patterns:
+          - pattern: botocore.config.Config(...)
+          - pattern-not: botocore.config.Config(..., retries=$N, ...)
+      - patterns:
+          - pattern: 'botocore.config.Config(..., retries={...}, ...)'
+          - pattern-not: 'botocore.config.Config(..., retries={..., "total_max_attempts": $N, ...}, ...)'
+          - pattern-not: 'botocore.config.Config(..., retries={..., "max_attempts": $N, ...}, ...)'
+  - id: python-boto3-extract-total
+    languages: [python]
+    severity: WARNING
+    message: bound total $C s $R s $N
+    metadata: {bounds: extract, client: boto3}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "test_*.py", "*_test.*", "*.test.*", "*.spec.*", "conftest.py"]
+    patterns:
+      - pattern: botocore.config.Config(..., connect_timeout=$C, ...)
+      - pattern: botocore.config.Config(..., read_timeout=$R, ...)
+      - pattern: 'botocore.config.Config(..., retries={..., "total_max_attempts": $N, ...}, ...)'
+      - metavariable-regex: {metavariable: $C, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $R, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $N, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+  - id: python-boto3-extract-retries
+    languages: [python]
+    severity: WARNING
+    message: bound retries $C s $R s $N
+    metadata: {bounds: extract, client: boto3}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "test_*.py", "*_test.*", "*.test.*", "*.spec.*", "conftest.py"]
+    patterns:
+      - pattern: botocore.config.Config(..., connect_timeout=$C, ...)
+      - pattern: botocore.config.Config(..., read_timeout=$R, ...)
+      - pattern: 'botocore.config.Config(..., retries={..., "max_attempts": $N, ...}, ...)'
+      # total_max_attempts wins when both are set — that construction is the total rule's.
+      - pattern-not: 'botocore.config.Config(..., retries={..., "total_max_attempts": $T, ...}, ...)'
+      - metavariable-regex: {metavariable: $C, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $R, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $N, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+  # --- requests (no Session-level timeout, no retry by default: HTTPAdapter max_retries is 0) --------------------------
+  - id: python-requests-unbounded
+    languages: [python]
+    severity: WARNING
+    message: A requests call has no timeout, so it can wait forever and outlive the function — pass timeout=(connect, read) on every call; the function's timeout_seconds must cover their sum.
+    metadata: {bounds: unbounded, client: requests}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "test_*.py", "*_test.*", "*.test.*", "*.spec.*", "conftest.py"]
+    patterns:
+      - pattern-either:
+          - pattern: requests.$M(...)
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $S = requests.Session(...)
+                      ...
+                  - pattern-inside: |
+                      with requests.Session(...) as $S:
+                        ...
+              - pattern: $S.$M(...)
+      - metavariable-regex: {metavariable: $M, regex: '^(get|post|put|patch|delete|head|options|request)$'}
+      - pattern-either:
+          - patterns:
+              - pattern: $X.$M(...)
+              - pattern-not: $X.$M(..., timeout=$T, ...)
+          - pattern: $X.$M(..., timeout=None, ...)
+          - pattern: $X.$M(..., timeout=(None, $Y), ...)
+          - pattern: $X.$M(..., timeout=($Y, None), ...)
+  - id: python-requests-extract-total
+    languages: [python]
+    severity: WARNING
+    message: bound total $C s $R s 1
+    metadata: {bounds: extract, client: requests}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "test_*.py", "*_test.*", "*.test.*", "*.spec.*", "conftest.py"]
+    patterns:
+      - pattern-either:
+          - pattern: requests.$M(...)
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $S = requests.Session(...)
+                      ...
+                  - pattern-inside: |
+                      with requests.Session(...) as $S:
+                        ...
+              - pattern: $S.$M(...)
+      - metavariable-regex: {metavariable: $M, regex: '^(get|post|put|patch|delete|head|options|request)$'}
+      - pattern-either:
+          - pattern: $X.$M(..., timeout=($C, $R), ...)
+          - patterns:   # timeout=t bounds connect and read alike
+              - pattern: $X.$M(..., timeout=$C, ...)
+              - pattern: $X.$M(..., timeout=$R, ...)
+      - metavariable-regex: {metavariable: $C, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $R, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+  # --- httpx (retries only connect errors, and only through HTTPTransport(retries=n)) ----------------------------------
+  - id: python-httpx-unbounded
+    languages: [python]
+    severity: WARNING
+    message: An httpx client or call has no timeout written in code (or switches it off with None), so the function's budget cannot be checked against it — pass timeout=httpx.Timeout(..., connect=..., read=...); the function's timeout_seconds must cover their sum times the attempts.
+    metadata: {bounds: unbounded, client: httpx}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "test_*.py", "*_test.*", "*.test.*", "*.spec.*", "conftest.py"]
+    patterns:
+      - pattern: httpx.$M(...)
+      - metavariable-regex: {metavariable: $M, regex: '^(Client|AsyncClient|get|post|put|patch|delete|head|options|request|stream)$'}
+      - pattern-either:
+          - patterns:
+              - pattern: $X.$M(...)
+              - pattern-not: $X.$M(..., timeout=$T, ...)
+          - pattern: $X.$M(..., timeout=None, ...)
+          - pattern: $X.$M(..., timeout=httpx.Timeout(None, ...), ...)
+          - pattern: $X.$M(..., timeout=httpx.Timeout(..., connect=None, ...), ...)
+          - pattern: $X.$M(..., timeout=httpx.Timeout(..., read=None, ...), ...)
+  - id: python-httpx-extract-total
+    languages: [python]
+    severity: WARNING
+    message: bound total $C s $R s 1
+    metadata: {bounds: extract, client: httpx}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "test_*.py", "*_test.*", "*.test.*", "*.spec.*", "conftest.py"]
+    patterns:
+      - pattern: httpx.$M(...)
+      - metavariable-regex: {metavariable: $M, regex: '^(Client|AsyncClient|get|post|put|patch|delete|head|options|request|stream)$'}
+      - pattern-not: $X.$M(..., transport=$TR, ...)
+      - pattern-either:
+          - patterns:   # timeout=t and httpx.Timeout(t) bound connect and read alike
+              - pattern-either:
+                  - pattern: $X.$M(..., timeout=$C, ...)
+                  - pattern: $X.$M(..., timeout=httpx.Timeout($C), ...)
+              - pattern-either:
+                  - pattern: $X.$M(..., timeout=$R, ...)
+                  - pattern: $X.$M(..., timeout=httpx.Timeout($R), ...)
+          - pattern: $X.$M(..., timeout=httpx.Timeout($R, connect=$C), ...)
+          - patterns:
+              - pattern: $X.$M(..., timeout=httpx.Timeout(..., connect=$C, ...), ...)
+              - pattern: $X.$M(..., timeout=httpx.Timeout(..., read=$R, ...), ...)
+      - metavariable-regex: {metavariable: $C, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $R, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+  - id: python-httpx-extract-retries
+    languages: [python]
+    severity: WARNING
+    message: bound retries $C s $R s $N
+    metadata: {bounds: extract, client: httpx}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "test_*.py", "*_test.*", "*.test.*", "*.spec.*", "conftest.py"]
+    patterns:
+      - pattern: httpx.$M(...)
+      - metavariable-regex: {metavariable: $M, regex: '^(Client|AsyncClient)$'}
+      - pattern-either:
+          - pattern: $X.$M(..., transport=httpx.HTTPTransport(..., retries=$N, ...), ...)
+          - pattern: $X.$M(..., transport=httpx.AsyncHTTPTransport(..., retries=$N, ...), ...)
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern: $X.$M(..., timeout=$C, ...)
+                  - pattern: $X.$M(..., timeout=httpx.Timeout($C), ...)
+              - pattern-either:
+                  - pattern: $X.$M(..., timeout=$R, ...)
+                  - pattern: $X.$M(..., timeout=httpx.Timeout($R), ...)
+          - pattern: $X.$M(..., timeout=httpx.Timeout($R, connect=$C), ...)
+          - patterns:
+              - pattern: $X.$M(..., timeout=httpx.Timeout(..., connect=$C, ...), ...)
+              - pattern: $X.$M(..., timeout=httpx.Timeout(..., read=$R, ...), ...)
+      - metavariable-regex: {metavariable: $C, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $R, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $N, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}

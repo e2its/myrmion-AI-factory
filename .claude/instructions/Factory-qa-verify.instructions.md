@@ -63,7 +63,9 @@ MANDATORY Scripts (ALWAYS during --verify):
 
 Conditional Scripts:
   - security-scan.sh --drift-check: Protected paths (IF RED ZONE files)
-  - gate.py qa --ready --env dev: the deployed build reached, alive and migrated, read from the deploy record (Gate 0, BLOCKING — EVOL-076)
+  - gate.py qa --ready --env {preproduction} [--feature {FEATURE_ID}]: the deployed build reached, alive and migrated, read from the deploy record (Gate 0, BLOCKING — EVOL-076); at the close (aggregate) also the upgrade over real data, the last good state, production values and the rollback statement (EVOL-106)
+  - gate.py proof --record --green G --control C --env {preproduction} --json: the two runs judged and written to docs/spec/{FEATURE_ID}/qa/proof.json (IF proof.tool != none, before the trace, BLOCKING — EVOL-106)
+  - gate.py proof --trace {FEATURE_ID} --json: each case's evidence — scenario → AC row → test → proof.json (end-to-end) | the loop's seal (unit/integration) | manual (checklist generation, BLOCKING on a fault — EVOL-106)
   - security-scan.sh --dast: ZAP baseline (IF docs/setup.md → qa.dast_tool == owasp-zap)
   - security-scan.sh --dast-full: ZAP full scan (IF qa.dast_tool == owasp-zap AND test_plan specifies)
   - security-scan.sh --dast-api: ZAP API scan (IF qa.dast_tool == owasp-zap AND API contracts)
@@ -169,13 +171,15 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
 
   # Gate 0 (EVOL-076): the build QA verifies is reached, alive and migrated — read from #135's deploy record
   # (gate.py delivery --last), never probed or traced here. n/a when the project deploys nothing.
-  pre_rc, pre = RUN("python3 scripts/gate.py qa --ready --env dev --json")   # dev: the deployment the smoke walks (Gate 4)
+  preproduction = READ config/quality.json → delivery.preproduction   # EVOL-106 — the environment the close deploys to (default staging)
+  close = (mode == "aggregate") ? " --feature {FEATURE_ID}" : ""     # the close rows: upgraded, lkg, production, rollback
+  pre_rc, pre = RUN("python3 scripts/gate.py qa --ready --env {preproduction}{close} --json")   # the deployment the smoke walks (Gate 4)
   IF pre_rc == 2:
     ❌ BLOCK: "QA does not start: the deploy record cannot be read — {stderr}"   # a fault carries no JSON
     STOP
   IF pre_rc != 0:
     ❌ BLOCK: "QA does not start: {pre.reason} — {each red line of pre.entries}"
-    REDIRECT: "DEVOPS --deploy --env dev {FEATURE_ID} (the pipeline deploys HEAD and writes the record), then re-run."
+    REDIRECT: "DEVOPS --deploy --env {preproduction} {FEATURE_ID} (the pipeline deploys HEAD and writes the record), then re-run."
     STOP
   # The result ticks [QA-PRE-DEPLOY]: run → its reason; pre.na → `n/a: {pre.reason}`
 
@@ -313,8 +317,8 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       STOP
     slice_report = "docs/spec/{FEATURE_ID}/smoke_e2e_report_{INCREMENT_ID}.md"
     IF NOT FILE_EXISTS(slice_report):
-      ❌ BLOCK: "The smoke for increment {INCREMENT_ID} has not run on its dev deployment."
-      REDIRECT: "Walk the increment's cases plus every earlier increment's on the dev build, record them in {slice_report} (template .context/templates/qa/smoke_e2e_report_template.md, increment_id: {INCREMENT_ID}), then re-run."
+      ❌ BLOCK: "The smoke for increment {INCREMENT_ID} has not run on its {preproduction} deployment."
+      REDIRECT: "Walk the increment's cases plus every earlier increment's on the {preproduction} build, record them in {slice_report} (template .context/templates/qa/smoke_e2e_report_template.md, increment_id: {INCREMENT_ID}), then re-run."
       STOP
     fm = READ_FRONTMATTER(slice_report)
     IF fm.overall_verdict != "PASS" OR fm.status != "APPROVED" OR (fm.scope AND fm.scope != spec_scope):
@@ -382,9 +386,9 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
 
       ❌ BLOCK: "SMOKE-E2E gate not passed for {FEATURE_ID} (scope: {feature_scope}, current status: {smoke_issue.status})."
       REDIRECT: |
-        Smoke blocks = journey Paths ({journey_source} § Section 3) expanded transitively Paso → BDD Scenario → test_plan TC. All must pass on the dev-deployed build before --verify. Scope=`{feature_scope}` runs in mode: {smoke_mode}. Steps:
-          1. Ensure DEVOPS --deploy --env dev {FEATURE_ID} ran successfully
-          2. Execute each numbered smoke block against the dev deployment (browser steps for UI scope; caller-harness + state + observability for backend-only/integration; HYBRID combines both for full-stack)
+        Smoke blocks = journey Paths ({journey_source} § Section 3) expanded transitively Paso → BDD Scenario → test_plan TC. All must pass on the build deployed to {preproduction} (`delivery.preproduction`, EVOL-106) before --verify. Scope=`{feature_scope}` runs in mode: {smoke_mode}. Steps:
+          1. Ensure DEVOPS --deploy --env {preproduction} {FEATURE_ID} ran successfully
+          2. Execute each numbered smoke block against the {preproduction} deployment (browser steps for UI scope; caller-harness + state + observability for backend-only/integration; HYBRID combines both for full-stack)
           3. For scope in [backend-only, integration]: additionally execute SMOKE-REL-* blocks (test_plan § 2.2 REL-XX families; mechanisms per design.md § Reliability Contract
           4. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
           5. When overall_verdict turns PASS: certifies = RUN python3 scripts/gate.py certify --subject tree --paths '{src_root}/**' '{tests_root}/**'
@@ -398,8 +402,8 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
     IF FILE_EXISTS(smoke_report):
       fm = READ_FRONTMATTER(smoke_report)
       IF fm.status == "INVALIDATED":
-        ❌ BLOCK: "Smoke E2E report is INVALIDATED — dev build changed after the last smoke run."
-        REDIRECT: "Re-deploy to dev and re-run the smoke blocks to refresh the report."
+        ❌ BLOCK: "Smoke E2E report is INVALIDATED — the {preproduction} build changed after the last smoke run."
+        REDIRECT: "Re-deploy to {preproduction} and re-run the smoke blocks to refresh the report."
         STOP
       # verdict + status enforcement (the template's own gate contract)
       IF fm.overall_verdict != "PASS" OR fm.status != "APPROVED":
@@ -493,7 +497,28 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   IF trace.required AND NOT trace.ok:
     ❌ BLOCK: "Test-case traceability is red: {trace.reason}. A case with no linking test, an unknown link or a baseline that must shrink — fix at the source (gate.py traceability) before certification."
     STOP
-  linked = { c.id: c FOR c IN trace.cases }            # qualified FEATURE/CASE → {tests: [file:line], status: linked | unlinked-baseline | manual}
+  # EVOL-106 — the run is recorded before it is read. With an end-to-end tool (config/quality.json → proof.tool ≠ none),
+  # the suite runs twice against the {preproduction} deployment the smoke walks (BASE_URL = its URL), each run to its own report:
+  #   green:   Playwright → PROOF_REPORT=test-results/proof-green.json npx playwright test
+  #   control: Playwright → CASE_CONTROL=1 PROOF_REPORT=test-results/proof-control.json npx playwright test   (exits non-zero by design)
+  #   another tool → the runner its adapter documents, its native report to a file, CASE_CONTROL=1 on the second run
+  IF READ config/quality.json → proof.tool != "none":
+    rec_rc, rec = RUN("python3 scripts/gate.py proof --record --green {green} --control {control} --env {preproduction} --json")
+    IF rec_rc >= 2:
+      ❌ BLOCK: "The end-to-end run could not be judged ({stderr}) — the adapter or a report is broken; a fault is never a pass."
+      STOP
+    IF rec.refused:
+      ❌ BLOCK: "{rec.reason}"
+      REDIRECT: "Gate 0 red → DEVOPS --deploy --env {preproduction} {FEATURE_ID}; the canary disagrees → the adapter is broken (SETUP --upgrade rebuilds it). Then re-run."
+      STOP
+    # a red case is written red: it reaches the checklist below as NO EVIDENCE; docs/spec/{FEATURE_ID}/qa/proof.json is committed with the report
+  # EVOL-106 — each case's evidence is READ from the trace: scenario → AC row → test → evidence (proof.json for the
+  # end-to-end layer, the loop's seal at the proof's SHA for unit and integration, manual by hand)
+  ev_rc, ev = RUN("python3 scripts/gate.py proof --trace {FEATURE_ID} --json")
+  IF ev_rc >= 2:
+    ❌ BLOCK: "The evidence trace could not be judged ({stderr}) — a fault is never a pass."
+    STOP
+  evidence = { c.case: c FOR c IN ev.trace }           # qualified FEATURE/CASE → {tests, layer, evidence: proof | seal | manual | null, ok, problems}
   FOR EACH test_case IN test_plan.test_cases:
     family = ID_PREFIX(test_case.id)   # AC | TC | TC-API | REL | UX | A11Y | BRAND | LAYOUT
     scenario_ref = (family == "AC") ? test_case.gherkin_ref : null
@@ -503,14 +528,14 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
       IF family == "AC" AND scenario_ref NOT IN scenario_filter: CONTINUE
       IF family != "AC" AND family != "TC-API": CONTINUE          # feature-level families → aggregate
       IF family == "TC-API" AND contract_filter IS NOT NULL AND NOT MATCHES(test_case.endpoint_method, contract_filter): CONTINUE
-    link = linked.get("{FEATURE_ID}/{test_case.id}")
-    proof = "not traced — {trace.reason}"      IF NOT trace.required
-          ELSE "not declared by the gate"       IF link IS NULL              # the gate parsed no such row: check the ID table
-          ELSE link.tests                       IF link.status == "linked"
-          ELSE "MANUAL (no test owed)"          IF link.status == "manual"
-          ELSE "UNLINKED (baseline)"                                          # the debt on the board
+    e = evidence.get("{FEATURE_ID}/{test_case.id}")
+    proof = "not traced — {ev.reason}"         IF ev.na
+          ELSE "not declared by the gate"       IF e IS NULL                 # the gate parsed no such row: check the ID table
+          ELSE "MANUAL — verify by hand"        IF e.evidence == "manual"
+          ELSE "{e.evidence}: {e.tests}"        IF e.ok                      # proof (proof.json) | seal (the loop's seal)
+          ELSE "NO EVIDENCE — {e.problems}"                                   # stays unticked: the case is not proven
     checklist.push("- [ ] [QA-TC-{test_case.id}]: {test_case.label} — {proof}")
-    checklist[-1].metadata = { family: family, scenario_ref: scenario_ref, tests: link.tests IF link ELSE [] }
+    checklist[-1].metadata = { family: family, scenario_ref: scenario_ref, tests: e.tests IF e ELSE [] }
 
   # Regression suite
   checklist.push("- [ ] [QA-REG-1]: Unit test suite execution")
@@ -645,17 +670,15 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
 3b. **AI budget** (only where ai_budget_governance.md is materialised): every model call the change adds or touches is within the rule's limits and tracked.
    - Within → MARK `[QA-GOV-AIB]` [x], each call (file:line, its limit) in § 1 | Over a limit or untracked → a `## Findings` row (`high`)
 
-4. **Evidence Request:** Ask user for dynamic test logs
+4. **Evidence (EVOL-106):** read, never asked for — the trace above carries each case's evidence.
+   - MARK `[QA-TC-*]` [x] only where its trace entry is `ok` (`proof` or `seal`); a `manual` case after its check by hand, recorded in § 1. A case with no evidence stays unticked → REJECTED. `gate.py qa --verdict` re-reads the trace: a ticked case with no evidence is red, and the aggregate report needs the whole trace green.
 
-5. **Log Analysis:** Verify PASS in all cases → STATIC_PASS or REJECTED
-   - For each test case verified: MARK corresponding `[QA-TC-*]` [x] in checklist
-
-**5a. System Regression Suite:**
+**4a. System Regression Suite:**
 - Run `scripts/test.sh --all` (unit + integration + contract)
 - Classify failures: DIRECT_FAILURE, INDIRECT_REGRESSION, FLAKY, REGRESSION
 - Direct or indirect failures → REJECT | Flaky only → WARN | All pass → MARK `[QA-REG-1]`, `[QA-REG-2]`, `[QA-REG-3]` [x]
 
-**5b. Static Analysis Tools (Defense in Depth —):**
+**4b. Static Analysis Tools (Defense in Depth —):**
 
 QA independently re-executes lint, typecheck, and SAST tools. This is NOT redundant — it catches:
 - Code changes made after IMPLEMENT (manual edits, formatter runs)
@@ -762,13 +785,14 @@ Generate the mode-aware qa_report file:
 - Slice mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_{{INCREMENT_ID}}_{{timestamp}}.md`
 - Aggregate mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_final_{{timestamp}}.md` (with `aggregates:` frontmatter referencing the consumed slice reports)
 
-**Computed verdict (EVOL-076):** Before setting the verdict, ask `python3 scripts/gate.py qa --verdict --file {qa_report_path}`. It checks four things:
+**Computed verdict (EVOL-076):** Before setting the verdict, ask `python3 scripts/gate.py qa --verdict --file {qa_report_path}`. It checks five things:
 - every item done (`[x]` only, #115);
 - a severity on every `## Findings` row, none at or above `qa.blocking_severity` (critical always blocks);
 - `[QA-PRE-DEPLOY]`, `[QA-GOV-1]`, `[QA-GOV-PRIV]` present, plus `[QA-GOV-AIB]` where the AI-budget rule is materialised;
-- `[QA-PRE-DEPLOY]` and each `[QA-DAST-*]` run, or `n/a: <reason>` — with `qa.dast_tool: owasp-zap` answered, `[QA-DAST-1]` never says n/a.
+- `[QA-PRE-DEPLOY]` and each `[QA-DAST-*]` run, or `n/a: <reason>` — with `qa.dast_tool: owasp-zap` answered, `[QA-DAST-1]` never says n/a;
+- the proof (EVOL-106): a ticked `[QA-TC-*]` has its trace evidence; an aggregate report needs the feature's whole trace green.
 
-Exit 1 → verdict MUST be REJECTED; exit 2 → the severity is unreadable, nothing is approved (SETUP --upgrade asks Q23.6). The completion hook asks the same before a report is written approved (`status` or `verdict` APPROVED, `gates/qa.py approved`).
+Exit 1 → verdict MUST be REJECTED; exit 2 → the severity or the proof trace is unreadable, nothing is approved (SETUP --upgrade asks Q23.6). The completion hook asks the same before a report is written approved (`status` or `verdict` APPROVED, `gates/qa.py approved`).
 
 **Severity of a finding:** the closed vocabulary and its mapping live once, in the template's `## Findings` section — READ it; never re-type it here.
 

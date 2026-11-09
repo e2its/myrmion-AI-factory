@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.1.0",
+  "framework_version": "10.2.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-09",
   "governance_features": {
@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.21.0",
+      "version": "2.22.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -112,12 +112,12 @@
       "target": ".claude/rules/security_policy.md"
     },
     "rules/testing.md": {
-      "version": "1.10.1",
+      "version": "1.11.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/testing.md"
     },
     "rules/ci-cd.md": {
-      "version": "2.0.0",
+      "version": "2.0.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/ci-cd.md"
     },
@@ -446,13 +446,13 @@
       "target": ".claude/hooks/check-push-preflight.sh"
     },
     "claude/CLAUDE.md": {
-      "version": "4.21.0",
+      "version": "4.21.1",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge"
     },
     "setup/setup_master_template.md": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md"
     },
@@ -492,7 +492,7 @@
       "target": "config/coherence-context.json"
     },
     "config/quality.json": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "content_type": "stack_configured",
       "target": "config/quality.json"
     },
@@ -561,7 +561,7 @@
       "target": "docs/project_log/adr/ADR-SETUP.md"
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md"
     },
@@ -592,9 +592,10 @@
       "role": "Schema doc for system_resources.json — consumed in place at materialization, never copied."
     },
     "e2e/playwright.config.ts": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "playwright.config.ts",
+      "stack_conditional": "testing.e2e_tool == playwright",
       "role": "E2E Playwright config template."
     },
     "policies/dast.md": {
@@ -604,7 +605,7 @@
       "role": "DAST policy reference — consumed in place by SETUP/QA."
     },
     "policies/e2e_testing.md": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": null,
       "role": "E2E testing policy reference — consumed in place."
@@ -616,7 +617,7 @@
       "role": "OWASP ZAP baseline config for the DAST lane."
     },
     "setup/gitignore.hbs": {
-      "version": "1.2.2",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".gitignore",
       "role": "Gitignore handlebars template — rendered at materialization."
@@ -646,10 +647,25 @@
       "role": "Testing/security example snippets — consumed in place."
     },
     "tests/e2e/pages/base.page.ts": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "tests/e2e/pages/base.page.ts",
+      "stack_conditional": "testing.e2e_tool == playwright",
       "role": "E2E base page object template."
+    },
+    "tests/e2e/support/clauses.ts": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "tests/e2e/support/clauses.ts",
+      "stack_conditional": "testing.e2e_tool == playwright",
+      "role": "Playwright clause helper (EVOL-106): given/when/then steps, the counted expect, the control run — the shape `gate.py proof` judges."
+    },
+    "tests/e2e/specs/canary.spec.ts": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "tests/e2e/specs/canary.spec.ts",
+      "stack_conditional": "testing.e2e_tool == playwright",
+      "role": "Playwright adapter canary (EVOL-106): three planted cases on a local server; `gate.py proof` refuses a run whose canary verdicts differ."
     },
     "workflows/inventory-drift.github-actions.yml": {
       "version": "1.0.0",
@@ -887,7 +903,7 @@
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**)."
     },
     "scripts/gate.py": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
@@ -929,7 +945,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.38.0",
+      "version": "1.39.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -950,7 +966,7 @@
       "role": "gates: branch classes, the ONE diff-base resolver and the per-PR surface ceiling (EVOL-045) — `branch_class` (protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown; a train = per-increment branch whose increment plan declares sub-increments, protected), `diff_base` (sub-increment → its train, else the default base branch; unknown name → red, fail-closed), `surface` (files + lines of base...HEAD vs surface.ceiling_*, Surface-Escape trailer from the closed surface.escapes list)."
     },
     "scripts/gates/profile.py": {
-      "version": "1.15.0",
+      "version": "1.16.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
@@ -1050,7 +1066,7 @@
       "role": "Agent definition — worker (platform / tooling surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete."
     },
     "claude/agents/factory-dev-e2e.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-dev-e2e.md",
       "role": "Agent definition — worker (end-to-end tests surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete."
@@ -1106,7 +1122,7 @@
       "role": "gates: governance digest currency of the feature's planning artefacts (EVOL-051) — for docs/spec/{ID}/ (verification.digest_artefacts): frontmatter governance_digest_version equals the snapshot's constitution_hash[:8] and the artefact names every rule the corpus binds to the branch's change (applicable — the one resolver); red in the static round and at the push, one predicate."
     },
     "scripts/gates/traceability.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "scripts/gates/traceability.py",
       "delivery": "both",
@@ -1211,7 +1227,7 @@
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
     },
     "setup/discovery_registry.json": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "content_type": "universal",
       "target": null,
       "role": "The SETUP discovery registry (EVOL-102) — consumed in place by SETUP and gate.py discovery, never copied: the questions, their tiers, keys, options and conditions; derived values never asked."
@@ -1242,7 +1258,7 @@
       "target": "scripts/gates/aligned.py"
     },
     "scripts/gates/train.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/train.py"
@@ -1302,8 +1318,50 @@
       "stack_conditional": "backend.runtime == Rust",
       "role": "SAST base pack (EVOL-074) for Rust: our own Semgrep rules, run by the `sast` verification member; lands only when the stack uses the language."
     },
+    "security/bounds/python.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/bounds/python.yml",
+      "stack_conditional": "hosting.type == function AND backend.runtime == Python",
+      "role": "Client-bounds pack (EVOL-106) for Python: our own Semgrep rules naming each external client's bound, read by `gate.py bounds`; lands only for a function-hosted backend in the language."
+    },
+    "security/bounds/javascript.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/bounds/javascript.yml",
+      "stack_conditional": "hosting.type == function AND backend.runtime == Node.js",
+      "role": "Client-bounds pack (EVOL-106) for Node.js / TypeScript: our own Semgrep rules naming each external client's bound, read by `gate.py bounds`; lands only for a function-hosted backend in the language."
+    },
+    "security/bounds/java.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/bounds/java.yml",
+      "stack_conditional": "hosting.type == function AND backend.runtime == Java",
+      "role": "Client-bounds pack (EVOL-106) for Java: our own Semgrep rules naming each external client's bound, read by `gate.py bounds`; lands only for a function-hosted backend in the language."
+    },
+    "security/bounds/go.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/bounds/go.yml",
+      "stack_conditional": "hosting.type == function AND backend.runtime == Go",
+      "role": "Client-bounds pack (EVOL-106) for Go: our own Semgrep rules naming each external client's bound, read by `gate.py bounds`; lands only for a function-hosted backend in the language."
+    },
+    "security/bounds/csharp.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/bounds/csharp.yml",
+      "stack_conditional": "hosting.type == function AND backend.runtime == .NET",
+      "role": "Client-bounds pack (EVOL-106) for .NET: our own Semgrep rules naming each external client's bound, read by `gate.py bounds`; lands only for a function-hosted backend in the language."
+    },
+    "security/bounds/rust.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/bounds/rust.yml",
+      "stack_conditional": "hosting.type == function AND backend.runtime == Rust",
+      "role": "Client-bounds pack (EVOL-106) for Rust: our own Semgrep rules naming each external client's bound, read by `gate.py bounds`; lands only for a function-hosted backend in the language."
+    },
     "scripts/gates/contracts.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/contracts.py"
@@ -1335,16 +1393,28 @@
       "target": "scripts/gates/performance.py"
     },
     "scripts/gates/delivery.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/delivery.py"
     },
     "scripts/gates/qa.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/qa.py"
+    },
+    "scripts/gates/proof.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "delivery": "both",
+      "target": "scripts/gates/proof.py"
+    },
+    "scripts/gates/bounds.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "delivery": "both",
+      "target": "scripts/gates/bounds.py"
     }
   },
   "agent_templates": {
@@ -1356,7 +1426,7 @@
       "target": ".context/templates/architect/adr_template.md"
     },
     "architect/design_template.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": ".context/templates/architect/design_template.md"
     },
@@ -1366,7 +1436,7 @@
       "target": ".context/templates/architect/fdr_template.md"
     },
     "architect/increment_plan_template.md": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "content_type": "universal",
       "target": ".context/templates/architect/increment_plan_template.md"
     },
@@ -1426,17 +1496,17 @@
       "target": ".context/templates/develop/dev_plan_template.md"
     },
     "develop/e2e_spec_template.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".context/templates/develop/e2e_spec_template.md"
     },
     "develop/page_object_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/develop/page_object_template.md"
     },
     "develop/preventive_sweep_report_template.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": ".context/templates/develop/preventive_sweep_report_template.md"
     },
@@ -1456,12 +1526,12 @@
       "target": ".context/templates/po/questions_and_proposals.md"
     },
     "qa/qa_report_template.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": ".context/templates/qa/qa_report_template.md"
     },
     "qa/smoke_e2e_report_template.md": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "content_type": "universal",
       "target": ".context/templates/qa/smoke_e2e_report_template.md"
     },
@@ -1471,7 +1541,7 @@
       "target": ".context/templates/qa/test_gaps_proposals.md"
     },
     "qa/test_plan_template.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": ".context/templates/qa/test_plan_template.md"
     },
@@ -1490,7 +1560,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.30.1",
+      "version": "2.30.2",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -1518,7 +1588,7 @@
       "path": ".claude/commands/implement.md"
     },
     "commands/qa.md": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "path": ".claude/commands/qa.md"
     },
     "commands/setup.md": {
@@ -1534,7 +1604,7 @@
       "path": ".claude/instructions/Factory-audit-complexity.instructions.md"
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.23.0",
+      "version": "3.24.0",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md"
     },
     "instructions/Factory-blueprint-refine.instructions.md": {
@@ -1554,15 +1624,15 @@
       "path": ".claude/instructions/Factory-codesign-vision.instructions.md"
     },
     "instructions/Factory-devops-configure.instructions.md": {
-      "version": "3.0.0",
+      "version": "3.1.0",
       "path": ".claude/instructions/Factory-devops-configure.instructions.md"
     },
     "instructions/Factory-devops-provision-deploy.instructions.md": {
-      "version": "3.0.0",
+      "version": "3.1.0",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md"
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.30.1",
+      "version": "2.31.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md"
     },
     "instructions/Factory-implement-plan.instructions.md": {
@@ -1574,11 +1644,11 @@
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md"
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.13.0",
+      "version": "3.14.0",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md"
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.18.0",
+      "version": "1.19.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md"
     },
     "instructions/Factory-backlog-execution-plan.instructions.md": {
@@ -1586,19 +1656,19 @@
       "path": ".claude/instructions/Factory-backlog-execution-plan.instructions.md"
     },
     "instructions/Factory-backlog-next-task.instructions.md": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "path": ".claude/instructions/Factory-backlog-next-task.instructions.md"
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md"
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "4.1.0",
+      "version": "4.2.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md"
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "3.0.0",
+      "version": "3.1.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md"
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
@@ -1614,7 +1684,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.33.0",
+      "version": "14.34.0",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
@@ -1638,7 +1708,7 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.10.0",
+      "version": "2.11.0",
       "type": "skill",
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
@@ -1751,7 +1821,7 @@
       "path": ".claude/skills/factory-memory-cache/SKILL.md"
     },
     "skills/factory-coherence-validation/SKILL.md": {
-      "version": "2.4.0",
+      "version": "2.5.0",
       "type": "skill",
       "role": "CVP v1.2.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "path": ".claude/skills/factory-coherence-validation/SKILL.md"
@@ -2233,7 +2303,7 @@
       "path": ".claude/hooks/deliver-governance.sh"
     },
     "scripts/gate.py": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
@@ -2269,13 +2339,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.38.0",
+      "version": "1.39.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.36.1",
+      "version": "1.37.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2305,7 +2375,7 @@
       "path": "scripts/gates/branch.py"
     },
     "scripts/gates/profile.py": {
-      "version": "1.15.0",
+      "version": "1.16.0",
       "type": "script",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
       "path": "scripts/gates/profile.py"
@@ -2395,7 +2465,7 @@
       "role": "Agent definition — worker (platform / tooling surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md)."
     },
     "agents/factory-dev-e2e.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-dev-e2e.md",
       "role": "Agent definition — worker (end-to-end tests surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md)."
@@ -2449,7 +2519,7 @@
       "path": "scripts/gates/digests.py"
     },
     "scripts/gates/traceability.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "role": "gates: test-case traceability (EVOL-053) — the ONE home of the case → test link (config → traceability.home: pytest-marker | title-tag | custom pattern), strict FEATURE/CASE ids, `declared` from docs/spec/*/test_plan.md, `links` from the test roots, `check` (case → test, never test → case; unknown or malformed links red; the baseline only shrinks), `baseline --init|--refresh`; a light profile member; QA consumes --json. Meta copy (lock-step pair scripts/gates/*.py).",
       "path": "scripts/gates/traceability.py"
@@ -2513,13 +2583,13 @@
       "path": "scripts/test-check-design-sections.sh"
     },
     "scripts/fixtures/synthetic-answers/default.json": {
-      "version": "1.11.1",
+      "version": "1.12.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json"
     },
     "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
-      "version": "1.10.1",
+      "version": "1.11.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json"
@@ -2552,7 +2622,7 @@
       "path": "scripts/gates/frontmatter.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12.json": {
-      "version": "1.10.1",
+      "version": "1.11.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json"
@@ -2563,7 +2633,7 @@
       "path": "scripts/gates/aligned.py"
     },
     "scripts/gates/train.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "path": "scripts/gates/train.py"
     },
@@ -2584,7 +2654,7 @@
       "path": "scripts/fixtures/synthetic-answers/java.json"
     },
     "scripts/fixtures/synthetic-answers/go.json": {
-      "version": "1.7.1",
+      "version": "1.8.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/go.json"
@@ -2596,7 +2666,7 @@
       "path": "scripts/fixtures/synthetic-answers/rust.json"
     },
     "scripts/fixtures/synthetic-answers/frontend-only.json": {
-      "version": "1.7.1",
+      "version": "1.8.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/frontend-only.json"
@@ -2632,7 +2702,7 @@
       "path": "scripts/fixtures/red-stacks/angular.json"
     },
     "scripts/test-sast-packs.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "utility",
       "path": "scripts/test-sast-packs.sh",
       "role": "META-ONLY proof of the SAST base packs (EVOL-074): both ways per rule, semgrep --test never vacuous, and per synthetic answer set the landing packs red on planted defects and green without them. Wired into governance-check job sast-packs (semgrep/semgrep:1.182.0)."
@@ -2691,8 +2761,56 @@
       "path": "scripts/fixtures/sast/ui-templates.vue",
       "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
     },
+    "scripts/fixtures/bounds/csharp.cs": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/bounds/csharp.cs",
+      "role": "META-ONLY fixture of the client-bounds packs: ruleid / ok annotations read by semgrep --test (EVOL-106)."
+    },
+    "scripts/fixtures/bounds/go.go": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/bounds/go.go",
+      "role": "META-ONLY fixture of the client-bounds packs: ruleid / ok annotations read by semgrep --test (EVOL-106)."
+    },
+    "scripts/fixtures/bounds/java.java": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/bounds/java.java",
+      "role": "META-ONLY fixture of the client-bounds packs: ruleid / ok annotations read by semgrep --test (EVOL-106)."
+    },
+    "scripts/fixtures/bounds/javascript.ts": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/bounds/javascript.ts",
+      "role": "META-ONLY fixture of the client-bounds packs: ruleid / ok annotations read by semgrep --test (EVOL-106)."
+    },
+    "scripts/fixtures/bounds/python.py": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/bounds/python.py",
+      "role": "META-ONLY fixture of the client-bounds packs: ruleid / ok annotations read by semgrep --test (EVOL-106)."
+    },
+    "scripts/fixtures/bounds/rust.rs": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/bounds/rust.rs",
+      "role": "META-ONLY fixture of the client-bounds packs: ruleid / ok annotations read by semgrep --test (EVOL-106)."
+    },
+    "scripts/fixtures/proof/playwright-green.json": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/proof/playwright-green.json",
+      "role": "META-ONLY sanitised Playwright 1.65 JSON report of the shipped canary, read by the Proof tests (EVOL-106)."
+    },
+    "scripts/fixtures/proof/playwright-control.json": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/proof/playwright-control.json",
+      "role": "META-ONLY sanitised Playwright 1.65 JSON report of the shipped canary, read by the Proof tests (EVOL-106)."
+    },
     "scripts/gates/contracts.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "path": "scripts/gates/contracts.py"
     },
@@ -2702,7 +2820,7 @@
       "path": "scripts/gates/data.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json"
@@ -2719,7 +2837,7 @@
       "path": "scripts/gates/performance.py"
     },
     "scripts/gates/delivery.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "path": "scripts/gates/delivery.py"
     },
@@ -2736,9 +2854,19 @@
       "path": "scripts/fixtures/synthetic-answers/bitbucket.json"
     },
     "scripts/gates/qa.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "path": "scripts/gates/qa.py"
+    },
+    "scripts/gates/proof.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "path": "scripts/gates/proof.py"
+    },
+    "scripts/gates/bounds.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "path": "scripts/gates/bounds.py"
     },
     "scripts/git-test-env.sh": {
       "version": "1.0.0",

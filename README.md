@@ -279,7 +279,7 @@ SETUP (one-time)
   → CONTRACT-FREEZE          [hard gate — blocks IMPLEMENT --plan]
   → DEVOPS --configure
   → IMPLEMENT (workers ↔ work critics ↔ security lens + BVL)
-  → PREVENTIVE-SWEEP         [hard gate — blocks the PR and DEVOPS --deploy dev]
+  → PREVENTIVE-SWEEP         [hard gate — blocks the PR and DEVOPS --deploy --env {preproduction}]
   → QA (verify, auto-approves)
   → SMOKE-E2E                [hard gate — blocks QA --verify pass]
   → MERGE (PR → main)
@@ -290,7 +290,7 @@ Each `full-sdlc` feature expands into **8 backlog issues**. Three are hard gates
 
 - **CONTRACT-FREEZE** — freezes API contracts (OpenAPI, TS interfaces, GraphQL schema, etc., stack-specific) and the contract test harness before `IMPLEMENT --plan`.
 - **PREVENTIVE-SWEEP** — runtime defect scan post-IMPLEMENT via a parallel scope-sized skill; zero open C-severity findings to pass.
-- **SMOKE-E2E** — one smoke block per `user_journey.md § 3` Path, expanded transitively Paso → BDD Scenario → `test_plan.md` TC, executed on the dev-deployed build before `QA --verify` can pass. The cadence is a SETUP answer (Q23.4 `qa.smoke_cadence`: per slice, recommended, or at feature close); every walked case must have its automated test (`gate.py traceability`); a frontend with a browser MCP (Q23.5) adds `[QA-VIS-{CASE}]` visual cases, walked by the `factory-qa` agent on an isolated browser profile (EVOL-077).
+- **SMOKE-E2E** — one smoke block per `user_journey.md § 3` Path, expanded transitively Paso → BDD Scenario → `test_plan.md` TC, executed on the build deployed to the pre-production environment (`delivery.preproduction`) before `QA --verify` can pass. The cadence is a SETUP answer (Q23.4 `qa.smoke_cadence`: per slice, recommended, or at feature close); every walked case must have its automated test (`gate.py traceability`); a frontend with a browser MCP (Q23.5) adds `[QA-VIS-{CASE}]` visual cases, walked by the `factory-qa` agent on an isolated browser profile (EVOL-077).
 
 Two additional gates operate at the epic/slice level:
 
@@ -420,7 +420,7 @@ Artifacts: `docs/spec/{ID}/devops_plan.md`, `infra/features/{ID}/` (IaC), `deplo
 
 ### 5. QA (Quality Assurance — Post-Staging)
 
-Role: Phase agent `factory-qa` — final post-code certification and verification in a deployed environment (includes DAST — the security pass); the certification reads the gates (`gate.py traceability`, the seal) rather than re-deriving them.
+Role: Phase agent `factory-qa` — final post-code certification and verification in a deployed environment (includes DAST — the security pass); the certification reads the gates (`gate.py traceability`, `gate.py proof --trace`, the seal) rather than re-deriving them.
 
 | Command | Arguments | Description |
 | --- | --- | --- |
@@ -597,7 +597,7 @@ python3 subproducts/po-package/validate_po_return.py --zip …  → Form and coh
 
 ```
 /devops --configure USR-001              → Infrastructure plan (auto-approves when all checks pass)
-/devops --provision USR-001 --env dev    → Materializes infrastructure
+/devops --provision USR-001 --env staging → Materializes infrastructure
 ```
 
 ### Phase 3: Certification (Post-Code)
