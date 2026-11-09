@@ -111,13 +111,38 @@ This ADR implements issue #164 (epic #112, Wave 3). It was verified on `main` at
 
 ## Decision
 
+**RDR-1 (2026-11-09), the end-to-end tool.** Options: (1) `playwright | none`, extensible later; (2) Playwright and Cypress; (3) Playwright, Cypress, WebdriverIO and Selenium. The owner asked: «Y porque no mteriliza esa nueva opcion en lugar de preconstruir? repito el framework esta pensado para ser dinamico y construir el scafolding yy heramientas necesarias en materializacion, no prefijar».
+
+The owner's verbatim choice: «seria 1 y si elige otro se construye lo necesario en la fase de materializacion».
+
+The same principle holds for the bounds packs (§5). The owner asked the same for IaC («asi deberia ser tambien con IaC»), which is outside this issue, so it is registered as its own issue.
+
 ### 1. A case is proven by its run — `scripts/gates/proof.py`, `gate.py proof` (G)
 - **Clauses — one reader, `proof.clauses(repo, feature)`.**
   - A row with a `Gherkin Ref` takes the steps of the `spec.feature` scenario it names: the Background, then the scenario. Each line is kept verbatim. `And`/`But` take the keyword before them, and a Scenario Outline `<x>` matches any text.
   - Any other row has one `Then` clause: its first column whose header starts with `Expected`.
   - Every case therefore has at least one `Then`.
-- **End-to-end layer** (<!-- drafting: RDR-1 — how the layer is selected -->). The runner is Playwright, and its JSON reporter is the only report that carries steps.
-  - The shipped helper `e2e/support/clauses.ts` exports `given`, `when`, `then` and `control`:
+- **End-to-end layer, selected by an answer (RDR-1).**
+  - **The question.** Q23.8 `testing.e2e_tool` fills `E2E_TOOL` and `E2E_TESTING`.
+    - It is asked when `frontend.framework` exists, since 10.2.0.
+    - Its options are `playwright` and `none`, and it takes any other tool as free text.
+  - **`playwright`** lands the shipped adapter below. Its JSON reporter is the only Playwright report that carries steps.
+  - **Another tool.** The materialisation builds its adapter against the same contract, as the authored pipeline does (EVOL-081, RDR 9).
+    - It writes, in that tool's idiom: the clause helper, the spec template and page object, the runner config, and the adapter canary.
+    - It also writes a converter from the tool's native report to the proof shape, declared as `config/quality.json → proof.convert`.
+    - The tool's facts come from the docs reader at Beat 0 and are sourced in `MATERIALIZATION_REPORT.md`.
+  - **`none`**: no end-to-end layer. Every case is proven by the seal or by hand.
+  - **One proof shape.** `proof.py` judges `{tests: [{title, status, steps: [{title, error}], annotations: [{type, description}]}]}`. The built-in Playwright reader maps the JSON reporter onto it; another tool's converter writes it.
+  - **Adapter canary.** Every suite carries three planted cases titled `[CANARY/…]`, served by interception with no deployed app:
+    - one that must judge green;
+    - one whose steps are out of order;
+    - one with a Then that asserts nothing.
+    
+    A run whose canary verdicts differ from the expected ones, in either run, is refused as «the adapter is broken», not as a case failure. A built adapter is therefore proven by its first run, and a converter that marks every Then asserted is caught.
+  - **Invariant at materialisation.** `gate.py proof --check` must be green on the materialised tree, else BLOCK.
+    - Any answered tool other than `none` needs its helper and its canary spec.
+    - A tool other than Playwright also needs an executable `proof.convert`.
+  - The shipped Playwright helper `e2e/support/clauses.ts` exports `given`, `when`, `then` and `control`:
     - `given`, `when` and `then` wrap `test.step`.
     - `then` counts the assertions made through the helper's `expect` and annotates `{type: "asserted", description: <title>}`. A Then step that asserts nothing throws.
     - `control(page, glob, mutate)` is active only under `CASE_CONTROL=1`. It corrupts the decisive response (fetch → mutate → fulfil) and annotates `{type: "control"}`.
@@ -162,6 +187,7 @@ This ADR implements issue #164 (epic #112, Wave 3). It was verified on `main` at
 
 ### 5. Every external client in a time-limited function is bounded — `scripts/gates/bounds.py`, `gate.py bounds` (T)
 - **Selection.** The check applies when `hosting.type == function`. One pack, `security/bounds/<lang>.yml`, ships per `backend.runtime` that has a SAST pack (Python, Node.js, Java, Go, .NET, Rust), marked `stack_conditional`. Each pack holds the hosting provider's SDK client construction and the language's standard HTTP clients.
+  - **Outside the shipped packs.** For another `backend.runtime` or provider SDK, the materialisation builds the pack from Beat 0 facts (RDR-1's principle). The invariant is `semgrep --test` green, with each rule kind (unbounded, extraction) carrying a `ruleid:` case and an `ok:` case. Else BLOCK.
 - **Rules.**
   - **Unbounded.** An *unbounded* rule finds a construction that has no whole-call deadline and lacks a connect bound, a per-attempt read bound or an attempt count.
     - A client with no built-in retry counts as 1 attempt by construction.
@@ -183,6 +209,12 @@ This ADR implements issue #164 (epic #112, Wave 3). It was verified on `main` at
 
 ### 7. Alignment (LAW-17)
 - **End-to-end template and policy.** `e2e_spec_template.md` and `policies/e2e_testing.md` § 4 adopt the `[F/C]` title-tag and the clause helper, replacing `test('should …')`.
+  - The policy states the contract every tool meets.
+  - `MATERIALIZATION_REPORT_TEMPLATE.md:202` names the answered tool and its sourced facts.
+- **SETUP.**
+  - `Factory-setup-discovery` gets the Q23.8 block.
+  - `Factory-setup-materialization` gets the built-adapter clause and the built-pack clause, each with its invariant.
+  - `Factory-setup-upgrade` asks Q23.8 through `since`.
 - **Templates.**
   - The test plan template gets `## Retired cases`.
   - The design template gets the function `clients:` block.
@@ -207,6 +239,12 @@ Every test is written red first, against fixtures and synthetic Playwright JSON 
   - a control test that passed;
   - a control that fails first on a Given;
   - a ticked `[QA-TC-X]` with no evidence (`qa --verdict`).
+- **Adapter (RDR-1).**
+  - A test-only fixture converter proves the shape contract.
+  - Each of these is red:
+    - a canary verdict that differs from the expected one, including a converter that marks every Then asserted;
+    - `proof --check` with a tool answered but no `proof.convert`.
+  - A synthetic materialisation with `testing.e2e_tool: playwright` lands the helper and the canary; with `none` it lands neither.
 - **Certification (DoD 4).** An aggregate report of F is red while F has a baselined case, and green once that case is linked and proven or retired with a reason. A retired id that is still declared is red.
 - **Trace (DoD 5).** Each of these is red:
   - a scenario with no AC row;
