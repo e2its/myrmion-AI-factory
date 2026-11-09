@@ -11,7 +11,7 @@
     "database.migrations_tool": "sqlx-cli",
     "hosting.provider": "AWS",
     "hosting.type": "container",
-    "hosting.iac_tool": "Terraform",
+    "hosting.deploy_tool": "Terraform",
     "ci_cd.platform": "GitHub Actions",
     "scm.platform": "GitHub",
     "project_tracking.tool": "None",
@@ -33,6 +33,7 @@
     ],
     "defect_classes": {
       "present": [
+        "DC-44",
         "DC-43",
         "DC-40", "DC-41", "DC-42",
         "DC-36",

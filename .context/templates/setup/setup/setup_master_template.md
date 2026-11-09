@@ -1,5 +1,5 @@
 ---
-version: 2.20.0
+version: 3.0.0
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -24,6 +24,9 @@ surface:
   runtime_surface: null               # Q33 — the POSITIVE list a deployment can change → config/quality.json surface.runtime_surface (EVOL-047)
 delivery:
   mode: null                          # Q32 — development | production → docs/project_log/governance_versions.json delivery_mode (gate profiles, EVOL-046)
+  execution: null                     # derived from ci_cd.platform: ci | local → config/quality.json delivery.execution (EVOL-081)
+  adapter: null                       # derived — the hosting.deploy_tool row → config/quality.json delivery.adapter (EVOL-081)
+  migrate: null                       # derived — the migrations tool's deploy command → config/quality.json delivery.migrate (EVOL-081)
 agents:
   writer_model: null                  # Q34 — the writers' family (harness alias; few spawns) → config/quality.json agents.families.writer (EVOL-049)
   critic_model: null                  # Q34 — the critics' family (many spawns), must differ → agents.families.critic
@@ -85,7 +88,7 @@ compliance:
   frameworks: null
 hosting:
   provider: null
-  iac_tool: null
+  deploy_tool: null                   # Q20.1, or decided by hosting.provider (EVOL-081)
   secrets_manager: null
   type: null                          # Q20.3, or decided by hosting.provider (EVOL-073)
 performance:

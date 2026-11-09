@@ -24,7 +24,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, data, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
+from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -911,6 +911,16 @@ class Coherence(unittest.TestCase):
             write(repo / "docs/spec/F-001/qa/qa_report_final_20260301.md", "---\nstatus: APPROVED\n---\n")   # ignored, never tracked
             reasons = {f["path"]: f["reason"] for f in coherence.currency(repo, "origin/main")[0]}
             self.assertIn("not tracked", reasons["docs/spec/F-001/qa/qa_report_final_20260301.md"], "a gitignored verdict is red, never invisible")
+
+    def test_sweep_report_is_a_certified_verdict(self):
+        """EVOL-081: the PR pipeline demands the sweep's verdict — a COMPLETED sweep report is terminal and certifies its files."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, "feature/F-001-x")
+            write(repo / "docs/spec/F-001/review/preventive_sweep_20260101.md", "---\nstatus: COMPLETED\n---\n")
+            write(repo / "docs/spec/F-001/review/preventive_sweep_20251201.md", "---\nstatus: IN_PROGRESS\n---\n")
+            self._commit(repo, "sweep")
+            reasons = {f["path"]: f["reason"] for f in coherence.currency(repo, "origin/main")[0]}
+            self.assertIn("certifies-missing", reasons.get("docs/spec/F-001/review/preventive_sweep_20260101.md", ""), "a completed sweep is a verdict of record")
 
     def test_manifest_parity_red_on_drift_and_unreadable(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -3839,6 +3849,91 @@ class Scm(unittest.TestCase):
                 by = {r["member"]: r for r in rep["results"]}
                 self.assertEqual(by["scm-protection"]["status"], "n/a"); self.assertIn("cannot see the server", by["scm-protection"]["tail"])
 
+    def test_github_ci_delivery_needs_a_production_environment_with_reviewers(self):
+        """EVOL-081: with delivery.execution ci, production deploys through the `production` environment — missing, or
+        without required reviewers, is red; with local execution it is not asked."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            base = self._gh(rulesets=[self._rs(self.FULL)])
+            tags = [{"id": 90, "target": "tag", "enforcement": "active", "conditions": {"ref_name": {"include": list(scm.RECORD_TAGS), "exclude": []}},
+                     "rules": [{"type": "update"}, {"type": "deletion"}]}]
+            def fetch_with(env, policies=None, tag_rulesets=None):
+                def f(url, headers, missing_ok=False):
+                    trs = tags if tag_rulesets is None else tag_rulesets
+                    if "/rulesets?targets=tag" in url:
+                        return [{"id": r["id"]} for r in trs]
+                    m = re.search(r"/rulesets/(\d+)$", url)
+                    if m and int(m.group(1)) >= 90:
+                        return next((r for r in trs if r["id"] == int(m.group(1))), None)
+                    if url.endswith("/environments/production"):
+                        return env
+                    if url.endswith("/environments/production/deployment-branch-policies"):
+                        return {"branch_policies": policies or []}
+                    return base(url, headers, missing_ok)
+                return f
+            kw = dict(control_point="ci", env={"GH_TOKEN": "t"}, origin="git@github.com:acme/app.git")
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\n---\n# Setup\n")
+            self.assertTrue(scm.check(repo, fetch=fetch_with(None), **kw)["ok"], "local execution: the environment is not asked")
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"] = {"execution": "ci", "adapter": None}; write(repo / "config/quality.json", json.dumps(q))
+            self.assertTrue(scm.check(repo, fetch=fetch_with(None, None, []), **kw)["ok"], "RDR 7: nothing deploys — no environment, no tag ruleset asked")
+            q["delivery"]["adapter"] = {"tool": "Terraform"}; write(repo / "config/quality.json", json.dumps(q))
+            r = scm.check(repo, fetch=fetch_with(None), **kw)
+            self.assertFalse(r["ok"]); self.assertIn("the `production` environment does not exist", " ".join(r["findings"]))
+            r = scm.check(repo, fetch=fetch_with({"protection_rules": [{"type": "wait_timer", "wait_timer": 5}]}), **kw)
+            self.assertIn("no required reviewers", " ".join(r["findings"]))
+            r = scm.check(repo, fetch=fetch_with({"protection_rules": [{"type": "required_reviewers", "reviewers": [{"type": "User"}]}]}), **kw)
+            self.assertIn("no deployment-branch policy", " ".join(r["findings"]), "round-1 cure: reviewers without a branch policy gate nothing")
+            rv = [{"type": "required_reviewers", "reviewers": [{"type": "User"}]}]
+            prot = {"protection_rules": rv, "deployment_branch_policy": {"protected_branches": True, "custom_branch_policies": False}}
+            r = scm.check(repo, fetch=fetch_with(prot), **kw)
+            self.assertTrue(r["ok"], scm.render(r)); self.assertIn("any protected branch", " ".join(r["unverifiable"]), "round-2 cure: protected branches is a note")
+            ok_env = {"protection_rules": rv, "deployment_branch_policy": {"protected_branches": False, "custom_branch_policies": True}}
+            for pols, word in (([{"name": "*", "type": "branch"}], "deployment branches are *"), ([], "deployment branches are none"),
+                               ([{"name": "main", "type": "branch"}, {"name": "release/*", "type": "branch"}], "deployment branches are release/*")):
+                r = scm.check(repo, fetch=fetch_with(ok_env, pols), **kw)
+                self.assertFalse(r["ok"]); self.assertIn(word, " ".join(r["findings"]), "round-2 cure: only the protected branches, by exact name")
+            r = scm.check(repo, fetch=fetch_with(ok_env, [{"name": "main", "type": "branch"}]), **kw)
+            self.assertTrue(r["ok"], scm.render(r)); self.assertIn("prevent_self_review off", " ".join(r["unverifiable"]), "self-review is a note, never red")
+            main = [{"name": "main", "type": "branch"}]
+            for trs, why in (([], "no tag ruleset"), ([{**tags[0], "rules": [{"type": "deletion"}]}], "deletion only"),
+                             ([{**tags[0], "enforcement": "evaluate"}], "evaluate mode"),
+                             ([{**tags[0], "conditions": {"ref_name": {"include": ["refs/tags/deploy/**"], "exclude": []}}}], "lkg uncovered"),
+                             ([{**tags[0], "conditions": {"ref_name": {"include": ["~ALL"], "exclude": ["refs/tags/lkg/**/*"]}}}], "lkg excluded"),
+                             ([{**tags[0], "conditions": {"ref_name": {"include": ["refs/tags/deploy/**", "refs/tags/lkg/**"], "exclude": []}}}], "a trailing ** is one segment"),
+                             ([{**tags[0], "conditions": {"ref_name": {"include": ["~ALL"], "exclude": ["refs/tags/**/*"]}}}], "a blanket exclude"),
+                             ([{**tags[0], "id": 91, "rules": [{"type": "update"}]}, {**tags[0], "id": 92, "conditions": {"ref_name": {"include": ["refs/tags/deploy/**/*"], "exclude": []}}, "rules": [{"type": "deletion"}]}], "lkg deletion open")):
+                r = scm.check(repo, fetch=fetch_with(ok_env, main, trs), **kw)
+                self.assertFalse(r["ok"], why); self.assertIn("blocks update and deletion of", " ".join(r["findings"]), why)
+            r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "conditions": {"ref_name": {"include": ["~ALL"], "exclude": []}}}]), **kw)
+            self.assertTrue(r["ok"], "RDR 8: a ruleset over every tag holds the records too")
+            for inc in (["refs/tags/**/*"], ["refs/tags/deploy/*/*", "refs/tags/lkg/*/*"]):
+                r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "conditions": {"ref_name": {"include": inc, "exclude": ["refs/tags/deploy-old/**/*"]}}}]), **kw)
+                self.assertTrue(r["ok"], (inc, scm.render(r)))
+            split = [{**tags[0], "id": 91, "rules": [{"type": "update"}]}, {**tags[0], "id": 92, "rules": [{"type": "deletion"}]}]
+            self.assertTrue(scm.check(repo, fetch=fetch_with(ok_env, main, split), **kw)["ok"], "update and deletion over two rulesets hold")
+            r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "name": "records", "bypass_actors": [{"actor_type": "RepositoryRole", "actor_id": 5, "bypass_mode": "always"}]}]), **kw)
+            self.assertFalse(r["ok"]); self.assertIn("bypass actor(s)", " ".join(r["findings"]))
+            r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "bypass_actors": []}]), **kw)
+            self.assertTrue(r["ok"]); self.assertNotIn("bypass list of tag ruleset", " ".join(r["unverifiable"]))
+            r = scm.check(repo, fetch=fetch_with(ok_env, main), **kw)
+            self.assertIn("bypass list of tag ruleset", " ".join(r["unverifiable"]), "a list the token cannot see is a note")
+            for inc, exc, why in ((["refs/tags/deploy/production/*", "refs/tags/lkg/production/*"], [], "staging's records uncovered"),
+                                  (["~ALL"], ["refs/tags/deploy/staging/**/*"], "staging's records excluded"),
+                                  (["refs/tags/deploy**/*", "refs/tags/lkg**/*"], [], "a mid-segment ** is a *"),
+                                  (["~ALL"], ["refs/tags/[d]eploy/**/*"], "an exclude the reader cannot translate excludes")):
+                r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "conditions": {"ref_name": {"include": inc, "exclude": exc}}}]), **kw)
+                self.assertFalse(r["ok"], why); self.assertIn("blocks update and deletion of", " ".join(r["findings"]), why)
+            for mode in ("pull_request", "exempt"):
+                r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "bypass_actors": [{"actor_type": "Integration", "actor_id": 7, "bypass_mode": mode}]}]), **kw)
+                self.assertFalse(r["ok"], mode); self.assertIn("bypass actor(s)", " ".join(r["findings"]), mode)
+            naming = {**tags[0], "id": 93, "name": "naming", "rules": [{"type": "creation"}], "bypass_actors": [{"actor_type": "OrganizationAdmin", "actor_id": 1, "bypass_mode": "always"}]}
+            r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "bypass_actors": []}, naming]), **kw)
+            self.assertTrue(r["ok"], "a covering ruleset that blocks neither update nor deletion moves no record: its bypass is not judged")
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitLab CI\n---\n# Setup\n")
+            self.assertTrue(scm.check(repo, fetch=fetch_with(None), **kw)["ok"], "GitHub-hosted on another CI: no GitHub deploy workflow, the environment is not asked")
+            r = scm.check(repo, fetch=fetch_with(None, None, []), **kw)
+            self.assertFalse(r["ok"], "the records live on the host: another CI pushes them, the ruleset is still asked"); self.assertIn("blocks update and deletion of", " ".join(r["findings"]))
+
 
 DISC_REGISTRY = {
     "_doc": "fixture",
@@ -4404,6 +4499,19 @@ class Discovery(unittest.TestCase):
             v2 = self._rule(self._green(repo), "V2")
             self.assertEqual(len(v2), 1, v2); self.assertIn("when `backend.runtime` is `Python`", v2[0])
 
+    def test_v2_single_option_decided_by_parent(self):
+        """EVOL-081: a one-literal row the key's decided_by decides to that literal is derived already, never asked — no V2;
+        decided to another value, V2 still fires."""
+        for decides, red in (("FastAPI", False), ("Django", True)):
+            with self.subTest(decides=decides), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                def mut(reg):
+                    spec = self._q(reg, "Q6")["keys"]["backend.framework"]
+                    spec["options_by"]["values"]["Python"] = ["FastAPI"]
+                    spec["decided_by"] = {"key": "backend.runtime", "values": {"Python": decides}}
+                self._reg(repo, mut)
+                self.assertEqual(bool(self._rule(self._green(repo), "V2")), red)
+
     def test_v3_credential_names(self):
         for k, red in (("auth.token", True), ("x.private_key", True), ("x.apikey", True), ("x.credentials", True), ("x.passwd", True),
                        ("x.password", True), ("x.secret", True), ("x.credential", True), ("x.api_key", True),
@@ -4868,6 +4976,19 @@ class Discovery(unittest.TestCase):
                 v12 = self._rule(discovery.validate(repo), "V12")
                 self.assertTrue(any(msg in f for f in v12), v12)
 
+    def test_v12_configures_a_decided_value(self):
+        """EVOL-081: a value only decided_by produces (Django → Django migrations) carries its configures row; an unknown literal stays red."""
+        for lit, red in (("Flask", False), ("Bottle", True)):
+            with self.subTest(lit=lit), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                def mut(reg):
+                    spec = self._q(reg, "Q6")["keys"]["backend.framework"]
+                    spec["decided_by"] = {"key": "backend.runtime", "values": {"Python": "Flask"}}
+                    spec["configures"] = {lit: {"delivery.migrate": "flask db upgrade"}}
+                self._reg(repo, mut)
+                v12 = self._rule(discovery.validate(repo), "V12")
+                self.assertEqual(bool(v12), red, v12)
+
     def test_v12_mcp_server_rows(self):
         """EVOL-077: an `mcp.servers` row lands in .mcp.json — {command, args} only, pinned exactly, isolated."""
         ok = {"command": "npx", "args": ["-y", "chrome-devtools-mcp@1.12.0", "--isolated", "--headless"]}
@@ -4913,6 +5034,38 @@ class Discovery(unittest.TestCase):
         mcp = [t.strip() for t in (qa.split(",") if isinstance(qa, str) else qa) if t.strip().startswith("mcp__")]
         self.assertTrue(mcp and all(t.split("__")[1] in ("chrome-devtools", "playwright") for t in mcp), mcp)
         self.assertEqual([t for t in mcp if "*" in t or any(w in t for w in ("evaluate", "run_code", "network", "storage", "cookie", "route", "upload", "file_upload", "heapsnapshot"))], [], "a walk observes and acts; it never evaluates, captures or uploads")
+
+    def test_q20_1_deploy_tool_configures_its_adapter(self):
+        """EVOL-081: one deploy tool per host, never None; the chosen row lands in delivery.adapter (apply + url_from), the
+        execution follows the CI platform, the migrations tool its migrate command, DC-44 where a tool is answered."""
+        real = Path(__file__).resolve().parents[2]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        reg = discovery.load_registry(real)
+        spec = discovery._specs(reg).get("hosting.deploy_tool")
+        self.assertIsNotNone(spec, "Q20.1 persists hosting.deploy_tool"); self.assertNotIn("hosting.iac_tool", discovery._specs(reg))
+        self.assertNotIn("None", discovery._offered(spec), "no None while a host is deployed")
+        r = lambda a: discovery.resolve(real, a)
+        aws = r({"hosting.provider": "AWS", "hosting.deploy_tool": "Terraform", "ci_cd.platform": "GitHub Actions"})
+        row = aws["configures"]["delivery.adapter"]
+        self.assertEqual((row["tool"], row["iac"]), ("Terraform", True)); self.assertTrue(row["apply"].startswith("terraform apply"))
+        self.assertEqual(row["url_from"], {"kind": "command", "command": "terraform output -raw url"})
+        self.assertEqual(aws["configures"]["delivery.execution"], "ci")
+        self.assertIn("DC-44", aws["configures"]["defect_prevention.classes"])
+        self.assertIn("scripts/validate-iac.sh", aws["landing"])
+        vercel = r({"hosting.provider": "Vercel", "ci_cd.platform": "None"})
+        self.assertEqual(vercel["derived_answers"].get("hosting.deploy_tool"), "Vercel CLI")
+        self.assertEqual(vercel["configures"]["delivery.adapter"]["url_from"]["kind"], "stdout")
+        self.assertEqual(vercel["configures"]["delivery.execution"], "local"); self.assertIn("scripts/validate-iac.sh", vercel["skipped"])
+        for tool, rows in spec["configures"].items():
+            a = rows["delivery.adapter"]
+            self.assertTrue(a.get("apply") and a.get("url_from", {}).get("kind") in delivery.URL_KINDS, tool)
+            self.assertEqual(delivery.adapter_problems(a), [], f"{tool}: every shipped row names its environment (RDR 6)")
+        self.assertNotIn("Other", spec["configures"], "Other: the row is the finalisation's RDR")
+        mig = lambda t: r({"backend.runtime": "Python", "database.primary.engine": "PostgreSQL", "database.migrations_tool": t})["configures"].get("delivery.migrate")
+        self.assertEqual(mig("Alembic"), "alembic upgrade head")
+        self.assertIn("manage.py migrate", r({"backend.runtime": "Python", "backend.framework": "Django", "database.primary.engine": "PostgreSQL"})["configures"]["delivery.migrate"])
+        self.assertTrue({"IAC_CMD_APPLY", "IAC_CMD_PLAN", "IAC_CMD_VALIDATE", "IAC_CMD_DESTROY"}.isdisjoint(reg["placeholder_baseline"]))
 
     # ── EVOL-066: the defect classes a stack selects, the template catalog held to its promotion rules ─────────
     DC_HEAD = ("---\ndescription: c\n---\n## Families\n| Family | Surface (globs) | Invariant |\n|---|---|---|\n"
@@ -5157,6 +5310,68 @@ class Writes(unittest.TestCase):
         r = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "echo > $NOPE"}}))
         self.assertEqual(r.returncode, 1); self.assertIn("Edit or Write", r.stdout)
         r = run("{not json"); self.assertEqual(r.returncode, 2); self.assertIn("could not be read", r.stderr); self.assertNotIn("Traceback", r.stderr)
+
+    def deploy_config(self, execution="ci", adapter=None, raw=None):
+        if adapter is None:
+            adapter = {"tool": "Terraform", "apply": "terraform apply -input=false tfplan",
+                       "destroy": "terraform apply -destroy -input=false -auto-approve"}
+        write(self.repo / "config/quality.json", raw if raw is not None else json.dumps({"delivery": {"execution": execution, "adapter": adapter}}))
+
+    def deploy_rc(self, cmd):
+        return self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": cmd}}, self.env)
+
+    def test_deploy_class(self):
+        """EVOL-081: the adapter row's own apply/destroy is class deploy; a pipeline-delivered project (ci) refuses it locally — exit 5."""
+        self.deploy_config()
+        rc, text = self.deploy_rc("terraform apply tfplan")
+        self.assertEqual(rc, 5); self.assertIn("deploys from its pipeline", text); self.assertIn("DEVOPS --deploy", text)
+        self.assertEqual(self.deploy_rc("cd infra && /usr/bin/terraform apply -auto-approve")[0], 5, "a path to the tool is the tool")
+        self.assertEqual(self.w.deploy_class(self.repo, {"tool_name": "Bash", "tool_input": {"command": "terraform apply tfplan"}}, self.env), "ci")
+        self.deploy_config(adapter={"tool": "Vercel CLI", "apply": "vercel deploy --prod --yes", "destroy": None})
+        self.assertEqual(self.deploy_rc('env X=1 bash -c "vercel deploy --prod"')[0], 5, "a wrapper and bash -c never hide it")
+        self.assertEqual(self.deploy_rc("sudo vercel deploy")[0], 5)
+        for cmd in ("gh workflow run deploy.yml", "gh api repos/o/r/actions/workflows/deploy.yml/dispatches -f ref=main",
+                    "curl -X POST https://api.example/pipelines", "vercel ls", "echo vercel deploy", "terraform plan"):
+            self.assertEqual(self.deploy_rc(cmd)[0], 4, f"{cmd} is not deploy")
+        self.deploy_config(execution="local")
+        self.assertEqual(self.deploy_rc("terraform apply tfplan")[0], 4, "local: the developer deploys — not blocked")
+        write(self.repo / "config/quality.json", json.dumps({"delivery": {"execution": "ci", "adapter": None}}))
+        self.assertEqual(self.deploy_rc("terraform apply tfplan")[0], 4, "adapter null: no class")
+        self.assertIsNone(self.w.deploy_class(self.repo, {"tool_name": "Bash", "tool_input": {"command": "terraform apply tfplan"}}, self.env))
+        self.deploy_config(raw='{"delivery": {"execution": "{{DELIVERY_EXECUTION}}", "adapter": {{DELIVERY_ADAPTER}}}}')
+        self.assertEqual(self.deploy_rc("terraform apply tfplan")[0], 4, "unreadable config: fail open")
+        (self.repo / "config/quality.json").unlink()
+        self.assertEqual(self.deploy_rc("terraform apply tfplan")[0], 4, "no config: fail open")
+        self.deploy_config()
+        self.assertEqual(self.deploy_rc("terraform apply tfplan > src/out.log")[0], 5, "deploy is judged before the write targets")
+        gate = str(HERE.parent / "gate.py")
+        r = subprocess.run([sys.executable, gate, "--repo", str(self.repo), "write-target", "--hook-json"], capture_output=True, text=True,
+                           input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "terraform apply tfplan"}}), env={**os.environ, **self.env, "PYTHONDONTWRITEBYTECODE": "1"})
+        self.assertEqual(r.returncode, 5); self.assertIn("DEVOPS --deploy", r.stdout)
+        self.deploy_config(adapter={"tool": "Terraform", "apply": "terraform apply -input=false tfplan",
+                                    "destroy": "terraform init -input=false && terraform apply -destroy -auto-approve"})
+        self.assertEqual(self.deploy_rc("terraform init -input=false")[0], 4, "a chained preparation step (init) is never the deploy — only the chain's last command")
+        self.assertEqual(self.deploy_rc("terraform apply -destroy -auto-approve")[0], 5)
+        # round-1 cure: global flags, launchers, option values, aliases, placeholders, the executor itself
+        for cmd in ("terraform -chdir=infra apply tfplan", "timeout 600 terraform apply", "sudo -u root terraform apply",
+                    "env -u X terraform apply", "nice -n 5 terraform apply", "CI=1 python3 scripts/gate.py delivery --run --env production",
+                    "python3 scripts/gate.py delivery --teardown --env staging"):
+            self.assertEqual(self.deploy_rc(cmd)[0], 5, cmd)
+        for cmd in ("terraform plan -out apply", "terraform -chdir=infra plan", "python3 scripts/gate.py delivery --check",
+                    "python3 scripts/gate.py delivery --last staging"):
+            self.assertEqual(self.deploy_rc(cmd)[0], 4, f"{cmd} is not deploy")
+        self.deploy_config(adapter={"tool": "flyctl", "apply": "fly deploy --remote-only --app {app} --yes", "destroy": "fly apps destroy {app} --yes"})
+        for cmd in ("fly apps destroy my-app --yes", "flyctl deploy --app my-app", "npx --yes fly deploy"):
+            self.assertEqual(self.deploy_rc(cmd)[0], 5, cmd)
+        self.assertEqual(self.deploy_rc("fly apps list")[0], 4)
+        self.deploy_config(adapter={"tool": "Docker Compose", "apply": "DOCKER_HOST=ssh://{host} docker compose up -d --wait", "destroy": None})
+        self.assertEqual(self.deploy_rc("docker compose -f prod.yml up -d")[0], 5, "a flag and its value between the words")
+        self.assertEqual(self.deploy_rc("docker compose -f prod.yml logs")[0], 4)
+        for cmd in ("docker-compose up -d", "docker --context prod compose up -d", "docker-compose -f prod.yml up"):
+            self.assertEqual(self.deploy_rc(cmd)[0], 5, f"round-2 cure: {cmd}")
+        self.deploy_config(adapter={"tool": "flyctl", "apply": "fly deploy --remote-only --app {app} --yes", "destroy": None})
+        self.assertEqual(self.deploy_rc("fly --access-token tok deploy --app my-app")[0], 5, "round-2 cure: a global flag's value before the subcommand")
+        self.assertEqual(self.deploy_rc("fly logs deploy")[0], 4, "a subcommand's own word is never the subcommand")
 
 
 class Cli(unittest.TestCase):
@@ -7036,8 +7251,24 @@ class Performance(unittest.TestCase):
                            "metrics": {"p50_ms": {"/health": p50}, "p95_ms": {"/health": p50}, **(extra or {})}}) + "\n"
 
     def _lines(self, repo):
-        p = repo / self.BL
-        return [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.is_file() else []
+        """The baseline lines = the deploy records holding metrics (EVOL-081), read through the one reader."""
+        return [{"site": r["env"], **{k: v for k, v in r.items() if k not in ("env", "tag")}} for r in delivery.records(repo) if r.get("metrics") is not None]
+
+    def _bl(self, repo, text):
+        """Seed the deploy records from baseline-shaped lines (EVOL-081): every deploy/* tag is replaced; a line that
+        is no JSON object becomes a tag whose message is that text (an unreadable record)."""
+        for t in subprocess.run(["git", "-C", str(repo), "tag", "-l", "deploy/*"], capture_output=True, text=True).stdout.split():
+            self._git(repo, "tag", "-d", t)
+        for i, raw in enumerate(x for x in text.splitlines() if x.strip()):
+            try:
+                e = json.loads(raw)
+            except ValueError:
+                e = None
+            if isinstance(e, dict):
+                site = e.pop("site", "staging"); msg = json.dumps({"env": site, **e})
+            else:
+                site, msg = "staging", raw
+            self._git(repo, "tag", "-a", f"deploy/{site}/20261107T1000{i:02d}Z", "HEAD", "-m", msg)
 
     def test_na_in_meta_without_the_block_or_a_surface_and_the_member(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -7079,42 +7310,30 @@ class Performance(unittest.TestCase):
     def test_the_baseline_is_append_only_one_way_and_per_site(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
-            write(repo / self.BL, self._line(p50=10)); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "b")
+            self._bl(repo, self._line(p50=10))
             self.assertTrue(performance.check(repo, "HEAD")["ok"])
-            write(repo / self.BL, self._line(p50=9))
-            self.assertIn("edited, removed or moved away — the baseline is append-only", performance.render(performance.check(repo, "HEAD")))
-            write(repo / self.BL, "")
-            self.assertIn("edited, removed or moved away", performance.render(performance.check(repo, "HEAD")))
-            (repo / self.BL).unlink()
-            r = performance.check(repo, "HEAD"); self.assertFalse(r["ok"], "a deleted baseline is red, never a reset")
-            self.assertIn("edited, removed or moved away", performance.render(r))
-            q = json.loads((repo / "config/quality.json").read_text()); q["performance"]["baseline"] = "docs/other.jsonl"
-            write(repo / "config/quality.json", json.dumps(q))
-            self.assertIn("edited, removed or moved away", performance.render(performance.check(repo, "HEAD")), "a repointed baseline keeps its old lines")
-            write(repo / "docs/other.jsonl", self._line(p50=10))
-            self.assertTrue(performance.check(repo, "HEAD")["ok"], "moved with its lines: the prefix holds")
-            q["performance"]["baseline"] = self.BL; write(repo / "config/quality.json", json.dumps(q)); write(repo / self.BL, self._line(p50=10))
-            write(repo / self.BL, self._line(p50=10) + self._line(p50=9).replace('"/health"', '"/other"'))
-            self.assertIn("p50_ms:/health not measured", performance.render(performance.check(repo, "HEAD")), "a dropped figure never resets the bar")
-            write(repo / self.BL, self._line(p50=10) + self._line(p50=12))
+            write(repo / self.BL, self._line(p50=1))
             out = performance.render(performance.check(repo, "HEAD"))
-            self.assertIn("line 2 (staging) is worse than the previous line of its site (p50_ms:/health 12 > 10)", out)
-            write(repo / self.BL, self._line(p50=10) + self._line(p50=9))
+            self.assertIn("is still present — SETUP --upgrade (deploy-records) converts it", out); self.assertIn("1 record(s) with metrics", out, "the legacy file is named, never read")
+            (repo / self.BL).unlink()
+            self._bl(repo, self._line(p50=10) + self._line(p50=9).replace('"/health"', '"/other"'))
+            self.assertIn("p50_ms:/health not measured", performance.render(performance.check(repo, "HEAD")), "a dropped figure never resets the bar")
+            self._bl(repo, self._line(p50=10) + self._line(p50=12))
+            out = performance.render(performance.check(repo, "HEAD"))
+            self.assertIn("record 2 (staging) is worse than the previous record of its site (p50_ms:/health 12 > 10)", out)
+            self._bl(repo, self._line(p50=10) + self._line(p50=9))
             self.assertTrue(performance.check(repo, "HEAD")["ok"], "a better line moves the bar")
-            write(repo / self.BL, self._line(p50=10) + self._line(site="production", p50=50))
+            self._bl(repo, self._line(p50=10) + self._line(site="production", p50=50))
             r = performance.check(repo, "HEAD"); self.assertTrue(r["ok"], "another site's line is never the reference (DC-43): " + performance.render(r))
             self.assertTrue(performance.check(repo)["ok"], "without a base only the shape and the one-way rule are read")
-        for out_of in ("/tmp/x.jsonl", "../x.jsonl"):
-            with tempfile.TemporaryDirectory() as tmp:
-                out = performance.render(performance.check(self._repo(tmp, perf={"baseline": out_of}), "HEAD"))
-                self.assertIn("leaves the repository", out, out_of)
-        for bad, word in (('{"sha": "a"}\n', "has no site, at, hosting, metrics"), ("x\n", "line 1 is not JSON"),
-                          (self._line(sha="zz"), "`sha` must be the measured commit"), (self._line(site=" "), "`site` must name"),
+        for bad, word in (('{"sha": "' + "a" * 40 + '", "metrics": {}}\n', "has no at, hosting"),
+                          ("x\n", "is no deploy record (no JSON record in its message)"),
+                          (self._line(sha="zz"), "is no deploy record (its `sha` is not a 40-hex commit)"),
                           (self._line().replace("2026-11-07T10:00:00Z", "yesterday"), "`at` must be a UTC date"),
                           (self._line().replace('"container"', '"vm"'), "`hosting` must be one of"),
                           (self._line(extra={"start_ms": "slow"}), "`metrics` must hold numbers")):
             with tempfile.TemporaryDirectory() as tmp:
-                repo = self._repo(tmp); write(repo / self.BL, bad)
+                repo = self._repo(tmp); self._bl(repo, bad)
                 out = performance.render(performance.check(repo, "HEAD")); self.assertIn(word, out)
 
     def test_only_an_accepted_decision_record_re_baselines(self):
@@ -7122,24 +7341,24 @@ class Performance(unittest.TestCase):
         adr = "docs/project_log/adr/ADR-001-slower-host.md"
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
-            write(repo / self.BL, self._line(p50=10)); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "b")
+            self._bl(repo, self._line(p50=10))
             worse = json.loads(self._line(p50=40)); worse["rebaseline"] = "ADR-001"
-            write(repo / self.BL, self._line(p50=10) + json.dumps(worse) + "\n")
+            self._bl(repo, self._line(p50=10) + json.dumps(worse) + "\n")
             self.assertIn("no docs/project_log/adr/ADR-001-*.md exists", performance.render(performance.check(repo, "HEAD")))
             write(repo / adr, "---\nstatus: proposed\n---\n")
             self.assertIn("`proposed` — only an accepted decision record sanctions a re-baseline", performance.render(performance.check(repo, "HEAD")))
             write(repo / adr, "---\nstatus: accepted\n---\n")
             r = performance.check(repo, "HEAD"); self.assertTrue(r["ok"], performance.render(r))
             again = dict(worse, metrics={"p50_ms": {"/health": 80}, "p95_ms": {"/health": 80}})
-            write(repo / self.BL, self._line(p50=10) + json.dumps(worse) + "\n" + json.dumps(again) + "\n")
+            self._bl(repo, self._line(p50=10) + json.dumps(worse) + "\n" + json.dumps(again) + "\n")
             self.assertIn("already re-baselined this site — one decision, one re-baseline", performance.render(performance.check(repo, "HEAD")))
-            write(repo / self.BL, self._line(p50=10) + self._line(p50=40))
+            self._bl(repo, self._line(p50=10) + self._line(p50=40))
             self.assertIn("unless an accepted decision record re-baselines it", performance.render(performance.check(repo, "HEAD")))
-            worse["rebaseline"] = "../x"; write(repo / self.BL, self._line(p50=10) + json.dumps(worse) + "\n")
+            worse["rebaseline"] = "../x"; self._bl(repo, self._line(p50=10) + json.dumps(worse) + "\n")
             self.assertIn("`rebaseline` must name a decision record", performance.render(performance.check(repo, "HEAD")))
         with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
             repo = self._repo(tmp); s.delay = 0.03
-            write(repo / self.BL, self._line(p50=1, extra={"start_ms": 1})); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "b")
+            self._bl(repo, self._line(p50=1, extra={"start_ms": 1}))
             for rb, word in (("x/../y", "is not a decision record id"), ("ADR-001", "names ADR-001, and no docs/project_log/adr/ADR-001-*.md exists")):
                 with self.subTest(rb=rb), self.assertRaises(GateFault) as cm:
                     performance.measure(repo, "staging", s.url, rebaseline=rb)
@@ -7148,7 +7367,7 @@ class Performance(unittest.TestCase):
             write(repo / adr, "---\nstatus: accepted\n---\n")
             r = performance.measure(repo, "production", s.url, rebaseline="ADR-001")
             self.assertTrue(r["recorded"]); self.assertNotIn("rebaseline", self._lines(repo)[-1], "a site's first line re-baselines nothing")
-            write(repo / self.BL, self._line(p50=1, extra={"start_ms": 1}))
+            self._bl(repo, self._line(p50=1, extra={"start_ms": 1}))
             write(repo / adr, "---\nstatus: accepted\n---\n")
             self.assertFalse(performance.measure(repo, "staging", s.url)["ok"], "without the record the regression blocks")
             r = performance.measure(repo, "staging", s.url, rebaseline="ADR-001")
@@ -7208,23 +7427,23 @@ class Performance(unittest.TestCase):
             self.assertEqual(len(self._lines(repo)), 1, "a red run writes nothing")
         with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
             repo = self._repo(tmp, perf={"margin_pct": 50}); s.delay = 0.03
-            write(repo / self.BL, self._line(p50=25, extra={"start_ms": 1000}))
+            self._bl(repo, self._line(p50=25, extra={"start_ms": 1000}))
             r = performance.measure(repo, "staging", s.url)
             self.assertTrue(r["ok"] and not r["advisory"] and not r["recorded"], "worse within the margin: green, the bar stays — " + performance.render(r))
-            write(repo / self.BL, self._line(p50=1000, extra={"start_ms": 1000}))
+            self._bl(repo, self._line(p50=1000, extra={"start_ms": 1000}))
             r = performance.measure(repo, "staging", s.url)
             self.assertTrue(r["ok"] and r["recorded"], performance.render(r)); self.assertIn("a better line is appended", performance.render(r))
-            write(repo / self.BL, self._line(p50=1000, extra={"start_ms": 1000}).rstrip("\n"))
+            self._bl(repo, self._line(p50=1000, extra={"start_ms": 1000}).rstrip("\n"))
             performance.measure(repo, "staging", s.url)
             self.assertEqual(len(self._lines(repo)), 2, "a baseline with no final newline still gets its own line")
-            write(repo / self.BL, self._line(p50=1000, extra={"start_ms": 1000}).replace('"/health"', '"/gone"'))
+            self._bl(repo, self._line(p50=1000, extra={"start_ms": 1000}).replace('"/health"', '"/gone"'))
             out = performance.render(performance.measure(repo, "staging", s.url))
             self.assertIn("p50_ms:/gone not measured — the reference holds it", out)
 
     def test_another_sites_figure_is_never_the_reference(self):
         with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
             repo = self._repo(tmp); s.delay = 0.03
-            write(repo / self.BL, self._line(site="staging", p50=0.01))
+            self._bl(repo, self._line(site="staging", p50=0.01))
             r = performance.measure(repo, "production", s.url)
             self.assertTrue(r["ok"] and r["advisory"], "staging's figure never judges production (DC-43): " + performance.render(r))
             self.assertEqual([e["site"] for e in self._lines(repo)], ["staging", "production"])
@@ -7252,9 +7471,16 @@ class Performance(unittest.TestCase):
             repo = self._repo(tmp, perf={"endpoints": None})
             self.assertIn("declare `performance.endpoints`", performance.render(performance.measure(repo, "staging", s.url)))
         with tempfile.TemporaryDirectory() as tmp:
-            repo = self._repo(tmp); write(repo / self.BL, "x\n")
+            repo = self._repo(tmp); self._bl(repo, "x\n")
             with _Slow() as s:
-                self.assertIn("cannot be read as the performance baseline", performance.render(performance.measure(repo, "staging", s.url)))
+                out = performance.render(performance.measure(repo, "staging", s.url))
+            self.assertNotIn("cannot be read", out, "round-1 cure: a planted tag never stops the deployed measurement")
+            self._bl(repo, self._line().replace("2026-11-07T10:00:00Z", "yesterday"))
+            with _Slow() as s:
+                out = performance.render(performance.measure(repo, "staging", s.url))
+            self.assertNotIn("cannot be read", out, "round-2 cure: a record of the right shape but a bad field never stops it either")
+            self.assertIn("is no deploy record (", performance.render(performance.check(repo, "HEAD")))
+            self.assertIn("is no deploy record", performance.render(performance.check(repo, "HEAD")), "the light check reports it")
 
     def test_the_hosting_selects_what_is_measured(self):
         for hosting, cold in (("container", "start_ms"), ("function", "cold_ms")):
@@ -7299,15 +7525,15 @@ class Performance(unittest.TestCase):
             repo = self._repo(tmp, frontend=True, perf={"bundles": {"/": ["dist/*.js"]}})
             (repo / "dist").mkdir(exist_ok=True); (repo / "dist/link.js").symlink_to(Path(out) / "big.js")
             self.assertIn("`dist/*.js` matches no file", performance.render(performance.bundles(repo)), "a link out of the project is never read")
-        with tempfile.TemporaryDirectory() as tmp:
-            with _Slow() as s:
-                r = performance.measure(self._repo(tmp, perf={"baseline": "../out.jsonl"}), "staging", s.url)
-            self.assertFalse(r["ok"] or r["recorded"]); self.assertIn("leaves the repository", performance.render(r))
-            self.assertFalse((Path(tmp) / "out.jsonl").exists(), "nothing is written outside the project")
         with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
-            repo = self._repo(tmp); (repo / self.BL).mkdir(parents=True)
-            r = performance.measure(repo, "staging", s.url)
-            self.assertFalse(r["ok"] or r["recorded"]); self.assertIn("the line cannot be written (IsADirectoryError)", performance.render(r))
+            repo = self._repo(tmp)
+            r = performance.measure(repo, "staging", s.url, write=False)
+            self.assertTrue(r["ok"] and r["line"]); self.assertEqual(self._lines(repo), [], "under delivery --run the measurement tags nothing: the line goes to the record")
+            r = performance.measure(repo, "staging", s.url, now="2026-11-08T10:00:00Z")
+            self.assertTrue(r["recorded"]); self.assertEqual(delivery.records(repo)[-1]["tag"], "deploy/staging/20261108T100000Z")
+            when = dt.datetime(2026, 11, 8, 10, 0, 0, tzinfo=dt.timezone.utc)
+            sha = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+            self.assertEqual(delivery.write_record(repo, "staging", sha, {"metrics": None}, good=False, now=when), "deploy/staging/20261108T100000Z-1", "a same-second record never overwrites one")
 
     def test_web_vitals_come_from_lighthouse_and_an_absent_tool_is_red(self):
         report = {"audits": {"largest-contentful-paint": {"numericValue": 3100}, "first-contentful-paint": {"numericValue": 900},
@@ -7352,7 +7578,7 @@ class Performance(unittest.TestCase):
             self.assertTrue(r["ok"] and r["recorded"], performance.render(r))
             m = self._lines(repo)[0]["metrics"]
             self.assertEqual((m["lcp_ms"], m["fcp_ms"], m["cls"]), ({"/": 2000.0}, {"/": 900.0}, {"/": 0.02}))
-            empty = Path(tmp) / "empty"; empty.mkdir()
+            empty = Path(tmp) / "empty"; empty.mkdir(); (empty / "git").symlink_to(shutil.which("git"))   # the records are git tags: only npx is absent
             with unittest.mock.patch.dict(os.environ, {"PATH": str(empty)}):
                 out = performance.render(performance.measure(repo, "staging", "http://127.0.0.1:9"))
             self.assertIn("unreadable — Lighthouse could not run (FileNotFoundError)", out, "an absent tool is red, never a pass")
@@ -7411,3 +7637,395 @@ class Performance(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
+
+
+class Delivery(unittest.TestCase):
+    """EVOL-081, CI-only delivery: one executor (validate → plan → migrate → apply → probe → record → lkg), one reader of
+    the deploy records (annotated tags), the static check of the pipeline (production behind approval)."""
+    ROW = {"tool": "Terraform", "iac": True, "validate": "tf validate", "plan": "tf plan -out=tfplan-{env}", "apply": "tf apply tfplan-{env}",
+           "destroy": "tf destroy -var-file={env}.tfvars", "url_from": {"kind": "command", "command": "tf output -raw url"}, "secrets": ["TF_TOKEN"], "rollback": "redeploy-lkg"}
+
+    def _git(self, repo, *c):
+        return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True, text=True).stdout
+
+    def _repo(self, tmp, execution="ci", adapter=None, health=("/health",)):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["delivery"] = {"execution": execution, "adapter": dict(self.ROW) if adapter is None else adapter, "migrate": None,
+                         "probe": {"timeout_s": 0.5, "interval_s": 0.05}}
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / "config/system_resources.json", json.dumps({"resources": [{"id": f"svc{i}", "type": "internal_endpoint", "config": {"healthCheckPath": h}} for i, h in enumerate(health)]
+                                                                 + [{"id": "stripe", "type": "integration", "config": {"healthCheckPath": "/never"}}]}))
+        write(repo / "migrations/V1__init.sql", "CREATE TABLE t (id int);\n")
+        self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base")
+        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+        return repo
+
+    def _runner(self, url, calls, fail=None):
+        def run(argv, **kw):
+            calls.append((argv, kw.get("env", {})))
+            if fail and argv[:2] == fail:
+                return subprocess.CompletedProcess(argv, 3, "", "boom")
+            return subprocess.CompletedProcess(argv, 0, url if argv[:2] == ["tf", "output"] else "", "")
+        return run
+
+    def test_ci_refuses_outside_the_pipeline_and_local_runs_the_same_steps(self):
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            for fn in (delivery.run, delivery.rollback, delivery.teardown):
+                with self.subTest(fn=fn.__name__), self.assertRaises(delivery.Refused) as cm:
+                    fn(repo, "staging", environ={})
+                self.assertIn("deploys from its pipeline — run DEVOPS --deploy", str(cm.exception))
+            calls = []
+            r = delivery.run(repo, "staging", environ={"CI": "true", "DELIVERY_SECRETS": json.dumps({"TF_TOKEN": "v", "OTHER": "x"})}, runner=self._runner(s.url, calls))
+            self.assertTrue(r["ok"], delivery.render(r))
+            self.assertEqual([c[0][:2] for c in calls], [["tf", "validate"], ["tf", "plan"], ["tf", "apply"], ["tf", "output"]])
+            env = calls[0][1]
+            self.assertEqual(env.get("TF_TOKEN"), "v"); self.assertNotIn("OTHER", env); self.assertNotIn("DELIVERY_SECRETS", env, "only the row's names reach the tool")
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["delivery"].update({"migrate": "mig up", "secrets": ["DATABASE_URL"]})
+            write(repo / "config/quality.json", json.dumps(q)); self._git(repo, "commit", "-qam", "migrate")
+            calls = []
+            vault = {"TF_TOKEN": "v", "DATABASE_URL": "postgres://x", "OTHER": "x"}
+            r = delivery.run(repo, "staging", environ={"CI": "true", "DELIVERY_SECRETS": json.dumps(vault)}, runner=self._runner(s.url, calls))
+            self.assertTrue(r["ok"], delivery.render(r))
+            mig = [e for a, e in calls if a[:2] == ["mig", "up"]][0]
+            self.assertEqual(mig.get("DATABASE_URL"), "postgres://x", "delivery.secrets names reach the deploy steps (the migration's database URL)")
+            self.assertNotIn("OTHER", mig, "a name nobody declared never reaches a step")
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, execution="local")
+            r = delivery.run(repo, "staging", environ={}, runner=self._runner(s.url, []))
+            self.assertTrue(r["ok"], "local mode runs on the agent's machine, same steps"); self.assertIsNotNone(delivery.lkg(repo, "staging"))
+
+    def test_the_record_and_the_lkg_tag_and_the_migration_trace(self):
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            sha = self._git(repo, "rev-parse", "HEAD").strip()
+            r = delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            rec = delivery.last(repo, "staging")
+            self.assertEqual((rec["sha"], rec["adapter"], rec["probe"], rec["migrations"]), (sha, "Terraform", {"svc0": "up"}, ["migrations/V1__init.sql", "src/migrations/001.sql"]))   # the fixture holds one more
+            self.assertNotIn("stripe", rec["probe"], "a third-party integration is not our service")
+            self.assertEqual(self._git(repo, "cat-file", "-t", rec["tag"]).strip(), "tag", "the record is an annotated tag")
+            self.assertEqual(delivery.lkg(repo, "staging")["sha"], sha)
+            write(repo / "migrations/V2__more.sql", "ALTER TABLE t ADD c int;\n"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "v2")
+            delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            self.assertEqual(delivery.last(repo, "staging")["migrations"], ["migrations/V2__more.sql"], "the trace = the files changed since the env's last record")
+            self.assertIsNone(delivery.last(repo, "production"), "another environment's record is never this one's")
+
+    def test_a_service_that_does_not_start_is_red_recorded_and_never_lkg(self):
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            s.status = 503
+            repo = self._repo(tmp)
+            r = delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            self.assertFalse(r["ok"]); self.assertIn("svc0 is down", delivery.render(r))
+            self.assertEqual(delivery.last(repo, "staging")["probe"], {"svc0": "down"}, "the record says what is down")
+            self.assertIsNone(delivery.lkg(repo, "staging"), "DC-44: a deploy whose service does not start is never last-known-good")
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            with self.assertRaises(GateFault) as cm:
+                delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, [], fail=["tf", "apply"]))
+            self.assertIn("apply failed (exit 3)", str(cm.exception)); self.assertIsNone(delivery.last(repo, "staging"), "an apply that failed records nothing")
+
+    def test_rollback_redeploys_the_lkg_sha_only(self):
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            with self.assertRaisesRegex(GateFault, "no last-known-good deploy of staging"):
+                delivery.rollback(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            good = delivery.lkg(repo, "staging")["sha"]
+            write(repo / "x.txt", "x"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "x")
+            with self.assertRaisesRegex(GateFault, "check that commit out first"):
+                delivery.rollback(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            self._git(repo, "checkout", "-q", "--detach", good)
+            r = delivery.rollback(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            self.assertTrue(r["ok"]); self.assertEqual(len(delivery.records(repo, "staging")), 2, "the rollback writes its own record: the re-seal")
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:   # RDR 10: a well-formed pair on a commit no merge produced
+            repo = self._repo(tmp)
+            write(repo / "y.txt", "y"); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "off main")
+            delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            self.assertIsNotNone(delivery.lkg(repo, "staging"))
+            calls = []
+            with self.assertRaisesRegex(GateFault, "is not on origin/main.*nothing ran"):
+                delivery.rollback(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertEqual(calls, [], "a forged target runs nothing")
+            self._git(repo, "update-ref", "-d", "refs/remotes/origin/main")
+            with self.assertRaisesRegex(GateFault, "cannot be read.*nothing ran"):
+                delivery.rollback(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+
+    def test_teardown_runs_destroy_and_a_null_destroy_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = []
+            repo = self._repo(tmp)
+            delivery.teardown(repo, "staging", environ={"CI": "1"}, runner=self._runner("", calls))
+            self.assertEqual(calls[0][0], ["tf", "destroy", "-var-file=staging.tfvars"]); self.assertEqual(delivery.records(repo), [], "a teardown writes no record")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, adapter={**self.ROW, "destroy": None})
+            with self.assertRaisesRegex(GateFault, "no `destroy` command"):
+                delivery.teardown(repo, "staging", environ={"CI": "1"}, runner=self._runner("", []))
+
+    def test_the_row_runs_without_a_shell_and_fills_its_params(self):
+        self.assertEqual(delivery.steps("A=1 tf init -x && tf plan '--var=a b'", "staging"), [({"A": "1"}, ["tf", "init", "-x"]), ({}, ["tf", "plan", "--var=a b"])])
+        self.assertEqual(delivery.steps("fly deploy --app {app} --stack {env}", "prod", {"app": "web"})[0][1], ["fly", "deploy", "--app", "web", "--stack", "prod"])
+        with self.assertRaisesRegex(GateFault, r"names \{app\}"):
+            delivery.steps("fly deploy --app {app}", "prod", {"app": None})
+        self.assertIn("no `url_from`", " ".join(delivery.adapter_problems({**self.ROW, "url_from": None})))
+        self.assertIn("is `Other`", " ".join(delivery.adapter_problems({**self.ROW, "tool": "Other"})))
+        with self.assertRaisesRegex(GateFault, "not an environment name"):
+            delivery._env_name("prod; rm -rf /")
+
+    def test_every_row_names_its_environment(self):
+        """RDR 6 (2026-11-09): plan, apply, destroy and a url_from template name the environment — {env} or a
+        per-environment param — or the row is red; one value for two environments is red; a map fills per environment."""
+        blind = {**self.ROW, "plan": "tf plan -out=tfplan", "apply": "tf apply tfplan", "destroy": "tf destroy"}
+        self.assertEqual(sum("does not name the environment" in p for p in delivery.adapter_problems(blind)), 3)
+        self.assertEqual(delivery.adapter_problems(self.ROW), [])
+        shared = {**self.ROW, "apply": "vercel deploy --prod --scope {team}", "params": {"team": "acme"}}
+        self.assertIn("`apply` does not name", " ".join(delivery.adapter_problems(shared)), "a shared param is no environment")
+        self.assertEqual(delivery.adapter_problems({**shared, "params": {"team": "acme-{env}"}}), [], "a shared param may name {env}")
+        fly = {**self.ROW, "apply": "fly deploy --app {app}", "destroy": "fly apps destroy {app}",
+               "url_from": {"kind": "template", "template": "https://{app}.fly.dev"}, "params": {"app": {"staging": "web-stg", "production": "web"}}}
+        self.assertEqual(delivery.adapter_problems(fly), [])
+        self.assertIn("url_from.template` does not name", " ".join(delivery.adapter_problems({**fly, "url_from": {"kind": "template", "template": "https://web.fly.dev"}})))
+        same = {**fly, "params": {"app": {"staging": "web", "production": "web"}}}
+        self.assertIn("holds one value for staging and production", " ".join(delivery.adapter_problems(same)))
+        self.assertIn("no `url_from`", " ".join(delivery.adapter_problems({**self.ROW, "url_from": {"kind": "config"}})), "one URL for every environment left the vocabulary")
+        self.assertEqual(delivery.steps(fly["apply"], "staging", fly["params"])[0][1], ["fly", "deploy", "--app", "web-stg"])
+        self.assertEqual(delivery.steps(fly["apply"], "production", fly["params"])[0][1], ["fly", "deploy", "--app", "web"])
+        with self.assertRaisesRegex(GateFault, r"does not fill it for qa"):
+            delivery.steps(fly["apply"], "qa", fly["params"])
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, adapter=blind)
+            calls = []
+            with self.assertRaisesRegex(GateFault, "does not name the environment"):
+                delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertEqual(calls, [], "an env-blind row runs nothing")
+            with self.assertRaisesRegex(GateFault, "does not name the environment.*nothing was torn down"):
+                delivery.teardown(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertEqual(calls, [], "an env-blind destroy tears nothing down")
+        tpl = {"url_from": {"kind": "template", "template": "https://{app}.fly.dev"}, "params": {"app": "web-{env}"}}
+        self.assertEqual(delivery.url_of(Path("."), tpl, "", "staging", {}, None), "https://web-staging.fly.dev", "a param naming {env} fills in the template too")
+        per = {"url_from": {"kind": "template", "template": "{url}"}, "params": {"url": {"staging": "https://stg.example.com", "production": "https://example.com"}}}
+        self.assertEqual(delivery.url_of(Path("."), per, "", "staging", {}, None), "https://stg.example.com")
+        self.assertEqual(delivery.url_of(Path("."), per, "", "production", {}, None), "https://example.com")
+        with self.assertRaisesRegex(GateFault, r"\{other\}.*does not fill it"):
+            delivery.fill("{a}", {"a": "x-{other}"}, "staging")
+        for bad, why in (({"app": "web app"}, "a space"), ({"app": "$TOKEN"}, "a variable"), ({"app": 3}, "a number"), ({"app": {"staging": "a'b", "production": "p"}}, "a quote")):
+            self.assertIn("is one identifier, host or URL", " ".join(delivery.adapter_problems({**fly, "params": bad})), why)
+        for bad, why in (({"app": "--org=victim"}, "an option"), ({"app": "-oProxyCommand=x"}, "a short option"),
+                         ({"url": "https://u:pw@h.example.com"}, "a password in a URL"), ({"host": "u:pw@h"}, "a password in a host"),
+                         ({"app": {"staging": ["a"], "production": "p"}}, "a list"), ({"app": {"staging": {"x": 1}, "production": "p"}}, "a map")):
+            self.assertIn("is one identifier, host or URL", " ".join(delivery.adapter_problems({**fly, "params": bad})), why)
+        self.assertIn("`params.env` is the environment's own name", " ".join(delivery.adapter_problems({**fly, "params": {"env": "x"}})))
+        for good in ("deploy@10.0.0.5", "deploy@host.example.com:2222", "https://stg.example.com:8443", "my-fly-app-123", "ssh://deploy@host"):
+            self.assertNotIn("is one identifier", " ".join(delivery.adapter_problems({**fly, "params": {"app": good}})), good)
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, adapter={**self.ROW, "url_from": {"kind": "template", "template": "{url}"}, "params": {"url": {"staging": None, "production": None}}})
+            calls = []
+            with self.assertRaisesRegex(GateFault, r"\{url\}.*does not fill it for staging"):
+                delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertEqual(calls, [], "a null url param runs nothing — never an apply nobody can probe")
+
+    def test_variables_are_the_step_environment_and_every_command_is_filled_first(self):
+        """Round-1 cure: `$NAME` is the step's value (a migrate row passes the database URL), an unset name is a fault;
+        an unfilled command anywhere in the run runs nothing; a rollback never re-runs the forward migration."""
+        self.assertEqual(delivery.steps('migrate -database "$DATABASE_URL" up', "staging", None, {"DATABASE_URL": "pg://x"})[0][1],
+                         ["migrate", "-database", "pg://x", "up"])
+        self.assertEqual(delivery.steps("H=ssh://${HOST} tool --at $H", "staging", None, {"HOST": "h1"}), [({"H": "ssh://h1"}, ["tool", "--at", "ssh://h1"])])
+        with self.assertRaisesRegex(GateFault, r"reads \$DATABASE_URL"):
+            delivery.steps('migrate -database "$DATABASE_URL" up', "staging", None, {})
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, adapter={**self.ROW, "apply": "fly deploy --app {app}", "params": {"app": {"staging": None, "production": None}}})
+            calls = []
+            with self.assertRaisesRegex(GateFault, r"names \{app\}"):
+                delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertEqual(calls, [], "an unfilled apply refuses before validate runs")
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["migrate"] = "mig up"
+            write(repo / "config/quality.json", json.dumps(q)); self._git(repo, "commit", "-qam", "migrate"); self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+            delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            calls = []
+            r = delivery.rollback(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertTrue(r["ok"], delivery.render(r)); self.assertNotIn(["mig", "up"], [c[0][:2] for c in calls], "a rollback never runs the forward migration")
+            self.assertIn("not run: a rollback", delivery.render(r))
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, adapter={**self.ROW, "params": {"db": {"staging": "stg-db", "production": "prd-db"}}})
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["migrate"] = "mig up --db {db}"
+            write(repo / "config/quality.json", json.dumps(q)); self._git(repo, "commit", "-qam", "migrate")
+            calls = []
+            r = delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertTrue(r["ok"], delivery.render(r)); self.assertIn(["mig", "up", "--db", "stg-db"], [c[0] for c in calls], "the migration is filled like the preflight")
+
+    def test_a_planted_tag_is_never_a_record_nor_a_last_good_state(self):
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            self._git(repo, "tag", "deploy/staging/99991231T235959Z")                 # lightweight: no record
+            self._git(repo, "tag", "-a", "deploy/staging/99991231T235958Z", "-m", '{"env": "staging", "sha": "--output=x"}')
+            self._git(repo, "tag", "lkg/staging/99991231T235959Z")                    # an lkg with no record of its own
+            self.assertEqual(delivery.records(repo, "staging"), [], "neither tag is a record")
+            self.assertIsNone(delivery.lkg(repo, "staging"), "a lone lkg tag is no last-known-good")
+            r = delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, []))
+            self.assertTrue(r["ok"], "a planted tag never stops a deploy"); self.assertEqual(delivery.lkg(repo, "staging")["tag"], r["tag"])
+            rec = delivery.last(repo, "staging")
+            root = self._git(repo, "rev-list", "--max-parents=0", "HEAD").strip()
+            self._git(repo, "tag", "-f", rec["tag"].replace("deploy/", "lkg/", 1), root)
+            self.assertIsNone(delivery.lkg(repo, "staging"), "an lkg tag moved off its record's SHA is no last-known-good")
+
+    @unittest.skipUnless((HERE.parent.parent / ".context/templates/setup").is_dir(), "the framework repo only: a materialised project carries no template tree")
+    def test_check_names_pyyaml_when_the_subset_parser_cannot_read_the_pipeline(self):
+        tpl = HERE.parent.parent / ".context/templates/setup/workflows"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / ".github/workflows/deploy.yml", (tpl / "deploy.github-actions.yml").read_text())
+            with unittest.mock.patch.dict(sys.modules, {"yaml": None}):
+                out = delivery.render(delivery.check(repo))
+            self.assertIn("install PyYAML", out)
+
+    @unittest.skipUnless((HERE.parent.parent / ".context/templates/setup").is_dir(), "the framework repo only: a materialised project carries no template tree")
+    def test_check_holds_the_pipeline_to_the_approval(self):
+        tpl = HERE.parent.parent / ".context/templates/setup/workflows"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertTrue(delivery.check(repo).get("na"), "no pipeline file → n/a")
+            for src, dst in (("deploy.github-actions.yml", ".github/workflows/deploy.yml"), ("deploy.bitbucket.yml", "bitbucket-pipelines.yml")):
+                text = (tpl / src).read_text()
+                write(repo / dst, text)
+                r = delivery.check(repo); self.assertTrue(r["ok"], delivery.render(r))
+                bad = text.replace("environment: production", "environment: staging").replace("trigger: manual", "trigger: automatic")
+                write(repo / dst, bad)
+                out = delivery.render(delivery.check(repo)); self.assertIn("RED", out, dst)
+                self.assertTrue("is not the environment it deploys (production)" in out or "without `trigger: manual`" in out, out)
+                write(repo / dst, text.replace("python3 scripts/gate.py delivery --run --env staging", "tf apply tfplan-staging"))
+                self.assertIn("runs the adapter's apply directly", delivery.render(delivery.check(repo)))
+                (repo / dst).unlink()
+            write(repo / ".github/workflows/deploy.yml", (tpl / "deploy.github-actions.yml").read_text())
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["adapter"]["url_from"] = None; write(repo / "config/quality.json", json.dumps(q))
+            self.assertIn("no `url_from`", delivery.render(delivery.check(repo)))
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(delivery.check(self._repo(tmp, execution="local")).get("na"))
+        with tempfile.TemporaryDirectory() as tmp:   # RDR 7: no deploy tool and none answered — no server, nothing deploys
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["adapter"] = None; write(repo / "config/quality.json", json.dumps(q))
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\n---\n# Setup\n")
+            r = delivery.check(repo); self.assertTrue(r.get("na"), delivery.render(r)); self.assertIn("no server", r["reason"])
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\nhosting:\n  deploy_tool: None\n---\n# Setup\n")
+            self.assertTrue(delivery.check(repo).get("na"), "a literal None answers nothing, as discovery reads it")
+            write(repo / "docs/setup.md", "# Setup, no frontmatter\n")
+            self.assertTrue(delivery.deploys(repo), "an unreadable answer home keeps the checks on")
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\nhosting:\n  deploy_tool: Terraform\n---\n# Setup\n")
+            self.assertFalse(delivery.check(repo)["ok"], "a deploy tool answered and no row: red")
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\nhosting:\n  provider: AWS\n---\n# Setup\n")
+            self.assertFalse(delivery.check(repo)["ok"], "a server answered, its deploy tool not yet: red, never n/a")
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\nhosting:\n  provider: AWS\n  deploy_tool: Other\n---\n# Setup\n")
+            self.assertFalse(delivery.check(repo)["ok"], "Other with no row declared yet: red, never n/a")
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["adapter"] = {**self.ROW, "tool": "Other"}
+            write(repo / "config/quality.json", json.dumps(q))
+            write(repo / ".github/workflows/deploy.yml", (tpl / "deploy.github-actions.yml").read_text())
+            self.assertIn("is `Other`", delivery.render(delivery.check(repo)), "Other stays red until its row is declared (RDR 2)")
+
+    @unittest.skipUnless((HERE.parent.parent / ".context/templates/setup").is_dir(), "the framework repo only: a materialised project carries no template tree")
+    def test_every_q21_platform_has_its_pipeline_file(self):
+        """RDR 9: every CI platform discovery offers names its deploy pipeline file — a new option without one is red here."""
+        reg = json.loads((HERE.parent.parent / ".context/templates/setup/setup/discovery_registry.json").read_text())
+        opts = next(q["keys"]["ci_cd.platform"]["options"] for q in reg["questions"] if "ci_cd.platform" in q.get("keys", {}))
+        self.assertEqual(sorted(o for o in opts if o != "None"), sorted(delivery.PIPELINE_FILE))
+        self.assertTrue(set(delivery.COVERED) <= set(delivery.PIPELINE_FILE))
+
+    @unittest.skipUnless((HERE.parent.parent / ".context/templates/setup").is_dir(), "the framework repo only: a materialised project carries no template tree")
+    def test_check_holds_the_mode_key_and_the_covered_pipeline(self):
+        """Round-1 cure: `execution` is ci_cd.platform's derivation; a covered platform deploying from CI has its pipeline;
+        a stage pushes only its own environment's tags."""
+        tpl = HERE.parent.parent / ".context/templates/setup/workflows"
+        setup = lambda repo, plat: write(repo / "docs/setup.md", f"---\nci_cd:\n  platform: {plat}\n---\n# Setup\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, execution="local")
+            setup(repo, "GitHub Actions")
+            self.assertIn("ci_cd.platform is GitHub Actions — it derives ci", delivery.render(delivery.check(repo)))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            setup(repo, "None")
+            self.assertFalse(delivery.check(repo)["ok"], "None derives local")
+            setup(repo, "Bitbucket Pipelines")
+            self.assertIn("bitbucket-pipelines.yml does not call", delivery.render(delivery.check(repo)))
+            setup(repo, "Jenkins")
+            out = delivery.render(delivery.check(repo))
+            self.assertIn("Jenkinsfile.deploy does not call", out, "RDR 9: an uncovered platform's pipeline is authored at SETUP, and held")
+            self.assertIn("SETUP authors it for this platform", out)
+            write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('staging') { steps { sh 'python3 scripts/gate.py delivery --run --env staging' } } } }\n")
+            r = delivery.check(repo); self.assertTrue(r["ok"], delivery.render(r))
+            self.assertIn("approval is the platform's own", delivery.render(r))
+            write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('s') { steps { sh 'python3 scripts/gate.py delivery --pr && git push origin refs/tags/deploy/*' } } } }\n")
+            out = delivery.render(delivery.check(repo))
+            self.assertIn("no stage that calls", out); self.assertIn("pushes every environment's tags", out)
+            write(repo / "Jenkinsfile.deploy", "// python3 scripts/gate.py delivery --run --env staging\npipeline { stages { stage('p') { steps { sh 'terraform apply -auto-approve' } } } }\n")
+            self.assertFalse(delivery.check(repo)["ok"], "a commented-out call is no call")
+            write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('p') { steps { sh 'python3 scripts/gate.py delivery --run --env production' } } } }\n  # python3 scripts/gate.py delivery --run --env staging\n")
+            self.assertTrue(delivery.check(repo)["ok"], "a real call beside a comment holds")
+            write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('p') { steps { sh 'terraform apply' } } } } // python3 scripts/gate.py delivery --run --env staging\n")
+            self.assertFalse(delivery.check(repo)["ok"], "a trailing // comment is no call")
+            write(repo / "Jenkinsfile.deploy", "/*\n sh 'python3 scripts/gate.py delivery --run --env staging'\n*/\npipeline { stages { stage('p') { steps { sh 'terraform apply' } } } }\n")
+            self.assertFalse(delivery.check(repo)["ok"], "a /* */ block is no call")
+            setup(repo, "GitLab CI")
+            write(repo / ".gitlab/deploy.yml", "deploy:\n  script: |\n    python3 scripts/gate.py delivery --run --env staging\n    //usr/bin/git push origin 'refs/tags/deploy/*'\n")
+            self.assertIn("pushes every environment's tags", delivery.render(delivery.check(repo)), "`//` is live text in YAML")
+            (repo / ".gitlab/deploy.yml").unlink()
+            (repo / "Jenkinsfile.deploy").unlink()
+            setup(repo, "GitHub Actions")
+            text = (tpl / "deploy.github-actions.yml").read_text()
+            write(repo / ".github/workflows/deploy.yml", text)
+            r = delivery.check(repo); self.assertTrue(r["ok"], delivery.render(r))
+            write(repo / ".github/workflows/deploy.yml", text.replace("refs/tags/deploy/staging/*:refs/tags/deploy/staging/*", "refs/tags/deploy/*:refs/tags/deploy/*"))
+            self.assertIn("pushes every environment's tags", delivery.render(delivery.check(repo)))
+
+    def test_the_pr_verdicts_are_owed_only_where_they_apply(self):
+        """RDR 1 (sweep) and RDR «1» 2026-11-08 (smoke): the PR demands the agent's verdicts, in its diff."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); q["documentation"] = {"paths": ["**/*.md", "docs/**"], "exclusions": []}
+            write(repo / "config/quality.json", json.dumps(q))
+            setup = lambda cadence, phases="full-sdlc": write(repo / "docs/setup.md", f"---\nproject_tracking:\n  feature_phases: {phases}\nqa:\n  smoke_cadence: {cadence}\n---\n# Setup\n")
+            setup("feature-close")
+            write(repo / "docs/spec/F-1/increment_plan.md", "# Plan\n### INC-1 — a\n### INC-2 — b\n")
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "preset"); base = self._git(repo, "rev-parse", "HEAD").strip()
+            commit = lambda msg: (self._git(repo, "add", "-A"), self._git(repo, "commit", "-qm", msg))
+            write(repo / "src/app.py", "x = 1\n"); commit("code")
+            self.assertTrue(delivery.pr(repo, base, "fix/typo")["na"])
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-1-a-sub-2")["na"], "a sub PR into its train owes the light profile")
+            r = delivery.pr(repo, base, "feature/F-1-inc-1-a"); self.assertFalse(r["ok"]); self.assertIn("no preventive-sweep report", r["reason"])
+            rep = "docs/spec/F-1/review/preventive_sweep_20261108.md"
+            write(repo / rep, "---\nstatus: IN_PROGRESS\nnot_delivered: [S2]\n---\n"); commit("sweep")
+            r = delivery.pr(repo, base, "feature/F-1-inc-1-a"); self.assertFalse(r["ok"]); self.assertEqual(len(r["entries"][0]["problems"]), 2)
+            write(repo / rep, "---\nstatus: COMPLETED\nnot_delivered: []\n---\n"); commit("swept")
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-1-a")["ok"], "feature-close: INC-1 of 2 owes no smoke")
+            r = delivery.pr(repo, base, "feature/F-1-inc-2-b"); self.assertFalse(r["ok"]); self.assertIn("closes the feature", r["entries"][-1]["problems"][0])
+            r = delivery.pr(repo, base, "feature/F-1-whole"); self.assertFalse(r["ok"], "a feature on one branch closes it")
+            agg = "docs/spec/F-1/smoke_e2e_report.md"
+            write(repo / agg, "---\nstatus: DRAFT\n---\n"); commit("smoke draft")
+            self.assertIn("not APPROVED", delivery.pr(repo, base, "feature/F-1-inc-2-b")["entries"][-1]["problems"][0])
+            write(repo / agg, "---\nstatus: APPROVED\n---\n"); commit("smoke")
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-2-b")["ok"])
+            setup("per-slice"); commit("per-slice")
+            r = delivery.pr(repo, base, "feature/F-1-inc-1-a"); self.assertFalse(r["ok"]); self.assertEqual(r["entries"][-1]["id"], "docs/spec/F-1/smoke_e2e_report_INC-1.md")
+            write(repo / "docs/spec/F-1/smoke_e2e_report_INC-1.md", "---\nstatus: APPROVED\n---\n"); commit("slice smoke")
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-1-a")["ok"])
+            self.assertEqual(len(delivery.pr(repo, base, "feature/F-1-inc-2-b")["entries"]), 3, "per-slice: the last INC owes its slice and the aggregate")
+            docs = self._git(repo, "rev-parse", "HEAD").strip()
+            write(repo / "docs/notes.md", "n\n"); commit("docs")
+            self.assertTrue(delivery.pr(repo, docs, "feature/F-1-inc-1-a")["na"])
+            setup("per-slice", "lean"); commit("lean")
+            self.assertTrue(delivery.pr(repo, base, "feature/F-1-inc-1-a")["na"])
+            gate = [sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "delivery", "--pr"]
+            r = subprocess.run(gate + ["--branch", "feature/F-1-x"], capture_output=True, text=True); self.assertIn("needs --branch", r.stderr)
+
+    def test_the_member_and_the_cli(self):
+        self.assertIn("delivery", [m["member"] for m in profile.owed("light")])
+        self.assertEqual(next(m for m in profile.owed("full") if m["member"] == "preventive-sweep")["owner"], "pull request (the PR pipeline demands the sweep verdict)")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            gate = [sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "delivery"]
+            r = subprocess.run(gate + ["--run", "--env", "staging"], capture_output=True, text=True, env={k: v for k, v in os.environ.items() if k != "CI"})
+            self.assertEqual(r.returncode, 1); self.assertIn("deploys from its pipeline", r.stderr)
+            r = subprocess.run(gate + ["--last", "staging"], capture_output=True, text=True); self.assertEqual(r.returncode, 1)
+            r = subprocess.run(gate + ["--run"], capture_output=True, text=True); self.assertIn("needs --env", r.stderr)

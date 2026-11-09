@@ -6,7 +6,7 @@ applicable_when:
     - "**/Jenkinsfile"
     - "**/.gitlab-ci.yml"
     - "**/azure-pipelines.yml"
-version: 1.9.1
+version: 2.0.0
 date: 2026-10-07
 ---
 
@@ -254,6 +254,16 @@ For secrets needed by the running application (not just the pipeline):
 
 > **Mandate:** All deployments MUST pass through defined quality gates. Production deploys require manual approval.
 
+**The pipeline is the only deployer (EVOL-081).** `config/quality.json → delivery.execution` is derived: `ci` when the project has a CI platform, else `local`. A project with no adapter row, no deploy tool and no hosting provider answered deploys nothing: no pipeline lands and `delivery --check` is n/a (RDR 7).
+- `ci`: only the deploy pipeline provisions and deploys — the shipped template on GitHub Actions (`.github/workflows/deploy.yml`) and Bitbucket Pipelines (`bitbucket-pipelines.yml`); on every other CI platform the one SETUP authored for it (`delivery.PIPELINE_FILE`), whose production approval is the platform's own and is not read by `delivery --check`. The deploy records are tags nobody moves or deletes: on GitHub a tag ruleset `scm-protection` verifies, whatever CI pushes them; on GitLab protected tags and on Azure DevOps a denied force push, both ticked by a person; Bitbucket Cloud has none (its runbook says so). A local `apply`/`destroy` of the adapter is denied (`gate.py write-target`, class `deploy`). DEVOPS `--deploy` starts the run and watches it.
+- Production runs only in a protected environment: GitHub `environment: production` with required reviewers, deployment branches by exact name and production's secrets — every name in `delivery.secrets`, the migration's database URL too — as its environment secrets (`gate.py scm-protection` reads the first two through the API); Bitbucket `deployment: production` + `trigger: manual`.
+- One executor per deploy: `python3 scripts/gate.py delivery --run --env {env}`, from the adapter row `config/quality.json → delivery.adapter` — validate, plan, migrate, apply, probe every `healthCheckPath`, the performance measure, record tag `deploy/{env}/{ts}` (the measure in it), `lkg/{env}/{ts}` when every probe is up and the measure green.
+- Every `plan`, `apply`, `destroy` and `url_from` template of the row names its environment — `{env}` or a per-environment param (`params.X: {staging: …, production: …}`, filled by DEVOPS `--configure`); a row that does not, or a param holding one value for two environments, is red: a staging deploy never reaches production. A param value is one identifier, host or URL — a secret goes in `delivery.secrets`.
+- Rollback redeploys the last `lkg/{env}/*` through the same pipeline, only when its commit is on the main branch (RDR 10: a planted record pair on any other commit runs nothing); its record is the re-seal.
+- The PR pipeline blocks without the agent's fresh green verdicts for the head SHA (`gate.py certify`, `gate.py currency`), where they are owed — `feature/*` but not a sub-increment, full-sdlc, not documentation only (`gate.py delivery --pr`): the preventive sweep, and the smoke at `qa.smoke_cadence` (the increment's report per slice; the aggregate on the PR that closes the feature). The agent deploys the branch to the non-production environment (`DEVOPS --deploy`, the pipeline's dispatch on that ref) and runs the smoke there before the PR.
+- Teardown runs from the pipeline too (`--teardown`, production behind the same approval).
+- `local`: DEVOPS runs the same executor from the agent's machine.
+
 ### Environment Topology
 > **Selected Strategy:** {{ENVIRONMENT_STRATEGY}} (defined in setup)
 
@@ -269,14 +279,14 @@ If a field cannot be determined, it defaults to "unknown" and /DEVOPS will promp
 # Cloud & IaC Configuration (populated by /SETUP --generate)
 infrastructure:
   cloud_provider: {{CLOUD_PROVIDER}}  # AWS | GCP | Azure | Vercel | Railway | Fly.io | DigitalOcean | Self-hosted | Other
-  iac_tool: {{IAC_TOOL}}              # Terraform | Pulumi | AWS CDK | Docker Compose | None
+  deploy_tool: {{IAC_TOOL}}           # per provider (Q20.1): Terraform | Pulumi | AWS CDK | Docker Compose | Vercel CLI | Railway CLI | flyctl | Other — its row: config/quality.json → delivery.adapter
   iac_descriptor:                      # Universal IaC meta-model (populated by /SETUP --generate from Q23)
     entry_point: {{IAC_ENTRY_POINT}}               # e.g., main.tf | Pulumi.yaml | cdk.json
     provider_config: {{IAC_PROVIDER_CONFIG}}        # e.g., provider.tf | Pulumi.aws.yaml
     state_management: {{IAC_STATE_MANAGEMENT}}      # e.g., backend "s3" | Pulumi Cloud | cdk-toolkit
     env_config_pattern: {{IAC_ENV_CONFIG_PATTERN}}  # e.g., envs/{env}.tfvars | Pulumi.{env}.yaml
     module_dir: {{IAC_MODULE_DIR}}                  # e.g., modules/ | packages/ | constructs/
-    commands:
+    commands:                           # filled from the adapter row; the executor reads the row, not these lines
       validate: {{IAC_CMD_VALIDATE}}    # e.g., terraform validate | pulumi preview --diff
       plan: {{IAC_CMD_PLAN}}            # e.g., terraform plan | pulumi preview
       apply: {{IAC_CMD_APPLY}}          # e.g., terraform apply | pulumi up
@@ -441,17 +451,9 @@ jobs:
         run: scripts/test.sh
       - name: Security Scan
         run: scripts/security-scan.sh --secrets
-  
-  deploy-dev:
-    needs: lint-test
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to Development
-        run: |
-          # Deployment script here
-          echo "Deploying to dev environment..."
 ```
+
+**Deploy Workflow:** `.github/workflows/deploy.yml` (materialised when `delivery.execution == ci` and a hosting provider is answered). Each deploy job runs `python3 scripts/gate.py delivery --run --env {env}`; production carries `environment: production`.
 
 **Auto-Tagging Workflow:** `.github/workflows/auto-tag.yml`
 > Automatically creates SemVer tags and GitHub Releases on PR merge to main.
@@ -554,15 +556,9 @@ pipelines:
             - scripts/lint-format.sh --apply
             - scripts/test.sh
             - scripts/security-scan.sh --secrets
-
-  branches:
-    main:
-      - step:
-          name: Deploy to Dev
-          deployment: development
-          script:
-            - echo "Deploying to dev..."
 ```
+
+**Deploy pipelines:** merged into `bitbucket-pipelines.yml` when `delivery.execution == ci` and a hosting provider is answered — `custom: deploy-{env}` steps run `python3 scripts/gate.py delivery --run --env {env}`; production carries `deployment: production` + `trigger: manual`.
 
 **Auto-Tagging:** Included as a step in `bitbucket-pipelines.yml` main branch pipeline.
 > Automatically creates SemVer tags on merge to main.

@@ -279,7 +279,7 @@ SETUP (one-time)
   → CONTRACT-FREEZE          [hard gate — blocks IMPLEMENT --plan]
   → DEVOPS --configure
   → IMPLEMENT (workers ↔ work critics ↔ security lens + BVL)
-  → PREVENTIVE-SWEEP         [hard gate — blocks DEVOPS --deploy dev]
+  → PREVENTIVE-SWEEP         [hard gate — blocks the PR and DEVOPS --deploy dev]
   → QA (verify, auto-approves)
   → SMOKE-E2E                [hard gate — blocks QA --verify pass]
   → MERGE (PR → main)
@@ -395,21 +395,21 @@ Artifacts: `docs/spec/{ID}/dev_plan.md`, source code, `peer_review_{ts}.md` (or 
 
 ### 4. DEVOPS (DevOps & Infrastructure)
 
-Role: Phase agent `factory-devops` — infrastructure, CI/CD and environments; the deployment on a merge is decided by `gate.py runtime-surface --changed`. Before `--configure`, Beat 0: the external-facts reader on the services and IaC resources in scope (EVOL-056).
+Role: Phase agent `factory-devops` — infrastructure, CI/CD and environments; the deployment on a merge is decided by `gate.py runtime-surface --changed`. With CI, the pipeline is the only deployer (EVOL-081): DEVOPS starts and watches the run, production waits for a person's approval in a protected environment, and a local `apply` is denied. Before `--configure`, Beat 0: the external-facts reader on the services and IaC resources in scope (EVOL-056).
 
 | Command | Arguments | Description |
 | --- | --- | --- |
 | `/devops --configure {ID}` | — | Generates the infrastructure plan (RDR-guided). Auto-approves when all approval checks pass. |
 | `/devops --refine {ID} "{FEEDBACK}"` | Technical feedback | Adjusts the plan based on feedback. |
 | `/devops --provision [{ID}] --env {ENV}` | Environment | Materializes infrastructure. With `{ID}` → feature-scoped. Without `{ID}` → env-scoped. |
-| `/devops --deploy [{ID}] --env {ENV}` | Environment | Deploys code. Requires IMPLEMENT complete. Production requires MERGE + QA APPROVED. |
+| `/devops --deploy [{ID}] --env {ENV}` | Environment | Deploys code through `gate.py delivery --run` (with CI: the pipeline run). Requires IMPLEMENT complete. Production requires MERGE + QA APPROVED. |
 | `/devops --suspend [{ID}] --env {ENV}` | Environment | Suspends the environment to reduce cost. |
 | `/devops --resume [{ID}] --env {ENV}` | Environment | Resumes a suspended environment. |
-| `/devops --rollback [{ID}] --env {ENV}` | Environment | Rolls back a deployment. |
+| `/devops --rollback [{ID}] --env {ENV}` | Environment | Redeploys the last good state (`lkg/{env}/*`) through the same steps. |
 | `/devops --teardown [{ID}] --env {ENV}` | Environment | Destroys infrastructure. `data_bearing: true` requires a backup. |
 | `/devops --status [{ID}]` | — | Status dashboard. |
 
-Artifacts: `docs/spec/{ID}/devops_plan.md`, `infra/features/{ID}/` (IaC), `deployment_report_{ts}.md`.
+Artifacts: `docs/spec/{ID}/devops_plan.md`, `infra/features/{ID}/` (IaC), `deployment_report_{ts}.md`; per deploy an annotated tag `deploy/{env}/{ts}` (the record) and `lkg/{env}/{ts}` when every health probe is up.
 
 **Execution Guardrails:**
 
@@ -1080,6 +1080,7 @@ The framework ships 23 protocols reusable by every command and agent (`.claude/s
 | `plan`, `documentation` | one planning stage: may this write happen? the ONE definition of a documentation path |
 | `seal`, `digests`, `certify`, `currency` | the verification loop's seal (read-set hashes) the push honours; the planning artefacts' governance digests; what a verdict certified |
 | `runtime-surface`, `runtime-surface --changed` | parity between the deploying workflows and the positive path list; did this merge touch the runtime surface |
+| `delivery` | the one deploy executor and record reader (EVOL-081): `--run`/`--rollback`/`--teardown --env` from the adapter row — validate, plan, migrate, apply, probe every health path, record tag, `lkg` tag when every probe is up, the measure; `--last`/`--lkg`; `--check` the light member: production behind approval, every deploy stage through the executor |
 | `traceability` | every declared test case has a linked test at its one home; the shrink-only baseline |
 | `scm-protection` | the server defends the branch rule (rulesets, protected branches, restrictions, policies) — asked at `ci` with the CI token |
 | `agents` | the roster and the class policy; `--resolve`, `--fallback`, `--digest`, `--spawn`, `--check-return` |
@@ -1090,7 +1091,7 @@ The framework ships 23 protocols reusable by every command and agent (`.claude/s
 | `contracts` | the one contract reader: one error code per meaning in `contracts/errors.yaml`, every code a contract names in the catalog, every resource with CRUD single and batch, an omission or an operation outside CRUD-First with its `x-crud-exception` reason; older findings in a shrink-only baseline; each ACTIVE registry row at its contract's `info.version`; every new operation named by a TC-API row; a changed test plan covering its journey |
 | `contracts --parity` | the loop member `contract-parity` (API scopes): the code's emitted OpenAPI equals the authored contract (`oasdiff diff`), and every answer the contract tests record is declared (status, catalog code) |
 | `data` | the data pack, where `database.migrations_tool` is answered: a migration of the merge-base unchanged, every destructive or locking step tagged with an accepted decision record, FDR or ADR (down parts skipped), one version per migration and one Alembic head, no connection outside `data.connection_factory` (a shrink-only baseline), seeds through the owner; `--json` each new migration's class |
-| `performance` | performance as law: every threshold once in `performance.thresholds` and complete for the present surfaces, the baseline `docs/project_log/performance_baseline.jsonl` append-only, one way and per site (DC-43), re-baselined only by an accepted ADR/FDR (`--rebaseline`, once per site); `--run` the bundle per route (loop); `--run --site --url` p95, LCP/FCP/CLS (Lighthouse pinned), warm p50 and the hosting's cold figure against the same site's reference (DEVOPS, each deploy) |
+| `performance` | performance as law: every threshold once in `performance.thresholds` and complete for the present surfaces, the baseline the deploy records (`deploy/{env}/*` tags, immutable), one way and per site (DC-43), re-baselined only by an accepted ADR/FDR (`--rebaseline`, once per site); `--run` the bundle per route (loop); `--run --site --url` p95, LCP/FCP/CLS (Lighthouse pinned), warm p50 and the hosting's cold figure against the same site's reference (DEVOPS, each deploy) |
 
 **Control points** (`CLAUDE.md` § Pre-Action Gate): the static round before the critics → the commit (`pre-commit`: branch class, secrets on the staged files) → the push (`pre-push`: the gate profile — light for a sub-increment on its train in development mode, full otherwise — the secrets scan on the pushed range, the review and coherence markers, the push preflight) → the train close (the full verification loop, the seal) → the pull request (`governance-check.yml` runs the same `gate.py profile --run --control-point ci`, the only point that asks the server) → the main branch (no direct commit) → the deployment (`DEVOPS --deploy`: sweep + smoke + the performance measure). No gate is optional — it changes its control point.
 

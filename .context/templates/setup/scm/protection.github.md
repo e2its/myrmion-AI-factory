@@ -20,6 +20,21 @@ Equivalent, as an API call (repository administrators only — never a materiali
 gh api -X PUT "repos/{owner}/{repo}/rulesets/{id}" --input ruleset.json   # rules: non_fast_forward, deletion, pull_request, required_status_checks
 ```
 
+## Production environment — when the project deploys from CI (`delivery.execution: ci` and a hosting provider answered, EVOL-081)
+
+Repository → Settings → Environments → `production` (create it before the first deploy: a job naming a missing environment creates it with no rules).
+
+| Setting | Value | Why |
+|---|---|---|
+| **Required reviewers** | at least one person (Team or Pro on a private repository) | production waits for a person's approval |
+| **Deployment branches** | selected branches: `main` only | any other branch's workflow could name `production` and reach its secrets |
+| **Prevent self-review** | on for a team · off for a single maintainer | the person who starts a deploy does not approve it alone |
+| **Environment secrets** | the adapter row's names and every name in `delivery.secrets` (the migration's database URL too), production values only | never repository secrets: every job sees those, and the staging job would migrate production |
+| **Required status check** | the Deploy workflow's `pr-verify` added to {{SCM_REQUIRED_CHECKS}} | the agent's sweep and smoke verdicts decide the merge |
+| **Tag ruleset** (Settings → Rules → Rulesets → New tag ruleset) | active; targets `refs/tags/deploy/**/*` and `refs/tags/lkg/**/*` (`*` stops at `/`; `**/*` spans `<env>/<ts>`); rules: restrict updates, restrict deletions — creation stays open; bypass list empty | the deploy records are tags: nobody moves or deletes one (Team or Pro on a private repository) |
+
+`gate.py scm-protection` verifies the reviewers, the branch policy and the tag ruleset at `ci` (the ruleset whatever CI platform pushes the tags); self-review is reported, never red. Creating a tag stays open, so a well-formed record pair can be planted on any commit: the rollback refuses a target that is not on the main branch (RDR 10); one to an older main commit still waits for production's approval. Try the ruleset once on a scratch repository: push `deploy/x/1`, then try to move and delete it — both must be refused. Never in the project: a protected tag cannot be deleted, and the light check names it red.
+
 ## Checklist
 
 - [ ] pull request required to merge into the protected branch (no direct push)
@@ -27,4 +42,5 @@ gh api -X PUT "repos/{owner}/{repo}/rulesets/{id}" --input ruleset.json   # rule
 - [ ] force-push forbidden
 - [ ] deletion forbidden
 - [ ] approvals: {{SCM_APPROVALS}} (a project decision — `scm.approvals`)
+- [ ] deploying from CI: `production` environment with required reviewers, deployment branches `main` only, its secrets as environment secrets, `pr-verify` required, the tag ruleset over `refs/tags/deploy/**/*` and `refs/tags/lkg/**/*`, bypass list empty
 - [ ] `python3 scripts/gate.py scm-protection --control-point ci` green in CI, or this checklist ticked by a repository administrator when CI carries no token

@@ -10,7 +10,7 @@
     "database.primary.engine": "PostgreSQL",
     "hosting.provider": "AWS",
     "hosting.type": "container",
-    "hosting.iac_tool": "Terraform",
+    "hosting.deploy_tool": "Terraform",
     "ci_cd.platform": "GitHub Actions",
     "scm.platform": "GitHub",
     "project_tracking.tool": "None",
@@ -35,6 +35,7 @@
     ],
     "defect_classes": {
       "present": [
+        "DC-44",
         "DC-38",
         "DC-43"
       ],

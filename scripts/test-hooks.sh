@@ -291,6 +291,26 @@ assert_pass "on main: a shell write outside the project (scratch) passes"
 for c in "git status" "cat src/app.py" "grep -r a . 2>/dev/null" "ls > /dev/null"; do
   HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "$c")"; assert_pass "on main: read-only Bash «$c» passes"
 done
+# EVOL-081: the adapter's own apply/destroy is class deploy — blocked on every branch when the project deploys from its pipeline
+git -C "$REPO" checkout -q feature/FEAT-001-x
+cp "$REPO/config/quality.json" "$SANDBOX/quality.json.bak"
+deliv() { python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["delivery"]={"execution":sys.argv[2],"adapter":{"tool":"Terraform","apply":"terraform apply -input=false tfplan","destroy":"terraform apply -destroy -auto-approve"}}; json.dump(d,open(p,"w"))' "$REPO/config/quality.json" "$1"; }
+deliv ci
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "terraform apply tfplan")"
+assert_block "execution ci: «terraform apply» is blocked on a working branch, DEVOPS --deploy named" "run DEVOPS --deploy"
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "gh workflow run deploy.yml")"
+assert_pass "execution ci: starting the pipeline (gh workflow run) passes"
+git -C "$REPO" checkout -q --detach
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "terraform apply tfplan")"
+assert_block "execution ci, detached HEAD: «terraform apply» is still blocked (no branch is no exemption)" "run DEVOPS --deploy"
+HOME="$FAKEHOME" run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
+assert_pass "detached HEAD: an ordinary write passes (no branch to protect)"
+git -C "$REPO" checkout -q feature/FEAT-001-x
+deliv local
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "terraform apply tfplan")"
+assert_pass "execution local: «terraform apply» passes"
+cp "$SANDBOX/quality.json.bak" "$REPO/config/quality.json"
+git -C "$REPO" checkout -q main
 rm -f "$REPO"/.context/locks/*.lock
 HOME="$FAKEHOME" run_hook check-concurrency-lock.sh "$(bashp "git status")"
 [ "$RC" -eq 0 ] && [ -z "$(ls "$REPO/.context/locks" 2>/dev/null)" ] && ok "a read-only Bash call never touches the session lock" || bad "read-only Bash took the lock (rc=$RC)" "$ERR"

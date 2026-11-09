@@ -31,7 +31,7 @@
   gate.py runtime-surface [--json]                 parity: every path a deploying job or its scripts read is on surface.runtime_surface, a hard exclusion or a declared read; exit 1 on a finding
   gate.py runtime-surface --changed [--base B]     did base...HEAD touch the runtime surface (or a hard exclusion)? exit 0 touched · 1 untouched (the machinery may skip) · 2 could not judge
   gate.py plan --path P [--branch B]               may this write happen? governed path × branch class × approved plan; exit 0 pass · 1 blocked (reason + resolution) · 2 fault
-  gate.py write-target --hook-json                 where a PreToolUse write lands (EVOL-065: Edit/Write + the shell's recognised writers); exit 0 the in-project targets one per line · 4 nothing to judge · 1 guarded or unresolved (reason) · 2 fault (3 is the import guard)
+  gate.py write-target --hook-json                 where a PreToolUse write lands (EVOL-065: Edit/Write + the shell's recognised writers); exit 0 the in-project targets one per line · 4 nothing to judge · 1 guarded or unresolved (reason) · 5 a deploy command in a pipeline-delivered project (EVOL-081, reason) · 2 fault (3 is the import guard)
   gate.py plan --status [--branch B]               one advisory line for the prompt hook (exit 0 always)
   gate.py plan --enter [--branch B]                may this session enter plan mode? exit 1 on a class a framework phase already plans (one stage, never two)
   gate.py plan --record --hook-json                write the approval marker from the harness's PostToolUse ExitPlanMode payload on stdin — refuses anything else
@@ -48,9 +48,12 @@
   gate.py freeze [--base B --branch B] [--json]    EVOL-115: every design.md and contracts/openapi/** the diff changes — (a) a security/availability capability's reliability question without answer or source, (b) an operation without the contracts.outage_status response, (c) an x-sensitive field without a constraint, an unparseable contract; exit 1 red · n/a without a changed design or contract
   gate.py contracts [--base B] [--branch X] [--json]  EVOL-072: contracts/errors.yaml one code per meaning (a code listed twice, two codes one meaning, an entry with no meaning), every x-error-codes code in the catalog (the whole tree), CRUD-First single and batch on the whole tree (every resource with its eight operations, an omission or an operation outside CRUD-First with a non-empty x-crud-exception), older findings in docs/project_log/crud_baseline.json that only shrinks (`undeclared` in --json seeds it at SETUP --upgrade); EVOL-070: contracts/feature_map.md rows at their contract's info.version, every operation new since the base named by a TC-API row's Operation cell, a changed test plan's Journey coverage complete; exit 1 red · n/a without a catalog and a contract
   gate.py data [--base B] [--branch X] [--json]      EVOL-071: the data pack where database.migrations_tool is answered — a migration at the merge-base unchanged and present, every destructive step of a new migration tagged `FDR: <feature>/FDR-NNNN` or `ADR: ADR-NNN` naming an accepted record (down parts skipped), a PostgreSQL index on a live table built concurrently, one version per migration and one Alembic head, no connection built outside data.connection_factory (older ones in data.baseline, which only shrinks), seeds through the owner (config/seed_registry.json v2); --json lists each new migration's class (expand | contract); exit 1 red · n/a without the answer
-  gate.py performance [--base B] [--branch X] [--json]   EVOL-073, the light member: performance.thresholds complete for the answered surfaces (the one home), the baseline append-only against the merge base, each line naming site / sha / at / hosting, a new line never worse than the previous line of its own site nor missing a figure it held, unless it names an accepted ADR/FDR (`rebaseline`, once per site); the baseline inside the repository; n/a without the block or a surface
+  gate.py performance [--base B] [--branch X] [--json]   EVOL-073, the light member: performance.thresholds complete for the answered surfaces (the one home), the baseline = the deploy records holding metrics (gate.py delivery, immutable tags), each naming site / sha / at / hosting, a record never worse than the previous record of its own site nor missing a figure it held, unless it names an accepted ADR/FDR (`rebaseline`, once per site); n/a without the block or a surface
   gate.py performance --run [--json]                 the loop member (needs a build): each route of performance.bundles, gzip total ≤ bundle_kb; null bundles or a glob matching nothing is red
-  gate.py performance --run --site S --url U [--json]   the deployed measurement (DEVOPS after a deploy): p95 per endpoint ≤ api_p95_ms, Lighthouse LCP/FCP/CLS per route, warm p50 and the hosting's start/cold figure ≤ the same site's last line × (1 + margin_pct); no line for the site → advisory and the first line written; a better run appends a line; --rebaseline ADR-NNN|<feature>/FDR-NNNN (an accepted record) appends the line even when worse, the thresholds still block; exit 1 red
+  gate.py performance --run --site S --url U [--json]   the deployed measurement (DEVOPS after a deploy): p95 per endpoint ≤ api_p95_ms, Lighthouse LCP/FCP/CLS per route, warm p50 and the hosting's start/cold figure ≤ the same site's last line × (1 + margin_pct); no record with metrics for the site → advisory and the first one written; a better run writes a record tag (deploy/{site}/{ts}); --rebaseline ADR-NNN|<feature>/FDR-NNNN (an accepted record) appends the line even when worse, the thresholds still block; exit 1 red
+  gate.py delivery --check [--json]                EVOL-081, the light member: the deploy pipeline of the answered CI platform (delivery.PIPELINE_FILE; shipped on GitHub Actions and Bitbucket Pipelines, authored at SETUP elsewhere) — every deploy / rollback / teardown stage calls gate.py delivery, none applies directly, each pushes only its own environment's tags, production behind approval on a shipped template; the adapter row has apply and url_from and names its environment; red when the pipeline is missing; n/a with delivery.execution local or nothing to deploy
+  gate.py delivery --run|--rollback|--teardown --env E [--json]   the one executor: validate → plan → migrate (trace) → apply → probe every healthCheckPath → performance → record tag deploy/E/{ts} → lkg/E/{ts} when green (tags created, never pushed); teardown runs the adapter's destroy, no tag; refused outside CI when delivery.execution is ci; exit 1 red
+  gate.py delivery --last E | --lkg E               the latest record / last-known-good record of E as JSON; exit 1 none
   gate.py contracts --parity [--json]               EVOL-070, the loop member contract-parity (needs a build): the contract tests (the test files under contracts.tests_root, through seal --scoped's dispatch) record each answer to CONTRACT_OBSERVED — every status declared, every code in the catalog and the operation's x-error-codes, every operation answered; contracts.emit writes the code's OpenAPI and oasdiff diff --fail-on-diff compares each twin (shapes, constraints, security, responses, info.version); exit 1 red · n/a without an OpenAPI contract
   gate.py digests [--base B --branch B --control-point P] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint; every bound rule referenced as rules/<name>.md — the change on disk vs the merge-base); exit 1 stale/incomplete
   gate.py traceability [--json]                    every declared test case (docs/spec/*/test_plan.md) has a linking test at the ONE home (config: traceability); unknown or malformed links red; the baseline only shrinks; exit 1 red · n/a when not required
@@ -83,7 +86,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, aligned as aligned_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
+    from gates import agents as agents_mod, aligned as aligned_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, delivery as delivery_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
     from gates.common import GateFault, clean, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -495,6 +498,34 @@ def cmd_performance(repo, a):
     return 0 if r["ok"] else 1
 
 
+def cmd_delivery(repo, a):
+    try:
+        acts = [x for x in ("run", "rollback", "teardown", "check", "pr") if getattr(a, x)] + (["last"] if a.last else []) + (["lkg"] if a.lkg else [])
+        if len(acts) != 1:
+            raise GateFault("name one of --run, --rollback, --teardown, --last, --lkg, --check, --pr")
+        if acts[0] in ("run", "rollback", "teardown") and not a.env:
+            raise GateFault(f"--{acts[0]} needs --env (the environment deployed)")
+        if acts[0] == "pr" and not (a.branch and a.base):
+            raise GateFault("--pr needs --branch (the PR's source branch) and --base (its target)")
+        if acts[0] in ("last", "lkg"):
+            env = a.last or a.lkg
+            rec = delivery_mod.last(repo, env) if a.last else delivery_mod.lkg(repo, env)
+            if rec is None:
+                print(f"delivery: no {'record' if a.last else 'last-known-good record'} for {env}", file=sys.stderr)
+                return 1
+            print(json.dumps(rec, sort_keys=True))
+            return 0
+        r = {"run": lambda: delivery_mod.run(repo, a.env), "rollback": lambda: delivery_mod.rollback(repo, a.env),
+             "teardown": lambda: delivery_mod.teardown(repo, a.env),
+             "check": lambda: delivery_mod.check(repo),
+             "pr": lambda: delivery_mod.pr(repo, _base(repo, a), a.branch)}[acts[0]]()
+    except GateFault as e:
+        print(f"delivery: RED — {clean(e)}", file=sys.stderr)
+        return 1
+    print(json.dumps(r, default=sorted) if a.json else delivery_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
 def cmd_canary(repo, a):
     if a.fixture:
         print(canary_mod.fixture(), end=""); return 0
@@ -728,6 +759,7 @@ def build_parser():
     p = sub.add_parser("contracts"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--parity", action="store_true"); p.set_defaults(fn=cmd_contracts)
     p = sub.add_parser("data"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_data)
     p = sub.add_parser("performance"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--run", action="store_true"); p.add_argument("--site", default=""); p.add_argument("--url", default=""); p.add_argument("--rebaseline", default=None); p.set_defaults(fn=cmd_performance)
+    p = sub.add_parser("delivery"); p.add_argument("--run", action="store_true"); p.add_argument("--rollback", action="store_true"); p.add_argument("--teardown", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--pr", action="store_true", help="the verdicts the PR demands: sweep + smoke (owed: feature branch, full-sdlc, not docs only)"); p.add_argument("--base", default=None); p.add_argument("--branch", default=""); p.add_argument("--last", default=None, metavar="ENV"); p.add_argument("--lkg", default=None, metavar="ENV"); p.add_argument("--env", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_delivery)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("write-target"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_write_target)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)

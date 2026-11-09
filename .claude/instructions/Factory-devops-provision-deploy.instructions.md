@@ -38,6 +38,22 @@ FUNCTION resolve_command_scope(command, FEATURE_ID, ENV):
   RETURN {scope, affected_resources, base_path}
 ```
 
+## Execution Mode (EVOL-081)
+
+`mode = READ config/quality.json → delivery.execution` (`ci` | `local`; derived at SETUP). One executor either way: `python3 scripts/gate.py delivery {--run|--rollback|--teardown} --env {ENV}` — validate, plan, migrate, apply, probe, record tag `deploy/{ENV}/{ts}`, `lkg/{ENV}/{ts}` when every probe is up, performance. Exit 1 = red: report its plain message, never retry unasked.
+
+- `ci`: the agent never runs the adapter's `apply`/`destroy` (denied, `gate.py write-target` class `deploy`). It **starts and watches** the pipeline run:
+  - GitHub: `gh workflow run deploy.yml --ref {ref} -f action={deploy|rollback|teardown} -f env={ENV} -f run_key={uuid}`; find the run whose display title ends in `{uuid}` (`gh run list --workflow deploy.yml --json databaseId,displayTitle`), then `gh run watch {run_id} --exit-status`. Production dispatches run from `main` only.
+  - Bitbucket: trigger `custom: deploy-{ENV}`, `rollback-{ENV}` or `teardown-{ENV}` through the pipelines API, poll until `COMPLETED`, read its result.
+  - Any other platform (its pipeline authored at SETUP): the trigger its pipeline file's header names — action, env, ref and run key, through the platform's CLI or API, sourced by the docs reader — then watch that run to its result.
+  - Production waits for the approval in the platform (protected environment / manual trigger); say so, then watch.
+  - Generated IaC ships by branch + PR; the pipeline applies it.
+  - Before the PR: `--ref` is the feature branch, ENV non-production — the smoke (QA --verify) runs on that build and its report rides the PR (`gate.py delivery --pr`, RDR 5).
+  - The deploy state is the record tags, read through `gate.py delivery --last {ENV}` / `--lkg {ENV}` — in both modes. The pipeline pushes them to origin: `git fetch --tags --force origin` before every read. `deployment_report_*.md` is a human summary, never the state.
+- `local`: the agent runs the executor itself, then pushes the `deploy/*` and `lkg/*` tags.
+
+Last deploy and last good state: `gate.py delivery --last {ENV}` / `--lkg {ENV}` (JSON) — never a report file.
+
 ---
 
 ## IaC Descriptor-Driven Generation
@@ -89,7 +105,7 @@ FOR EACH resource IN design.md § Infrastructure Needs:
       outputs: Connection strings, endpoints, ARNs
   
   Step 4: Validate
-    EXECUTE: {iac_descriptor.commands.validate}
+    EXECUTE: the adapter's `validate` (config/quality.json → delivery.adapter; null → skip)
     IF errors: FIX and regenerate
   
   Step 5: Registry Update
@@ -107,7 +123,7 @@ IF resource.type == "function" (from design.md):
     x-serverless-timeout: seconds
     x-serverless-trigger: {type: api-gateway|sqs|sns|s3|schedule, source: ...}
   
-  GENERATE per iac_tool:
+  GENERATE per deploy_tool:
     SAM: AWS::Serverless::Function in template.yaml
     AWS CDK: new lambda.Function() in stack
     serverless-framework: functions block in serverless.yml
@@ -208,14 +224,14 @@ Phase 1: Generate IaC (if not exists)
   OUTPUT: Files in infra/features/{FEATURE_ID}/
 
 Phase 2: Dry-Run
-  EXECUTE: {iac_descriptor.commands.plan} (terraform plan, pulumi preview, cdk diff, etc.)
+  EXECUTE: the adapter's `plan` (config/quality.json → delivery.adapter; ci: no PR job plans — the plan runs inside the deploy run, before apply; review the IaC diff in the PR)
   PRESENT changes to user for confirmation
   IF destructive changes on data-bearing resources: ❌ BLOCK until backup confirmed
 
-Phase 3: Apply
-  EXECUTE: {iac_descriptor.commands.apply}
-  Monitor output for errors
-  IF error: Provide troubleshooting guidance, DO NOT auto-retry without user consent
+Phase 3: Apply (§ Execution Mode)
+  ci: commit the IaC on a branch, PR, merge → start + watch the deploy run
+  local: python3 scripts/gate.py delivery --run --env {ENV}
+  IF red: Provide troubleshooting guidance, DO NOT auto-retry without user consent
 
 Phase 4: Healthcheck
   FOR EACH provisioned resource:
@@ -253,7 +269,7 @@ Phase 2: Sequential Tier Provisioning
   FOR EACH tier IN [0, 1, 2, 3]:
     FOR EACH resource IN tier:
       Generate IaC (if needed)
-      Dry-run → User confirmation → Apply → Healthcheck
+      Dry-run → User confirmation → Apply (§ Execution Mode) → Healthcheck
     
     IF any resource in tier fails:
       ❌ STOP provisioning of higher tiers
@@ -314,6 +330,7 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
 
   # 4. PREVENTIVE-SWEEP gate (full-sdlc preset only)
   #    Applies to dev and any non-production environment. Production is already gated by QA APPROVED below.
+  #    ci (EVOL-081): the PR pipeline already blocks the merge without this verdict for the head SHA; this check stays.
   IF FEATURE_ID IS NOT NULL AND ENV != production_env:
     feature_phases = READ docs/setup.md → project_tracking.feature_phases
     IF feature_phases == "full-sdlc":
@@ -396,6 +413,10 @@ Phase 2: Pre-Flight
   VERIFY build artifacts exist (from IMPLEMENT --build)
   VERIFY contract files haven't changed since last build
 
+Phases 3–5 by mode (§ Execution Mode):
+  ci: start + watch the run; the executor validates, plans, migrates, applies, probes, records and measures (no stage builds an artefact: the adapter's own tool builds — `vercel build`, `fly deploy --remote-only`, the IaC's image step). Read the result: git fetch --tags --force origin, then gate.py delivery --last {ENV}
+  local: python3 scripts/gate.py delivery --run --env {ENV} (the steps below are what the adapter row and the strategy do)
+
 Phase 3: Build Artifacts
   Per architecture topology (Q7's codes and names, `backend.topology`):
     B1 Traditional Monolith, B12 MVC Monolith: Build single deployable
@@ -438,7 +459,7 @@ Phase 5: Post-Deploy Verification
   #   red (a threshold, the ratchet beyond margin, an unreadable value) → verification fails
   #   advisory (no line for {ENV} yet) → passes; the run wrote the first line
   #   a legitimate slowdown → only with an accepted ADR/FDR: add --rebaseline '<record id>' (thresholds still block; one record re-baselines a site once)
-  #   a written line (docs/project_log/performance_baseline.jsonl) is committed with this deploy's artefacts
+  #   the measure lands in the deploy record tag (gate.py delivery) — no file to commit (EVOL-081)
   VERIFY no error spike in logs
   
   # Synthetic Data Seeding (non-production only — see Seed Pipeline Protocol)
@@ -682,22 +703,22 @@ TRIGGERS: Failed smoke tests, degraded metrics, incidents
 
 PROCESS:
   1. Resolve scope
-  2. READ deployment history from deployment_report_*.md files
-  3. DETERMINE rollback target (previous successful deployment)
+  2. target = python3 scripts/gate.py delivery --lkg {ENV}   # the last good state (EVOL-081); none → ❌ BLOCK "no good deploy recorded for {ENV} — nothing to roll back to"
+  3. The rollback target is target.sha
   3b. CLASSIFY the data range (EVOL-071): python3 scripts/gate.py data --base {target ref} --json → each migration
       after the target with its class. Only `expand` → their downs run, newest first. Any `contract` → no down runs:
       the code and the traffic roll back, the data stays, and the report offers forward-fix or a restore from backup
       by the owner's RDR — the agent never decides a destructive data operation. Fail-closed: a gate fault, an
       output that is no JSON, or `n/a` (no answered migration tool, an engine the pack does not cover) counts as
       `contract` — no down runs.
-  4. EXECUTE rollback per strategy:
-     
+  4. EXECUTE rollback (§ Execution Mode): ci → start + watch the run with action=rollback; local → gate.py delivery --rollback --env {ENV}
+     It redeploys target.sha through the same steps; its strategy:
      blue-green: Switch traffic back to old slot (instant)
      canary: Destroy canary instances, restore full traffic to old version
      rolling: Redeploy previous version using same rolling strategy
   
-  5. VERIFY rollback successful (healthcheck + smoke tests)
-  6. GENERATE rollback entry in deployment history
+  5. VERIFY rollback successful: its own deploy/{ENV}/* record (probe up) — the re-seal
+  6. The record tag is the history entry; nothing else to write
   7. NOTIFY: "IMPLEMENT --fix {ID}" for code correction
 ```
 
@@ -727,7 +748,7 @@ PROCESS:
      Tier 2 (Compute): Destroy services, functions, containers
      Tier 1 (Data): Destroy databases, caches (after backup!)
      Tier 0 (Networking): Destroy VPC, subnets, Security Groups
-  4. EXECUTE: {iac_descriptor.commands.destroy}
+  4. EXECUTE the adapter's `destroy` (§ Execution Mode): ci → start + watch the run with action=teardown; local → gate.py delivery --teardown --env {ENV}
   5. UPDATE registry: status → DESTROYED, destroyed_at: timestamp
   6. UPDATE devops_plan.md: environments[ENV].status → DESTROYED
   7. CLEANUP: Remove IaC state files for destroyed resources

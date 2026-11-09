@@ -142,7 +142,7 @@ When generating configuration files, the agent MUST use the pinned versions from
 | Container image → base image tag | `stack_versions.components.{runtime}` | Containerized deployment |
 | Dependency lock file / constraints file | `stack_versions.components.{package}` | Dependencies listed |
 | Language version file (e.g., `.tool-versions`) | `stack_versions.components.{runtime}` | Runtime selected |
-| IaC version constraint | `stack_versions.components.{iac_tool}` | IaC selected |
+| IaC version constraint | `stack_versions.components.{deploy_tool}` | IaC selected |
 | CI/CD pipeline → runtime setup action | `stack_versions.components.{runtime}` | CI/CD configured |
 | Docker Compose → service image tags | `stack_versions.components.{service}` | Infrastructure services selected |
 
@@ -155,7 +155,7 @@ When generating configuration files, the agent MUST use the pinned versions from
 3. Map backend stack (runtime, framework, topology, communication_style)
 4. Map frontend stack (framework, meta_framework, pattern, state_management)
 5. Map database configuration (primary, secondary, cache)
-6. Map hosting/DevOps (provider, iac_tool, secrets_manager, ci_cd)
+6. Map hosting/DevOps (provider, deploy_tool, secrets_manager, ci_cd)
 7. Map security/compliance settings
 8. Map AI capabilities if enabled
 9. Write final constitution to `docs/constitution.md`
@@ -688,7 +688,7 @@ Resolve every base-path placeholder used downstream into a concrete project-rela
    | `{{CONTRACTS_BASE_PATH}}` | Fixed | Always `contracts/` (cross-stack) |
    | `{{CONFIG_BASE_PATH}}` | Fixed | Always `config/` |
    | `{{SCRIPTS_BASE_PATH}}` | Fixed | Always `scripts/` |
-   | `{{INFRA_BASE_PATH}}` | Q20 hosting + Q20.1 iac_tool | Always `infra/` (dir exists even without IaC) |
+   | `{{INFRA_BASE_PATH}}` | Q20 hosting + Q20.1 deploy_tool | Always `infra/` (dir exists even without IaC) |
    | `{{MONOREPO_APPS_PATH}}` | Project structure (detected or declared) | `apps/` when monorepo; null otherwise |
    | `{{TESTS_BASE_PATH}}` | Q5 runtime | Runtime's idiomatic test root (e.g., Java's `src/test/java`, Go's inline `_test.go` → null, Ruby's `spec/` or `test/`, etc.) |
 
@@ -918,9 +918,11 @@ In addition to the CI pipeline, materialise the platform-specific governance che
 | `GCP Cloud Build` | `governance-check.gcp-cloudbuild.yaml` | `cloudbuild-governance.yaml` |
 | `Jenkins` | `governance-check.jenkins.groovy` | `Jenkinsfile.governance` |
 
+**`target_mode: merge`** (the Bitbucket governance check, auto-tag and deploy pipeline share `bitbucket-pipelines.yml`): never overwrite the target. Merge mapping by mapping; a step list under the same key (`pull-requests: '**'`, `branches: main`) concatenates in manifest order; a top-level scalar (`image`) keeps the target's — each template's steps carry their own `image`. An existing target is merged into, never skipped.
+
 The workflow MUST be wired so that any PR transitioning an ADR file under `docs/project_log/adr/` from `status: proposed` to `status: accepted` without modifying `docs/constitution.md` in the same diff fails the gate. Bypass is via the `[adr-backfill]` commit-message marker (one-shot historical migration only). Additional governance gates are added as steps in the same workflow — do NOT split into multiple workflows per gate.
 
-**IaC Foundation (conditional on `hosting.iac_tool != None`):**
+**IaC Foundation (conditional on `hosting.deploy_tool IN [Terraform, Pulumi, AWS CDK]`):**
 - Create `infra/modules/`, `infra/features/`
 - Initialize `config/infrastructure_registry.json`
 - Materialize `.claude/rules/iac.md`
@@ -963,6 +965,7 @@ Mirror the Governance Workflow shape — pick the platform-specific source from 
 - Q23.2 offers no Skip (#116): the three scanner placeholders always resolve, `security_scan.enabled` stays `true`; a scanner not declared blocks `scripts/security-scan.sh --secrets` in every context. `SCA_THRESHOLD` (Q23.3) absent or unreadable STOPS materialisation — never a default.
 - `{{SECURITY_STANDARD}}` ← Q35 `security.standard` (`asvs-5.0` | `none`); `{{SECURITY_LEVEL}}` ← Q35.1 `security.level` (`L1` | `L2` | `L3`). Standard `none` asks no level: `{{SECURITY_LEVEL}}` renders `n/a` (`rules/security_policy.md § Verification Standard` reads `none` · `n/a`; the design's RQ mapping column reads n/a). Never a sample level.
 - **Browser MCP (EVOL-077).** `qa.browser_mcp` (Q23.5, asked when a frontend exists) `chrome-devtools` or `playwright` → run the block of Factory-setup-upgrade § **browser-mcp (EVOL-077)** in the project root: it merges the registry's pinned, `--isolated` server into `.mcp.json`. `none`, or no frontend → no `.mcp.json` entry. `qa.smoke_cadence` (Q23.4) lands only in `docs/setup.md`; `QA --verify` reads it there.
+- **Delivery (EVOL-081).** From `gate.py discovery --resolve --json → configures`: `{{DELIVERY_EXECUTION}}` ← `delivery.execution` (`ci` | `local`, also written beside `delivery.mode` in `docs/setup.md`); `{{DELIVERY_ADAPTER}}` ← `delivery.adapter`, JSON verbatim (`null` when absent); `{{DELIVERY_MIGRATE}}` ← `delivery.migrate`, a JSON string or `null`. `IAC_CMD_VALIDATE` / `_PLAN` / `_APPLY` / `_DESTROY` ← the row's fields (`null` → `N/A`). `hosting.provider == Other` → the row the discovery finalisation's RDR declared, or `null` (the deploy stage fails closed with a plain message). DC-44 lands where a deploy tool is answered. **Authored pipeline (RDR 9):** `delivery.execution: ci` and a hosting provider answered, on a Q21 platform outside `delivery.COVERED` (no shipped template yet — epic #210 ships them one by one) → the agent writes the deploy pipeline at `delivery.PIPELINE_FILE[platform]` (wired from the platform's main pipeline where it reads includes), following the shipped templates' stages: the PR verdict job (`gate.py delivery --pr`), staging on merge to main, production behind the platform's own human approval, rollback and teardown on demand, each stage `python3 scripts/gate.py delivery --run|--rollback|--teardown --env <env>` and pushing only its own environment's tags. It also keeps, as the shipped templates do: the runtime-surface skip first (`gate.py runtime-surface --changed`); a dispatch on a ref, for the smoke before the PR; production's credentials bound to production's stage only (the platform's per-environment secret scope), never project-wide and never in the PR verdict job; production deployed from the main branch only; `--env` a literal or a validated choice, never interpolated into script text; tag write rights only on the stages that push tags. On-demand deploy, rollback and teardown take the action, the environment, the ref and a run key that names the run; the pipeline file's header names the trigger (CLI or API call), the approval mechanism and the secret scope used, each sourced — the one home DEVOPS `--deploy` reads, written alike by `--generate` and `--upgrade`. The file carries the generation header of the shipped templates and joins `surface.deploying_workflows`, so the runtime-surface parity gate reads it. No hosting provider answered (no server) → no pipeline (RDR 7). The platform's syntax and approval mechanism come from the docs reader (Beat 0), sourced in the report — the platform's current best practice, never remembered syntax. **Invariant:** `python3 scripts/gate.py delivery --check` is green on the materialised tree, else BLOCK.
 - **Product laws by scope (EVOL-072).** `project_scope` (Q4.5) `full-stack`, `backend-only` or `integration` → the error catalog `contracts/errors.yaml` lands (manifest `stack_conditional`), the defect rows DC-36, DC-37 and DC-39 land (the option's `configures → defect_prevention.classes`), and the loop member `contract-parity` lands in `verification.gates` (EVOL-070); `frontend-only` gets none of them. DC-38 (a delivered artefact never deleted) lands in every project. The canonical-components section lands inside `ux-constitution.md`, so only where that file lands. `domain.monetary_amounts` (Q36, asked only for those three scopes) `true` → `rules/monetary-amounts.md` lands; `false`, or not asked → it does not. Never inferred: an unanswered Q36 is asked, never defaulted.
 - This file is consumed by `factory-complexity-check` (BVL post-test step), `factory-pr-review` (axis 6 — complexity; Step 0-bis — code_review; Block 3 floor is config-free), `factory-code-review` (code_review block) and `scripts/security-scan.sh` (security_scan block). `factory-sync.sh` deliberately does NOT touch `config/`; `SETUP --upgrade` owns delta propagation.
 

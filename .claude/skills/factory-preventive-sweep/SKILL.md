@@ -8,7 +8,7 @@ applicable_when:
 
 # PREVENTIVE DEFECT SWEEP
 
-> **Shared Protocol** — Control point: `Factory-devops-provision-deploy` § 4. PREVENTIVE-SWEEP gate (`DEVOPS --deploy`, `full-sdlc` preset); otherwise on request.
+> **Shared Protocol** — Control point: the pull request (EVOL-081) — the PR pipeline blocks without a fresh `COMPLETED` report for the head SHA; `Factory-devops-provision-deploy` § 4 still checks it before `DEVOPS --deploy` (`full-sdlc` preset); otherwise on request.
 > Catches runtime defects that static gates cannot detect by searching for empirically-discovered defect patterns across backend, frontend, and infrastructure.
 > **Prerequisite:** Feature must have passed BVL (all static gates GREEN) before running a sweep.
 
@@ -197,7 +197,7 @@ After all scope sub-agents complete:
 3. **Group by defect class** — show DC-N header with finding count
 4. **Mark CLEAN or UNVERIFIED** — for each DC with zero findings, explicitly mark `DC-N: CLEAN`; every DC of a scope in `not_delivered` is marked `DC-N: UNVERIFIED (scope {scope} not delivered)` — never CLEAN (EVOL-058/059: an undelivered critic is never a clean review). A non-empty `not_delivered` keeps the PREVENTIVE-SWEEP issue out of Done and the artefact at `status: IN_PROGRESS` until the scope is re-run and delivers.
 5. **Present to user BEFORE touching code** — the user approves the fix plan
-6. **Save report artifact** at `docs/spec/{{FEATURE_ID}}/review/preventive_sweep_{{YYYYMMDD}}.md` — with § Critic returns (every scope critic's return verbatim, one `### <scope> · round N` heading each; the appendix lives there) and `informational:` in the frontmatter (EVOL-060)
+6. **Save report artifact** at `docs/spec/{{FEATURE_ID}}/review/preventive_sweep_{{YYYYMMDD}}.md` — with § Critic returns (every scope critic's return verbatim, one `### <scope> · round N` heading each; the appendix lives there) and `informational:` in the frontmatter (EVOL-060). On `status: COMPLETED`: `certifies = RUN python3 scripts/gate.py certify --subject diff` and WRITE the printed block under frontmatter `certifies:` — `gate.py currency` recomputes it; a moved file = STALE = re-sweep (EVOL-081)
 7. **On user approval:**
    - Apply fixes in priority batches: P0 (BLOCKER) → P1 (HIGH) → P2 (MEDIUM)
    - One commit per priority group
@@ -223,6 +223,7 @@ high: N
 medium: N
 low: N
 all_resolved_in_commit: true | false
+certifies: null                        # written at COMPLETED from gate.py certify --subject diff (EVOL-081)
 not_delivered: []                      # the scopes whose critic never delivered — their DCs are UNVERIFIED below, the sweep is not COMPLETED while any remains
 informational: 0                       # the sum of the returns' Informational: lines (EVOL-060) — the findings themselves under § Critic returns
 degraded: false                        # a critic fell onto the writer's family (the ladder's last rung) — the findings go to the user's adjudication

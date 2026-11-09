@@ -274,9 +274,19 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Persist:** `hosting.provider`
 - **After:** Derives `CLOUD_PROVIDER`, influences IaC tool recommendations
 
-#### Q20.1: IaC Tool
-- **Options (filtered by hosting):** Terraform | Pulumi | AWS CDK | Docker Compose | None
-- **Persist:** `hosting.iac_tool`
+#### Q20.1: Deploy Tool (EVOL-081)
+- AWS → Terraform | Pulumi | AWS CDK
+- GCP → Terraform | Pulumi
+- Azure → Terraform | Pulumi
+- DigitalOcean → Terraform | Pulumi
+- Self-hosted → Docker Compose | Terraform
+- Vercel → Vercel CLI
+- Railway → Railway CLI
+- Fly.io → flyctl
+- Other → Other
+- **Derived, never asked:** the four one-tool rows (the registry's `decided_by` on `hosting.provider`). No `None`: a served project always deploys through a tool.
+- **Lands:** the tool's row → `config/quality.json → delivery.adapter`; `Other` → the row the finalisation declares (§ 4.1.3, step 2a).
+- **Persist:** `hosting.deploy_tool`
 
 #### Q20.2: Secrets Manager
 - **Options (filtered by hosting):** AWS Secrets Manager | GCP Secret Manager | Azure Key Vault | HashiCorp Vault | .env (local only) | None
@@ -296,7 +306,7 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Type:** the platform that hosts the repository, asked apart from the CI platform (they differ more often than not: Bitbucket + Jenkins, GitLab + GitHub Actions never, Azure Repos + Azure DevOps pipelines usually).
 - **Options:** `GitHub` | `GitLab` | `Bitbucket` | `Azure DevOps` | `Other`
 - **Simplified:** es: "¿Dónde vive el repositorio? El framework materializa la guía exacta para que el servidor impida escribir en la rama principal sin pull request ni CI verde, y la verifica en CI donde hay API." / en: "Where does the repository live? The framework materialises the exact settings so the server refuses a write to the main branch without a pull request and green CI, and verifies them at CI where an API exists."
-- **Then:** how many approvals a pull request needs before merge — `0` for a single author, otherwise the team's number; a project decision, never a framework digit. And which CI checks the server must require: the governance check (always) and the lock-step check when the project runs one.
+- **Then:** how many approvals a pull request needs before merge — `0` for a single author, otherwise the team's number; a project decision, never a framework digit. And which CI checks the server must require: the governance check (always), the lock-step check when the project runs one, and — when `delivery.execution` is `ci` on GitHub Actions and a hosting provider is answered — the Deploy workflow's `pr-verify` (the agent's sweep and smoke verdicts, EVOL-081).
 - **RDR Recommendation:** the host the `origin` remote points at (derived when SETUP runs inside a clone) · approvals `0` when the project has one author, `1` when it has a team.
 - **Tier-filtered:** All tiers.
 - **Persist:** `scm.platform` · `scm.approvals` · `scm.required_checks` (frontmatter of `docs/setup.md`, nested YAML `scm:`) → `config/quality.json → scm.platform / approvals / required_checks` at `--generate`; the runbook `docs/scm/protection.md` lands from the platform's template.
@@ -518,6 +528,7 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **RDR Recommendation:** `development` for a project that has not shipped to production — no gate becomes optional, it changes its control point (the light profile at a sub-increment push, the full one at the train close and at every pull request to the main branch). `production` once real users depend on the main branch: every branch owes the full profile. The key is read by one definition (`python3 scripts/gate.py profile`) that fails closed — an absent key, an unknown value or an unreadable manifest is `production`; no environment variable overrides it.
 - **Tier-filtered:** All tiers.
 - **Persist:** `delivery.mode` (frontmatter of `docs/setup.md`, nested YAML `delivery:`) → `delivery_mode` at the top level of `docs/project_log/governance_versions.json` at `--generate`. **Return to production mode:** set `delivery_mode: production` in that manifest in one `chore(governance): delivery mode → production` commit — from then every push owes the full profile.
+- **Derived beside it, never asked (EVOL-081):** `delivery.execution` — `ci` when `ci_cd.platform` is answered, `local` for `None` → `config/quality.json → delivery.execution`. `ci`: the pipeline deploys; a local apply is denied.
 
 #### Q33: Runtime Surface (EVOL-047)
 - **Type:** List of path globs — the POSITIVE list of what a deployment or a release can change
@@ -577,6 +588,9 @@ Questions are organized in dependency order within tiers; conditions live in the
 ### Discovery Finalization (4.1.3)
 
 1. **Set phase:** Update `docs/setup.md` → `phase: COMPLETED`
+2a. **Delivery gaps, before VVP (EVOL-081):**
+   - `hosting.provider == Other` → the adapter row has no default. RDR: (1) declare the row — `tool`, `iac`, `validate`, `plan`, `apply`, `destroy`, `url_from {kind: command|stdout|template}`, `params` (every plan / apply / destroy names `{env}` or a per-environment param, RDR 6), `secrets` (vault names only), `rollback: redeploy-lkg`; (2) pick a covered host; (3) no deploy stage — the pipeline fails closed with a plain message. The row lands in `config/quality.json → delivery.adapter`.
+   - `ci_cd.platform` not GitHub Actions / Bitbucket Pipelines / None, with a hosting provider answered → no deploy template ships for it yet (epic #210); materialisation authors the pipeline (Factory-setup-materialization § Delivery). No RDR.
 2. **Version Verification Protocol (VVP) — § 4.1.3.1:** Resolve and pin latest stable/LTS versions for all selected stack components. See below.
 3. **Cost Estimation Protocol (CEP) — § 4.1.3.2:** Estimate monthly costs for every stack component and agent-runtime line item, persist to `docs/setup.md § costs:`, check against tier limit. See below.
 4. **Display complete summary:** General Info + Tripartite Architecture + Tooling + Databases + DevOps + AI + Project Tracking + **Pinned Versions** + **Costs (resolved)**
@@ -618,7 +632,7 @@ versionable_components:
   database:       # Q15/Q16: e.g., "PostgreSQL", "MongoDB"
   cache:          # Q17: e.g., "Redis"
   ci_cd:          # Q21: e.g., "GitHub Actions"
-  iac:            # Q20.1: e.g., "Terraform", "Pulumi"
+  iac:            # Q20.1 deploy_tool: e.g., "Terraform", "Pulumi", "flyctl"
   dependencies:   # Q26: all backend[] and frontend[] packages
 ```
 
@@ -725,7 +739,7 @@ From the persisted discovery answers, identify every cost-bearing component. Gro
 | `integration` | Q8 communication style, detected ACL count | ~$50/ACL baseline for managed integrations (Kafka, RabbitMQ, event bus); 0 for local/in-process |
 | `databases` | Q15 primary, Q16 secondary, Q17 cache | Managed DB tier cost sum (Postgres + Redis, MongoDB Atlas, etc.) |
 | `hosting` | Q20 hosting, Q20.2 secrets manager | Platform base fee beyond the per-service costs already counted above |
-| `iac` | Q20.1 iac_tool | Typically free (Terraform OSS); paid tiers only for enterprise Terraform Cloud, Pulumi Business |
+| `iac` | Q20.1 deploy_tool | Typically free (Terraform OSS); paid tiers only for enterprise Terraform Cloud, Pulumi Business |
 | `observability` | Q25 logging + monitoring + error tracking + tracing | Sum of the 4 observability sub-answers per their tier mapping (Starter/Professional/Enterprise) |
 | `cicd` | Q21 CI/CD platform, Q21.1 tier | Usually free for OSS/public repos, $4-20/user for private |
 | `ai_components` | Q24a training, Q24b inference, Q24c agentic | Rough estimate — training is project-bursty, inference is per-request × volume, agentic is token spend |

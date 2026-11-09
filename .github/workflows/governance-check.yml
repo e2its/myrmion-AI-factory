@@ -32,14 +32,18 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch base branch
-        run: git fetch origin ${{ github.base_ref }}
+        env:
+          BASE_REF: ${{ github.base_ref }}   # a ref name is author data: env, never inlined into the script
+        run: git fetch origin "$BASE_REF"
 
       - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py is the list)"
         env:
           GH_TOKEN: ${{ github.token }}   # EVOL-054: the scm-protection member reads this repository's ruleset at the ci control point (metadata: read is enough)
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           chmod +x scripts/validate-governance.sh scripts/check-adr-constitution-sync.sh scripts/check-applicability-frontmatter.sh
-          python3 scripts/gate.py profile --run --control-point ci --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
+          python3 scripts/gate.py profile --run --control-point ci --base "origin/${BASE_REF}" --branch "$HEAD_REF"
 
       - name: "One definition — hooks, workflows and the preflight keep no branch list, mode read or mode override (EVOL-046)"
         run: python3 scripts/gate.py one-definition
@@ -89,12 +93,13 @@ jobs:
 
       - name: Synthetic materialisation smoke (corpus, gates, hooks on a scratch project)
         run: |
+          python3 -m pip install --quiet pyyaml==6.0.3 jsonschema==4.19.2   # EVOL-081 (before every fixture): the merged Bitbucket pipeline and the live pipeline schemas
           chmod +x scripts/materialize-synthetic.sh
           bash scripts/materialize-synthetic.sh
           bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json
           bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/upgrade-8.12.json
           bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/upgrade-8.12-api.json   # EVOL-072: scope answered, the product laws owed
-          for a in java go rust frontend-only; do   # EVOL-116: the per-file rows land on every stack, red sources included
+          for a in java go rust frontend-only bitbucket; do   # EVOL-116: the per-file rows land on every stack, red sources included; EVOL-081: the merged Bitbucket pipeline
             bash scripts/materialize-synthetic.sh --answers "scripts/fixtures/synthetic-answers/$a.json"
           done
 
