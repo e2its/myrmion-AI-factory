@@ -385,17 +385,18 @@ def _production_env(rm: dict, tok: str, fetch, branches: list[str]) -> tuple[lis
 
 
 RECORD_TAGS = ("refs/tags/deploy/**/*", "refs/tags/lkg/**/*")
-RECORD_SAMPLES = {"refs/tags/deploy/**/*": "refs/tags/deploy/production/20261109T120000Z",
-                  "refs/tags/lkg/**/*": "refs/tags/lkg/production/20261109T120000Z"}
+RECORD_SAMPLES = {p: [p.replace("**/*", f"{e}/20261109T120000Z") for e in ("staging", "production")] for p in RECORD_TAGS}
+UNREAD_GLOB = re.compile(r"[\[\\{]")   # a class, an escape, a brace: not translated — an exclude holding one counts as excluding
 
 
 def _tag_match(pattern: str, ref: str) -> bool:
-    """GitHub's ruleset glob: File.fnmatch with FNM_PATHNAME — `*` and `?` stop at `/`, `**/` spans directories."""
+    """GitHub's ruleset glob: File.fnmatch with FNM_PATHNAME — `*` and `?` stop at `/`, `**/` at a segment's start spans
+    directories. `[`, `\\` and `{` match literally (an include holding one covers less: red, the safe side)."""
     if pattern == "~ALL":
         return True
     rx, i = "", 0
     while i < len(pattern):
-        if pattern.startswith("**/", i):
+        if pattern.startswith("**/", i) and (i == 0 or pattern[i - 1] == "/"):
             rx, i = rx + "(?:[^/]*/)*", i + 3
         elif pattern[i] == "*":
             rx, i = rx + "[^/]*", i + (2 if pattern.startswith("**", i) else 1)
@@ -413,7 +414,7 @@ def _record_tags(rm: dict, tok: str, fetch) -> tuple[list[str], list[str]]:
     h = {"Authorization": f"Bearer {tok}", "X-GitHub-Api-Version": "2022-11-28"}
     api = "https://api.github.com" if rm["host"] == "github.com" else f"https://{rm['host']}/api/v3"
     base = f"{api}/repos/{rm['owner']}/{rm['repo']}"
-    held, out, notes = {p: set() for p in RECORD_TAGS}, [], []
+    held, out, notes = {(p, t): set() for p in RECORD_TAGS for t in RECORD_SAMPLES[p]}, [], []
     for rs in fetch(f"{base}/rulesets?targets=tag&per_page=100", h, missing_ok=True) or []:
         d = fetch(f"{base}/rulesets/{rs.get('id')}", h, missing_ok=True) or {} if isinstance(rs, dict) else {}
         if d.get("target") != "tag" or d.get("enforcement") != "active":
@@ -421,18 +422,18 @@ def _record_tags(rm: dict, tok: str, fetch) -> tuple[list[str], list[str]]:
         ref = (d.get("conditions") or {}).get("ref_name") or {}
         inc, exc = ref.get("include") or [], ref.get("exclude") or []
         types = {r.get("type") for r in d.get("rules") or [] if isinstance(r, dict)}
-        covers = [p for p in RECORD_TAGS if any(_tag_match(str(x), RECORD_SAMPLES[p]) for x in inc)
-                  and not any(_tag_match(str(x), RECORD_SAMPLES[p]) for x in exc)]
-        if not covers:
+        covers = [k for k in held if any(_tag_match(str(x), k[1]) for x in inc)
+                  and not any(UNREAD_GLOB.search(str(x)) or _tag_match(str(x), k[1]) for x in exc)]
+        if not covers or not types & {"update", "deletion"}:
             continue
         actors = d.get("bypass_actors")
         if actors is None:
             notes.append(f"the bypass list of tag ruleset «{d.get('name')}» (not exposed to this token)")
-        elif any(a.get("bypass_mode", "always") == "always" for a in actors if isinstance(a, dict)):
+        elif actors:   # any mode — always, pull_request, exempt — skips the rule for that actor
             out.append(f"tag ruleset «{d.get('name')}» has {len(actors)} bypass actor(s) — each can still move or delete a deploy record; empty its bypass list")
-        for p in covers:
-            held[p] |= types
-    missing = [p for p, t in held.items() if not {"update", "deletion"} <= t]
+        for k in covers:
+            held[k] |= types
+    missing = list(dict.fromkeys(p for (p, _t), types in held.items() if not {"update", "deletion"} <= types))
     if missing:
         out.append(f"no active tag ruleset blocks update and deletion of {', '.join(missing)} — a person could move or delete a deploy record; "
                    "add one (Settings → Rules → Rulesets → New tag ruleset; targets as written here; rules: restrict updates, restrict deletions)")

@@ -24,7 +24,7 @@ config    `config/quality.json → delivery`: `execution` (ci | local, derived f
           RED when the platform deploys from CI and its pipeline (PIPELINE_FILE) does not call the executor — a shipped
           template on GitHub Actions / Bitbucket Pipelines, one the AI Factory authors at SETUP on every other Q21
           platform (EVOL-081 RDR 9); there the approval is the platform's own, not read here.
-          n/a with `execution: local`, no block, or no deploy tool and none answered — no server, nothing deploys (RDR 7).
+          n/a with `execution: local`, no block, or no adapter row, deploy tool or hosting provider answered — no server, nothing deploys (RDR 7).
 record    annotated tag `deploy/{env}/{YYYYMMDDTHHMMSSZ}` on the deployed SHA, message = JSON {env, sha, at, adapter,
           probe, migrations, metrics, hosting[, rebaseline]}; `lkg/{env}/{ts}` lightweight on the same SHA. This module
           creates tags only; PUSHING them is the pipeline's step (or the DEVOPS agent's, in local mode) — never here.
@@ -59,7 +59,8 @@ URL_KINDS = ("command", "stdout", "template")
 ENV_BOUND = ("plan", "apply", "destroy")
 PH = r"(?<!\$)\{%s\}"
 PLACE = re.compile(PH % r"([A-Za-z_][A-Za-z0-9_-]*)")
-PARAM_OK = re.compile(r"[A-Za-z0-9._:/@%+=,{}-]+")   # an identifier, a host, a URL — never words, quotes or $NAME
+PARAM_OK = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@%+=,{}-]*")   # an identifier, a host, a URL — never an option, words, quotes or $NAME
+USERINFO = re.compile(r"(?:^|//)[^/@]*:[^/@]*@")   # user:password@ — a credential, never a param
 REFUSED = "This project deploys from its pipeline — run DEVOPS --deploy, which starts the pipeline and watches the run."
 RESOURCES = "config/system_resources.json"
 PIPELINE_FILE = {"GitHub Actions": ".github/workflows/deploy.yml", "Bitbucket Pipelines": "bitbucket-pipelines.yml",
@@ -91,15 +92,15 @@ def execution(c: dict | None) -> str:
 
 def deploys(repo: Path) -> bool:
     """The one predicate (RDR 7): the project deploys — an adapter row, a deploy tool or a hosting provider answered (no
-    server = Q20 unanswered). Without it nothing
-    deploys: `--check` is n/a, `scm-protection` asks no production environment and no tag ruleset."""
+    server = Q20 unanswered). Without it nothing deploys: `--check` is n/a, `scm-protection` asks no production
+    environment and no tag ruleset. An unreadable block or answer home reads as deploying: the checks stay on."""
     from . import data
     try:
-        c = cfg(repo) or {}
+        c, ans = cfg(repo) or {}, data.answers(repo)
     except GateFault:
-        return True   # an unreadable block never switches the server checks off
-    ans = data.answers(repo)
-    return c.get("adapter") is not None or bool(ans.get("hosting.deploy_tool")) or bool(ans.get("hosting.provider"))
+        return True
+    told = lambda k: str(ans.get(k) or "").strip() not in ("", "None")
+    return c.get("adapter") is not None or told("hosting.deploy_tool") or told("hosting.provider")
 
 
 def adapter_problems(a) -> list[str]:
@@ -119,16 +120,19 @@ def adapter_problems(a) -> list[str]:
         if isinstance(cmd, str) and cmd.strip() and not _env_bound(cmd, par):
             out.append(f"`{k}` does not name the environment — a staging deploy could reach production; name {{env}} or a per-environment param")
     for k, v in par.items():
+        if k == "env":
+            out.append("`params.env` is the environment's own name — the executor fills {env}; rename the param")
+            continue
         seen = {}
         for e, x in (v.items() if isinstance(v, dict) else [("every environment", v)]):
             if x is None:
                 continue
-            if not isinstance(x, str) or not PARAM_OK.fullmatch(x):
-                out.append(f"`params.{k}` for {e} is {clean(repr(x), 40)} — a param is one identifier, host or URL (no spaces, quotes or $NAME); a secret goes in `delivery.secrets`")
-            elif isinstance(v, dict) and x in seen:
+            if not isinstance(x, str) or not PARAM_OK.fullmatch(x) or USERINFO.search(x):
+                out.append(f"`params.{k}` for {e} is {clean(repr(x), 40)} — a param is one identifier, host or URL (no option, spaces, quotes, $NAME or user:password@); a secret goes in `delivery.secrets`")
+                continue
+            if isinstance(v, dict) and x in seen:
                 out.append(f"`params.{k}` holds one value for {seen[x]} and {e} — one environment would deploy over the other")
-            if isinstance(v, dict):
-                seen.setdefault(x, e)
+            seen.setdefault(x, e)
     return out
 
 
@@ -402,7 +406,7 @@ def run(repo: Path, env: str, environ=None, runner=subprocess.run, now=None, mig
     prev = last(repo, env)
     trace = migrations(repo, prev["sha"] if prev else None)
     if (c or {}).get("migrate") and migrate:
-        run_cmd(repo, c["migrate"], env, e, runner, "migrate")
+        run_cmd(repo, c["migrate"], env, e, runner, "migrate", a.get("params"))
     rows.append(_row("migrate", [], f"{len(trace)} migration file(s) since {prev['sha'][:8] if prev else 'the first deploy'}"
                      + ("" if migrate else " — not run: a rollback never re-runs the forward migration")))
     out = run_cmd(repo, a["apply"], env, e, runner, "apply", a.get("params"))
@@ -444,7 +448,23 @@ def rollback(repo: Path, env: str, environ=None, runner=subprocess.run, now=None
     head = _git(repo, "rev-parse", "HEAD").strip()
     if head != good["sha"]:
         raise GateFault(f"a rollback deploys {good['lkg']} ({good['sha'][:8]}) — check that commit out first, HEAD is {head[:8]}")
+    _on_main(repo, good)
     return run(repo, env, environ, runner, now, migrate=False)
+
+
+def _on_main(repo: Path, good: dict) -> None:
+    """RDR 10: a rollback target is a commit of the main branch. Creating a tag stays open, so a well-formed record pair
+    on any commit is possible; one no merge produced is never deployed. Nothing runs when it is not on main."""
+    from .branch import default_base
+    b = default_base(repo)
+    if _git(repo, "rev-parse", "--is-shallow-repository", check=False).strip() == "true":
+        _git(repo, "fetch", "--quiet", "--unshallow", "origin", b, check=False)
+    _git(repo, "fetch", "--quiet", "origin", b, check=False)
+    r = subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", good["sha"], f"origin/{b}"], capture_output=True, text=True, timeout=60)
+    if r.returncode == 1:
+        raise GateFault(f"{good['lkg']} names {good['sha'][:8]}, which is not on origin/{b} — a record no merge produced is never rolled back to; nothing ran")
+    if r.returncode != 0:
+        raise GateFault(f"origin/{b} cannot be read, so the rollback target cannot be checked against the main branch — fetch it; nothing ran")
 
 
 def teardown(repo: Path, env: str, environ=None, runner=subprocess.run) -> dict:
@@ -574,9 +594,13 @@ def pr(repo: Path, base: str, branch: str) -> dict:
     return {"ok": not red, "entries": rows, "reason": f"{len(red)} of {len(rows)} verdict(s) red" if red else f"{len(rows)} verdict(s) green"}
 
 
-def _uncommented(text: str) -> str:
-    """A pipeline's text without its whole-line comments (`#`, `//`): a commented-out call is no call."""
-    return "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith(("#", "//")))
+def _uncommented(text: str, rel: str) -> str:
+    """A pipeline's text without its comments — a floor, not a parser: whole-line `#` in YAML; in a Jenkinsfile (Groovy)
+    `/* … */` blocks, whole-line and trailing `//`. A commented-out call is no call; `//` in YAML is live text."""
+    if rel.endswith("Jenkinsfile.deploy"):
+        text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+        return "\n".join(re.sub(r"(^|\s)//.*$", "", ln) for ln in text.splitlines())
+    return "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
 
 
 def check(repo: Path) -> dict:
@@ -596,7 +620,7 @@ def check(repo: Path) -> dict:
         return {"ok": True, "na": True, "reason": "delivery.execution is local — no pipeline deploys", "entries": []}
     if not deploys(repo):
         return {"ok": True, "na": True, "reason": "no server: no hosting provider, no deploy tool answered — nothing deploys", "entries": []}
-    body = lambda p: _uncommented((repo / p).read_text(encoding="utf-8", errors="replace"))
+    body = lambda p: _uncommented((repo / p).read_text(encoding="utf-8", errors="replace"), p)
     calls = lambda p: (repo / p).is_file() and "gate.py delivery" in body(p)
     want_file = PIPELINE_FILE.get(plat.strip()) if isinstance(plat, str) else None
     files = [want_file] if want_file and calls(want_file) else [] if want_file else [p for p in PIPELINE_FILE.values() if calls(p)]
@@ -609,7 +633,7 @@ def check(repo: Path) -> dict:
     rows = [_row("delivery.adapter", adapter_problems(c.get("adapter")), str((c.get("adapter") or {}).get("tool")))]
     for rel in files:
         raw = (repo / rel).read_text(encoding="utf-8", errors="replace")
-        text = _uncommented(raw)
+        text = _uncommented(raw, rel)
         shipped = rel in (PIPELINE_FILE[k] for k in COVERED)
         try:
             doc = parse_yaml(raw) if shipped else None

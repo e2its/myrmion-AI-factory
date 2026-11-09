@@ -45,7 +45,7 @@ FUNCTION resolve_command_scope(command, FEATURE_ID, ENV):
 - `ci`: the agent never runs the adapter's `apply`/`destroy` (denied, `gate.py write-target` class `deploy`). It **starts and watches** the pipeline run:
   - GitHub: `gh workflow run deploy.yml --ref {ref} -f action={deploy|rollback|teardown} -f env={ENV} -f run_key={uuid}`; find the run whose display title ends in `{uuid}` (`gh run list --workflow deploy.yml --json databaseId,displayTitle`), then `gh run watch {run_id} --exit-status`. Production dispatches run from `main` only.
   - Bitbucket: trigger `custom: deploy-{ENV}`, `rollback-{ENV}` or `teardown-{ENV}` through the pipelines API, poll until `COMPLETED`, read its result.
-  - Any other platform (its pipeline authored at SETUP): the trigger the materialisation report names for it — action, env, ref and run key, through the platform's CLI or API, sourced by the docs reader — then watch that run to its result.
+  - Any other platform (its pipeline authored at SETUP): the trigger its pipeline file's header names — action, env, ref and run key, through the platform's CLI or API, sourced by the docs reader — then watch that run to its result.
   - Production waits for the approval in the platform (protected environment / manual trigger); say so, then watch.
   - Generated IaC ships by branch + PR; the pipeline applies it.
   - Before the PR: `--ref` is the feature branch, ENV non-production — the smoke (QA --verify) runs on that build and its report rides the PR (`gate.py delivery --pr`, RDR 5).

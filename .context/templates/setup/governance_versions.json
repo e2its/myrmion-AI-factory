@@ -1155,7 +1155,7 @@
       "role": "The server-side branch protection runbook for Azure DevOps (EVOL-054): the exact settings — pull request required, the required checks and the approvals as configured, no force-push, no deletion — and the checklist a repository administrator ticks; verified at ci by gate.py scm-protection where the platform has an API."
     },
     "scm/protection.other.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "stack_conditional": "scm.platform == Other",
       "target": "docs/scm/protection.md",

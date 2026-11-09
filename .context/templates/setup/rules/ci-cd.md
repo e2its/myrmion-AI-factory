@@ -254,12 +254,12 @@ For secrets needed by the running application (not just the pipeline):
 
 > **Mandate:** All deployments MUST pass through defined quality gates. Production deploys require manual approval.
 
-**The pipeline is the only deployer (EVOL-081).** `config/quality.json → delivery.execution` is derived: `ci` when the project has a CI platform, else `local`.
+**The pipeline is the only deployer (EVOL-081).** `config/quality.json → delivery.execution` is derived: `ci` when the project has a CI platform, else `local`. A project with no adapter row, no deploy tool and no hosting provider answered deploys nothing: no pipeline lands and `delivery --check` is n/a (RDR 7).
 - `ci`: only the deploy pipeline provisions and deploys — the shipped template on GitHub Actions (`.github/workflows/deploy.yml`) and Bitbucket Pipelines (`bitbucket-pipelines.yml`); on every other CI platform the one SETUP authored for it (`delivery.PIPELINE_FILE`), whose production approval is the platform's own and is not read by `delivery --check`. The deploy records are tags nobody moves or deletes: on GitHub a tag ruleset `scm-protection` verifies, whatever CI pushes them; on GitLab protected tags and on Azure DevOps a denied force push, both ticked by a person; Bitbucket Cloud has none (its runbook says so). A local `apply`/`destroy` of the adapter is denied (`gate.py write-target`, class `deploy`). DEVOPS `--deploy` starts the run and watches it.
 - Production runs only in a protected environment: GitHub `environment: production` with required reviewers, deployment branches by exact name and production's secrets — every name in `delivery.secrets`, the migration's database URL too — as its environment secrets (`gate.py scm-protection` reads the first two through the API); Bitbucket `deployment: production` + `trigger: manual`.
 - One executor per deploy: `python3 scripts/gate.py delivery --run --env {env}`, from the adapter row `config/quality.json → delivery.adapter` — validate, plan, migrate, apply, probe every `healthCheckPath`, the performance measure, record tag `deploy/{env}/{ts}` (the measure in it), `lkg/{env}/{ts}` when every probe is up and the measure green.
 - Every `plan`, `apply`, `destroy` and `url_from` template of the row names its environment — `{env}` or a per-environment param (`params.X: {staging: …, production: …}`, filled by DEVOPS `--configure`); a row that does not, or a param holding one value for two environments, is red: a staging deploy never reaches production. A param value is one identifier, host or URL — a secret goes in `delivery.secrets`.
-- Rollback redeploys the last `lkg/{env}/*` through the same pipeline; its record is the re-seal.
+- Rollback redeploys the last `lkg/{env}/*` through the same pipeline, only when its commit is on the main branch (RDR 10: a planted record pair on any other commit runs nothing); its record is the re-seal.
 - The PR pipeline blocks without the agent's fresh green verdicts for the head SHA (`gate.py certify`, `gate.py currency`), where they are owed — `feature/*` but not a sub-increment, full-sdlc, not documentation only (`gate.py delivery --pr`): the preventive sweep, and the smoke at `qa.smoke_cadence` (the increment's report per slice; the aggregate on the PR that closes the feature). The agent deploys the branch to the non-production environment (`DEVOPS --deploy`, the pipeline's dispatch on that ref) and runs the smoke there before the PR.
 - Teardown runs from the pipeline too (`--teardown`, production behind the same approval).
 - `local`: DEVOPS runs the same executor from the agent's machine.
@@ -453,7 +453,7 @@ jobs:
         run: scripts/security-scan.sh --secrets
 ```
 
-**Deploy Workflow:** `.github/workflows/deploy.yml` (materialised when `delivery.execution == ci`). Each deploy job runs `python3 scripts/gate.py delivery --run --env {env}`; production carries `environment: production`.
+**Deploy Workflow:** `.github/workflows/deploy.yml` (materialised when `delivery.execution == ci` and a hosting provider is answered). Each deploy job runs `python3 scripts/gate.py delivery --run --env {env}`; production carries `environment: production`.
 
 **Auto-Tagging Workflow:** `.github/workflows/auto-tag.yml`
 > Automatically creates SemVer tags and GitHub Releases on PR merge to main.
@@ -558,7 +558,7 @@ pipelines:
             - scripts/security-scan.sh --secrets
 ```
 
-**Deploy pipelines:** merged into `bitbucket-pipelines.yml` when `delivery.execution == ci` — `custom: deploy-{env}` steps run `python3 scripts/gate.py delivery --run --env {env}`; production carries `deployment: production` + `trigger: manual`.
+**Deploy pipelines:** merged into `bitbucket-pipelines.yml` when `delivery.execution == ci` and a hosting provider is answered — `custom: deploy-{env}` steps run `python3 scripts/gate.py delivery --run --env {env}`; production carries `deployment: production` + `trigger: manual`.
 
 **Auto-Tagging:** Included as a step in `bitbucket-pipelines.yml` main branch pipeline.
 > Automatically creates SemVer tags on merge to main.

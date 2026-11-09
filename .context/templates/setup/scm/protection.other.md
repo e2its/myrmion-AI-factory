@@ -19,4 +19,5 @@
 - [ ] force-push forbidden
 - [ ] deletion forbidden
 - [ ] approvals: {{SCM_APPROVALS}}
+- [ ] deploying from CI: the record tags `deploy/**` and `lkg/**` cannot be moved or deleted ("protected tags", "tag rules") — where the host has no such setting, keep write access to the people who need it
 - [ ] ticked by: ____________ on ____________ (the reader cannot see this host)

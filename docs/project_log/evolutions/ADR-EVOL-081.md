@@ -211,6 +211,8 @@ Recommendation: 1. It keeps RDR 2's «Other fails closed» and blocks nobody who
 
 Owner's choice, verbatim: «7.1».
 
+Applied: «no server» reads as no adapter row, no deploy tool and no hosting provider answered (`delivery.deploys`) — a provider answered with no deploy tool yet is red, never n/a.
+
 ### RDR 8 — the deploy records cannot be moved or deleted (2026-11-09)
 
 Options posed:
@@ -234,6 +236,22 @@ Recommendation: 1.
 Owner's choice, verbatim: «9. durante el proceso de materilizacion crearia los artefactos necesarios el propio sitema AI Factory y modificaria lo necesario para adapatarse a esa nueva herramienta de CI/CD aplicando best practices del mercado. recuerda que es un meta framework adaptativo» — then «para nueve crea una issue para ir populando poco a poco los sistemas mas comunes», «y asociala a la epica adecuada», «o una nueva epica».
 
 Applied: materialisation and `SETUP --upgrade` author the deploy pipeline on every uncovered Q21 platform, at `delivery.PIPELINE_FILE[platform]`, with the shipped templates' stages and the platform's own approval, its syntax from the docs reader; `delivery --check` holds the generic part (the executor called, its environment named, only its own tags pushed, no direct apply) and states that the approval is the platform's own. No discovery RDR any more. Epic #210 (children #211–#215: GitLab CI, Azure DevOps, Jenkins, AWS CodePipeline, GCP Cloud Build) ships their templates one by one, each with its approval check.
+
+### RDR 10 — a forged record pair as the rollback target (2026-11-09)
+
+The tag ruleset blocks update and deletion; creation stays open. Anyone with write access can create a well-formed `deploy/{env}/{ts}` + `lkg/{env}/{ts}` pair on any commit, and the rollback takes the newest lkg. Only production's approval stood between it and a deploy.
+
+Options posed:
+1. **The rollback target must be on the main branch (`git merge-base --is-ancestor <sha> origin/<default>`), else nothing runs; the runbook says so.**
+2. Tag creation restricted to a pipeline identity (a `creation` rule and a GitHub App as bypass actor).
+3. Signed record tags, verified before the rollback.
+4. Declared only, as a residual risk.
+
+Recommendation: 1. One check on every platform, no setup; it closes the arbitrary commit. Surviving risk: a rollback to an older, legitimate main commit — production's approval still holds it.
+
+Owner's choice, verbatim: «1».
+
+Applied: `delivery.rollback` fetches the default branch (unshallowing a shallow clone) and refuses an lkg whose SHA is not an ancestor of `origin/<default_base_branch>` — nothing runs. The runbooks name it; the residual risk is the older legitimate commit.
 
 ### 1. `delivery.execution` — derived, never asked
 
@@ -356,7 +374,8 @@ Each change ships with its upgrade migration.
 - **Two CLI facts are known-cold (docs reader, 2026-11-09).** `DOCKER_HOST=ssh://…` is documented for the docker CLI, not for its compose plugin; whether `railway domain --json` prints the URL is undocumented, so Railway and Compose read a per-environment `url` param.
 - **Bitbucket Cloud has no git-tag protection (RDR 8).** A user with write access can move or delete a record; the executor never reads a malformed one, and the light check names it red until deleted.
 - **GitLab and Azure DevOps record tags are the runbook's, not the gate's.** GitLab protected tags and Azure DevOps tag permissions hold them; `scm-protection` reads only GitHub's tag rulesets.
-- **An authored pipeline's approval and secret scope are not read (RDR 9).** On a platform without a shipped template, `delivery --check` holds the executor calls and the tags, not production's approval nor where production's credentials live; the materialisation report names both, and each template of epic #210 makes them mechanical.
+- **An authored pipeline's approval and secret scope are not read (RDR 9).** On a platform without a shipped template, `delivery --check` holds the executor calls and the tags, not production's approval nor where production's credentials live; the pipeline file's header names both, and each template of epic #210 makes them mechanical.
+- **A rollback to an older main commit (RDR 10).** Creating a record tag stays open; the rollback refuses a target off the main branch, so a planted pair can only name an older commit of main — production's approval holds that one.
 - **The tag ruleset's `update` rule on a first tag push is known-cold.** The runbook has the person try it on a scratch repository with the same ruleset: a throwaway tag in the project could not be deleted.
 - **The sweep and smoke verdicts depend on the agent.** Each is the agent's word, sealed to a SHA. The pipeline checks that the verdict exists, is fresh and is green, not how it was reached.
 
@@ -389,7 +408,14 @@ Round 1 on RDR 6–9 (four lenses, 2026-11-09), cured:
 - **Authored pipeline.** A commented-out call is no call; the authoring contract adds the runtime-surface skip, the dispatch on a ref, production's credentials only on production's stage, production from the main branch only, `--env` never interpolated into script text, and tag write rights only where tags are pushed.
 - **Runbooks.** GitLab and Azure DevOps name their record-tag protection; every name in `delivery.secrets` is an environment secret; the ruleset is tried on a scratch repository.
 - **One predicate: does the project deploy?** An adapter row, a deploy tool or a hosting provider answered — no server is Q20 unanswered, as RDR 7 says. Without it `delivery --check` is n/a, `scm-protection` asks neither the `production` environment nor the tag ruleset, no deploy pipeline lands (`hosting.provider exists` on the templates, already true during an upgrade, before the deploy-tool migration runs) and none is authored.
-- **Authored pipelines** name their trigger, approval and secret scope in the report; DEVOPS `--deploy` starts them by that trigger. DEVOPS `--configure` writes the Terraform row's per-environment backend and var files. DC-44 reads the authored pipeline files too.
+- **Authored pipelines** name their trigger, approval and secret scope in the pipeline file's header; DEVOPS `--deploy` starts them by that trigger. DEVOPS `--configure` writes the Terraform row's per-environment backend and var files. DC-44 reads the authored pipeline files too.
+
+Round 2 on RDR 6–9 (four lenses, the cure diff only, 2026-11-09), cured:
+- **Params.** A value opens with a letter or a digit (never a CLI option) and carries no `user:password@`; a list or a map value is red, never a crash; a param named `env` is red (the executor fills `{env}`). The migration is filled with the row's params at the run, as at the preflight.
+- **Comments by language.** A Jenkinsfile drops `/* … */`, whole-line and trailing `//`; a YAML pipeline drops whole-line `#` only (`//` is live text there). A floor, not a parser.
+- **Tag ruleset.** Coverage is judged on a staging and a production record of each family; `**/` spans directories only at a segment's start; an exclude the reader cannot translate (`[`, `\`, `{`) counts as excluding; any bypass actor is red, whatever its mode; a covering ruleset that blocks neither update nor deletion is not judged.
+- **One predicate.** A literal `None` answers nothing; an unreadable answer home keeps the checks on.
+- **Readers aligned.** `pr-verify`, the deploy pipeline landing and the runbooks' production section all read «and a hosting provider answered»; Bitbucket's deployment variables carry `delivery.secrets`; the «other» runbook names the record tags; `rules/ci-cd.md` states the n/a. The tests that read the template tree skip in a materialised project.
 
 ## Alternatives considered
 
