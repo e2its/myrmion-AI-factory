@@ -1,4 +1,4 @@
-# Client-bounds pack — Python (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function.
+# Client-bounds pack — Python (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function
 # Sourced forms: botocore Config(connect_timeout, read_timeout, retries total_max_attempts | max_attempts) on boto3.client; requests per-call timeout=(c, r) | t; httpx timeout= with HTTPTransport(retries=n).
 # Known-cold forms are in no rule (ADR-EVOL-106).
 # Units are seconds. Extract rules match only numeric literals; a bound read from configuration is still a bound, never extracted.

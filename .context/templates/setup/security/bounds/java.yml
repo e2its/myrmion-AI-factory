@@ -1,4 +1,4 @@
-# Client-bounds pack — Java (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function.
+# Client-bounds pack — Java (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function
 # Sourced forms: AWS SDK v2 ClientOverrideConfiguration apiCallTimeout (whole call), apiCallAttemptTimeout (one attempt) + retryStrategy(b -> b.maxAttempts(n)) (total); java.net.http HttpClient connectTimeout + HttpRequest timeout (no retry).
 # Known-cold forms are in no rule (ADR-EVOL-106).
 rules:

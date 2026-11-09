@@ -1,4 +1,4 @@
-# Client-bounds pack — JavaScript and TypeScript (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function.
+# Client-bounds pack — JavaScript and TypeScript (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function
 # Sourced forms: AWS JS v3 new $XClient({maxAttempts, requestHandler: {connectionTimeout, requestTimeout, throwOnRequestTimeout: true}}); axios timeout; fetch(u, {signal: AbortSignal.timeout(ms)}); Azure JS Storage retryOptions {maxTries, tryTimeoutInMs}.
 # Known-cold forms are in no rule (ADR-EVOL-106).
 # Units are milliseconds. Extract rules match only numeric literals; a bound read from configuration is still a bound, never extracted.

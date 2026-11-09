@@ -1,4 +1,4 @@
-# Client-bounds pack — Go (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function.
+# Client-bounds pack — Go (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function
 # Sourced forms: net/http http.Client Timeout (whole call, retries none); a client with no Timeout, http.Get/Head/Post/PostForm and http.DefaultClient are unbounded.
 # Known-cold forms are in no rule (ADR-EVOL-106).
 rules:

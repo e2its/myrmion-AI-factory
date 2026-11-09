@@ -1,4 +1,4 @@
-# Client-bounds pack — C# / .NET (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function.
+# Client-bounds pack — C# / .NET (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function
 # Sourced forms: System.Net.Http HttpClient.Timeout (whole request, no retry); Azure .NET Retry.MaxRetries (retries) + Retry.NetworkTimeout (per try); AWS .NET async calls bounded by a CancellationToken (AWS Timeout does not bind async calls, so a config is never the bound).
 # Known-cold forms are in no rule (ADR-EVOL-106).
 rules:
