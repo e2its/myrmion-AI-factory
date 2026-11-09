@@ -4,8 +4,10 @@
 config    `config/quality.json → delivery`: `execution` (ci | local, derived from ci_cd.platform), `adapter` (the chosen
           deploy-tool row: validate, plan, apply, destroy, url_from, secrets — vault NAMES only), `migrate` (the
           migrations tool's deploy command or null), `secrets` (the vault names the steps need beyond the row),
-          `probe` {timeout_s, interval_s}.
---run --env E   validate → plan → migrate (trace: the migration files changed since E's last record, data.py's layout
+          `probe` {timeout_s, interval_s}, `preproduction` (EVOL-106: the stage the close deploys to and QA proves on —
+          default `staging`, the stage the shipped pipelines deploy before production), `populated` (EVOL-106: a
+          read-only command that prints one integer — the rows the environment holds before the upgrade; null = unasked).
+--run --env E   validate → plan → populated (EVOL-106: run before migrate on every environment, recorded) → migrate (trace: the migration files changed since E's last record, data.py's layout
           scan) → apply → probe every `healthCheckPath` of config/system_resources.json against the URL of `url_from`
           → the deployed measurement (performance, not written) → the record tag → the lkg tag. Any red → exit 1;
           the record is still written once apply ran (it says what is down), the lkg never. With `execution: ci` it
@@ -25,6 +27,8 @@ config    `config/quality.json → delivery`: `execution` (ci | local, derived f
           template on GitHub Actions / Bitbucket Pipelines, one the AI Factory authors at SETUP on every other Q21
           platform (EVOL-081 RDR 9); there the approval is the platform's own, not read here.
           n/a with `execution: local`, no block, or no adapter row, deploy tool or hosting provider answered — no server, nothing deploys (RDR 7).
+          EVOL-106, in every mode: a non-production value of a per-environment adapter param, as a token in a tracked
+          source file whose path does not name that environment, is red — a staging value hard-coded where production runs.
 record    annotated tag `deploy/{env}/{YYYYMMDDTHHMMSSZ}` on the deployed SHA, message = JSON {env, sha, at, adapter,
           probe, migrations, metrics, hosting[, rebaseline]}; `lkg/{env}/{ts}` lightweight on the same SHA. This module
           creates tags only; PUSHING them is the pipeline's step (or the DEVOPS agent's, in local mode) — never here.
@@ -68,6 +72,10 @@ PIPELINE_FILE = {"GitHub Actions": ".github/workflows/deploy.yml", "Bitbucket Pi
                  "AWS CodePipeline": "buildspec-deploy.yml", "GCP Cloud Build": "cloudbuild-deploy.yaml"}
 COVERED = ("GitHub Actions", "Bitbucket Pipelines")   # a shipped template; every other platform's pipeline is authored (RDR 9)
 ALL_ENVS_PUSH = re.compile(r"refs/tags/(deploy|lkg)/\*")
+PRODUCTION = "production"
+PREPRODUCTION = "staging"   # the shipped pipelines' stage before production; #147's environment answers replace it
+CODE_SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".java", ".kt", ".rb", ".php", ".cs", ".swift", ".scala", ".dart", ".ex", ".exs", ".vue", ".svelte")
+NOT_SOURCE = ("docs/", "config/", ".claude/", ".context/", "scripts/gates/")
 
 
 class Refused(GateFault):
@@ -81,6 +89,58 @@ def cfg(repo: Path) -> dict | None:
     if c is not None and not isinstance(c, dict):
         raise GateFault("`delivery` in config/quality.json is not an object")
     return c
+
+
+def preproduction(repo: Path) -> str:
+    """The one stage before production (EVOL-106): `delivery.preproduction`, default `staging`."""
+    v = ((cfg(repo) or {}).get("preproduction") or PREPRODUCTION)
+    if not isinstance(v, str) or not ENV_RE.fullmatch(v) or v == PRODUCTION:
+        raise GateFault(f"`delivery.preproduction` is {v!r} — it names the stage before production (lowercase, not `production`)")
+    return v
+
+
+def populated(repo: Path, c: dict, a: dict, env: str, e: dict, runner) -> int | None:
+    """The rows the environment holds before the upgrade (EVOL-106) — `delivery.populated`'s one integer; None unasked."""
+    cmd = c.get("populated")
+    if not isinstance(cmd, str) or not cmd.strip():
+        return None
+    out = run_cmd(repo, cmd, env, e, runner, "populated", a.get("params"), quiet=True).strip().splitlines()
+    if not out or not re.fullmatch(r"\d+", out[-1].strip()):
+        raise GateFault("`delivery.populated` did not end with one integer — it counts the rows the environment holds "
+                        "(its output is never echoed: a row is not a log line); nothing was migrated")
+    return int(out[-1].strip())
+
+
+def literals(repo: Path, c: dict | None) -> list[str]:
+    """EVOL-106 — a non-production value of a per-environment param, as a token in a tracked source file whose path
+    does not name that environment (an environment's own file may hold its own value)."""
+    par = ((c or {}).get("adapter") or {}).get("params") if isinstance((c or {}).get("adapter"), dict) else None
+    maps = {k: v for k, v in (par if isinstance(par, dict) else {}).items() if isinstance(v, dict)}
+    envs = {e for v in maps.values() for e in v}
+    prod = {x for v in maps.values() for e, x in v.items() if e == PRODUCTION}
+    vals = {}
+    for k, v in maps.items():
+        for env, x in v.items():
+            if env != PRODUCTION and isinstance(x, str) and len(x) >= 4 and x not in envs and x not in prod:
+                vals[x] = (k, env)
+    if not vals:
+        return []
+    from .contracts import TEST_PATH   # one definition of a test path
+    out = []
+    for rel in tracked_files(repo):
+        if not rel.endswith(CODE_SUFFIXES) or rel.startswith(NOT_SOURCE) or TEST_PATH.search(rel) or (repo / rel).is_symlink():
+            continue   # the source roots only (a test names its stage); a tracked link may point outside: never followed
+        try:
+            text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for x, (k, env) in vals.items():
+            if env in re.split(r"[/._-]", rel.lower()):
+                continue
+            m = re.search(r"(?<![A-Za-z0-9_.-])" + re.escape(x) + r"(?![A-Za-z0-9_-])", text)
+            if m:
+                out.append(f"{rel}:{text.count(chr(10), 0, m.start()) + 1}: `{x}` is `params.{k}` for {env} — a per-environment value lives in the adapter row, never in code")
+    return out
 
 
 def execution(c: dict | None) -> str:
@@ -301,8 +361,9 @@ def _environ(adapter: dict, environ, extra=None) -> dict:
     return base
 
 
-def run_cmd(repo: Path, cmd: str, env: str, environ: dict, runner=subprocess.run, label: str = "", params: dict | None = None) -> str:
-    """Run a row command step by step; its stdout; GateFault naming the step that failed."""
+def run_cmd(repo: Path, cmd: str, env: str, environ: dict, runner=subprocess.run, label: str = "", params: dict | None = None,
+            quiet: bool = False) -> str:
+    """Run a row command step by step; its stdout; GateFault naming the step that failed (`quiet`: never its output)."""
     out = []
     for assign, argv in steps(cmd, env, params, environ):
         try:
@@ -312,7 +373,7 @@ def run_cmd(repo: Path, cmd: str, env: str, environ: dict, runner=subprocess.run
         out.append(r.stdout or "")
         if r.returncode != 0:
             tail = (r.stderr or r.stdout or "").strip().splitlines()[-1:] or ["(no output)"]
-            raise GateFault(f"{label or argv[0]} failed (exit {r.returncode}): {clean(tail[0], 200)}")
+            raise GateFault(f"{label or argv[0]} failed (exit {r.returncode}): " + ("its output is never echoed" if quiet else clean(tail[0], 200)))
     return "".join(out)
 
 
@@ -374,7 +435,7 @@ def _row(id_, problems, note=""):
 
 def _preflight(a: dict, c: dict, env: str, e: dict) -> None:
     """Fill every command the run will run before its first step: one unfilled placeholder or unset `$NAME` runs nothing."""
-    cmds = [a.get(k) for k in ("validate", "plan", "apply")] + [c.get("migrate")]
+    cmds = [a.get(k) for k in ("validate", "plan", "apply")] + [c.get("migrate"), c.get("populated")]
     u = a.get("url_from") if isinstance(a.get("url_from"), dict) else {}
     if u.get("kind") == "command":
         cmds.append(u.get("command"))
@@ -405,6 +466,7 @@ def run(repo: Path, env: str, environ=None, runner=subprocess.run, now=None, mig
             run_cmd(repo, a[step], env, e, runner, step, a.get("params")); rows.append(_row(step, [], a[step]))
     prev = last(repo, env)
     trace = migrations(repo, prev["sha"] if prev else None)
+    rows_before = populated(repo, c or {}, a, env, e, runner)
     if (c or {}).get("migrate") and migrate:
         run_cmd(repo, c["migrate"], env, e, runner, "migrate", a.get("params"))
     rows.append(_row("migrate", [], f"{len(trace)} migration file(s) since {prev['sha'][:8] if prev else 'the first deploy'}"
@@ -434,7 +496,7 @@ def run(repo: Path, env: str, environ=None, runner=subprocess.run, now=None, mig
             if line:
                 metrics, extra = line["metrics"], {k: line[k] for k in ("hosting", "rebaseline") if k in line}
     red = [r for r in rows if not r["ok"]]
-    tag = write_record(repo, env, sha, {"adapter": a.get("tool"), "probe": probes, "migrations": trace, "metrics": metrics, **extra}, good=not red, now=now)
+    tag = write_record(repo, env, sha, {"adapter": a.get("tool"), "probe": probes, "migrations": trace, "populated": rows_before, "metrics": metrics, **extra}, good=not red, now=now)
     rows.append(_row("record", [], tag + ("" if red else f"; {tag.replace('deploy/', 'lkg/', 1)}")))
     return {"ok": not red, "entries": rows, "tag": tag, "reason": (f"{len(red)} red — no lkg tag; {tag} records what is down" if red else f"{env} deployed at {sha[:8]}, sealed {tag}")}
 
@@ -616,7 +678,10 @@ def check(repo: Path) -> dict:
         if execution(c) != want:
             return {"ok": False, "entries": [_row("delivery.execution", [f"is {execution(c)}, but ci_cd.platform is {plat} — it derives {want} (SETUP --upgrade writes it); a flipped key switches the CI-only controls off"])],
                     "reason": "delivery.execution is not what ci_cd.platform derives"}
+    lit = literals(repo, c)
     if execution(c) == "local":
+        if lit:
+            return {"ok": False, "entries": [_row("literals", lit)], "reason": "a per-environment value is hard-coded"}
         return {"ok": True, "na": True, "reason": "delivery.execution is local — no pipeline deploys", "entries": []}
     if not deploys(repo):
         return {"ok": True, "na": True, "reason": "no server: no hosting provider, no deploy tool answered — nothing deploys", "entries": []}
@@ -630,7 +695,8 @@ def check(repo: Path) -> dict:
             return {"ok": False, "entries": [_row(want_file, [f"{plat} deploys from CI and {want_file} does not call `gate.py delivery --run` — {how}"])],
                     "reason": "the deploy pipeline is missing"}
         return {"ok": True, "na": True, "reason": "no deploy pipeline file and no CI platform answered", "entries": []}
-    rows = [_row("delivery.adapter", adapter_problems(c.get("adapter")), str((c.get("adapter") or {}).get("tool")))]
+    rows = [_row("delivery.adapter", adapter_problems(c.get("adapter")), str((c.get("adapter") or {}).get("tool"))),
+            _row("literals", lit, "no per-environment value hard-coded in source")]
     for rel in files:
         raw = (repo / rel).read_text(encoding="utf-8", errors="replace")
         text = _uncommented(raw, rel)

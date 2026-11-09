@@ -24,11 +24,14 @@
     ],
     "performance.web": "standard",
     "qa.smoke_cadence": "per-slice",
-    "qa.browser_mcp": "none"
+    "qa.browser_mcp": "none",
+    "testing.e2e_tool": "playwright"
   },
   "expect": {
     "landed": [
-      ".claude/rules/ux-constitution.md"
+      ".claude/rules/ux-constitution.md",
+      "tests/e2e/support/clauses.ts",
+      "tests/e2e/specs/canary.spec.ts"
     ],
     "absent": [
       ".claude/rules/database.md",

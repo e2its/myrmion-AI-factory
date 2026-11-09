@@ -48,7 +48,8 @@ MEMBERS = [
     ("data",             False, False, "gate.py",                 ["gate", "data", "--base", "{base}", "--branch", "{branch}"], False),
     ("performance",      False, False, "gate.py",                 ["gate", "performance", "--base", "{base}", "--branch", "{branch}"], False),
     ("delivery",         False, False, "gate.py",                 ["gate", "delivery", "--check"], False),
-    ("qa",               False, False, "gate.py",                 ["gate", "qa", "--check", "--base", "{base}", "--branch", "{branch}"], False),
+    ("qa",               False, False, "gate.py",                 ["gate", "qa", "--check", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
+    ("proof",            False, False, "gate.py",                 ["gate", "proof", "--check"], False),
     ("traceability",     False, False, "gate.py",                 ["gate", "traceability"], False),
     ("discovery",        False, False, "gate.py",                 ["gate", "discovery"], True),   # the SETUP question registry lives in the framework repo; a project consumes it in place
     ("scm-protection",   False, False, "gate.py",                 ["gate", "scm-protection", "--control-point", "{control_point}"], False),
@@ -60,6 +61,7 @@ MEMBERS = [
     ("code-review",      False, False, "preflight Block 20 (marker)", None, False),
     ("sast",             True,  False, "BVL full loop (the security lens per phase; repo-wide at the loop)", None, False),
     ("complexity",       True,  False, "BVL full loop (MCP, after the tests)", None, False),
+    ("bounds",           True,  False, "BVL full loop (gate.py bounds, where hosting.type == function)", None, False),
     ("tests",            True,  False, "BVL full loop", None, False),
     ("lint",             True,  False, "BVL full loop", None, False),
     ("typecheck",        True,  False, "BVL full loop", None, False),

@@ -10,12 +10,20 @@ the increment state against the report. QA writes the report; this module decide
           rules/ai_budget_governance.md is materialised, QA-PRE-DEPLOY and QA-DAST-1..3 each run or `n/a: <reason>`
           — an absent probe is one skipped in silence; with `qa.dast_tool: owasp-zap` answered the baseline scan
           (QA-DAST-1) never says n/a. The completion hook asks it before a qa_report is written approved (`approved`).
+          EVOL-106 `proof` row, for a report whose `id:` is a feature with a test plan: a ticked `[QA-TC-X]` whose
+          `gate.py proof --trace` entry has no evidence is red (the mark was not read from the run); an aggregate
+          report (`report_kind: qa_report_final`) needs the feature's whole trace green — a baselined case is red.
 --ready --env E   QA's preconditions, read from #135's deploy record (`gate.py delivery --last E`), never probed here:
           reached (the record's SHA is HEAD, or an ancestor whose runtime surface HEAD has not moved), alive (a
           non-empty probe, every service `up`), migrated (a `migrations` trace; a shipped migration needs
           `delivery.migrate`, or an answered `database.migrations_tool` whose registry row configures
           `delivery.migrate: null` — it migrates inside the application (DbUp), the alive probe its proof). n/a when the
           project deploys nothing.
+          EVOL-106, with `--feature F` (the close, on `delivery.preproduction`): upgraded (every migration F adds was
+          applied at least once over `populated > 0`, by a record whose build carries it; `delivery.populated` null while F adds one is red), lkg (the
+          stage's newest record is good, an `lkg/` tag on its SHA — #127's verdict, not restated), production (every
+          adapter command and the URL template fill for production), rollback (`docs/spec/F/devops_plan.md` §
+          Rollback: non-empty Restores and Cannot restore lines, every contract migration of F named under the latter).
 --check   (light member) on base...HEAD, under the full-sdlc preset: an INC that this change flips to MERGED (MERGED
           in a changed increment_plan.md, not MERGED at the merge-base) needs its newest `qa/qa_report_INC-N_*.md`
           approved and approvable; every changed qa_report that is approved is approvable. An increment merged
@@ -35,6 +43,7 @@ REQUIRED = ("QA-PRE-DEPLOY", "QA-GOV-1", "QA-GOV-PRIV", "QA-DAST-1", "QA-DAST-2"
 AIB = "QA-GOV-AIB"
 DAST = re.compile(r"QA-DAST-\d+")
 ITEM_ID = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\[.\]\s*\[(QA-[A-Z0-9-]+)\]")
+TC_TICKED = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\[[xX]\]\s*\[QA-TC-([^\]\s]+)\]")
 FINDINGS = re.compile(r"(?m)^(?P<lvl>#{2,3})\s+(?:\d+\.\s*)?Findings\s*$")
 NA = re.compile(r"\bn/a\b", re.I)
 NA_REASON = re.compile(r"\bn/a:[^<\w]*\w", re.I)   # disjoint classes: linear on a writer-controlled line
@@ -109,7 +118,7 @@ def findings(text: str) -> list[dict] | None:
     return out
 
 
-def verdict(repo: Path, text: str) -> dict:
+def verdict(repo: Path, text: str, control_point: str = "push") -> dict:
     from . import checklist
     thr = threshold(repo)
     rows = []
@@ -148,9 +157,41 @@ def verdict(repo: Path, text: str) -> dict:
                  "problems": [f"[{i}] is absent — " + ("a DAST probe skipped in silence: run it or tick it `n/a: <reason>`"
                                                        if DAST.fullmatch(i) else "QA owes this item on every report")
                               for i in missing] + na})
+    pr = _proof_row(repo, text, control_point)
+    if pr:
+        rows.append(pr)
     red = [r for r in rows if not r["ok"]]
     return {"ok": not red, "entries": rows, "threshold": thr,
             "reason": f"not approvable — {len(red)} of {len(rows)} check(s) red" if red else f"approvable — blocking severity `{thr}`"}
+
+
+def _proof_row(repo: Path, text: str, control_point: str = "push") -> dict | None:
+    """EVOL-106 — the marks read from the run: a ticked `[QA-TC-X]` with no trace evidence is red; an aggregate report
+    needs the whole trace of its feature green. None when the report names no feature with a test plan."""
+    fm = frontmatter_of(text)
+    f = str(fm.get("id") or "").strip()
+    if not f or "/" in f or not (repo / "docs/spec" / f / "test_plan.md").is_file():
+        return None
+    from . import proof
+    t = proof.trace(repo, f, control_point)   # at ci the seal is not on the runner: n/a, never red (seal.check)
+    if t.get("na"):
+        return None
+    ev = {e["case"]: e for e in t["trace"]}
+    probs = []
+    for ln in text.splitlines():
+        m = TC_TICKED.match(_uncomment(ln))
+        if not m:
+            continue
+        e = ev.get(f"{f}/{m.group(1)}")
+        if e is None:
+            probs.append(f"[QA-TC-{m.group(1)}] is ticked and {f}'s test plan declares no case `{m.group(1)}`")
+        elif not e["evidence"]:
+            probs.append(f"[QA-TC-{m.group(1)}] is ticked with no evidence — " + "; ".join(e["problems"]) + " (the mark is read from the run: gate.py proof --trace)")
+    final = "qa_report_final" in str(fm.get("report_kind") or "")
+    if final and not t["ok"]:
+        probs += [f"{r['id']}: {p}" for r in t["entries"] if not r["ok"] for p in r["problems"]]
+    return {"id": "proof", "ok": not probs, "problems": probs,
+            "note": f"{len(t['trace'])} case(s) of {f} traced" + (", the whole trace green" if final else "")}
 
 
 def _answer(repo: Path, k: str):
@@ -169,8 +210,11 @@ def _in_app(repo: Path, tool) -> bool:
     return isinstance(row, dict) and "delivery.migrate" in row and row["delivery.migrate"] is None
 
 
-def ready(repo: Path, env: str) -> dict:
+def ready(repo: Path, env: str, feature: str | None = None) -> dict:
     from . import delivery, runtime
+    from .traceability import FEATURE
+    if feature is not None and not FEATURE.fullmatch(feature):
+        raise GateFault(f"`{feature}` is not a feature id (the plan folder under docs/spec/, e.g. FEAT-001)")
     if not delivery.deploys(repo):
         return {"ok": True, "na": True, "entries": [], "reason": "the project deploys nothing (no adapter row, deploy tool or hosting provider) — no deployed build to prove"}
     rec = delivery.last(repo, env)
@@ -203,9 +247,95 @@ def ready(repo: Path, env: str) -> dict:
     else:
         migrated = []   # a runner ran them, or the answered tool migrates inside the application (alive proves it)
     rows.append({"id": "migrated", "ok": not migrated, "problems": migrated, "note": f"{len(mig) if isinstance(mig, list) else 0} migration file(s) traced"})
+    if feature:
+        rows += _close_rows(repo, env, feature, rec)
     red = [r for r in rows if not r["ok"]]
+    what = "reached, alive and migrated" + (f"; {feature} upgraded over data, lkg, production-filled, rollback stated" if feature else "")
     return {"ok": not red, "entries": rows,
-            "reason": f"{len(red)} precondition(s) red — QA does not start" if red else f"{env}: reached, alive and migrated"}
+            "reason": f"{len(red)} precondition(s) red — QA does not start" if red else f"{env}: {what}"}
+
+
+ROLLBACK = re.compile(r"(?m)^##\s+Rollback\s*$")
+PLACEHOLDER = re.compile(r"\{[^{}\n]*\}")   # the template's unfilled `{…}`
+RB_LINE = re.compile(r"(?m)^[ \t]*[-*][ \t]+\*\*(?P<k>Restores|Cannot restore):\*\*[ \t]*(?P<v>.*)$")   # [ \t], never \s: one line each
+
+
+def _holds(repo: Path, sha, path: str) -> bool:
+    """The record's build carries the migration: a rollback to an older build lists it in its trace and never ran it."""
+    from .delivery import SHA_RE
+    return isinstance(sha, str) and bool(SHA_RE.fullmatch(sha)) and _run(repo, "cat-file", "-e", f"{sha}:{path}").returncode == 0
+
+
+def _feature_migrations(repo: Path, feature: str) -> tuple[list[str], list[dict]]:
+    """The migration files this change adds (delivery's one list, since the merge-base) and their classes (data's
+    one classifier) — the feature's own, from its branch."""
+    from . import branch, data, delivery
+    base = branch.diff_base(repo)
+    mb = _run(repo, "merge-base", base, "HEAD")
+    if mb.returncode != 0:
+        raise GateFault(f"no merge-base between {base} and HEAD — the readiness reader cannot tell what {feature} migrates")
+    files = delivery.migrations(repo, mb.stdout.strip())
+    tool = data.answers(repo).get(data.TOOL_KEY)
+    if not isinstance(tool, str) or not tool.strip():
+        return files, []
+    _, classes = data.migrations(repo, data._reference(repo, base), tool.strip(), data.answers(repo).get(data.ENGINE_KEY))
+    return files, [k for k in classes if k["path"] in files]
+
+
+def _close_rows(repo: Path, env: str, feature: str, rec: dict) -> list[dict]:
+    from . import delivery
+    c = delivery.cfg(repo) or {}
+    files, classes = _feature_migrations(repo, feature)
+    up = []
+    if files and not (isinstance(c.get("populated"), str) and c["populated"].strip()):
+        up.append(f"{feature} adds {len(files)} migration(s) and `delivery.populated` is not configured — nothing proves the upgrade met data; DEVOPS --configure sets it")
+    else:
+        recs = delivery.records(repo, env)
+        for f in files:
+            traced = [r for r in recs if f in (r.get("migrations") or []) and _holds(repo, r.get("sha"), f)]   # every record whose build ran it
+            if not traced:
+                up.append(f"{f} is in no {env} record's migration trace — deploy it to {env} first")
+            elif not any(type(r.get("populated")) is int and r["populated"] > 0 for r in traced):   # a JSON true is no row count
+                up.append(f"{f} was applied on {env} only over {sorted({repr(r.get('populated')) for r in traced})} rows — the upgrade never met data. "
+                          f"A redeploy over the migrated schema does not run it again: restore {env} from a populated copy taken "
+                          "before the migration, roll back past it, then redeploy")
+    rows = [{"id": "upgraded", "ok": not up, "problems": up, "note": f"{len(files)} migration(s) of {feature} met data on {env}"}]
+    good = delivery.lkg(repo, env)
+    lk = [] if good and good.get("tag") == rec["tag"] else [f"{rec['tag']} is not good — no lkg/{env} tag on {rec['sha'][:8]} (the deploy or its performance measure was red)"]
+    rows.append({"id": "lkg", "ok": not lk, "problems": lk, "note": f"lkg/{env} on {rec['sha'][:8]}"})
+    a = c.get("adapter") if isinstance(c.get("adapter"), dict) else {}
+    texts = [(k, a.get(k)) for k in ("validate", "plan", "apply", "destroy")] + [("migrate", c.get("migrate")), ("populated", c.get("populated"))]
+    u = a.get("url_from") if isinstance(a.get("url_from"), dict) else {}
+    texts.append(("url_from.template", u.get("template")) if u.get("kind") == "template" else ("url_from.command", u.get("command")))
+    prod = []
+    for k, t in texts:
+        if isinstance(t, str) and t.strip():
+            try:
+                delivery.fill(t, a.get("params"), delivery.PRODUCTION)
+            except GateFault as err:
+                prod.append(f"{k}: {err}")
+    rows.append({"id": "production", "ok": not prod, "problems": prod, "note": "every adapter command fills for production"})
+    rel = f"docs/spec/{feature}/devops_plan.md"
+    plan = repo / rel
+    rb = []
+    if not plan.is_file():
+        rb.append(f"{rel} is absent — DEVOPS --configure writes it with its `## Rollback` section")
+    else:
+        text = plan.read_text(encoding="utf-8", errors="replace")
+        m = ROLLBACK.search(text)
+        if not m:
+            rb.append(f"{rel} has no `## Rollback` section — what a rollback restores and what it cannot")
+        else:
+            nxt = re.compile(r"(?m)^#{1,2}\s").search(text, m.end())
+            body = text[m.end(): nxt.start() if nxt else len(text)]
+            got = {x.group("k"): x.group("v").strip() for x in RB_LINE.finditer(body)}
+            rb += [f"{rel} § Rollback has no filled `- **{k}:**` line (a `{{…}}` placeholder states nothing)" for k in ("Restores", "Cannot restore")
+                   if not got.get(k) or PLACEHOLDER.fullmatch(got[k])]
+            lost = got.get("Cannot restore") or ""
+            rb += [f"{k['path']} is a contract migration (it drops or narrows) and § Rollback does not name it under Cannot restore"
+                   for k in classes if k["class"] == "contract" and k["path"] not in lost and Path(k["path"]).name not in lost]
+    rows.append({"id": "rollback", "ok": not rb, "problems": rb, "note": f"{rel} § Rollback states what returns and what does not"})
+    return rows
 
 
 def _run(repo: Path, *args) -> subprocess.CompletedProcess:
@@ -225,7 +355,7 @@ def _merged_at(repo: Path, base: str, rel: str) -> set:
     return {i["id"] for i in increments(old.stdout) if i["status"] == "MERGED"} if old.returncode == 0 else set()
 
 
-def check(repo: Path, base: str) -> dict:
+def check(repo: Path, base: str, control_point: str = "push") -> dict:
     from . import data, seal
     from .train import increments
     if data.answers(repo).get("project_tracking.feature_phases") != "full-sdlc":
@@ -243,7 +373,7 @@ def check(repo: Path, base: str) -> dict:
                 continue
             text = reps[-1].read_text(encoding="utf-8", errors="replace")
             fm = frontmatter_of(text)
-            v = verdict(repo, text)
+            v = verdict(repo, text, control_point)
             probs = ([] if approved(fm) else [f"its newest report {reps[-1].name} is {fm.get('status')!r}, not APPROVED"]) + \
                     ([] if v["ok"] else [f"{reps[-1].name} is not approvable: " + "; ".join(p for r in v["entries"] for p in r["problems"])])
             rows.append({"id": f"{rel} {inc['id']}", "ok": not probs, "problems": probs, "note": f"MERGED on {reps[-1].name}"})
@@ -251,7 +381,7 @@ def check(repo: Path, base: str) -> dict:
         text = (repo / rel).read_text(encoding="utf-8", errors="replace")
         if not approved(frontmatter_of(text)):
             continue
-        v = verdict(repo, text)
+        v = verdict(repo, text, control_point)
         rows.append({"id": rel, "ok": v["ok"], "note": v["reason"], "problems": [p for r in v["entries"] for p in r["problems"]]})
     red = [r for r in rows if not r["ok"]]
     if not rows:

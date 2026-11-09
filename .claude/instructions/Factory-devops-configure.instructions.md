@@ -417,9 +417,14 @@ GENERATE devops_plan.md with:
   resources: {from design.md § Infrastructure Needs + derived target_runtime per resource}
   feature_scope: feature_scope
   deployment_shape: deployment_shape
+  rollback: {§ Rollback below}
   status: DRAFT
   questions: {total: N, answered: 0, next_question: "env_sizing_1"}
 ```
+
+**Rollback and real data (EVOL-106).** `gate.py qa --ready --env {preproduction} --feature {ID}` reads both before the close:
+- **`## Rollback`** in devops_plan.md. `- **Restores:**` — what a return to the last good state brings back (the code, the infrastructure, the expand migrations). `- **Cannot restore:**` — each `contract` migration of the feature by path or file name (`python3 scripts/gate.py data --json` → the class per new migration), and the data it drops or rewrites; `nothing` when there is none. Both lines carry text; the gate is red on an empty line, on the template's unfilled `{…}`, or on a contract migration absent from Cannot restore.
+- **`delivery.populated`** in `config/quality.json`, when `database.migrations_tool` holds an answer and the key is null: a command that prints, as its last line, the rows the environment's database holds (per engine, through the same `params` as `delivery.migrate`). Proposed by RDR, written once per project. The executor runs it before migrate and records the count: a migration the close certifies must have met a populated environment (`populated > 0`).
 
 ### Phase 2: Environment Decisions (Guided, One at a Time)
 ```yaml
@@ -671,6 +676,10 @@ alerting: {decisions}
   environments:
     {ENV_1}: {status: configured | deferred | n/a, reference: "arn:..." | null}
     {ENV_2}: {...}
+
+## Rollback
+- **Restores:** {what returning to the last good state brings back}
+- **Cannot restore:** {each contract migration by path or file name, and the data it drops or rewrites — or `nothing`}
 
 ## Questions State (for resumability)
 total: N

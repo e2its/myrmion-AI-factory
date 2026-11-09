@@ -1,0 +1,53 @@
+# Client-bounds pack — Go (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function.
+# Sourced forms: net/http http.Client Timeout (whole call, retries none); a client with no Timeout, http.Get/Head/Post/PostForm and http.DefaultClient are unbounded.
+# Known-cold forms are in no rule (ADR-EVOL-106).
+rules:
+  - id: go-nethttp-unbounded
+    languages: [go]
+    severity: WARNING
+    message: This net/http client has no bound — it can hang until the function's platform timeout kills it. Use an http.Client with Timeout set (it does not retry); the function's timeout_seconds must cover it.
+    metadata: {bounds: unbounded, client: net-http}
+    paths:
+      exclude: ["tests/", "test/", "testdata/", "*_test.go"]
+    pattern-either:
+      - patterns:
+          - pattern: http.Client{...}
+          - pattern-not: "http.Client{..., Timeout: $T, ...}"
+          - pattern-not-inside: |
+              $V := http.Client{...}
+              ...
+              $V.Timeout = $T
+          - pattern-not-inside: |
+              $V := &http.Client{...}
+              ...
+              $V.Timeout = $T
+      - pattern: http.Get(...)
+      - pattern: http.Head(...)
+      - pattern: http.Post(...)
+      - pattern: http.PostForm(...)
+      - pattern: http.DefaultClient
+  - id: go-nethttp-extract-deadline
+    languages: [go]
+    severity: WARNING
+    message: deadline $N $U
+    metadata: {bounds: extract, client: net-http}
+    paths:
+      exclude: ["tests/", "test/", "testdata/", "*_test.go"]
+    patterns:
+      - pattern-either:
+          - pattern: "http.Client{..., Timeout: $N * time.$U, ...}"
+          - patterns:
+              - pattern: $V.Timeout = $N * time.$U
+              - pattern-either:
+                  - pattern-inside: |
+                      $V := http.Client{...}
+                      ...
+                  - pattern-inside: |
+                      $V := &http.Client{...}
+                      ...
+      - metavariable-regex:
+          metavariable: $U
+          regex: ^(Second|Millisecond|Minute)$
+      - metavariable-regex:
+          metavariable: $N
+          regex: ^[0-9][0-9_]*(\.[0-9]+)?[lL]?$

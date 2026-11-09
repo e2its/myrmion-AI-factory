@@ -6,7 +6,7 @@ applicable_when:
     - "**/tests/**"
     - "**/*.test.*"
     - "**/*.spec.*"
-version: 1.10.1
+version: 1.11.0
 date: 2026-09-25
 ---
 
@@ -76,7 +76,8 @@ date: 2026-09-25
 - **Strict ids.** A link is `FEATURE/CASE` — the plan folder under `docs/spec/` and the id its `test_plan.md` declares (`traceability.id_pattern`; the first cell of a row in a table whose header starts with `ID`, outside code fences; a row twice is red). A malformed id or one that names no declared case is red — at collection for pytest (`tests/conftest_traceability.py`, `--strict-markers` required), and at the gate for every stack. A case whose `Tool` column begins with `Manual` is a MANUAL case: never owed a test, reported as such, never a baseline entry.
 - **Case → test, never test → case.** Every declared case has at least one linking test; a helper's test with no link is never a finding.
 - **The baseline only shrinks.** `docs/project_log/traceability_baseline.json` records the cases unlinked at adoption (`python3 scripts/gate.py traceability --baseline --init`, once — refused when nothing links at all, and the file must be committed: CI reads the commit); a new case must link; an entry now linked is removed (`--refresh`), never added; after a merge that touched it, re-run `--refresh`. The baseline is a gate input (`planning.gate_inputs`): a hand edit is planned like code. The number is on the board.
-- **One gate, two control points.** `python3 scripts/gate.py traceability` is a light member of the gate profile (the static round, the push, CI); QA builds its `[QA-TC-*]` checklist from `--json` and never re-derives the linkage.
+- **One gate, two control points.** `python3 scripts/gate.py traceability` is a light member of the gate profile (the static round, the push, CI); QA builds its `[QA-TC-*]` checklist from `gate.py proof --trace {F} --json` (EVOL-106) and never re-derives the linkage.
+- **Proof at the close (EVOL-106).** A link is not proof: each case's evidence is read from the run — `proof.json` for the end-to-end layer (`[F/C]` title, its steps the case's clauses in order, every Then asserted, the control run red on a Then), the loop's seal for unit and integration. A ticked `[QA-TC-*]` with no evidence is red; an aggregate report needs the whole trace green, so a baselined case never reaches certification. Contract: `.context/templates/develop/e2e_spec_template.md` § Contract.
 
 ## Security Testing
 - Include OWASP Top 10 test cases (injection, authz, XSS/CSRF, SSRF)

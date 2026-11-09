@@ -1,0 +1,247 @@
+# Client-bounds pack — JavaScript and TypeScript (EVOL-106). Framework-shipped, run by gate.py bounds where hosting.type == function.
+# Sourced forms: AWS JS v3 new $XClient({maxAttempts, requestHandler: {connectionTimeout, requestTimeout, throwOnRequestTimeout: true}}); axios timeout; fetch(u, {signal: AbortSignal.timeout(ms)}); Azure JS Storage retryOptions {maxTries, tryTimeoutInMs}.
+# Known-cold forms are in no rule (ADR-EVOL-106).
+# Units are milliseconds. Extract rules match only numeric literals; a bound read from configuration is still a bound, never extracted.
+# AWS JS v3 requestTimeout: whether it bounds one attempt or the whole operation is known-cold — it is read as one attempt
+# (the conservative reading: attempts × (connect + read)). It binds only with throwOnRequestTimeout: true (since 3.910.0); without it, it is absent.
+rules:
+  # --- AWS SDK for JavaScript v3 (maxAttempts counts the first try) ---------------------------------------------------
+  - id: javascript-aws-unbounded
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: An AWS client is built without a connect timeout, a binding request timeout (throwOnRequestTimeout true) and an attempt count (the SDK defaults leave the timeouts off), so a slow call outlives the function — set maxAttempts and requestHandler {connectionTimeout, requestTimeout, throwOnRequestTimeout true}; the function's timeout_seconds must cover their product.
+    metadata: {bounds: unbounded, client: aws-sdk-js-v3}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "*_test.*", "*.test.*", "*.spec.*"]
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      import { $X } from "$PKG";
+                      ...
+                  - pattern-inside: |
+                      const { $X } = require("$PKG");
+                      ...
+              - pattern: new $X(...)
+              - metavariable-regex: {metavariable: $X, regex: '^[A-Za-z0-9_]*Client$'}
+          - patterns:
+              - pattern-inside: |
+                  import { $Y as $X } from "$PKG";
+                  ...
+              - pattern: new $X(...)
+              - metavariable-regex: {metavariable: $Y, regex: '^[A-Za-z0-9_]*Client$'}
+      - metavariable-regex: {metavariable: $PKG, regex: '^@aws-sdk/client-'}
+      - pattern-either:
+          - pattern: new $X()
+          - patterns:
+              - pattern: 'new $X({...})'
+              - pattern-not: 'new $X({..., maxAttempts: $N, ...})'
+          - patterns:
+              - pattern: 'new $X({...})'
+              - pattern-not: 'new $X({..., requestHandler: $H, ...})'
+          - patterns:
+              - pattern-either:
+                  - pattern: 'new $X({..., requestHandler: {...}, ...})'
+                  - pattern: 'new $X({..., requestHandler: new $HC(...), ...})'
+              - pattern-not: 'new $X({..., requestHandler: {..., connectionTimeout: $C, ...}, ...})'
+              - pattern-not: 'new $X({..., requestHandler: new $HC({..., connectionTimeout: $C, ...}), ...})'
+          - patterns:
+              - pattern-either:
+                  - pattern: 'new $X({..., requestHandler: {...}, ...})'
+                  - pattern: 'new $X({..., requestHandler: new $HC(...), ...})'
+              - pattern-not: 'new $X({..., requestHandler: {..., requestTimeout: $R, ...}, ...})'
+              - pattern-not: 'new $X({..., requestHandler: new $HC({..., requestTimeout: $R, ...}), ...})'
+          - patterns:   # requestTimeout without throwOnRequestTimeout: true only warns — it does not bind
+              - pattern-either:
+                  - pattern: 'new $X({..., requestHandler: {...}, ...})'
+                  - pattern: 'new $X({..., requestHandler: new $HC(...), ...})'
+              - pattern-not: 'new $X({..., requestHandler: {..., throwOnRequestTimeout: true, ...}, ...})'
+              - pattern-not: 'new $X({..., requestHandler: new $HC({..., throwOnRequestTimeout: true, ...}), ...})'
+  - id: javascript-aws-extract-total
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: bound total $C ms $R ms $N
+    metadata: {bounds: extract, client: aws-sdk-js-v3}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "*_test.*", "*.test.*", "*.spec.*"]
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      import { $X } from "$PKG";
+                      ...
+                  - pattern-inside: |
+                      const { $X } = require("$PKG");
+                      ...
+              - pattern: new $X(...)
+              - metavariable-regex: {metavariable: $X, regex: '^[A-Za-z0-9_]*Client$'}
+          - patterns:
+              - pattern-inside: |
+                  import { $Y as $X } from "$PKG";
+                  ...
+              - pattern: new $X(...)
+              - metavariable-regex: {metavariable: $Y, regex: '^[A-Za-z0-9_]*Client$'}
+      - metavariable-regex: {metavariable: $PKG, regex: '^@aws-sdk/client-'}
+      - pattern: 'new $X({..., maxAttempts: $N, ...})'
+      - pattern-either:
+          - patterns:
+              - pattern: 'new $X({..., requestHandler: {..., connectionTimeout: $C, ...}, ...})'
+              - pattern: 'new $X({..., requestHandler: {..., requestTimeout: $R, ...}, ...})'
+              - pattern: 'new $X({..., requestHandler: {..., throwOnRequestTimeout: true, ...}, ...})'
+          - patterns:
+              - pattern: 'new $X({..., requestHandler: new $HC({..., connectionTimeout: $C, ...}), ...})'
+              - pattern: 'new $X({..., requestHandler: new $HC({..., requestTimeout: $R, ...}), ...})'
+              - pattern: 'new $X({..., requestHandler: new $HC({..., throwOnRequestTimeout: true, ...}), ...})'
+      - metavariable-regex: {metavariable: $C, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $R, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $N, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+  # --- axios (timeout bounds the whole request; no retry; 0 = off, the default) ----------------------------------------
+  - id: javascript-axios-unbounded
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: An axios client or call has no timeout (the default 0 waits forever), so it can outlive the function — set timeout in milliseconds on the instance or the call; the function's timeout_seconds must cover it.
+    metadata: {bounds: unbounded, client: axios}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "*_test.*", "*.test.*", "*.spec.*"]
+    pattern-either:
+      - pattern: axios.create()
+      - pattern: 'axios.create({..., timeout: 0, ...})'
+      - patterns:
+          - pattern: 'axios.create({...})'
+          - pattern-not: 'axios.create({..., timeout: $T, ...})'
+      - patterns:
+          - pattern-either:
+              - pattern: 'axios({...})'
+              - pattern: 'axios.request({...})'
+              - pattern: 'axios($U, {...})'
+          - pattern-either:
+              - pattern: 'axios(..., {..., timeout: 0, ...})'
+              - pattern: 'axios.request({..., timeout: 0, ...})'
+              - patterns:
+                  - pattern-either:
+                      - pattern: 'axios(..., {...})'
+                      - pattern: 'axios.request({...})'
+                  - pattern-not: 'axios(..., {..., timeout: $T, ...})'
+                  - pattern-not: 'axios.request({..., timeout: $T, ...})'
+      - patterns:
+          - pattern: axios($U)
+          - pattern-not: 'axios({...})'
+      - patterns:
+          - pattern-either:
+              - pattern: axios.$M($U)
+              - patterns:
+                  - pattern: axios.$M($U, $D)
+                  - metavariable-regex: {metavariable: $M, regex: '^(post|put|patch|postForm|putForm|patchForm)$'}
+          - metavariable-regex: {metavariable: $M, regex: '^(get|delete|head|options|post|put|patch|postForm|putForm|patchForm)$'}
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern: 'axios.$M($U, {...})'
+                  - metavariable-regex: {metavariable: $M, regex: '^(get|delete|head|options)$'}
+              - patterns:
+                  - pattern: 'axios.$M($U, $D, {...})'
+                  - metavariable-regex: {metavariable: $M, regex: '^(post|put|patch|postForm|putForm|patchForm)$'}
+          - pattern-either:
+              - pattern: 'axios.$M(..., {..., timeout: 0, ...})'
+              - patterns:
+                  - pattern: 'axios.$M(..., {...})'
+                  - pattern-not: 'axios.$M(..., {..., timeout: $T, ...})'
+  - id: javascript-axios-extract-deadline
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: deadline $T ms
+    metadata: {bounds: extract, client: axios}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "*_test.*", "*.test.*", "*.spec.*"]
+    patterns:
+      - pattern-either:
+          - pattern: 'axios(..., {..., timeout: $T, ...})'
+          - patterns:
+              - pattern: 'axios.$M({..., timeout: $T, ...})'
+              - metavariable-regex: {metavariable: $M, regex: '^(create|request)$'}
+          - patterns:
+              - pattern: 'axios.$M($U, {..., timeout: $T, ...})'
+              - metavariable-regex: {metavariable: $M, regex: '^(get|delete|head|options)$'}
+          - patterns:   # the second argument of a post-like call is the body, never the config
+              - pattern: 'axios.$M($U, $D, {..., timeout: $T, ...})'
+              - metavariable-regex: {metavariable: $M, regex: '^(post|put|patch|postForm|putForm|patchForm)$'}
+      - metavariable-regex: {metavariable: $T, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-comparison: {metavariable: $T, comparison: $T > 0}
+  # --- fetch (no retry; AbortSignal.timeout bounds the whole call) -----------------------------------------------------
+  - id: javascript-fetch-unbounded
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: A fetch call has no abort signal, so no deadline written in code bounds it and it can outlive the function — pass signal AbortSignal.timeout(ms); the function's timeout_seconds must cover it.
+    metadata: {bounds: unbounded, client: fetch}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "*_test.*", "*.test.*", "*.spec.*"]
+    pattern-either:
+      - patterns:
+          - pattern: fetch($U)
+          - pattern-not: 'fetch(new Request(..., {..., signal: $S, ...}))'
+      - patterns:
+          - pattern: 'fetch($U, {...})'
+          - pattern-not: 'fetch($U, {..., signal: $S, ...})'
+  - id: javascript-fetch-extract-deadline
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: deadline $T ms
+    metadata: {bounds: extract, client: fetch}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "*_test.*", "*.test.*", "*.spec.*"]
+    patterns:
+      - pattern: 'fetch($U, {..., signal: AbortSignal.timeout($T), ...})'
+      - metavariable-regex: {metavariable: $T, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+  # --- Azure Storage for JavaScript (maxTries counts the first try; tryTimeoutInMs bounds one try, connect included) ---
+  - id: javascript-azure-storage-unbounded
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: An Azure Storage client is built without retryOptions maxTries and tryTimeoutInMs, so a slow call outlives the function — set retryOptions {maxTries, tryTimeoutInMs}; the function's timeout_seconds must cover their product.
+    metadata: {bounds: unbounded, client: azure-storage-js}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "*_test.*", "*.test.*", "*.spec.*"]
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              import { $X } from "$PKG";
+              ...
+          - pattern-inside: |
+              const { $X } = require("$PKG");
+              ...
+      - pattern: new $X(...)
+      - metavariable-regex: {metavariable: $PKG, regex: '^@azure/storage-(blob|queue|file-share|file-datalake)$'}
+      - metavariable-regex: {metavariable: $X, regex: '^[A-Za-z0-9_]*Client$'}
+      # A two-argument form whose second argument is a variable may be a pipeline (newPipeline) — not judged.
+      - pattern-either:
+          - pattern: new $X($U)
+          - pattern: new $X($U, new $CRED(...))
+          - patterns:
+              - pattern: 'new $X(..., {...})'
+              - pattern-not: 'new $X(..., {..., retryOptions: {..., maxTries: $N, ...}, ...})'
+          - patterns:
+              - pattern: 'new $X(..., {...})'
+              - pattern-not: 'new $X(..., {..., retryOptions: {..., tryTimeoutInMs: $T, ...}, ...})'
+  - id: javascript-azure-storage-extract-total
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: bound total 0 ms $T ms $N
+    metadata: {bounds: extract, client: azure-storage-js}
+    paths:
+      exclude: ["tests/", "test/", "__tests__/", "*_test.*", "*.test.*", "*.spec.*"]
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              import { $X } from "$PKG";
+              ...
+          - pattern-inside: |
+              const { $X } = require("$PKG");
+              ...
+      - pattern: new $X(...)
+      - metavariable-regex: {metavariable: $PKG, regex: '^@azure/storage-(blob|queue|file-share|file-datalake)$'}
+      - metavariable-regex: {metavariable: $X, regex: '^[A-Za-z0-9_]*Client$'}
+      - pattern: 'new $X(..., {..., retryOptions: {..., maxTries: $N, ...}, ...})'
+      - pattern: 'new $X(..., {..., retryOptions: {..., tryTimeoutInMs: $T, ...}, ...})'
+      - metavariable-regex: {metavariable: $N, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}
+      - metavariable-regex: {metavariable: $T, regex: '^[0-9][0-9_]*(\.[0-9]+)?[lL]?$'}

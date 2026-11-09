@@ -40,7 +40,7 @@ FUNCTION resolve_command_scope(command, FEATURE_ID, ENV):
 
 ## Execution Mode (EVOL-081)
 
-`mode = READ config/quality.json → delivery.execution` (`ci` | `local`; derived at SETUP). One executor either way: `python3 scripts/gate.py delivery {--run|--rollback|--teardown} --env {ENV}` — validate, plan, migrate, apply, probe, record tag `deploy/{ENV}/{ts}`, `lkg/{ENV}/{ts}` when every probe is up, performance. Exit 1 = red: report its plain message, never retry unasked.
+`mode = READ config/quality.json → delivery.execution` (`ci` | `local`; derived at SETUP). One executor either way: `python3 scripts/gate.py delivery {--run|--rollback|--teardown} --env {ENV}` — validate, plan, `populated` (the data the migration meets, read before it — `delivery.populated`, EVOL-106), migrate, apply, probe, record tag `deploy/{ENV}/{ts}`, `lkg/{ENV}/{ts}` when every probe is up, performance. Exit 1 = red: report its plain message, never retry unasked.
 
 - `ci`: the agent never runs the adapter's `apply`/`destroy` (denied, `gate.py write-target` class `deploy`). It **starts and watches** the pipeline run:
   - GitHub: `gh workflow run deploy.yml --ref {ref} -f action={deploy|rollback|teardown} -f env={ENV} -f run_key={uuid}`; find the run whose display title ends in `{uuid}` (`gh run list --workflow deploy.yml --json databaseId,displayTitle`), then `gh run watch {run_id} --exit-status`. Production dispatches run from `main` only.
@@ -356,7 +356,7 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
         ❌ BLOCK: "PREVENTIVE-SWEEP gate not passed for {FEATURE_ID} (issue: {sweep_issue.status}; report: {fm.status}; undelivered scopes: {fm.not_delivered or 'none'})."
         SUGGEST: |
           The factory-preventive-sweep SKILL must run against the feature's code, every scope
-          delivering, and return zero open C-severity findings before DEVOPS --deploy dev. Run it now:
+          delivering, and return zero open C-severity findings before DEVOPS --deploy --env {preproduction}. Run it now:
             Invoke .claude/skills/factory-preventive-sweep/SKILL.md against FEATURE_ID
             Re-run every scope listed under not_delivered until it delivers (its DCs are UNVERIFIED until then)
             Resolve every C-severity finding

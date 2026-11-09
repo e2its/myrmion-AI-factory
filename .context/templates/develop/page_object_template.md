@@ -1,7 +1,8 @@
 # Plantilla C: Page Object Template (`tests/e2e/pages/{feature}.page.ts`)
 
 ```typescript
-import { Page, Locator } from '@playwright/test';
+import type { Page, Locator } from '@playwright/test';
+import { expect } from '../support/clauses'; // the counted expect: a Then that calls these assertions counts them (EVOL-106)
 import { BasePage } from './base.page';
 
 /**

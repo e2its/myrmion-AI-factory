@@ -72,9 +72,9 @@ SETUP Q27.2 persists a **preset string** in `project_tracking.feature_phases`. T
 - { suffix: 6, label: "preventive-sweep", title_pattern: "[{ID}] PREVENTIVE-SWEEP: Runtime defect scan — {name}",           gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}" }
 - { suffix: 7, label: "qa",               title_pattern: "[{ID}] QA: Verification — {name}" }
 # suffix 8 is SCOPE-AWARE — BACKLOG --plan-feature picks ONE variant based on spec.feature.scope:
-- { suffix: 8, label: "smoke-e2e-browser",     title_pattern: "[{ID}] SMOKE-E2E (Browser): User-journey scenarios on dev deploy — {name}",         gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}", applicable_when: "feature.scope == 'frontend-only'" }
+- { suffix: 8, label: "smoke-e2e-browser",     title_pattern: "[{ID}] SMOKE-E2E (Browser): User-journey scenarios on the pre-production deploy — {name}",         gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}", applicable_when: "feature.scope == 'frontend-only'" }
 - { suffix: 8, label: "smoke-e2e-integration", title_pattern: "[{ID}] SMOKE-E2E (Integration): Caller-harness + state + observability — {name}",  gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}", applicable_when: "feature.scope in [backend-only, integration]" }
-- { suffix: 8, label: "smoke-e2e-hybrid",      title_pattern: "[{ID}] SMOKE-E2E (Hybrid): Browser + API smoke on dev deploy — {name}",             gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}", applicable_when: "feature.scope == 'full-stack'" }
+- { suffix: 8, label: "smoke-e2e-hybrid",      title_pattern: "[{ID}] SMOKE-E2E (Hybrid): Browser + API smoke on the pre-production deploy — {name}",             gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}", applicable_when: "feature.scope == 'full-stack'" }
 # Legacy unscoped label — not emitted by new --plan-feature, but accepted by QA --verify Gate 4 for backward compatibility with projects materialised before the scope-aware variants:
 # - { suffix: 8, label: "smoke-e2e", ... } [DEPRECATED — kept only for legacy project recognition]
 ```
@@ -96,8 +96,8 @@ Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missi
 | Gate phase | Between | Enforced by | Blocks |
 | --- | --- | --- | --- |
 | CONTRACT-FREEZE (suffix 3) | BLUEPRINT → IMPLEMENT | [Factory-implement-plan.instructions.md](Factory-implement-plan.instructions.md) § Upstream Artifact Validation | `IMPLEMENT --plan` start — the feature's API contracts (OpenAPI / TS interfaces / GraphQL schema / whatever the stack uses) MUST be frozen and the contract test harness MUST exist (stack-specific, resolved from discovery answers). Kills contract drift between design and code. |
-| PREVENTIVE-SWEEP (suffix 6) | IMPLEMENT → DEVOPS `--deploy dev` | [Factory-devops-provision-deploy.instructions.md](Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | `DEVOPS --deploy dev` — the factory-preventive-sweep SKILL must have run against the feature's code (parallel scope sub-agents derived from DC catalog) and returned zero open C-severity findings. Catches the class of defects invisible to static gates (unused imports, missing null checks, broken teardown, env-var drift). |
-| SMOKE-E2E (suffix 8 — scope-aware variants: `smoke-e2e-browser` / `smoke-e2e-integration` / `smoke-e2e-hybrid`) | DEVOPS `--deploy dev` → QA `--verify` pass | [Factory-qa-verify.instructions.md](Factory-qa-verify.instructions.md) § Verify Preconditions | `QA --verify` pass — scope-appropriate smoke blocks must pass on dev deploy. The cadence is the project's answer (`docs/setup.md → qa.smoke_cadence`, EVOL-077): this issue closes at feature close; with `per-slice` each increment closes on its own report (`smoke_e2e_report_{INC}.md`), never on a board issue. A walked case with no automated test is red (`gate.py traceability`). One SMOKE-{N} block per `user_journey.md § 3` Path (expanded Paso → BDD Scenario → test_plan TC). Frontend-only → browser mode. Backend-only/integration → caller-harness + downstream-state + observability mode, plus MANDATORY reliability blocks (SMOKE-REL-*, test_plan § 2.2 / design.md § Reliability Contract) for `integration`. Full-stack → hybrid. Replaces ad-hoc smoke with a reproducible DoD artefact. |
+| PREVENTIVE-SWEEP (suffix 6) | IMPLEMENT → DEVOPS `--deploy --env {preproduction}` | [Factory-devops-provision-deploy.instructions.md](Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | `DEVOPS --deploy --env {preproduction}` (`delivery.preproduction`, EVOL-106) — the factory-preventive-sweep SKILL must have run against the feature's code (parallel scope sub-agents derived from DC catalog) and returned zero open C-severity findings. Catches the class of defects invisible to static gates (unused imports, missing null checks, broken teardown, env-var drift). |
+| SMOKE-E2E (suffix 8 — scope-aware variants: `smoke-e2e-browser` / `smoke-e2e-integration` / `smoke-e2e-hybrid`) | DEVOPS `--deploy --env {preproduction}` → QA `--verify` pass | [Factory-qa-verify.instructions.md](Factory-qa-verify.instructions.md) § Verify Preconditions | `QA --verify` pass — scope-appropriate smoke blocks must pass on the pre-production deploy. The cadence is the project's answer (`docs/setup.md → qa.smoke_cadence`, EVOL-077): this issue closes at feature close; with `per-slice` each increment closes on its own report (`smoke_e2e_report_{INC}.md`), never on a board issue. A walked case with no automated test is red (`gate.py traceability`). One SMOKE-{N} block per `user_journey.md § 3` Path (expanded Paso → BDD Scenario → test_plan TC). Frontend-only → browser mode. Backend-only/integration → caller-harness + downstream-state + observability mode, plus MANDATORY reliability blocks (SMOKE-REL-*, test_plan § 2.2 / design.md § Reliability Contract) for `integration`. Full-stack → hybrid. Replaces ad-hoc smoke with a reproducible DoD artefact. |
 
 **Sub-issue nesting.** The three gate phases (phase labels: `phase:contract-freeze`, `phase:preventive-sweep`, `phase:smoke-e2e-*`) are logically **sub-issues of IMPLEMENT** (suffix 5). Adapters that declare `add_sub_issue: native` (e.g. `github-project.md`) materialise them as real sub-issues so holistic progress tracking on the board reflects feature completion. Adapters that declare `add_sub_issue: no-op` (e.g. `none.md`) materialise them as standalone siblings with a `> Parent: IMPLEMENT issue` cross-reference line in the body — the `--next-task` resolver reads the cross-reference to reconstruct the hierarchy.
 
@@ -471,7 +471,7 @@ Parent: the IMPLEMENT issue of the catalog feature (`add_sub_issue`; adapters wi
 
 Examples:
 - contract-freeze → blocks `IMPLEMENT --plan {ID}`
-- preventive-sweep → blocks `DEVOPS --deploy --env dev {ID}`
+- preventive-sweep → blocks `DEVOPS --deploy --env {preproduction} {ID}`
 - smoke-e2e → blocks `QA --verify {ID}` auto-approval
 - integration-test → blocks first `CODESIGN --start` of next slice in the epic
 - retrospective → blocks first `CODESIGN --start` of the next epic
@@ -495,7 +495,7 @@ For SMOKE-E2E gate issues specifically, the DoD checklist is **scope-aware** —
 
 **phase:smoke-e2e-browser** (scope=frontend-only):
 - [ ] `docs/spec/{ID}/smoke_e2e_report.md` exists, status: APPROVED, scope frontmatter matches `frontend-only`
-- [ ] Every SMOKE-{N} block (one per `user_journey.md § 3` Path, expanded Paso → BDD Scenario → test_plan TC) executed on dev deploy, all verdicts PASS
+- [ ] Every SMOKE-{N} block (one per `user_journey.md § 3` Path, expanded Paso → BDD Scenario → test_plan TC) executed on the pre-production deploy, all verdicts PASS
 - [ ] Zero console errors during smoke execution (captured in evidence logs)
 - [ ] Visual-navigation checks pass (app_shell + page_templates + component_library fidelity)
 - [ ] Visual cases: with a browser MCP (`qa.browser_mcp`), every `[QA-VIS-{CASE}]` PASS (screenshot, zero console errors, layout against the mock) — run by the `factory-qa` agent on the isolated profile (EVOL-077)
@@ -504,8 +504,8 @@ For SMOKE-E2E gate issues specifically, the DoD checklist is **scope-aware** —
 
 **phase:smoke-e2e-integration** (scope=backend-only OR integration):
 - [ ] `docs/spec/{ID}/smoke_e2e_report.md` exists, status: APPROVED, scope frontmatter matches `backend-only` or `integration`
-- [ ] Every SMOKE-{N} block (one per `user_journey.md § 3` Path — caller-persona routes) executed on dev deploy, all verdicts PASS with caller request + downstream state + observability triple-verified
-- [ ] Structured logs emitted with mandatory fields (`trace_id`, `correlation_id`, `feature_id`, `idempotency_key`, `error_code`) — grep confirms presence in dev log sink
+- [ ] Every SMOKE-{N} block (one per `user_journey.md § 3` Path — caller-persona routes) executed on the pre-production deploy, all verdicts PASS with caller request + downstream state + observability triple-verified
+- [ ] Structured logs emitted with mandatory fields (`trace_id`, `correlation_id`, `feature_id`, `idempotency_key`, `error_code`) — grep confirms presence in the pre-production log sink
 - [ ] Trace propagation end-to-end: a single `trace_id` spans every hop (caller → our service → downstream systems); verified in trace backend
 - [ ] Metrics dashboard green during smoke window (the deploy's `gate.py performance --run --site` verdict green, `error_rate` == 0 on success path)
 - [ ] **Scope=integration ONLY** — reliability blocks MANDATORY: SMOKE-REL-IDEMP PASS (idempotency replay), SMOKE-REL-RETRY PASS (exponential backoff + retry_count metric), SMOKE-REL-DLQ PASS (DLQ routes with full context, replay tooling works), SMOKE-REL-SHUTDOWN PASS (graceful SIGTERM drain, exit 0)
@@ -531,7 +531,7 @@ The other gate types (CONTRACT-FREEZE, PREVENTIVE-SWEEP, INTEGRATION-TEST, RETRO
 
 > Gate issues do NOT have a direct Factory slash-command to run. The work is performed via the tool, the skill, or the user action listed here. When complete, move the issue to Done via `BACKLOG --update-execution {step_ref}` or the equivalent tracker UI action.
 
-{Literal instructions: "Run factory-preventive-sweep skill against FEATURE_ID", "Execute the numbered smoke blocks on dev deploy", "Produce OpenAPI + contract harness", "Run retrospective write-back procedure (Factory-backlog-operations.instructions.md § 3.4.1)".}
+{Literal instructions: "Run factory-preventive-sweep skill against FEATURE_ID", "Execute the numbered smoke blocks on the pre-production deploy", "Produce OpenAPI + contract harness", "Run retrospective write-back procedure (Factory-backlog-operations.instructions.md § 3.4.1)".}
 
 ## Cascade behaviour
 

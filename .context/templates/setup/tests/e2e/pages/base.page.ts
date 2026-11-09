@@ -1,4 +1,6 @@
-import { Page, Locator, expect } from '@playwright/test';
+import type { Page, Locator } from '@playwright/test';
+// The counted expect: an assertion made here counts for the `then` step that calls it (EVOL-106).
+import { expect } from '../support/clauses';
 
 /**
  * Base Page Object Model

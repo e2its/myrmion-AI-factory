@@ -206,6 +206,16 @@ infrastructure_needs:
     #   endpoints:                            # API paths this function handles (derived from OpenAPI contract)
     #     - "POST /api/v1/auth/login"
     #     - "POST /api/v1/auth/refresh"
+    #   clients:                              # Every external client the function calls (EVOL-106); [] when none.
+    #     - name: "s3"                        # Matches the bound the code writes (gate.py bounds, security/bounds/)
+    #       calls: 1                          # Sequential calls per invocation
+    #       connect_s: 2                      # Per-attempt connect bound …
+    #       read_s: 5                         # … per-attempt read bound …
+    #       attempts: 3                       # … attempts, the first included
+    #     - name: "payments-api"
+    #       calls: 1
+    #       deadline_s: 8                     # Or one whole-call deadline, retries included
+    #   # Σ calls × attempts × (connect_s + read_s), or calls × deadline_s, stays ≤ timeout_seconds.
 ```
 
 ### External Integrations

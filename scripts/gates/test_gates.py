@@ -29,7 +29,7 @@ os.environ.update({"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", 
                    "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "test@example.com"})
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, qa, retired, runtime, scm, seal, traceability, train  # noqa: E402
+from gates import agents, aligned, bounds, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, proof, qa, retired, runtime, scm, seal, traceability, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -5976,7 +5976,7 @@ class Train(unittest.TestCase):
     def _plan(*rows):
         """A complete INC (clauses h, i): its own measured exit criterion and its estimate; a row without one gets ~1/~1."""
         rows = [r if "~" in r else f"{r} · ~1 files · ~1 lines" for r in rows]
-        return ("# Plan\n\n### INC-1: x\n\n- **Estimated surface:** paths [src/**] · ~9 files · ~90 lines\n"
+        return ("# Plan\n\n### INC-1: x\n\n- **Estimated surface:** paths [src/**] · ~9 files · ~90 lines\n- **Upgrade over data:** none\n"
                 "- **Acceptance — exit criteria (each measurable on its own):**\n  - [ ] `pytest tests/` passes\n\n"
                 "**Sub-increments:**\n" + "".join(f"- {r}\n" for r in rows))
 
@@ -6135,7 +6135,7 @@ class Train(unittest.TestCase):
         self.assertTrue(r["ok"], out)
 
     def test_seam_placeholder_without_subs_na_and_second_table_ignored(self):
-        tpl = ("# Plan\n\n### INC-1: x\n\nno subs\n- **Estimated surface:** paths [src/**] · ~2 files · ~10 lines\n"
+        tpl = ("# Plan\n\n### INC-1: x\n\nno subs\n- **Estimated surface:** paths [src/**] · ~2 files · ~10 lines\n- **Upgrade over data:** none\n"
                "- **Acceptance:**\n  - [ ] `pytest tests/` passes\n\n## Seam map\n\n| use case | handler | grant/route | integration test | client | e2e case | sub |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
                "| `{{src/…/use_case}}` | `{{src/…/handler}}` | {{grant}} · {{METHOD /route}} | `{{tests/…/it}}` | closes: SUB-{{N}}-{{M}} | closes: SUB-{{N}}-{{M}} | SUB-{{N}}-{{M}} |\n")
         with tempfile.TemporaryDirectory() as tmp:
@@ -6161,7 +6161,7 @@ class Train(unittest.TestCase):
             acc = "".join(f"  - [ ] {c}\n" for c in crit) if isinstance(crit, list) else f" {crit}\n"
             st = f"- **Status:** {status1}\n" if n == 1 and status1 else ""
             return (f"### INC-{n} — x\n\n{st}- **Scenarios covered:** `spec.feature` → [{scen}]\n- **Contract surface:** [{op}]\n"
-                    f"- **Estimated surface:** paths [src/**] · {est1 if n == 1 and est1 is not None else est}\n{sub if n == 1 else ''}- **Acceptance (mergeable = 100% functional):**"
+                    f"- **Estimated surface:** paths [src/**] · {est1 if n == 1 and est1 is not None else est}\n{sub if n == 1 else ''}- **Upgrade over data:** none\n- **Acceptance (mergeable = 100% functional):**"
                     + ("\n" + acc if isinstance(crit, list) else acc) + "- **Deployable:** production\n\n")
         return (f"---\nslicing_strategy: {strategy}\n---\n\n## 1. Increments\n\n"
                 + inc(1, "Pay, Pay twice", "POST /api/v1/pay", wrap(c1)) + inc(2, "Refund", "POST /api/v1/refund", wrap(c2)) + "## 2. Next\n")
@@ -8262,3 +8262,783 @@ class Qa(unittest.TestCase):
         self.assertIn("qa", [m[0] for m in profile.MEMBERS], "the QA agreement is a profile member")
         row = [m for m in profile.MEMBERS if m[0] == "qa"][0]
         self.assertFalse(row[1] or row[2], "light: no build, no database")
+
+
+class Proof(unittest.TestCase):
+    """EVOL-106, proof at the close: each case proven by its run (clauses in order, every Then asserted, the control
+    failing on a Then), the adapter proven by its canary, each scenario traced to its evidence, certification reading it."""
+
+    FEATURE = ("Feature: Login\n  Background:\n    Given the app is up\n\n  Scenario: Happy path\n    Given a registered user\n    And a valid password\n"
+               "    When they log in\n    Then the **dashboard** shows\n\n  Scenario Outline: Greeting\n    When <name> logs in\n    Then the banner says hello <name>\n\n"
+               "    Examples:\n      | name |\n      | Ann |\n")
+    ACC = "| ID | Gherkin Ref | Business Scenario | Expected Result (Business) |\n|---|---|---|---|\n| AC-01 | Happy path | Login | Dashboard |\n| AC-02 | Greeting | Greet | Hello |\n"
+    TECH = "| ID | Type | Technical Scenario | Input Data | Expected Result (Tech) |\n|---|---|---|---|---|\n| TC-01 | Edge | DB timeout | down | 503 |\n"
+    UX = "| ID | Test Case | Tool | Expected Result |\n|---|---|---|---|\n| UX-01 | Responsive | Manual | adapts |\n"
+    AC01 = ["Given the app is up", "Given a registered user", "Given a valid password", "When they log in", "Then the dashboard shows"]
+    AC02 = ["Given the app is up", "When Ann logs in", "Then the banner says hello Ann"]
+    CTL = {"type": "control", "description": "**/api"}
+    E2E = 'test("[FEAT-001/AC-01] login", async () => {});\ntest("[FEAT-001/AC-02] greet", async () => {});\n'
+    NOW = dt.datetime(2026, 11, 9, 12, 0, tzinfo=dt.timezone.utc)
+
+    def _git(self, repo, *c):
+        return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True, text=True).stdout
+
+    def _plan(self, repo, tech=TECH, extra="", acc=ACC):
+        write(repo / "docs/spec/FEAT-001/test_plan.md", f"---\nid: FEAT-001\n---\n# Test Cases\n## 1. Acceptance\n{acc}\n## 2. Technical\n{tech}\n## 3. UX\n{self.UX}{extra}")
+
+    def _proof_cfg(self, repo, p):
+        q = json.loads((repo / "config/quality.json").read_text())
+        q.pop("proof", None)
+        if p is not None:
+            q["proof"] = p
+        write(repo / "config/quality.json", json.dumps(q))
+
+    def _repo(self, tmp, phases="full-sdlc"):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text())
+        q.update(traceability={"required": True, "home": {"kind": "title-tag"}, "plans": "docs/spec/*/test_plan.md", "test_roots": ["tests/**"],
+                               "baseline": "docs/project_log/traceability_baseline.json"}, proof={"tool": "playwright"}, qa={"blocking_severity": "high"})
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / "docs/setup.md", f"---\nproject_scope: full-stack\nproject_tracking:\n  feature_phases: {phases}\n---\n")
+        self._plan(repo)
+        write(repo / "docs/spec/FEAT-001/spec.feature", self.FEATURE)
+        write(repo / "tests/e2e/login.spec.ts", self.E2E)
+        write(repo / "tests/unit/db.test.ts", 'it("[FEAT-001/TC-01] timeout", () => {});\n')
+        self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "proof fixture")
+        return repo
+
+    @staticmethod
+    def t(title, steps, status="passed", asserted=None, ann=(), err=None):
+        a = [{"type": "asserted", "description": s} for s in (steps if asserted is None else asserted) if s.lower().startswith("then ")]
+        return {"title": title, "status": status, "steps": [{"title": s, "error": s == err} for s in steps], "annotations": a + list(ann)}
+
+    @staticmethod
+    def fixtures():
+        return [proof.from_playwright(json.loads((HERE.parent / f"fixtures/proof/playwright-{x}.json").read_text())) for x in ("green", "control")]
+
+    @staticmethod
+    def pw(tests, canary=True, kind="green"):
+        """Playwright JSON reporter shape: the shipped canary run plus `tests` (proof shape) as one more suite."""
+        doc = json.loads((HERE.parent / f"fixtures/proof/playwright-{kind}.json").read_text()) if canary else {"suites": []}
+        doc["suites"].append({"title": "f.spec.ts", "specs": [{"title": t["title"], "tests": [{"annotations": [], "results": [{"status": t["status"], "annotations": t["annotations"],
+                              "steps": [{"title": s["title"], **({"error": {"message": "boom"}} if s["error"] else {})} for s in t["steps"]]}]}]} for t in tests]})
+        return json.dumps(doc)
+
+    def test_clauses_one_step_per_clause_in_order_every_then_asserted(self):
+        sc = proof.scenarios(self.FEATURE)
+        want = sc["happy path"]["steps"]
+        self.assertEqual(want, [("Given", "the app is up"), ("Given", "a registered user"), ("Given", "a valid password"), ("When", "they log in"), ("Then", "the **dashboard** shows")],
+                         "the Background first, each line verbatim, And takes the keyword before it")
+        self.assertEqual(sc["greeting"]["steps"][0], ("Given", "the app is up"), "the Background opens every scenario")
+        self.assertEqual(proof.judge_green(self.t("x", self.AC01), want), [], "markdown and case are normalised; And inherits Given")
+        swapped = [self.AC01[0], self.AC01[2], self.AC01[1]] + self.AC01[3:]
+        for name, test, kinds in (("missing step", self.t("x", self.AC01[:1] + self.AC01[2:]), {"order"}), ("out of order", self.t("x", swapped), {"order"}), ("missing last step", self.t("x", self.AC01[:-1]), {"order"}),
+                                  ("And kept literally", self.t("x", self.AC01[:2] + ["And a valid password"] + self.AC01[3:]), {"order"}),
+                                  ("Then unasserted", self.t("x", self.AC01, asserted=[]), {"asserted"}), ("did not pass", self.t("x", self.AC01, "failed"), {"status"})):
+            with self.subTest(name):
+                self.assertEqual({k for k, _ in proof.judge_green(test, want)}, kinds, f"{name} is red")
+        out = sc["greeting"]["steps"]
+        self.assertEqual(proof.judge_green(self.t("x", self.AC02), out), [], "a Scenario Outline <x> matches its filled value")
+        self.assertTrue(proof.judge_green(self.t("x", self.AC02[:2] + ["Then the banner says goodbye Ann"]), out), "<x> matches only its slot")
+        self.assertEqual(proof.clauses_of({"cells": {"ID": "TC-01", "TYPE": "Edge", "EXPECTED RESULT (TECH)": "503"}}, sc), ([("Then", "503")], ""),
+                         "a non-Gherkin row has one Then: its first Expected column")
+        self.assertIsNone(proof.clauses_of({"cells": {"ID": "AC-9", "GHERKIN REF": "Ghost"}}, sc)[0], "a Gherkin Ref naming no scenario states no clause")
+        self.assertIsNone(proof.clauses_of({"cells": {"ID": "TC-9", "TYPE": "Edge"}}, sc)[0], "no Gherkin Ref and no Expected: no clause to prove")
+
+    def test_control_run_fails_on_a_then_and_judge_joins_both_runs(self):
+        good = self.t("x", self.AC02, "failed", ann=[self.CTL], err=self.AC02[-1])
+        self.assertEqual(proof.judge_control(good), [], "the control fails first on its Then: the Then proves something")
+        for name, test in (("no control annotation", self.t("x", self.AC02, "failed", err=self.AC02[-1])), ("control passed", self.t("x", self.AC02, ann=[self.CTL])),
+                           ("first error on a Given", self.t("x", self.AC02, "failed", ann=[self.CTL], err=self.AC02[0])),
+                           ("failed outside its steps", self.t("x", self.AC02, "failed", ann=[self.CTL]))):
+            with self.subTest(name):
+                self.assertTrue(proof.judge_control(test), f"{name} is red")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            g = {"tests": [self.t("[FEAT-001/AC-01] login", self.AC01), self.t("[FEAT-001/AC-02] greet", self.AC02),
+                           self.t("[FEAT-001/TC-01] timeout", ["Then 503"]), self.t("[FEAT-999/AC-01] ghost", self.AC01), self.t("helper", [])]}
+            k = {"tests": [self.t("[FEAT-001/AC-01] login", self.AC01, "failed", ann=[self.CTL], err=self.AC01[-1]),
+                           self.t("[FEAT-001/TC-01] timeout", ["Then 503"], "failed", ann=[self.CTL], err="Then 503")]}
+            j = proof.judge(repo, g, k)
+            self.assertEqual({q: e["ok"] for q, e in j["cases"].items()}, {"FEAT-001/AC-01": True, "FEAT-001/AC-02": False, "FEAT-001/TC-01": True})
+            self.assertEqual(j["cases"]["FEAT-001/AC-02"]["problems"], ["absent from the control run"], "a case absent from the control run is unproven")
+            self.assertEqual(len(j["unknown"]), 1, "a tag naming no declared case is red; an untagged test is ignored")
+            self.assertTrue(proof.judge(repo, g, None)["cases"]["FEAT-001/AC-02"]["ok"], "--report without --control judges the green run only")
+
+    def test_canary_proves_the_adapter(self):
+        g, k = self.fixtures()
+        self.assertEqual(proof.canary(g, k), [], "the real Playwright 1.65 canary run judges as expected")
+        lying = json.loads(json.dumps(g))
+        for t in lying["tests"]:
+            t["annotations"] += [{"type": "asserted", "description": s["title"]} for s in t["steps"] if s["title"].startswith("Then")]
+        self.assertTrue(any("canary: unasserted" in p for p in proof.canary(lying, k)), "a converter that marks every Then asserted is caught")
+        for title in proof.CANARY:
+            with self.subTest(absent=title):
+                cut = {"tests": [t for t in g["tests"] if t["title"] != title]}
+                self.assertTrue(any(title in p for p in proof.canary(cut, k)), f"a run without `{title}` is refused")
+        self.assertTrue(proof.canary(g, {"tests": []}), "`canary: green` absent from the control run is refused")
+        passed = {"tests": [{**t, "status": "passed"} for t in k["tests"]]}
+        self.assertTrue(proof.canary(g, passed), "a control that did not act on the canary is refused")
+
+    def test_cfg_and_load_hold_the_shape_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            for p, rx in ((None, "missing"), ({"tool": " "}, "missing"), ({"tool": "cypress"}, "convert"), ({"tool": "cypress", "convert": "conv"}, "convert"),
+                          ({"tool": "cypress", "convert": "python3 conv.py {report}"}, "helper"), ({"tool": "playwright", "e2e_roots": []}, "e2e_roots")):
+                with self.subTest(p=p):
+                    self._proof_cfg(repo, p)
+                    self.assertRaisesRegex(GateFault, rx, proof.cfg, repo)
+            self._proof_cfg(repo, {"tool": "none"})
+            self.assertTrue(proof.report(repo, "absent.json")["na"], "tool none: no end-to-end layer to judge")
+            self._proof_cfg(repo, {"tool": "Playwright"})
+            self.assertEqual(proof.cfg(repo)["helper"], "tests/e2e/support/clauses.ts", "Playwright's adapter paths default")
+            write(repo / "bad.json", "{not json")
+            self.assertRaisesRegex(GateFault, "not readable JSON", proof.load, repo, proof.cfg(repo), "bad.json")
+            write(repo / "deep.json", "[" * 100000 + "]" * 100000)
+            self.assertRaisesRegex(GateFault, "not readable JSON", proof.load, repo, proof.cfg(repo), "deep.json")   # a deep nest is a fault, never a trace
+            self.assertRaisesRegex(GateFault, "does not exist", proof.load, repo, proof.cfg(repo), "absent.json")
+            self._proof_cfg(repo, {"tool": "cypress", "convert": "python3 conv.py {report}", "helper": "cy/clauses.ts", "canary": "cy/canary.cy.ts"})
+            write(repo / "conv.py", "import json, sys\nd = json.load(open(sys.argv[1]))\nm = d.get('mode')\n"
+                  "if m == 'text': print('not json')\nelif m == 'bad': print(json.dumps({'tests': [{'title': 1}]}))\nelif m == 'exit': sys.exit(3)\n"
+                  "else: print(json.dumps({'tests': [{'title': c['name'], 'status': c['state'], 'steps': [{'title': s, 'error': False} for s in c['steps']], 'annotations': []} for c in d['cases']]}))\n")
+            write(repo / "native.json", json.dumps({"cases": [{"name": "[FEAT-001/TC-01] timeout", "state": "passed", "steps": ["Then 503"]}]}))
+            c = proof.cfg(repo)
+            self.assertEqual(proof.load(repo, c, "native.json")["tests"][0]["steps"], [{"title": "Then 503", "error": False}], "the converter writes the one shape")
+            for mode, rx in (("text", "no JSON"), ("bad", "not the proof shape"), ("exit", "exited 3")):
+                with self.subTest(mode=mode):
+                    write(repo / "native.json", json.dumps({"mode": mode}))
+                    self.assertRaisesRegex(GateFault, rx, proof.load, repo, c, "native.json")
+
+    def test_check_the_adapter_in_place(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = proof.check(repo); self.assertFalse(r["ok"]); self.assertIn("clause helper", r["entries"][0]["problems"][0], "playwright without its helper is red")
+            write(repo / "tests/e2e/support/clauses.ts", "export {}\n")
+            write(repo / "tests/e2e/specs/canary.spec.ts", "test('canary: green'); test('canary: order');\n")
+            self.assertFalse(proof.check(repo)["ok"], "a canary spec without `canary: unasserted` is red")
+            write(repo / "tests/e2e/specs/canary.spec.ts", "test('canary: green'); test('canary: order'); test('canary: unasserted');\n")
+            self.assertTrue(proof.check(repo)["ok"], proof.check(repo))
+            self._proof_cfg(repo, {"tool": "cypress", "convert": "bin/no-such-conv-106 {report}", "helper": "tests/e2e/support/clauses.ts", "canary": "tests/e2e/specs/canary.spec.ts"})
+            r = proof.check(repo); self.assertFalse(r["ok"]); self.assertIn("not a file in the repository", " ".join(r["entries"][0]["problems"]), "a tool besides Playwright needs its converter")
+            write(repo / "bin/no-such-conv-106", "#!/bin/sh\n")
+            r = proof.check(repo); self.assertFalse(r["ok"]); self.assertIn("not executable", " ".join(r["entries"][0]["problems"]), "a converter the runner cannot execute")
+            os.chmod(repo / "bin/no-such-conv-106", 0o755)
+            self.assertTrue(proof.check(repo)["ok"])
+            out = Path(tmp) / "outside-conv"; write(out, "#!/bin/sh\n"); os.chmod(out, 0o755)
+            for cmd in (f"{out} {{report}}", "../outside-conv {report}", "bin/../../outside-conv {report}"):
+                with self.subTest(convert=cmd):
+                    self._proof_cfg(repo, {"tool": "cypress", "convert": cmd, "helper": "tests/e2e/support/clauses.ts", "canary": "tests/e2e/specs/canary.spec.ts"})
+                    r = proof.check(repo); self.assertFalse(r["ok"]); self.assertIn("outside the repository", " ".join(r["entries"][0]["problems"]), "r2: the converter is a repository file")
+            write(repo / "conv-106-bare", "#!/bin/sh\n"); os.chmod(repo / "conv-106-bare", 0o755)
+            self._proof_cfg(repo, {"tool": "cypress", "convert": "conv-106-bare {report}", "helper": "tests/e2e/support/clauses.ts", "canary": "tests/e2e/specs/canary.spec.ts"})
+            r = proof.check(repo); self.assertFalse(r["ok"]); self.assertIn("runs as `./conv-106-bare`", " ".join(r["entries"][0]["problems"]), "a bare name is looked up on PATH, not in the repository")
+            self._proof_cfg(repo, {"tool": "cypress", "convert": "bin/conv 'unbalanced {report}", "helper": "tests/e2e/support/clauses.ts", "canary": "tests/e2e/specs/canary.spec.ts"})
+            self.assertIn("unbalanced quote", proof.check(repo)["reason"], "a broken command line is a red row, never a trace")
+            self._proof_cfg(repo, {"tool": "cypress", "convert": "python3 tools/conv.py {report}", "helper": "tests/e2e/support/clauses.ts", "canary": "tests/e2e/specs/canary.spec.ts"})
+            r = proof.check(repo); self.assertFalse(r["ok"]); self.assertIn("tools/conv.py", " ".join(r["entries"][0]["problems"]), "an interpreter on PATH does not stand in for the script it runs")
+            write(repo / "tools/conv.py", "print('{}')\n")
+            self.assertTrue(proof.check(repo)["ok"])
+            self._proof_cfg(repo, {"tool": "cypress"})
+            self.assertFalse(proof.check(repo)["ok"], "a tool answered with no proof.convert is red")
+            self._proof_cfg(repo, {"tool": "none"})
+            self.assertTrue(proof.check(repo)["na"])
+            write(repo / "docs/setup.md", "---\nproject_tracking:\n  feature_phases: lean\n---\n")
+            self._proof_cfg(repo, None)
+            self.assertTrue(proof.check(repo)["na"], "outside full-sdlc there is no proof at the close")
+            gate = [sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "proof"]
+            r = subprocess.run(gate + ["--check"], capture_output=True, text=True); self.assertEqual(r.returncode, 0, r.stderr)
+            r = subprocess.run(gate, capture_output=True, text=True); self.assertEqual(r.returncode, 1); self.assertIn("name one of", r.stderr)
+
+    def _evidence(self, repo, cases, seal_ok=True):
+        head = self._git(repo, "rev-parse", "HEAD").strip()
+        write(repo / "docs/spec/FEAT-001/qa/proof.json", json.dumps({"sha": head, "env": "staging", "at": "x", "cases": cases}))
+        return unittest.mock.patch("gates.seal.check", return_value={"ok": True} if seal_ok else {"ok": False, "reason": "x"})
+
+    def test_trace_scenario_to_evidence(self):
+        ok = {"ok": True, "problems": []}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            with self._evidence(repo, {"FEAT-001/AC-01": ok, "FEAT-001/AC-02": ok}) as sc:
+                r = proof.trace(repo, "FEAT-001")
+                self.assertTrue(r["ok"], r["entries"]); self.assertEqual(sc.call_args.kwargs["ref"], self._git(repo, "rev-parse", "HEAD").strip(), "the seal is asked at the proof's SHA")
+                self.assertEqual({e["case"]: e["evidence"] for e in r["trace"]}, {"FEAT-001/AC-01": "proof", "FEAT-001/AC-02": "proof", "FEAT-001/TC-01": "seal", "FEAT-001/UX-01": "manual"})
+            red = lambda r: {e["id"]: " ".join(e["problems"]) for e in r["entries"] if not e["ok"]}
+            with self._evidence(repo, {"FEAT-001/AC-01": ok, "FEAT-001/AC-02": ok}, seal_ok=False):
+                self.assertIn("seal is not valid", red(proof.trace(repo, "FEAT-001"))["FEAT-001/TC-01"], "a unit case with no valid seal is red")
+            with self._evidence(repo, {"FEAT-001/AC-01": ok, "FEAT-001/AC-02": {"ok": False, "problems": ["steps out of order"]}}):
+                self.assertIn("red in proof.json", red(proof.trace(repo, "FEAT-001"))["FEAT-001/AC-02"])
+            with self._evidence(repo, {"FEAT-001/AC-01": ok}):
+                self.assertIn("absent from proof.json", red(proof.trace(repo, "FEAT-001"))["FEAT-001/AC-02"])
+            write(repo / "docs/spec/FEAT-001/spec.feature", self.FEATURE + "\n  Scenario: Logout\n    When they log out\n    Then the login page shows\n")
+            with self._evidence(repo, {"FEAT-001/AC-01": ok, "FEAT-001/AC-02": ok}):
+                self.assertEqual(list(red(proof.trace(repo, "FEAT-001"))), ["scenario `Logout`"], "a scenario with no AC row is red")
+            write(repo / "docs/spec/FEAT-001/spec.feature", self.FEATURE)
+            self._plan(repo, acc=self.ACC + "| AC-03 | Ghost | Gone | none |\n")
+            with self._evidence(repo, {"FEAT-001/AC-01": ok, "FEAT-001/AC-02": ok}):
+                p = red(proof.trace(repo, "FEAT-001"))["FEAT-001/AC-03"]
+                self.assertIn("names no scenario", p); self.assertIn("no test links it", p, "an unlinked AC is red")
+
+    def test_qa_verdict_reads_the_proof(self):
+        ok = {"ok": True, "problems": []}
+        rep = lambda kind="", ticked="AC-01": qa_report(extra=f"- [x] [QA-TC-{ticked}] proven\n").replace("---\nstatus:", f"---\nid: FEAT-001\n{kind}status:", 1)
+        row = lambda r: next(e for e in r["entries"] if e["id"] == "proof")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._plan(repo, tech=self.TECH + "| TC-02 | Edge | cache | cold | 200 |\n")
+            with self._evidence(repo, {"FEAT-001/AC-02": ok}):
+                r = qa.verdict(repo, rep()); self.assertFalse(r["ok"]); self.assertIn("ticked with no evidence", row(r)["problems"][0], "a mark not read from the run is red")
+                self.assertFalse(row(qa.verdict(repo, rep(ticked="AC-77")))["ok"], "a ticked case the plan does not declare is red")
+            with self._evidence(repo, {"FEAT-001/AC-01": ok, "FEAT-001/AC-02": ok}):
+                self.assertTrue(row(qa.verdict(repo, rep()))["ok"], "the ticked case has its evidence; the unlinked TC-02 is not this report's mark")
+                r = qa.verdict(repo, rep("report_kind: qa_report_final\n"))
+                self.assertFalse(r["ok"]); self.assertTrue(any("FEAT-001/TC-02" in p for p in row(r)["problems"]), "an aggregate report needs the whole trace: an unlinked case is red")
+                write(repo / "tests/unit/cache.test.ts", 'it("[FEAT-001/TC-02] cache", () => {});\n')
+                self.assertTrue(qa.verdict(repo, rep("report_kind: qa_report_final\n"))["ok"], "linked and proven: green")
+                (repo / "tests/unit/cache.test.ts").unlink()
+                self._plan(repo, extra="\n## Retired cases\n| Retired ID | Reason |\n|---|---|\n| TC-02 | the cache was dropped |\n")
+                self.assertTrue(qa.verdict(repo, rep("report_kind: qa_report_final\n"))["ok"], "retired with a reason: green")
+            self.assertIsNone(qa._proof_row(repo, qa_report()), "a report naming no feature carries no proof row")
+
+    def test_trace_e2e_evidence_speaks_for_head(self):
+        """r1 (security, correctness): a run recorded on another build is no evidence."""
+        ok = {"ok": True, "problems": []}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); q["surface"] = {"runtime_surface": ["src/**"]}
+            write(repo / "config/quality.json", json.dumps(q)); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "surface")
+            head = lambda: self._git(repo, "rev-parse", "HEAD").strip()
+            put = lambda sha: write(repo / "docs/spec/FEAT-001/qa/proof.json", json.dumps({"sha": sha, "env": "staging", "at": "x", "cases": {"FEAT-001/AC-01": ok, "FEAT-001/AC-02": ok}}))
+            red = lambda: {e["id"]: " ".join(e["problems"]) for e in proof.trace(repo, "FEAT-001")["entries"] if not e["ok"]}
+            commit = lambda rel, text: (write(repo / rel, text), self._git(repo, "add", rel), self._git(repo, "commit", "-qm", rel))
+            with unittest.mock.patch("gates.seal.check", return_value={"ok": True}):
+                put(head()); commit("docs/notes.md", "x\n")
+                self.assertEqual(red(), {}, "an ancestor whose diff moves neither the runtime surface nor an e2e test still speaks for HEAD")
+                commit("src/app.ts", "x\n")
+                self.assertIn("runtime surface", red()["FEAT-001/AC-01"], "the code moved since the run: stale")
+                put(head()); commit("tests/e2e/login.spec.ts", self.E2E + "// reworded\n")
+                self.assertIn("end-to-end test file(s) changed", red()["FEAT-001/AC-02"], "a test changed since the run: stale")
+                for sha, word in (("abc", "names no commit SHA"), ("-" * 40, "names no commit SHA"), ("0" * 40, "not this branch's build")):
+                    with self.subTest(sha=sha):
+                        put(sha); self.assertIn(word, red()["FEAT-001/AC-01"])
+
+    def test_trace_reads_the_control_point_and_the_tool(self):
+        """r1 (correctness): CI has no local seal; with no end-to-end tool every linked case is the seal's; a typo is red."""
+        rep = qa_report(extra="- [x] [QA-TC-TC-01] proven\n").replace("---\nstatus:", "---\nid: FEAT-001\nstatus:", 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            with unittest.mock.patch("gates.seal.check", return_value={"ok": True}) as sc:
+                qa.verdict(repo, rep, "ci"); self.assertEqual(sc.call_args.kwargs["control_point"], "ci", "the verdict asks the seal at its own control point")
+                proof.trace(repo, "FEAT-001"); self.assertEqual(sc.call_args.kwargs["control_point"], "push")
+                self._proof_cfg(repo, {"tool": "none"})
+                ev = {e["case"]: e["evidence"] for e in proof.trace(repo, "FEAT-001")["trace"]}
+                self.assertEqual(ev["FEAT-001/AC-01"], "seal", "proof.tool none: a test under tests/e2e/ is never owed a run")
+                r = proof.trace(repo, "FEAT-999"); self.assertFalse(r["ok"]); self.assertIn("test_plan.md is absent", r["reason"])
+                self.assertRaises(GateFault, proof.trace, repo, "../FEAT-001")
+                self.assertRaises(GateFault, qa.ready, repo, "staging", "../FEAT-001")
+            row = next(m for m in profile.MEMBERS if m[0] == "qa")
+            self.assertIn("{control_point}", row[4], "the profile hands qa --check its control point")
+
+    def test_clauses_need_a_then_and_never_backtrack(self):
+        """r1 (correctness, security): a scenario with no Then proves nothing; an Outline title is matched without a regex."""
+        self.assertEqual(proof.clauses_of({"cells": {"GHERKIN REF": "S"}}, {"s": {"steps": [("Given", "x"), ("When", "y")]}})[0], None)
+        self.assertTrue(proof._fits("When", "<a><b> logs in", "when xy logs in"))
+        self.assertFalse(proof._fits("When", "<a><b> logs in", "when x logs in"), "each placeholder is one character or more")
+        self.assertTrue(proof._fits("Then", "<a> and <b>", "then 1 and 2 and 3"))
+        self.assertFalse(proof._fits("Then", "<a> end", "then end"))
+        t0 = time.monotonic()
+        self.assertFalse(proof._fits("Then", "<a> <b> <c> <d> <e> end", "then " + "x " * 3000 + "!"))
+        self.assertFalse(proof._fits("Then", "<a> x <b> x <c> y <d> end", "then " + "x " * 3000 + "end"), "r2: head and tail fit, the middle does not")
+        self.assertLess(time.monotonic() - t0, 1.0, "a long title that does not fit is refused in linear time")
+
+    def test_retired_cases(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            c = traceability.cfg(repo)
+            retire = lambda rows: self._plan(repo, tech=self.TECH + "| TC-02 | Edge | cache | cold | 200 |\n", extra="\n## Retired cases\n| Retired ID | Reason |\n|---|---|\n" + rows)
+            retire("| TC-09 | the export was dropped |\n")
+            dec, _ = traceability.declared(repo, c)
+            self.assertNotIn("FEAT-001/TC-09", dec, "a retired id is not declared")
+            ret, bad = traceability.retired(repo, c, traceability.files(repo), dec)
+            self.assertEqual((list(ret), bad), (["FEAT-001/TC-09"], []))
+            for rows, rx in (("| TC-09 | |\n", "without its reason"), ("| TC-01 | moved |\n", "both retired and declared")):
+                with self.subTest(rows=rows):
+                    retire(rows)
+                    dec, _ = traceability.declared(repo, c)
+                    bad = traceability.retired(repo, c, traceability.files(repo), dec)[1]
+                    self.assertTrue(bad and rx in bad[0]["reason"], f"{rows.strip()} is red")
+                    self.assertTrue(any(rx in f["reason"] for f in traceability.check(repo)["findings"]), "the traceability gate reports it")
+            retire("| TC-09 | dropped |\n")
+            self.assertEqual(traceability.baseline(repo, init=True)["unlinked"], ["FEAT-001/TC-02"])
+            self._plan(repo, extra="\n## Retired cases\n| Retired ID | Reason |\n|---|---|\n| TC-02 | the cache was dropped |\n")
+            b = traceability.baseline(repo, refresh=True)
+            self.assertEqual((b["unlinked"], b["removed"]), ([], ["FEAT-001/TC-02"]), "--refresh drops a retired id from the baseline")
+
+    def test_record_writes_the_proof_or_refuses(self):
+        green = [self.t("[FEAT-001/AC-01] login", self.AC01)]
+        control = [self.t("[FEAT-001/AC-01] login", self.AC01, "failed", ann=[self.CTL], err=self.AC01[-1])]
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            out = repo / "docs/spec/FEAT-001/qa/proof.json"
+            write(repo / "g.json", self.pw(green)); write(repo / "k.json", self.pw(control, kind="control"))
+            with unittest.mock.patch("gates.qa.ready", return_value={"ok": False, "reason": "not reached", "entries": []}):
+                r = proof.record(repo, "g.json", "k.json", "staging", now=self.NOW)
+                self.assertTrue(r["refused"]); self.assertIn("not ready", r["reason"]); self.assertFalse(out.exists(), "a refused record writes nothing")
+            with unittest.mock.patch("gates.qa.ready", return_value={"ok": True, "reason": "ready", "entries": []}):
+                write(repo / "g0.json", self.pw(green, canary=False))
+                r = proof.record(repo, "g0.json", "k.json", "staging", now=self.NOW)
+                self.assertTrue(r["refused"]); self.assertIn("canary disagrees", r["reason"]); self.assertFalse(out.exists())
+                r = proof.record(repo, "g.json", "k.json", "staging", now=self.NOW)
+                self.assertTrue(r["ok"], r["entries"]); self.assertEqual(r["written"], ["docs/spec/FEAT-001/qa/proof.json"])
+            body = json.loads(out.read_text())
+            self.assertEqual(body, {"sha": self._git(repo, "rev-parse", "HEAD").strip(), "env": "staging", "at": "2026-11-09T12:00:00Z",
+                                    "cases": {"FEAT-001/AC-01": {"ok": True, "problems": []}}})
+            gate = [sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "proof", "--report", "g.json"]
+            r = subprocess.run(gate + ["--control", "k.json", "--json"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr); self.assertTrue(json.loads(r.stdout)["cases"]["FEAT-001/AC-01"]["ok"])
+            r = subprocess.run(gate[:-2] + ["--record", "--green", "g.json"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1); self.assertIn("--record needs", r.stderr)
+            r = subprocess.run(gate[:-2] + ["--report", "missing.json"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2, "a fault is exit 2 — never a verdict a caller reads as red"); self.assertIn("does not exist", r.stderr)
+
+
+class ProofClose(unittest.TestCase):
+    """EVOL-106, the close on pre-production: the feature's upgrade met populated data, the stage is lkg, every adapter
+    command fills for production, the rollback is stated; `populated` counted before migrate; no staging value in code;
+    every open INC names where its upgrade meets data."""
+    F, MIG, RB = "F-1", "src/migrations/002.sql", "docs/spec/F-1/devops_plan.md"
+    ROLLBACK = "# DevOps\n\n## Rollback\n\n- **Restores:** the lkg build\n- **Cannot restore:** {lost}\n\n## Other\n"
+
+    def _git(self, repo, *c):
+        return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True, text=True).stdout
+
+    def _repo(self, tmp, populated="db count", adapter=None, mig="DROP TABLE legacy;\n"):
+        """main (origin/main) + feature/F-1-close adding one contract migration, committed; Flyway answered."""
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["delivery"] = {"execution": "ci", "adapter": adapter or {"tool": "Terraform", "apply": "tf apply {env}", "url_from": {"kind": "stdout"}},
+                         "migrate": "mig up", "populated": populated}
+        q["surface"] = {"runtime_surface": ["src/**"]}
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / "docs/setup.md", "---\ndatabase:\n  primary:\n    engine: PostgreSQL\n  migrations_tool: Flyway\n---\n")
+        self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "cfg"); self._git(repo, "branch", "-M", "main")
+        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD"); self._git(repo, "checkout", "-qb", "feature/F-1-close")
+        if mig:
+            write(repo / self.MIG, mig); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "mig")
+        write(repo / self.RB, self.ROLLBACK.format(lost="src/migrations/002.sql drops `legacy`"))
+        return repo
+
+    def _rec(self, repo, n, good=True, **payload):
+        head = self._git(repo, "rev-parse", "HEAD").strip()
+        return delivery.write_record(repo, "staging", head, {"probe": {"svc0": "up"}, "migrations": [self.MIG], "populated": 5, **payload},
+                                     good=good, now=dt.datetime(2026, 11, 9, 10, 0, n, tzinfo=dt.timezone.utc))
+
+    def _row(self, repo, rid):
+        r = qa.ready(repo, "staging", self.F)
+        return next(e for e in r["entries"] if e["id"] == rid), r
+
+    def test_upgraded_every_feature_migration_first_met_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); self._rec(repo, 0, populated=5)
+            row, r = self._row(repo, "upgraded"); self.assertTrue(row["ok"], qa.render(r))
+            self.assertTrue(r["ok"], "a complete close is green: " + qa.render(r))
+            self._rec(repo, 1, populated=0)
+            self.assertTrue(self._row(repo, "upgraded")[0]["ok"], "a migration that met data once has met it: a later empty redeploy does not undo that")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); self._rec(repo, 0, populated=0)
+            row, r = self._row(repo, "upgraded"); self.assertFalse(row["ok"]); self.assertIn("restore staging from a populated copy", qa.render(r), "the remedy that can work")
+            main = self._git(repo, "rev-parse", "main").strip()
+            delivery.write_record(repo, "staging", main, {"probe": {"svc0": "up"}, "migrations": [self.MIG], "populated": 9}, good=True,
+                                  now=dt.datetime(2026, 11, 9, 10, 0, 30, tzinfo=dt.timezone.utc))
+            self.assertFalse(self._row(repo, "upgraded")[0]["ok"], "r2: a rollback to a build without the migration lists it and never ran it")
+            self._rec(repo, 1, populated=7)
+            self.assertTrue(self._row(repo, "upgraded")[0]["ok"], "applied again over a populated copy (restored, rolled back, redeployed): it met data")
+            self.assertEqual([e["id"] for e in qa.ready(repo, "staging")["entries"]], ["reached", "alive", "migrated"], "without --feature no close row")
+        for pop, ok in ((0, False), (None, False), ("5", False), (True, False), (5, True)):
+            with tempfile.TemporaryDirectory() as tmp, self.subTest(populated=pop):
+                repo = self._repo(tmp); self._rec(repo, 0, populated=pop)
+                row, r = self._row(repo, "upgraded"); self.assertEqual(row["ok"], ok, qa.render(r))
+                if not ok:
+                    self.assertIn("never met data", qa.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); self._rec(repo, 0, migrations=[])
+            row, r = self._row(repo, "upgraded"); self.assertFalse(row["ok"], "a migration no record traced was never deployed")
+            self.assertIn(f"{self.MIG} is in no staging record", qa.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, populated=None); self._rec(repo, 0)
+            row, r = self._row(repo, "upgraded"); self.assertFalse(row["ok"], "`delivery.populated` null while the feature migrates: nothing proves data")
+            self.assertIn("DEVOPS --configure", qa.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, populated=None, mig=None); self._rec(repo, 0, migrations=[])
+            self.assertTrue(self._row(repo, "upgraded")[0]["ok"], "no migration in the feature: nothing to upgrade, populated not owed")
+
+    def test_lkg_the_newest_record_is_good(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); self._rec(repo, 0)
+            self.assertTrue(self._row(repo, "lkg")[0]["ok"])
+            self._rec(repo, 1, good=False)
+            row, r = self._row(repo, "lkg"); self.assertFalse(row["ok"], "an older lkg is not this record's: the newest deploy was red")
+            self.assertIn("is not good", qa.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); self._rec(repo, 0, good=False)
+            self.assertFalse(self._row(repo, "lkg")[0]["ok"], "no lkg tag at all is red")
+
+    def test_production_every_command_fills_for_production(self):
+        base = {"tool": "Terraform", "apply": "tf apply -var-file={tfvars}", "url_from": {"kind": "stdout"}}
+        for params, extra, ok in (({"tfvars": {"staging": "s.tfvars"}}, {}, False), ({"tfvars": {"staging": "s.tfvars", "production": "p.tfvars"}}, {}, True),
+                                  ({"tfvars": {"staging": "s.tfvars", "production": "p.tfvars"}}, {"url_from": {"kind": "template", "template": "https://{host}"}}, False),
+                                  ({"tfvars": "x.tfvars", "host": {"staging": "s.io", "production": "p.io"}}, {"url_from": {"kind": "template", "template": "https://{host}"}}, True)):
+            with tempfile.TemporaryDirectory() as tmp, self.subTest(params=params, extra=extra):
+                repo = self._repo(tmp, adapter={**base, "params": params, **extra}); self._rec(repo, 0)
+                row, r = self._row(repo, "production"); self.assertEqual(row["ok"], ok, qa.render(r))
+                if not ok:
+                    self.assertIn("for production", qa.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, populated="db count {dbhost}", adapter={**base, "params": {"tfvars": "x", "dbhost": {"staging": "s.db"}}}); self._rec(repo, 0)
+            row, r = self._row(repo, "production"); self.assertFalse(row["ok"], "the populated command fills for production too")
+            self.assertIn("populated:", qa.render(r))
+
+    def test_rollback_states_what_returns_and_every_contract_lost(self):
+        R = self.ROLLBACK
+        cases = ((None, False, "is absent"), ("# DevOps\n\n## Deploy\n- **Restores:** x\n", False, "no `## Rollback` section"),
+                 (R.format(lost=""), False, "no filled `- **Cannot restore:**`"),
+                 (R.replace("the lkg build", ""), False, "no filled `- **Restores:**`"),
+                 (R.replace("the lkg build", "{what returning to the last good build restores}"), False, "no filled `- **Restores:**`"),
+                 (R.format(lost="nothing"), False, f"{self.MIG} is a contract migration"),
+                 ("## Rollback\n- **Restores:** b\n- **Cannot restore:** nothing\n## Other\n- **Cannot restore:** 002.sql\n", False, "contract migration"),
+                 (R.format(lost="002.sql (the legacy table)"), True, ""), (R.format(lost=f"{self.MIG}"), True, ""))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); self._rec(repo, 0)
+            for text, ok, word in cases:
+                with self.subTest(text=text):
+                    (repo / self.RB).unlink(missing_ok=True)
+                    if text is not None:
+                        write(repo / self.RB, text)
+                    row, r = self._row(repo, "rollback"); self.assertEqual(row["ok"], ok, qa.render(r))
+                    if word:
+                        self.assertIn(word, qa.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, mig="ALTER TABLE t ADD COLUMN c int;\n"); self._rec(repo, 0)
+            write(repo / self.RB, R.format(lost="the rows written after the deploy"))
+            self.assertTrue(self._row(repo, "rollback")[0]["ok"], "an expand migration need not be named under Cannot restore")
+
+    def test_rollback_line_reader_is_linear(self):
+        """r1 (security): blank lines never make the § Rollback reader quadratic."""
+        t0 = time.monotonic(); self.assertEqual(qa.RB_LINE.findall("\n" * 30000 + "x"), [])
+        self.assertLess(time.monotonic() - t0, 0.5)
+
+    def test_delivery_run_counts_populated_before_migrate(self):
+        row = {"tool": "Terraform", "validate": "tf validate", "plan": "tf plan -out=p-{env}", "apply": "tf apply p-{env}", "url_from": {"kind": "command", "command": "tf output -raw url"}}
+        for pop, out, want in (("db count", "noise\n42\n", 42), (None, "", None)):
+            with tempfile.TemporaryDirectory() as tmp, self.subTest(populated=pop):
+                repo = fixture_repo(Path(tmp))
+                q = json.loads((repo / "config/quality.json").read_text())
+                q["delivery"] = {"execution": "local", "adapter": row, "migrate": "mig up", "populated": pop, "probe": {"timeout_s": 0.1, "interval_s": 0.05}}
+                write(repo / "config/quality.json", json.dumps(q)); self._git(repo, "commit", "-qam", "cfg")
+                calls = []
+
+                def run(argv, **kw):
+                    calls.append(argv[:2])
+                    return subprocess.CompletedProcess(argv, 0, out if argv[:2] == ["db", "count"] else "http://x" if argv[:2] == ["tf", "output"] else "", "")
+                with unittest.mock.patch.object(delivery, "probe", return_value={"svc0": "up"}):
+                    r = delivery.run(repo, "staging", environ={}, runner=run)
+                self.assertTrue(r["ok"], delivery.render(r))
+                order = [c[0] for c in calls]
+                self.assertEqual(order, ["tf", "tf"] + (["db"] if pop else []) + ["mig", "tf", "tf"], "validate, plan, populated, migrate, apply, url: populated counts BEFORE the upgrade")
+                self.assertEqual(delivery.last(repo, "staging")["populated"], want, "the record carries the rows the environment held")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["delivery"] = {"execution": "local", "adapter": row, "migrate": "mig up", "populated": "db count"}
+            write(repo / "config/quality.json", json.dumps(q)); calls = []
+            run = lambda argv, **kw: calls.append(argv[:2]) or subprocess.CompletedProcess(argv, 0, "many\n", "")
+            with self.assertRaisesRegex(GateFault, "did not end with one integer.*never echoed"):
+                delivery.run(repo, "staging", environ={}, runner=run)
+            self.assertNotIn(["mig", "up"], calls, "an unreadable count migrates nothing")
+            fail = lambda argv, **kw: subprocess.CompletedProcess(argv, 1 if argv[:2] == ["db", "count"] else 0, "", "alice@example.com")
+            with self.assertRaises(GateFault) as cm:
+                delivery.run(repo, "staging", environ={}, runner=fail)
+            self.assertIn("populated failed (exit 1)", str(cm.exception))
+            self.assertNotIn("alice", str(cm.exception), "r2: a failing count is never echoed either")
+            self.assertIsNone(delivery.last(repo, "staging"))
+            self.assertEqual(delivery.preproduction(repo), "staging", "the default pre-production stage is staging")
+            for v, want in (("preprod", "preprod"), ("production", None), ("Staging", None)):
+                with self.subTest(preproduction=v):
+                    q["delivery"]["preproduction"] = v; write(repo / "config/quality.json", json.dumps(q))
+                    if want:
+                        self.assertEqual(delivery.preproduction(repo), want)
+                    else:
+                        self.assertRaises(GateFault, delivery.preproduction, repo)
+
+    def test_delivery_check_no_staging_value_hard_coded_in_source(self):
+        par = {"bucket": {"staging": "acme-stg-bucket", "production": "acme-prod-bucket"}, "host": {"staging": "shared-host", "production": "p-host"},
+               "region": {"staging": "s-region", "production": "shared-host"}}   # a value production also uses is no staging leak
+        for rel, text, ok in (("src/x.py", 'B = "acme-stg-bucket"\n', False), ("envs/staging.tfvars", 'bucket = "acme-stg-bucket"\n', True),
+                              ("src/staging/conf.py", 'B = "acme-stg-bucket"\n', True), ("src/x.py", 'B = "acme-prod-bucket"\n', True),
+                              ("src/x.py", 'B = "acme-stg-bucket-2"\n', True), ("src/x.py", 'H = "shared-host"\n', True), ("docs/x.py", 'B = "acme-stg-bucket"\n', True),
+                              ("tests/e2e/x.spec.ts", 'B = "acme-stg-bucket"\n', True), ("src/y.py", b'B = "acme-stg-bucket"  # \xff\n', False)):
+            with tempfile.TemporaryDirectory() as tmp, self.subTest(rel=rel, text=text):
+                repo = fixture_repo(Path(tmp))
+                q = json.loads((repo / "config/quality.json").read_text())
+                q["delivery"] = {"execution": "local", "adapter": {"tool": "Terraform", "apply": "tf apply -var bucket={bucket}", "url_from": {"kind": "stdout"}, "params": par}}
+                write(repo / "config/quality.json", json.dumps(q))
+                (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+                (repo / rel).write_bytes(text) if isinstance(text, bytes) else write(repo / rel, text)   # a test names its stage; a non-UTF-8 byte is never a skip
+                self._git(repo, "add", "-A")
+                r = delivery.check(repo); self.assertEqual(r["ok"], ok, delivery.render(r))
+                if not ok:
+                    self.assertIn(f"{rel}:1: `acme-stg-bucket` is `params.bucket` for staging", delivery.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["delivery"] = {"execution": "local", "adapter": {"tool": "Terraform", "apply": "tf apply {env}", "url_from": {"kind": "stdout"}, "params": ["x"]}}
+            write(repo / "config/quality.json", json.dumps(q))
+            self.assertEqual(delivery.literals(repo, q["delivery"]), [], "params that are not a map hold no per-environment value: the row's own validation speaks")
+
+    @staticmethod
+    def _plan(up, status="READY"):
+        line = "" if up is None else f"- **Upgrade over data:** {up}\n"
+        return (f"# Plan\n\n### INC-1: x\n\n- **Status:** {status}\n- **Estimated surface:** paths [src/**] · ~9 files · ~90 lines\n{line}"
+                "- **Acceptance — exit criteria (each measurable on its own):**\n  - [ ] `pytest tests/` passes\n")
+
+    def test_train_j_every_open_increment_names_its_upgrade_stage(self):
+        for up, status, stage, ok in (("never", "READY", "staging", False), (None, "READY", "staging", False), ("staging", "READY", "staging", True),
+                                      ("`staging`", "READY", "staging", True), ("none", "READY", "staging", True), ("staging", "READY", "preprod", False),
+                                      (None, "BUILDING", "staging", True), ("never", "MERGED", "staging", True),
+                                      ("none   *(`<stage>` | `none` — guidance)*", "READY", "staging", True), ("none (no migrations)", "READY", "staging", False)):
+            with self.subTest(up=up, status=status, stage=stage):
+                j = [p for p in train.judge_exits(self._plan(up, status), stage) if p.startswith("(j)")]
+                self.assertEqual(not j, ok, j)
+        t0 = time.monotonic()
+        for tail in (" " * 50000 + "x", "*(" * 20000):
+            train.judge_exits(self._plan("none" + tail, "READY"), "staging")
+        self.assertLess(time.monotonic() - t0, 1.0, "r2: the guidance strip reads a long line in linear time")
+        for up, mig, ok in (("none", True, False), ("none", False, True), ("staging", True, True)):
+            with tempfile.TemporaryDirectory() as tmp, self.subTest(up=up, mig=mig):
+                repo = fixture_repo(Path(tmp)); br = "feature/FEAT-001-inc-1-x"
+                q = json.loads((repo / "config/quality.json").read_text()); q["surface"] = {"ceiling_files": 10, "ceiling_lines": 100}
+                write(repo / "config/quality.json", json.dumps(q)); write(repo / "docs/spec/FEAT-001/increment_plan.md", self._plan(up))
+                for c in (["add", "-A"], ["commit", "-qm", "base"], ["branch", "-M", "main"], ["checkout", "-qb", br]):
+                    self._git(repo, *c)
+                write(repo / ("src/migrations/002.sql" if mig else "src/b.py"), "select 2;\n")
+                r = train.check(repo, "main", br); self.assertEqual(r["ok"], ok, train.render(r))
+                if not ok:
+                    self.assertIn("says `Upgrade over data: none` and this diff adds src/migrations/002.sql", train.render(r))
+
+    def test_cli_qa_ready_feature_reaches_the_close_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); self._rec(repo, 0)
+            gate = [sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "qa", "--ready", "--env", "staging"]
+            res = subprocess.run(gate + ["--feature", self.F, "--json"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            self.assertEqual([e["id"] for e in json.loads(res.stdout)["entries"]], ["reached", "alive", "migrated", "upgraded", "lkg", "production", "rollback"])
+            (repo / self.RB).unlink()
+            res = subprocess.run(gate + ["--feature", self.F], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 1, res.stdout + res.stderr); self.assertIn("is absent", res.stdout)
+
+
+class Bounds(unittest.TestCase):
+    """EVOL-106, every external client in a time-limited function is bounded: units, arithmetic, baseline, declared literals."""
+    SETUP = "---\nproject_scope: backend-only\nhosting:\n  type: function\n---\n"
+
+    @staticmethod
+    def _git(repo, *c):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)
+
+    @staticmethod
+    def _design(clients, timeout=30):
+        y = f"infrastructure_needs:\n  resources:\n    - id: orders-fn\n      type: function\n      timeout_seconds: {timeout}\n"
+        if clients is not None:
+            y += "      clients: []\n" if not clients else "      clients:\n" + "".join(
+                "        - name: c\n" + "".join(f"          {k}: {v}\n" for k, v in c.items()) for c in clients)
+        return "# Design\n\n```yaml\n" + y + "```\n"
+
+    @staticmethod
+    def _runner(results, rc=1, stdout=None):
+        doc = {"results": [{"check_id": f"security.bounds.{rule}", "path": path, "start": {"line": 7},
+                            "extra": {"message": msg, "metadata": {"bounds": kind, "client": "httpx"}}}
+                           for rule, path, kind, msg in results], "errors": []}
+        def run(cmd, **kw):
+            run.calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, rc, json.dumps(doc) if stdout is None else stdout, "")
+        run.calls = []
+        return run
+
+    def _repo(self, tmp, clients=(), timeout=30, setup=None):
+        repo = fixture_repo(Path(tmp))
+        write(repo / "docs/setup.md", setup or self.SETUP)
+        write(repo / "security/bounds/python.yml", "rules: []\n")
+        write(repo / "docs/spec/F-1/design.md", self._design(None if clients is None else list(clients), timeout))
+        self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "f")
+        return repo
+
+    def _row(self, r, rid):
+        return next(e for e in r["entries"] if e["id"] == rid)
+
+    def test_na_unless_function_hosting_and_in_meta(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, setup="---\nhosting:\n  type: container\n---\n")
+            r = bounds.check(repo, self._runner([])); self.assertTrue(r["ok"] and r.get("na"), r); self.assertIn("container", r["reason"])
+            self.assertRaises(GateFault, bounds.baseline, repo, init=True, runner=self._runner([]))
+            write(repo / "docs/setup.md", self.SETUP); self.assertIsNone(bounds.applies(repo))
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "bounds"], capture_output=True, text=True)
+            self.assertNotEqual(res.returncode, 0, "function hosting, semgrep absent or packs judged: never a silent n/a")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp), "meta"); write(repo / "docs/setup.md", self.SETUP)
+            self.assertIn("framework repo", bounds.applies(repo))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "bounds", "--json"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr); self.assertTrue(json.loads(res.stdout)["na"])
+
+    def test_units_and_grammar(self):
+        self.assertEqual(bounds.normalise("bound retries 0 s 6 s 2"), {"connect_s": 0.0, "read_s": 6.0, "attempts": 3})
+        self.assertEqual(bounds.normalise("bound  total 500 ms 2 s 1"), {"connect_s": 0.5, "read_s": 2.0, "attempts": 1})
+        self.assertEqual(bounds.normalise("deadline 1 m"), {"deadline_s": 60.0})
+        for v, u, s in (("5", "ofSeconds", 5), ("1500", "FromMilliseconds", 1.5), ("3", "from_secs", 3), ("250", "from_millis", 0.25),
+                        ("2", "Second", 2), ("100", "Millisecond", 0.1), ("30L", "ofSeconds", 30), ("5_000", "ms", 5), ("2", "Minutes", 120)):
+            self.assertAlmostEqual(bounds.seconds(v, u), s, msg=(v, u))
+        for bad in ("bound retries 1 s 2 s", "bound sometimes 1 s 2 s 1", "bound total 1 h 2 s 1", "bound total x s 2 s 1",
+                    "bound total 1 s 2 s 1.5", "deadline 5", "timeout 5 s", ""):
+            self.assertRaises(GateFault, bounds.normalise, bad)
+        with tempfile.TemporaryDirectory() as tmp:   # a pack emitting outside the grammar is red, never a pass
+            repo = self._repo(tmp, [{"calls": 1, "connect_s": 1, "read_s": 6, "attempts": 1}])
+            r = bounds.check(repo, self._runner([("r", "src/a.py", "extract", "bound total 1 hours 6 s 1")]))
+            self.assertFalse(self._row(r, "declared")["ok"], bounds.render(r)); self.assertIn("the pack is broken", bounds.render(r))
+            for runner in (self._runner([], rc=2), self._runner([], stdout="not json")):
+                self.assertRaises(GateFault, bounds.check, repo, runner)
+
+    def test_function_arithmetic(self):
+        for clients, ok, word in (([{"calls": 3, "connect_s": 20, "read_s": 20, "attempts": 1}], False, "can take 120 s"),
+                                  ([{"calls": 3, "connect_s": 1, "read_s": 6, "attempts": 1}], True, ""),
+                                  ([{"calls": 3, "connect_s": 5, "read_s": 5, "attempts": 1}], True, ""),          # 30 = 30: fits
+                                  ([{"calls": 2, "connect_s": 1, "read_s": 6, "attempts": 3}], False, "can take 42 s"),
+                                  ([{"calls": 2, "deadline_s": 10}, {"calls": 1, "deadline_s": 10}], True, ""),
+                                  ([{"calls": 2, "deadline_s": 16}], False, "can take 32 s"),
+                                  ([{"calls": 0, "deadline_s": 1}], False, "no whole `calls`"),
+                                  ([{"calls": 1, "connect_s": 1, "read_s": 2}], False, "carries neither"),
+                                  ([], True, ""), (None, False, "no `clients:` list")):
+            with tempfile.TemporaryDirectory() as tmp:
+                r = bounds.check(self._repo(tmp, clients), self._runner([])); out = bounds.render(r)
+                self.assertEqual(self._row(r, "functions")["ok"], ok, (clients, out)); self.assertEqual(r["ok"], ok, out)
+                if word:
+                    self.assertIn(word, out)
+        fn = {"at": "d", "id": "f", "timeout": None, "clients": []}
+        self.assertIn("no numeric `timeout_seconds`", bounds.budget(fn)[1][0])
+
+    def test_unbounded_baseline_only_shrinks(self):
+        two = [("unbounded-httpx", "src/a.py", "unbounded", "no bound"), ("unbounded-httpx", "src/a.py", "unbounded", "no bound")]
+        one = two[:1]
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = bounds.check(repo, self._runner(one)); out = bounds.render(r)
+            self.assertFalse(self._row(r, "unbounded")["ok"], out); self.assertIn("src/a.py#unbounded-httpx: 1 unbounded", out)
+            self.assertRaises(GateFault, bounds.baseline, repo, runner=self._runner(one))   # neither --init nor --refresh
+            w = bounds.baseline(repo, init=True, runner=self._runner(two)); self.assertEqual(w["unbounded"], {"src/a.py#unbounded-httpx": 2})
+            self.assertEqual(bounds.read_baseline(repo), {"src/a.py#unbounded-httpx": 2})
+            self.assertRaises(GateFault, bounds.baseline, repo, init=True, runner=self._runner(one))   # once
+            r = bounds.check(repo, self._runner(two)); self.assertTrue(r["ok"], bounds.render(r))
+            r = bounds.check(repo, self._runner(one)); self.assertFalse(r["ok"]); self.assertIn("it only shrinks", bounds.render(r))
+            more = two + [("unbounded-httpx", "src/b.py", "unbounded", "no bound")]
+            self.assertFalse(bounds.check(repo, self._runner(more))["ok"], "a new unbounded client never enters")
+            bounds.baseline(repo, refresh=True, runner=self._runner(more + two))
+            self.assertEqual(bounds.read_baseline(repo), {"src/a.py#unbounded-httpx": 2}, "refresh never grows a count nor adds a key")
+            bounds.baseline(repo, refresh=True, runner=self._runner(one))
+            self.assertEqual(bounds.read_baseline(repo), {"src/a.py#unbounded-httpx": 1})
+            bounds.baseline(repo, refresh=True, runner=self._runner([])); self.assertEqual(bounds.read_baseline(repo), {})
+            write(repo / bounds.BASELINE, json.dumps({"unbounded": {"x#y": 0}})); self.assertRaises(GateFault, bounds.read_baseline, repo)
+
+    def test_literal_bound_must_be_declared(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, [{"calls": 3, "connect_s": 1, "read_s": 6, "attempts": 1}, {"calls": 1, "deadline_s": 5}])
+            for msg, ok in (("bound total 1000 ms 6 s 1", True), ("bound retries 1 s 6000 ms 0", True), ("deadline 5000 ms", True),
+                            ("bound total 1 s 6 s 2", False), ("bound retries 1 s 6 s 1", False), ("bound total 2 s 6 s 1", False), ("deadline 6 s", False)):
+                r = bounds.check(repo, self._runner([("bounded-httpx", "src/a.py", "extract", msg)])); out = bounds.render(r)
+                self.assertEqual(self._row(r, "declared")["ok"], ok, (msg, out))
+                if not ok:
+                    self.assertIn("src/a.py:7: httpx is bounded at", out); self.assertIn("no function declares", out)
+
+    def test_unknown_kind_is_a_broken_pack(self):
+        """r1 (correctness): a pack typo never drops a finding."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertRaisesRegex(GateFault, "only `unbounded` or `extract`", bounds.check, repo, self._runner([("py-x", "src/a.py", "unbound", "httpx.Client()")]))
+
+    def test_profile_member(self):
+        row = [m for m in profile.MEMBERS if m[0] == "bounds"]
+        self.assertEqual(len(row), 1, "bounds is one profile member")
+        sast = [m for m in profile.MEMBERS if m[0] == "sast"][0]
+        self.assertEqual(row[0][1:3], sast[1:3], "a full-loop member like sast (semgrep), never in the light profile")
+        self.assertIsNone(row[0][4], "agent-run in the BVL full loop"); self.assertFalse(row[0][5], "a project member, not meta-only")
+
+
+class ContractStatuses(unittest.TestCase):
+    """EVOL-106, every expected and raised status is a declared response of its operation (contracts `statuses`)."""
+    API = "contracts/openapi/orders-core/v1.json"
+    PLAN = "docs/spec/F-1/test_plan.md"
+    SRC = "src/orders.py"
+    BL = "docs/project_log/crud_baseline.json"
+
+    @staticmethod
+    def _api(responses=("200", "404")):
+        op = {"operationId": "getOrder", "responses": {s: {"description": "x"} for s in responses}}
+        return json.dumps({"openapi": "3.0.3", "info": {"title": "t", "version": "1"},
+                           "paths": {"/orders/{id}": {"x-crud-exception": "read-only for the test", "get": op}}})
+
+    @staticmethod
+    def _git(repo, *c):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)
+
+    def _repo(self, tmp, responses=("200", "404")):
+        repo = fixture_repo(Path(tmp)); write(repo / self.API, self._api(responses))
+        return repo
+
+    def _st(self, repo, base=None):
+        r = contracts.check(repo, base)
+        return next(e for e in r["entries"] if e["id"] == "statuses"), contracts.render(r)
+
+    def test_plan_expected_status_is_a_response(self):
+        head = "| ID | Operation | Expected Status |\n|---|---|---|\n"
+        for responses, cell, ok in ((("200", "404"), "404 Not Found", True), (("200", "404"), "409 Conflict", False),
+                                    (("200", "404"), "200 / 409", False), (("200", "default"), "409", True),
+                                    (("200", "4XX"), "409", True), (("200", "4XX"), "4XX", True), (("200", "default"), "4XX", True), (("200", "404"), "4XX", False),
+                                    (("200",), "— (no status)", True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, responses)
+                write(repo / self.PLAN, head + f"| TC-API-01 | `getOrder` | {cell} |\n| TC-01 | getOrder | 418 |\n")
+                row, out = self._st(repo)
+                self.assertEqual(row["ok"], ok, (responses, cell, out))
+                if not ok:
+                    self.assertIn("TC-API-01: expects", out); self.assertNotIn("TC-01:", out, "only TC-API rows are judged")
+
+    def test_raised_status_in_a_file_naming_the_operation(self):
+        raises = "def getOrder(id):\n    raise HTTPException(status_code=409)\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.SRC, raises); write(repo / "src/other.py", "def listThings():\n    raise HTTPException(status_code=409)\n")
+            write(repo / "tests/test_orders.py", raises); self._git(repo, "add", "-A")
+            row, out = self._st(repo)
+            self.assertFalse(row["ok"], out); self.assertIn(f"{self.SRC}:2: raises 409", out)
+            self.assertNotIn("src/other.py", out, "a file naming no operation is not judged"); self.assertNotIn("tests/", out, "tests are not judged")
+            write(repo / self.SRC, "def getOrder(id):\n    return Response(status=HTTPStatus.NOT_FOUND)\n"); self.assertTrue(self._st(repo)[0]["ok"])
+            write(repo / self.SRC, "def getOrder(id):\n    raise ResponseStatusException(HttpStatus.CONFLICT)\n")
+            self.assertIn("raises 409", self._st(repo)[1], "a named constant reads through the HTTP phrases")
+            write(repo / self.API, self._api(("200", "404", "409"))); self.assertTrue(self._st(repo)[0]["ok"])
+
+    def test_status_baseline_only_shrinks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.SRC, "def getOrder(id):\n    raise HTTPException(status_code=409)\n")
+            write(repo / self.BL, json.dumps({"undeclared": [f"status:{self.SRC}#409"]}))
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base"); self._git(repo, "branch", "-M", "main"); self._git(repo, "checkout", "-qb", "feature/F-1-x")
+            row, out = self._st(repo, "main"); self.assertTrue(row["ok"], out); self.assertIn("in the baseline", out)
+            write(repo / self.SRC, "def getOrder(id):\n    raise HTTPException(status_code=409)\n    abort(422)\n")
+            write(repo / self.BL, json.dumps({"undeclared": [f"status:{self.SRC}#409", f"status:{self.SRC}#422"]})); self._git(repo, "add", "-A")
+            r = contracts.check(repo, "main"); out = contracts.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn(f"`status:{self.SRC}#422` is new since the base", out, "new debt never enters")
+            write(repo / self.SRC, "def getOrder(id):\n    return None\n")
+            write(repo / self.BL, json.dumps({"undeclared": [f"status:{self.SRC}#409"]})); self._git(repo, "add", "-A")
+            r = contracts.check(repo, "main"); self.assertIn(f"`status:{self.SRC}#409` is no longer found", contracts.render(r), "a paid debt leaves the list")
+            write(repo / self.BL, json.dumps({"undeclared": []})); self._git(repo, "add", "-A")
+            self.assertTrue(self._st(repo, "main")[0]["ok"])
+            write(repo / self.BL, json.dumps({"undeclared": ["status:../outside.py#500"]})); self._git(repo, "add", "-A")
+            self.assertIn("`status:../outside.py#500` names no contract", contracts.render(contracts.check(repo, "main")), "a path leaving the repository is malformed, never read")

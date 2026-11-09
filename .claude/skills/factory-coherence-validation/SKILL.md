@@ -829,6 +829,10 @@ FUNCTION check_increment_deployability(elements):
     YIELD { check: "increment_deployability", severity: CRITICAL,
             source: "increment_plan.md", gap: problem,
             remediation: "List each exit criterion under **Acceptance**, naming in backticks the scenario, operation, case or command that decides it" }
+  FOR EACH problem IN exits[*].problems WHERE problem STARTS WITH "(j)":   # EVOL-106 — where the upgrade meets data, same one definition
+    YIELD { check: "increment_deployability", severity: CRITICAL,
+            source: "increment_plan.md", gap: problem,
+            remediation: "State `**Upgrade over data:** <pre-production environment> | none` — a stage when the increment ships a migration" }
 
   # DAG acyclicity (Kahn's algorithm)
   inc_ids = { inc.id FOR inc IN increments }

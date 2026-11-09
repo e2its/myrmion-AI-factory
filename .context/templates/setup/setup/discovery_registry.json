@@ -1678,6 +1678,24 @@
    }
   },
   {
+   "id": "Q23.8",
+   "tier": 2,
+   "since": "10.2.0",
+   "when": "frontend.framework exists",
+   "keys": {
+    "testing.e2e_tool": {
+     "free": "text",
+     "suggestions": [
+      "playwright",
+      "none"
+     ],
+     "fills": [
+      "E2E_TOOL"
+     ]
+    }
+   }
+  },
+  {
    "id": "Q24",
    "tier": 2,
    "since": "1.0.0",
@@ -2248,6 +2266,17 @@
     }
    }
   },
+  "quality.bounds": {
+   "from": "hosting.type: a function dies at its platform timeout, so every external client in it is bounded (EVOL-106) — the client-bounds pack lands per backend.runtime (security/bounds/<pack>.yml, manifest stack_conditional; another runtime gets its pack built at materialisation, held by semgrep --test) and one bounds member runs them",
+   "when": "hosting.type == function",
+   "configures": {
+    "verification.gates": {
+     "bounds": {
+      "command": "python3 scripts/gate.py bounds"
+     }
+    }
+   }
+  },
   "quality.data": {
    "from": "the migration pack (EVOL-071): it lands where database.migrations_tool holds an answer — asked (Q15.1) or decided by the backend framework — and gate.py data is its light member; no answer → no pack, said in the setup report",
    "when": "database.migrations_tool exists",
@@ -2510,7 +2539,6 @@
   "DETECTED_BACKEND_PATTERN": "unsourced",
   "DEV_COMMAND": "unsourced",
   "DEV_PORT": "unsourced",
-  "E2E_TOOL": "unsourced",
   "ENCRYPTION_AT_REST": "unsourced",
   "ENCRYPTION_IN_TRANSIT": "unsourced",
   "ENVIRONMENT_STRATEGY": "pending #147",
@@ -2785,6 +2813,12 @@
    "since": "10.0.0",
    "detect": "always",
    "apply": "deploy-records (EVOL-081)"
+  },
+  {
+   "id": "proof-at-the-close (EVOL-106)",
+   "since": "10.2.0",
+   "detect": "config/quality.json#/proof",
+   "apply": "proof-at-the-close (EVOL-106)"
   }
  ]
 }

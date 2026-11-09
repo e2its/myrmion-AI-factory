@@ -358,7 +358,7 @@ Questions are organized in dependency order within tiers; conditions live in the
 #### Q23.4: Smoke cadence (EVOL-077)
 - **Options:** `per-slice` | `feature-close`
 - **Simplified:** es: "¿Cuándo se recorre la prueba de humo: al cerrar cada tramo o solo al cerrar la funcionalidad?" / en: "When does the smoke walk run: at each slice close, or only at feature close?"
-- **RDR Recommendation:** `per-slice` — each slice walks its own cases plus every earlier slice's, so a regression shows one slice earlier; the cost is one smoke run per slice. It needs the traceability home (`config/quality.json → traceability`): a project that traces no case answers `feature-close`, as does one whose dev deployment is too costly to smoke per slice.
+- **RDR Recommendation:** `per-slice` — each slice walks its own cases plus every earlier slice's, so a regression shows one slice earlier; the cost is one smoke run per slice. It needs the traceability home (`config/quality.json → traceability`): a project that traces no case answers `feature-close`, as does one whose pre-production deploy is too costly to smoke per slice.
 - **Tier-filtered:** ALL tiers.
 - **Persist:** `qa.smoke_cadence`
 - **After:** `QA --verify` Gate 4 reads it (`Factory-qa-verify`); with `per-slice` each increment closes on `docs/spec/{F}/smoke_e2e_report_{INC}.md`.
@@ -386,6 +386,14 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Tier-filtered:** ALL tiers.
 - **Persist:** `qa.dast_tool`
 - **After:** `QA --verify` reads it (`Factory-qa-verify` § Script registry): the three DAST items are always in the checklist, run or `n/a: <reason>`.
+
+#### Q23.8: End-to-end tool (EVOL-106, conditional: frontend exists)
+- **Options:** `playwright` | `none` | any other tool, as free text
+- **Simplified:** es: "¿Con qué herramienta se prueban de punta a punta los recorridos del usuario?" / en: "Which tool proves the user journeys end to end?"
+- **RDR Recommendation:** `playwright` — the shipped adapter: the clause helper and the canary land, and `gate.py proof` reads its JSON reporter. Another tool gets its adapter built at materialisation against the same contract (helper, canary, converter); `none` proves every case by the seal or by hand.
+- **Tier-filtered:** ALL tiers.
+- **Persist:** `testing.e2e_tool` → `E2E_TOOL` → `config/quality.json → proof.tool` — one tool name, trimmed and lowercased (`[a-z0-9-]` only; any other character is asked again), so every condition comparing it to `playwright` and the JSON it lands in read the same value
+- **After:** `QA --verify` takes each case's evidence from `gate.py proof --trace`.
 
 #### Q24: AI Capabilities
 - **3 boolean sub-questions:**

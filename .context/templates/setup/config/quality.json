@@ -48,6 +48,14 @@
     "_doc": "QA exit by severity (EVOL-076). blocking_severity (SETUP Q23.6): critical | high | medium | low — a finding in a QA report's Findings table at or above it makes the report not approvable (gate.py qa --verdict, the completion hook); critical always blocks; absent or another value blocks every approval until answered.",
     "blocking_severity": "{{QA_BLOCKING_SEVERITY}}"
   },
+  "proof": {
+    "_doc": "Proof at the close (EVOL-106), read by python3 scripts/gate.py proof. tool (SETUP Q23.8 testing.e2e_tool): playwright lands the shipped adapter (tests/e2e/support/clauses.ts, tests/e2e/specs/canary.spec.ts; its JSON reporter is read built-in); any other tool gets its adapter built at materialisation — helper, canary and a converter `convert` (a command with {report}, no shell) that prints the proof shape {tests: [{title, status, steps: [{title, error}], annotations: [{type, description}]}]}; none = no end-to-end layer (every case proven by the seal or by hand). e2e_roots: the globs whose linking tests are end-to-end (their evidence is docs/spec/<F>/qa/proof.json); helper / canary: the adapter's files (null = the Playwright defaults). Rules: .context/templates/develop/e2e_spec_template.md § Contract.",
+    "tool": "{{E2E_TOOL}}",
+    "convert": null,
+    "e2e_roots": ["e2e/**", "tests/e2e/**"],
+    "helper": null,
+    "canary": null
+  },
   "security_scan": {
     "enabled": true,
     "scanner": "{{SECURITY_SCANNER}}",
@@ -230,10 +238,12 @@
     "migrations_paths": null
   },
   "delivery": {
-    "_doc": "CI-only delivery (EVOL-081), read by python3 scripts/gate.py delivery. execution: ci (a CI platform answered — the pipeline deploys; a local apply or destroy of the adapter is denied) | local (no CI). adapter: the hosting.deploy_tool row {tool, iac, validate, plan, apply, destroy, url_from {kind: command | stdout | template}, params?, secrets (vault names only), rollback} — {env} and params fill its commands (a param is a string for every environment or a map {env: value}; a value is one identifier, host or URL, never a credential; plan, apply, destroy and a url_from template each name the environment, RDR 6); null until declared — and with no row, no deploy tool and no hosting provider answered the check is n/a (RDR 7). migrate: the migrations tool's non-interactive command, or null. secrets: the vault names the deploy steps need beyond the adapter row (the migration's database URL, the app's config) — DEVOPS --configure lists them; each is an environment secret on the CI platform, never a repository one; nothing else of the pipeline's secrets reaches a step. probe bounds the health poll. The record tags are fixed: deploy/{env}/{ts} and lkg/{env}/{ts}, written and read only by the executor. Rules: rules/ci-cd.md.",
+    "_doc": "CI-only delivery (EVOL-081), read by python3 scripts/gate.py delivery. execution: ci (a CI platform answered — the pipeline deploys; a local apply or destroy of the adapter is denied) | local (no CI). adapter: the hosting.deploy_tool row {tool, iac, validate, plan, apply, destroy, url_from {kind: command | stdout | template}, params?, secrets (vault names only), rollback} — {env} and params fill its commands (a param is a string for every environment or a map {env: value}; a value is one identifier, host or URL, never a credential; plan, apply, destroy and a url_from template each name the environment, RDR 6); null until declared — and with no row, no deploy tool and no hosting provider answered the check is n/a (RDR 7). migrate: the migrations tool's non-interactive command, or null. secrets: the vault names the deploy steps need beyond the adapter row (the migration's database URL, the app's config) — DEVOPS --configure lists them; each is an environment secret on the CI platform, never a repository one; nothing else of the pipeline's secrets reaches a step. probe bounds the health poll. preproduction (EVOL-106): the one stage before production — the close deploys to it and QA proves on it (default staging, the stage the shipped pipelines deploy first). populated (EVOL-106): a read-only command that prints one integer, the rows the environment holds; the executor runs it before migrate on every environment and records it, so QA reads whether the upgrade met data (null while the feature adds a migration is red at the close — DEVOPS --configure sets it). The record tags are fixed: deploy/{env}/{ts} and lkg/{env}/{ts}, written and read only by the executor. Rules: rules/ci-cd.md.",
     "execution": "{{DELIVERY_EXECUTION}}",
     "adapter": {{DELIVERY_ADAPTER}},
     "migrate": {{DELIVERY_MIGRATE}},
+    "preproduction": "staging",
+    "populated": null,
     "secrets": [],
     "probe": {"timeout_s": 120, "interval_s": 5}
   },
