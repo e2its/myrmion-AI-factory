@@ -138,6 +138,9 @@ NUM["DELIVERY_EXECUTION"] = str(RES["configures"].get("delivery.execution") or "
 NUM["DELIVERY_MIGRATE"] = json.dumps(RES["configures"].get("delivery.migrate"))   # the migrations tool's deploy command, or null
 if RES["placeholders"].get("QA_BLOCKING_SEVERITY"):   # Q23.6 (EVOL-076): the answer lands, never the generic sample a threshold refuses
     NUM["QA_BLOCKING_SEVERITY"] = str(RES["placeholders"]["QA_BLOCKING_SEVERITY"])
+NUM["TRACKER_ADAPTER"] = str(RES["placeholders"].get("TRACKER_ADAPTER") or "none")   # derived from Q27 (EVOL-079)
+NUM["BOARD_COLUMNS"] = json.dumps(A.get("project_tracking.board_columns") or ["Backlog", "Ready", "In Progress", "Done"])   # Q27.1
+NUM["TRACKER_FLOW"] = json.dumps(A.get("project_tracking.flow") or ["Backlog", "Ready", "In Progress", "Done"])   # Q27.7
 NUM["E2E_TOOL"] = str(RES["placeholders"].get("E2E_TOOL") or A.get("testing.e2e_tool") or "none").strip().lower()   # Q23.8 (EVOL-106): the answered tool, or none
 if isinstance(A.get("surface.runtime_surface"), list):
     NUM["RUNTIME_SURFACE"] = json.dumps(A["surface.runtime_surface"])
@@ -189,6 +192,13 @@ missing += [f"{x} landed, the answers do not select it" for x in exp.get("absent
 missing += [f"{f} does not carry `{s}`" for f, subs in exp.get("contains", {}).items() for s in subs
             if not (P / f).is_file() or s not in (P / f).read_text(encoding="utf-8")]   # a law's text lands with its surface (EVOL-072)
 missing += [f"{q} is asked, the answers do not select it" for q in exp.get("pending_absent", []) if q in RES["pending"]]
+trk = exp.get("tracker", {})   # EVOL-079: the adapter's set lands whole — its files, its config block
+missing += [f"tracker: {x} did not land" for x in trk.get("landed", []) if x not in landed]
+missing += [f"tracker: {x} landed, the adapter does not select it" for x in trk.get("absent", []) if x in landed or (P / x).exists()]
+missing += [f"tracker: config/quality.json does not carry `{x}`" for x in trk.get("contains", []) if x not in (P / "config/quality.json").read_text(encoding="utf-8")]
+want_w, got_w = exp.get("warnings", []), RES.get("warnings") or []   # EVOL-079: the resolver's warnings, exactly — none unless the fixture expects it
+if len(got_w) != len(want_w) or any(not any(w in g for g in got_w) for w in want_w):
+    missing.append(f"warnings: expected {want_w}, got {got_w}")
 bvl = (Path(sys.argv[5]) / ".claude/skills/factory-build-verification/SKILL.md").read_text(encoding="utf-8")
 if re.search(r"MATCH stack\.", bvl):
     missing.append("BVL carries a `MATCH stack.*` row — the loop names no stack (EVOL-067)")
@@ -269,8 +279,8 @@ if "| DC-18 |" not in cat:
     cases = cases.rstrip("\n") + "\n\n" + case(tcases, "DC-18").group(0)
 (proj / "defect-prevention.md").write_text(cat, encoding="utf-8"); (proj / "defect-prevention-cases.md").write_text(cases, encoding="utf-8")
 PY
-  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance`, no `delivery` and no `proof` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081, EVOL-106) — their migrations are owed
-  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery", "proof")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance`, no `delivery`, no `proof` and no `tracker` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081, EVOL-106, EVOL-079) — their migrations are owed
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery", "proof", "tracker")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped (a `was` value — replaced), a
   # tests command the project edited (kept), no red_reads (added); no `sast` row (EVOL-074 — added), no `contract-parity` row (EVOL-070 — added where Q4.5 selects it), no `performance` row (EVOL-073 — added with a frontend)
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]

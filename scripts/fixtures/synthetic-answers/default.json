@@ -20,6 +20,8 @@
     "ci_cd.platform": "GitHub Actions",
     "scm.platform": "GitHub",
     "project_tracking.tool": "GitHub Projects",
+    "project_tracking.board_columns": ["Todo", "In Progress", "Review", "Done"],
+    "project_tracking.flow": ["Todo", "Todo", "In Progress", "Done"],
     "po_package.mode": "full",
     "po_package.ds_rebuild_command": "npm run cards",
     "dependencies.backend": ["fastapi >=0.110,<1"],
@@ -31,6 +33,8 @@
     "performance.web": "standard"
   },
   "expect": {
+    "warnings": [],
+    "tracker": {"contains": ["\"adapter\": \"github\"", "\"flow\": [\"Todo\", \"Todo\", \"In Progress\", \"Done\"]"], "landed": ["docs/backlog/project-config.json"], "absent": ["docs/backlog/state.md"]},
     "landed": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml", "security/sast/python.yml", "security/sast/javascript.yml", "contracts/errors.yaml", ".claude/rules/monetary-amounts.md", ".github/workflows/deploy.yml", "playwright.config.ts", "tests/e2e/pages/base.page.ts", "tests/e2e/support/clauses.ts", "tests/e2e/specs/canary.spec.ts"],
     "absent": [".claude/rules/database.md", ".claude/rules/csharp.md", "buildspec-governance.yml", "security/sast/csharp.yml", "security/sast/ui-templates.yml", "security/bounds/python.yml"],
     "defect_classes": {"present": ["DC-44", "DC-43", "DC-18", "DC-31", "PDC-1", "DC-36", "DC-37", "DC-39", "DC-38"], "absent": []},

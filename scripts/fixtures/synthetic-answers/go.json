@@ -1,5 +1,5 @@
 {
-  "_doc": "Synthetic SETUP answers (EVOL-116): Go backend, None frontend. The per-file scoped rows land without `red: false` and without `was`; the red member proves through tests. META-ONLY.",
+  "_doc": "Synthetic SETUP answers (EVOL-116): Go backend, None frontend; Q27 answers Linear (EVOL-079, RDR G): no adapter, the whole none set lands with its warning. The per-file scoped rows land without `red: false` and without `was`; the red member proves through tests. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
     "qa.smoke_cadence": "per-slice",
@@ -16,7 +16,8 @@
     "hosting.deploy_tool": "Terraform",
     "ci_cd.platform": "GitHub Actions",
     "scm.platform": "GitHub",
-    "project_tracking.tool": "None",
+    "project_tracking.tool": "Linear",
+    "project_tracking.flow": ["Backlog", "Ready", "In Progress", "Done"],
     "po_package.mode": "full",
     "po_package.ds_rebuild_command": null,
     "surface.runtime_surface": [
@@ -26,6 +27,8 @@
     "performance.api_p95": "200 ms"
   },
   "expect": {
+    "warnings": ["`Linear` has no adapter"],
+    "tracker": {"contains": ["\"adapter\": \"none\""], "landed": ["docs/backlog/state.md"], "absent": ["docs/backlog/project-config.json", "docs/backlog-tool-adapters/linear.md"]},
     "contains": {"config/quality.json": ["\"blocking_severity\": \"critical\""]},
     "landed": [
       ".claude/rules/database.md",

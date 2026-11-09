@@ -67,6 +67,7 @@
       "Q27.3",
       "Q27.4",
       "Q27.6",
+      "Q27.7",
       "Q28",
       "Q29",
       "Q30",
@@ -124,7 +125,8 @@
       "deploy-tool (EVOL-081)",
       "delivery-execution (EVOL-081)",
       "deploy-records (EVOL-081)",
-      "proof-at-the-close (EVOL-106)"
+      "proof-at-the-close (EVOL-106)",
+      "tracker (EVOL-079)"
     ],
     "templates_to_add": [
       "workflows/deploy.github-actions.yml",

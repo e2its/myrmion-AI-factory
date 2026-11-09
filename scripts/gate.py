@@ -64,6 +64,7 @@
   gate.py discovery --eval COND [--answers FILE]   evaluate one condition of the discovery grammar; exit 0 holds · 1 does not hold · 2 fault (unparseable, unknown key, a literal outside the options, an absent or fence-less docs/setup.md, --answers / --json without a mode, --json with --eval)
   gate.py qa --verdict [--file F] | --ready --env E [--feature F] | --check [--base B] [--json]   QA's exit (EVOL-076): a report approvable only when every item is done, no finding at or above qa.blocking_severity and every owed item present (DAST run or n/a with its reason); EVOL-106: a ticked [QA-TC-X] with no trace evidence is red, an aggregate report needs the feature's whole trace green; the deploy record proves the build reached, alive and migrated, and with --feature (the close) upgraded over data, lkg, production-filled and its rollback stated; a MERGED increment or an APPROVED report in the diff agrees
   gate.py proof --record --green R --control C --env E | --report R [--control C] | --trace F | --check [--json]   EVOL-106: a case is proven by its run — each [F/C] test's steps are its clauses in order, every Then asserted, the control run fails on a Then; the adapter canary judges its planted cases as expected (else «the adapter is broken»); --record writes docs/spec/F/qa/proof.json (refused when qa --ready is red); --trace walks scenario → AC row → test → evidence (proof.json for e2e, the seal for unit); --check (light) the answered tool's helper, canary and converter in place; n/a with proof.tool none
+  gate.py tracker --start --feature F --phase P | --item IDENT [--aligns AC-F-N] | --move IDENT --to STATE | --ensure FILE | --sub-increments F [--dry-run] [--json]   EVOL-079: the board tells the truth about the work, on every adapter (github, jira, none) — --start moves the phase item In Progress before the work (a Done item is red unless a ratified realignment); --move takes a lifecycle state, the column comes from tracker.flow; --ensure creates only what is missing (a re-run creates nothing), every write read back
   gate.py bounds [--baseline --init|--refresh] [--json]   EVOL-106, the loop member where hosting.type == function: the packs under security/bounds find every external client — an unbounded one outside the shrink-only baseline is red, a literal bound no function declares under clients: is red, a function whose clients' worst case exceeds timeout_seconds is red
   gate.py scm-protection [--control-point P] [--json]   the server defends the branch rule (config: scm): at ci, with a token, the platform's API is asked per protected branch — a missing setting is RED; no token / no adapter / push / static → n/a with the checklist (docs/scm/protection.md)
   gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
@@ -89,7 +90,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, aligned as aligned_mod, bounds as bounds_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, delivery as delivery_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, proof as proof_mod, qa as qa_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
+    from gates import agents as agents_mod, aligned as aligned_mod, bounds as bounds_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, delivery as delivery_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, proof as proof_mod, qa as qa_mod, tracker as tracker_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
     from gates.common import GateFault, clean, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -574,6 +575,33 @@ def cmd_proof(repo, a):
     return 0 if r["ok"] else 1
 
 
+def cmd_tracker(repo, a):
+    acts = [x for x, on in (("start", a.start), ("move", a.move is not None), ("ensure", a.ensure is not None or a.sub_increments)) if on]
+    if len(acts) != 1:
+        raise GateFault("name one of --start, --move IDENT --to STATE, --ensure FILE | --sub-increments F")
+    if acts[0] == "start" and not (a.item or (a.feature and a.phase)):
+        raise GateFault("--start needs --feature and --phase, or --item IDENT")
+    if acts[0] == "move" and not a.to:
+        raise GateFault("--move needs --to (backlog, ready, in-progress or done)")
+    if acts[0] == "ensure" and bool(a.ensure) == bool(a.sub_increments):
+        raise GateFault("--ensure needs a rows file, or --sub-increments F — one of them")
+    if a.dry_run and acts[0] != "ensure":
+        raise GateFault("--dry-run plans an --ensure only — --start and --move write")
+    if acts[0] != "start" and (a.feature or a.phase or a.item or a.aligns):
+        raise GateFault("--feature, --phase, --item and --aligns go with --start only")
+    if acts[0] != "move" and a.to:
+        raise GateFault("--to goes with --move only")
+    if acts[0] == "start":
+        r = tracker_mod.start(repo, a.feature, a.phase, item=a.item, aligns=a.aligns)
+    elif acts[0] == "move":
+        r = tracker_mod.move(repo, a.move, a.to)
+    else:
+        rows = tracker_mod.sub_increment_rows(repo, a.sub_increments) if a.sub_increments else tracker_mod.rows_file(repo, a.ensure)
+        r = tracker_mod.ensure(repo, rows, dry_run=a.dry_run)
+    print(json.dumps(r) if a.json else tracker_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
 def cmd_bounds(repo, a):
     # a fault (semgrep absent, an unreadable baseline) reaches main: exit 2, never a verdict
     if a.baseline:
@@ -821,6 +849,7 @@ def build_parser():
     p = sub.add_parser("delivery"); p.add_argument("--run", action="store_true"); p.add_argument("--rollback", action="store_true"); p.add_argument("--teardown", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--pr", action="store_true", help="the verdicts the PR demands: sweep + smoke (owed: feature branch, full-sdlc, not docs only)"); p.add_argument("--base", default=None); p.add_argument("--branch", default=""); p.add_argument("--last", default=None, metavar="ENV"); p.add_argument("--lkg", default=None, metavar="ENV"); p.add_argument("--env", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_delivery)
     p = sub.add_parser("qa"); p.add_argument("--verdict", action="store_true"); p.add_argument("--ready", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--file", default=None); p.add_argument("--env", default=""); p.add_argument("--feature", default=""); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_qa)
     p = sub.add_parser("proof"); p.add_argument("--record", action="store_true"); p.add_argument("--report", default=None, metavar="REPORT"); p.add_argument("--trace", default=None, metavar="FEATURE"); p.add_argument("--check", action="store_true"); p.add_argument("--green", default=None); p.add_argument("--control", default=None); p.add_argument("--env", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_proof)
+    p = sub.add_parser("tracker"); p.add_argument("--start", action="store_true"); p.add_argument("--feature", default=None); p.add_argument("--phase", default=None, choices=tracker_mod.PHASES); p.add_argument("--item", default=None, metavar="IDENT"); p.add_argument("--aligns", default=None, metavar="AC-F-N"); p.add_argument("--move", default=None, metavar="IDENT"); p.add_argument("--to", default=None, choices=tracker_mod.STATES); p.add_argument("--ensure", default=None, nargs="?", const="", metavar="FILE"); p.add_argument("--sub-increments", default=None, metavar="FEATURE"); p.add_argument("--dry-run", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_tracker)
     p = sub.add_parser("bounds"); p.add_argument("--baseline", action="store_true"); p.add_argument("--init", action="store_true"); p.add_argument("--refresh", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_bounds)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("write-target"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_write_target)

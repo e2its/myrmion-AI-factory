@@ -63,24 +63,24 @@ STEP 4.5:
 
 STEP 5 (MANDATORY when issue reference is found):
   # Tool-agnostic: reads from the project_tracking tool configured in SETUP, not hardcoded to GitHub.
-  READ governance snapshot (.context/governance_snapshot.md) → project_tracking.tool
+  READ config/quality.json → tracker.adapter   # github | jira | none — derived from Q27 (EVOL-079)
 
   IF issue == null:
     SKIP — no issue reference available, proceed to STEP 6
 
-  IF project_tracking.tool is undefined:
+  IF tracker.adapter is undefined:
     WARN: "Issue reference exists ({issue_reference}) but project tracking configuration is missing. Continuing with execution-plan data only."
     PROCEED to STEP 6
 
   DETERMINE read strategy:
-    CASE project_tracking.tool == "None"  (local mode):
+    CASE tracker.adapter == none  (local mode):
       NORMALIZE issue reference to local_id
         → supports "#13" and "L-001" styles
       READ docs/backlog/state.md
       FIND entry for local_id and EXTRACT stored body_path
       READ local body file
 
-    CASE project_tracking.tool != "None"  (external mode):
+    CASE tracker.adapter != none  (external mode):
       READ docs/backlog/project-config.json → integration, cli_command, tool_adapter_id
       # External mode MUST go through tool-adapter abstraction
       # (docs/backlog/tool-adapter.md), not hardcoded subcommands.
@@ -89,7 +89,7 @@ STEP 5 (MANDATORY when issue reference is found):
           using docs/backlog/tool-adapter.md + tool_adapter_id
         RUN: {resolved_cli_command}
         # Examples (resolved by adapter):
-        # "gh issue view 13", "jira issue get PROJ-42", "linear issue ISSUE-7"
+        # "gh issue view 13", "jira issue view PROJ-42"
       IF integration == "mcp":
         CALL adapter-defined MCP operation ISSUE_READ(issue_reference)
 
@@ -160,6 +160,7 @@ Return exactly:
 - Cache fast path never skips STEP 5 when issue reference exists.
 - **Issue body beats execution-plan summary.** When the tool-fetched issue body contains a "Comando Factory" field, that command is authoritative. The execution-plan only holds a summary.
 - **Tool-agnostic:** NEVER hardcode CLI subcommands. Resolve `ISSUE_READ` via `docs/backlog/tool-adapter.md` and `tool_adapter_id`.
-- **Local mode:** When `project_tracking.tool == "None"`, do NOT make CLI/API calls — resolve `body_path` from `docs/backlog/state.md` and read that file.
+- **Local mode:** When `tracker.adapter == none`, do NOT make CLI/API calls — resolve `body_path` from `docs/backlog/state.md` and read that file.
+- **Read-only.** A state change it suggests is `python3 scripts/gate.py tracker --move <ident> --to <state>`; columns come from `tracker.flow`, never a literal.
 - If the plan is inconsistent with board state, report both and surface the discrepancy clearly before proceeding.
 - If issue content cannot be fetched (network error, missing credentials), proceed with execution-plan data but warn the user explicitly.

@@ -1,0 +1,161 @@
+{
+ "data": {
+  "node": {
+   "id": "PVT_1",
+   "field": {
+    "id": "PVTSSF_1",
+    "options": [
+     {
+      "id": "o1",
+      "name": "Backlog"
+     },
+     {
+      "id": "o2",
+      "name": "Ready"
+     },
+     {
+      "id": "o3",
+      "name": "In Progress"
+     },
+     {
+      "id": "o4",
+      "name": "Done"
+     }
+    ]
+   },
+   "items": {
+    "pageInfo": {
+     "hasNextPage": false,
+     "endCursor": "Y3Vyc29yOjY="
+    },
+    "nodes": [
+     {
+      "id": "PVTI_1",
+      "fieldValueByName": {
+       "name": "Done"
+      },
+      "content": {
+       "__typename": "Issue",
+       "id": "I_1",
+       "number": 1,
+       "title": "[FEAT-001] CODESIGN: Spec BDD + UX Mock — Login",
+       "state": "CLOSED",
+       "parent": null,
+       "labels": {
+        "nodes": [
+         {
+          "name": "phase:codesign"
+         }
+        ]
+       },
+       "repository": {
+        "nameWithOwner": "acme/app"
+       }
+      }
+     },
+     {
+      "id": "PVTI_2",
+      "fieldValueByName": {
+       "name": "Ready"
+      },
+      "content": {
+       "__typename": "Issue",
+       "id": "I_2",
+       "number": 2,
+       "title": "[FEAT-001] BLUEPRINT: Architecture + Test Plan — Login",
+       "state": "OPEN",
+       "parent": null,
+       "labels": {
+        "nodes": [
+         {
+          "name": "phase:blueprint"
+         }
+        ]
+       },
+       "repository": {
+        "nameWithOwner": "acme/app"
+       }
+      }
+     },
+     {
+      "id": "PVTI_3",
+      "fieldValueByName": {
+       "name": "Backlog"
+      },
+      "content": {
+       "__typename": "Issue",
+       "id": "I_3",
+       "number": 3,
+       "title": "[FEAT-001] IMPLEMENT: Code + Tests — Login",
+       "state": "OPEN",
+       "parent": null,
+       "labels": {
+        "nodes": [
+         {
+          "name": "phase:implement"
+         }
+        ]
+       },
+       "repository": {
+        "nameWithOwner": "acme/app"
+       }
+      }
+     },
+     {
+      "id": "PVTI_4",
+      "fieldValueByName": null,
+      "content": {
+       "__typename": "Issue",
+       "id": "I_4",
+       "number": 4,
+       "title": "[FEAT-001] CONTRACT-FREEZE: API contracts + test harness — Login",
+       "state": "OPEN",
+       "parent": {
+        "number": 3
+       },
+       "labels": {
+        "nodes": [
+         {
+          "name": "phase:contract-freeze"
+         }
+        ]
+       },
+       "repository": {
+        "nameWithOwner": "acme/app"
+       }
+      }
+     },
+     {
+      "id": "PVTI_8",
+      "fieldValueByName": {
+       "name": "Backlog"
+      },
+      "content": {
+       "__typename": "Issue",
+       "id": "I_8",
+       "number": 8,
+       "title": "[FEAT-001] IMPLEMENT: Code + Tests — Login",
+       "state": "OPEN",
+       "parent": null,
+       "labels": {
+        "nodes": []
+       },
+       "repository": {
+        "nameWithOwner": "acme/other"
+       }
+      }
+     },
+     {
+      "id": "PVTI_9",
+      "fieldValueByName": {
+       "name": "Backlog"
+      },
+      "content": {
+       "__typename": "DraftIssue"
+      }
+     }
+    ]
+   }
+  }
+ }
+}

@@ -1,5 +1,5 @@
 ---
-version: 3.2.0
+version: 3.3.0
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -156,6 +156,10 @@ project_tracking:
   gate_enforcement_mode: null
   appetite_sizing_enabled: null
   feature_id_pattern: null            # derived from naming_convention
+  adapter: null                       # derived from tool — github | jira | none (EVOL-079)
+  flow: null                          # the board column per lifecycle state: backlog, ready, in progress, done
+  transport: null                     # jira only — cli | mcp
+  token: null                         # jira only — the vault entry's NAME, never the value
 synthetic_data:
   enabled: null
   id_strategy: null

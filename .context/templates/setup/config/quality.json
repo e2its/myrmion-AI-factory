@@ -56,6 +56,11 @@
     "helper": null,
     "canary": null
   },
+  "tracker": {
+    "_doc": "The backlog lifecycle (EVOL-079), read by python3 scripts/gate.py tracker. adapter (derived from SETUP Q27): github | jira | none — none is docs/backlog/state.md. flow (Q27.7): the board column for backlog, ready, in progress, done, in that order; the gate moves items only into these four. The tracker ids live in docs/backlog/project-config.json → project_ids; a Jira token comes from the vault into JIRA_API_TOKEN (and JIRA_USER_EMAIL on Cloud), never a file.",
+    "adapter": "{{TRACKER_ADAPTER}}",
+    "flow": {{TRACKER_FLOW}}
+  },
   "security_scan": {
     "enabled": true,
     "scanner": "{{SECURITY_SCANNER}}",

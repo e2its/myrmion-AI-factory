@@ -1,0 +1,42 @@
+{
+ "data": {
+  "repository": {
+   "issues": {
+    "pageInfo": {
+     "hasNextPage": false,
+     "endCursor": "Y3Vyc29yOjI="
+    },
+    "nodes": [
+     {
+      "id": "I_3",
+      "number": 3,
+      "title": "[FEAT-001] IMPLEMENT: Code + Tests — Login",
+      "state": "OPEN",
+      "parent": null,
+      "labels": {
+       "nodes": [
+        {
+         "name": "phase:implement"
+        }
+       ]
+      }
+     },
+     {
+      "id": "I_5",
+      "number": 5,
+      "title": "[FEAT-001] QA: Verification — Login",
+      "state": "OPEN",
+      "parent": null,
+      "labels": {
+       "nodes": [
+        {
+         "name": "phase:qa"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  }
+ }
+}

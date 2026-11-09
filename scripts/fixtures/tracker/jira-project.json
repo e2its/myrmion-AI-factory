@@ -1,0 +1,22 @@
+{
+ "id": "10000",
+ "key": "ACME",
+ "name": "Acme",
+ "issueTypes": [
+  {
+   "id": "10001",
+   "name": "Task",
+   "subtask": false
+  },
+  {
+   "id": "10002",
+   "name": "Epic",
+   "subtask": false
+  },
+  {
+   "id": "10003",
+   "name": "Subtask",
+   "subtask": true
+  }
+ ]
+}

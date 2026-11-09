@@ -439,9 +439,9 @@ Role: Project board operations manager. Creates issues, organizes the Kanban, an
 | Command | Arguments | Description |
 | --- | --- | --- |
 | `/backlog --init-board` | — | Initializes the backlog. **External mode:** creates a project in the external tool + `project-config.json`. **Local mode:** creates `state.md` with the Kanban table. |
-| `/backlog --plan-feature {ID} "{name}"` | Feature ID + name | Creates the issue set for a feature (phases configured during SETUP). External mode: via API. Local mode: entries in `state.md` + body files. |
-| `/backlog --create-issue "{title}"` | Title | Creates a single custom issue. External mode: via API. Local mode: entry in `state.md` + body file. |
-| `/backlog --move {ISSUE_NUMS} --to {STATUS}` | Issues + target column | Moves issues between Kanban columns. External mode: API. Local mode: updates `state.md`. |
+| `/backlog --plan-feature {ID} "{name}"` | Feature ID + name | Creates the missing issues of a feature (phases configured during SETUP) through `gate.py tracker --ensure`. A re-run creates nothing new. |
+| `/backlog --create-issue "{title}"` | Title | Creates a single custom issue through `gate.py tracker --ensure`. |
+| `/backlog --move {IDENT} --to {STATE}` | Item (title head) + lifecycle state | Moves the item to `backlog`, `ready`, `in-progress` or `done` through `gate.py tracker --move`. The board column comes from `config/quality.json → tracker.flow`. |
 | `/backlog --status` | — | Shows a board summary with issue counts per column. |
 | `/backlog --plan-execution` | — | Analyzes feature dependencies, forms Epics by shared Bounded Context. **External mode:** projects the plan onto the board (milestones + labels + ordering). **Local mode:** writes `docs/backlog/execution-plan.md`. Cache at `/memories/repo/`. |
 | `/backlog --update-execution {step}` | Completed step | Marks a step complete. **External mode:** advances the issue's status on the board. **Local mode:** updates the checklist in `execution-plan.md`. Refreshes the cache. |
@@ -449,9 +449,11 @@ Role: Project board operations manager. Creates issues, organizes the Kanban, an
 | `/backlog --next-task` | — | **Push mode.** Returns the single next executable step (agent + command + evidence) chosen by the framework. Used by Smart Redirect post-command and automations. |
 | `/backlog --eligible [--limit N]` | Optional cap | **Pull mode.** Returns the FULL set of items you could pick up right now (respecting intra-feature prereq + `blocked-by:#{N}` + gate mode). Default `--limit 20`; `--limit unlimited` to see everything. READ-ONLY (no writes, no persisted state). |
 
-Prerequisite: `docs/setup.md` with a `project_tracking` section (configured during `/setup --init` Q27–Q27.6).
+Prerequisite: `docs/setup.md` with a `project_tracking` section (configured during `/setup --init` Q27–Q27.9).
 
-**SSOT mode:** if `project_tracking.tool != "None"` → external mode (the external board IS the plan — **`execution-plan.md` does NOT exist on disk**). If `project_tracking.tool == "None"` → local mode (`state.md` + `issue-bodies/` + `execution-plan.md` are the only sources of truth).
+**The board follows the work (EVOL-079).** Every phase command opens with `gate.py tracker --start`: the phase's item moves to In Progress before the work begins. A Done item stays Done: new work opens a refinement item, unless the change is a ratified realignment (`--aligns`). Adapters: GitHub Projects (`gh`), Jira Cloud or Data Center (the token comes from the vault; the agent reads through jira-cli or the Atlassian MCP server), or `none` (`state.md`). Any other tracker takes `none`, with a warning.
+
+**SSOT mode:** the derived `project_tracking.adapter`. `github` or `jira` → external mode (the external board IS the plan — **`execution-plan.md` does NOT exist on disk**). `none` → local mode (`state.md` + `issue-bodies/` + `execution-plan.md` are the only sources of truth).
 
 Artifacts (external mode): `docs/backlog/project-config.json` (non-sensitive connection identifiers and field mapping only — no issue registry, no tokens). Cache: `/memories/repo/project-board-cache.md`.
 Artifacts (local mode): `docs/backlog/state.md`, `docs/backlog/issue-bodies/*.md`, `docs/backlog/execution-plan.md`. Cache: `/memories/repo/execution-plan-cache.md`.
@@ -535,7 +537,9 @@ When AUDIT runs, SETUP auto-detects Brownfield and pre-fills data.
 /setup --generate    → Materializes scaffolding, constitution, rules
 ```
 
-### Phase 0.1 (optional): Bootstrap Project Board and Backlog
+### Phase 0.1: Bootstrap Project Board and Backlog
+
+Required before a feature's first phase command: each phase command opens with `gate.py tracker --start`, which blocks when the feature's item is not on the board (EVOL-079). With the `none` adapter `state.md` lands at SETUP; `--plan-feature` creates the feature's items.
 
 ```
 /backlog --init-board                              → Creates the project on the configured tool

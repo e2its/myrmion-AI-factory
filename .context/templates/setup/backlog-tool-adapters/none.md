@@ -1,5 +1,5 @@
 ---
-description: "Tool adapter for LOCAL FILE MODE. Materialised by SETUP --generate into docs/backlog/tool-adapter.md when project_tracking.tool == \"None\". The SSOT is docs/backlog/state.md; no external tracker is involved."
+description: "Tool adapter for LOCAL FILE MODE. Materialised by SETUP --generate into docs/backlog/tool-adapter.md when the derived project_tracking.adapter is none (Q27 None, or a tracker with no adapter — EVOL-079). The SSOT is docs/backlog/state.md; no external tracker is involved."
 tool: "None (local file mode)"
 integration: "file"
 cli_binary: null
@@ -7,7 +7,7 @@ cli_binary: null
 
 # Tool Adapter: Local File Mode
 
-> **Materialisation note.** This adapter is selected when Q27 answered `None`. The BACKLOG subsystem runs entirely off local files — no CLI, no MCP, no network. `docs/backlog/state.md` is the single source of truth; `docs/backlog/issue-bodies/<id>.md` holds the canonical body content for each issue.
+> **Materialisation note.** This adapter is selected when the derived `project_tracking.adapter` is `none`: Q27 answered `None`, or named a tracker with no adapter (`gate.py discovery --resolve` warns). The BACKLOG subsystem runs entirely off local files — no CLI, no MCP, no network. `docs/backlog/state.md` is the single source of truth; `docs/backlog/issue-bodies/<id>.md` holds the canonical body content for each issue.
 
 ## 0. Prerequisites
 
@@ -31,6 +31,8 @@ None. This adapter uses only the file system. No binaries, no authentication.
   }
 }
 ```
+
+Lifecycle columns: `config/quality.json → tracker.flow` (Q27.7) — backlog, ready, in progress, done; each one of `board_columns`.
 
 ---
 
@@ -57,36 +59,24 @@ Update `state.md` frontmatter `board_columns` to `{{BOARD_COLUMNS}}`. No-op if a
 
 ---
 
-### 2.2 Issue Lifecycle
+### 2.2 Issue Lifecycle — `gate.py tracker` only
 
-#### `create_issue`
-1. Allocate next local ID from `state.md` frontmatter `next_local_id` (e.g., `L-001`)
-2. Write body to `docs/backlog/issue-bodies/<local_id>.md`
-3. Append a new row to the `## Board` table in `state.md` with all 8 columns:
-   `Local ID | Feature | Title | Status | Labels | Milestone | Parent | Body File`
-   — `Labels` = comma-joined (may be empty if no labels at creation);
-   — `Milestone` = free-form string or blank;
-   — `Parent` = parent local ID when `parent_ref` is supplied to `create_issue` (used by `add_sub_issue` for gate nesting), blank otherwise;
-   — `Body File` = relative path `issue-bodies/<local_id>.md`.
-4. Increment `next_local_id` in frontmatter
-5. Update `last_updated` timestamp in frontmatter
+| Operation | Command |
+| --- | --- |
+| `create_issue`, `add_to_board`, `add_sub_issue` | `python3 scripts/gate.py tracker --ensure <rows.json> [--dry-run]` |
+| sub-increment items | `python3 scripts/gate.py tracker --ensure --sub-increments <F>` |
+| phase start (In Progress) | `python3 scripts/gate.py tracker --start --feature <F> --phase <P> [--item <IDENT>] [--aligns AC-…]` |
+| `move_to_column`, `close_issue` | `python3 scripts/gate.py tracker --move <IDENT> --to backlog\|ready\|in-progress\|done` |
 
-Return: `{local_id, body_path}`.
-
-#### `add_to_board`
-**No-op.** Issues created in local mode are already on the local board by virtue of being in `state.md`.
-
-#### `move_to_column`
-Rewrite the `Status` column of the matching row in `state.md`. Preserve all other columns. Update `last_updated`.
-
-#### `close_issue`
-Move to column `Done` (or the last column in `{{BOARD_COLUMNS}}`), then append a `<!-- closed: <ISO date> -->` inline comment to the row.
+- Rows file: a JSON list of `{title, ident?, body?, labels?, parent?, milestone?, state?}`. `body` is a file path; `state` defaults to `backlog`.
+- Create: the next `L-NNN` from `next_local_id`, the body copied to `issue-bodies/L-NNN.md` (a body already in `issue-bodies/` is pointed at), one 8-column row (`Local ID | Feature | Title | Status | Labels | Milestone | Parent | Body File`) in place of the placeholder row or after the last; `next_local_id`, `total_issues`, `last_updated` updated.
+- Move: rewrites the row's `Status` to the state's column. Done = the flow's done column.
+- An item under another parent is red — never re-parented. A parentless item is linked (`Parent` rewritten).
+- Re-running creates nothing: a row found by its ident (the title head) is left as it is. Two rows on one ident: red.
+- Never hand-edit `Status` — the gate re-reads the file after every write.
 
 #### `add_label`
 Rewrite the `Labels` column of the matching row in `state.md`: read the current comma-joined label list, append the new label if not already present, write back. Update `last_updated` timestamp in frontmatter. Idempotent.
-
-#### `add_sub_issue`
-**Native.** Rewrite the `Parent` column of the child row in `state.md` with the parent's local ID. Idempotent — if the parent is already set to the same value, no-op. Used when a preset declares sub-issue nesting (e.g., the 3 gate phases nested under IMPLEMENT). Update `last_updated` timestamp in frontmatter.
 
 ---
 
@@ -141,10 +131,10 @@ required_ops:
   create_project:        native
   configure_board:       native
   create_label:          no-op     # labels are free-form strings in the Labels column — no label registry
-  create_issue:          native
-  add_to_board:          no-op     # create_issue already adds to state.md
-  move_to_column:        native
-  close_issue:           native
+  create_issue:          gate      # gate.py tracker --ensure
+  add_to_board:          no-op     # a row in state.md is on the board
+  move_to_column:        gate      # gate.py tracker --move / --start
+  close_issue:           gate      # --move … --to done
   add_label:             native    # rewrites Labels column of the matching row in state.md (idempotent)
   query_board:           native
   get_item_id:           native
@@ -154,7 +144,7 @@ required_ops:
 
 optional_ops:
   create_milestone:      no-op     # milestone is a free-form string in the Milestone column — no milestone registry
-  add_sub_issue:         native    # rewrites Parent column of the child row in state.md (idempotent)
+  add_sub_issue:         gate      # Parent column, through gate.py tracker --ensure
 ```
 
 File mode supports sub-issue nesting natively via the `Parent` column of the 8-column board schema. Gate issues are materialised as rows whose `Parent` field points to their IMPLEMENT parent's local ID. The `--next-task` resolver reads the `Parent` column directly — no body cross-references required.
