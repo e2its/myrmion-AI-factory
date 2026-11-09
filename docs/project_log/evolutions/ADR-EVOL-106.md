@@ -2,7 +2,7 @@
 id: ADR-EVOL-106
 title: "Proof at the close — each case proven by its test, each scenario traced, readiness for production shown on the pre-production stage"
 date: 2026-11-09
-status: proposed
+status: accepted
 ---
 
 # ADR-EVOL-106: Proof at the close
