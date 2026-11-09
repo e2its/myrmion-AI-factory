@@ -180,6 +180,21 @@ Recommendation: 1. It reuses the certified report and the currency check the PR 
 
 Owner's choice, verbatim: «1».
 
+### RDR 6 — a staging deploy never reaches production (2026-11-09)
+
+Found by the round-1 security lens: the adapter rows were one command line for every environment — Terraform's plan, CDK's deploy and Vercel's `--prod` named none, so a staging deploy with production credentials in reach would land on production.
+
+Options posed:
+1. **Every row names its environment, and the executor refuses one that does not.** `plan`, `apply`, `destroy` and a `url_from` template carry `{env}` or a per-environment param (`params.X: {staging: …, production: …}`); `delivery --check` and the executor are red otherwise; a per-environment param holding one value for two environments is red too.
+2. Deploy production only: no staging, so no smoke before the merge.
+3. Environment-scoped secrets on the server plus a check: less code, and it rests on the server being configured right.
+
+Recommendation: 1. It is the only one that prevents it by construction; the cost is one param per environment, filled by DEVOPS --configure. Surviving risk: the param's value is the project's word (two hosts that are in fact one machine pass).
+
+Owner's choice, verbatim: «1».
+
+Applied (docs reader, 2026-11-09): Terraform selects the environment in `plan` (`-backend-config=envs/{env}.backend.hcl`, `-var-file=envs/{env}.tfvars`, `-out=tfplan-{env}`) — a saved plan refuses `-var-file`; CDK passes `-c env={env}` (a global option); Vercel names `--environment={target}` on pull, build and deploy (`target`: staging → preview, production → production; there is no `--target`), and its `destroy` is null — `vercel remove` deletes every environment of the project; Railway `up --environment {env}`; flyctl and Compose take per-environment `app` / `host`; Compose and Railway read their URL from a per-environment `url` param — `url_from: config` read one URL for every environment and leaves the vocabulary.
+
 ### 1. `delivery.execution` — derived, never asked
 
 - `discovery_registry.json → derived`: `delivery.execution` is `ci` when `ci_cd.platform != None`, and `local` otherwise. It lands in `config/quality.json → delivery.execution`.
@@ -296,6 +311,9 @@ Each change ships with its upgrade migration.
 - **A wrapped deploy passes the deny.** A `make deploy` or a project script that runs the tool is not classified; only the missing credential stops it (§4).
 - **Bitbucket hands every variable of a step to its script.** A deploy credential kept as a repository or workspace variable reaches every step; the runbook scopes it to the production deployment, and nothing checks it (the platform has no API the gate reads for it).
 - **Bitbucket narrows the default pipeline scopes from 2027-04-30.** A step that pushes tags then needs `write:git:bitbucket`; every pushing step of the template declares `auth.system.scopes` now. A project that edits its pipeline keeps the block.
+- **A per-environment param is the project's word (RDR 6).** Two hosts or two app names that are in fact one target pass the check; only distinct values are held.
+- **Vercel's first deployment of a project is production.** Its docs say so whatever the flag; DEVOPS deploys production first on a new Vercel project, or a staging deploy lands there once.
+- **Two CLI facts are known-cold (docs reader, 2026-11-09).** `DOCKER_HOST=ssh://…` is documented for the docker CLI, not for its compose plugin; whether `railway domain --json` prints the URL is undocumented, so Railway and Compose read a per-environment `url` param.
 - **The sweep and smoke verdicts depend on the agent.** Each is the agent's word, sealed to a SHA. The pipeline checks that the verdict exists, is fresh and is green, not how it was reached.
 
 ## Round-1 cures (critics, 2026-11-08)

@@ -1143,9 +1143,9 @@
         "tool": "Terraform",
         "iac": true,
         "validate": "terraform init -input=false -backend=false && terraform validate -json",
-        "plan": "terraform init -input=false && terraform plan -input=false -out=tfplan",
-        "apply": "terraform apply -input=false tfplan",
-        "destroy": "terraform init -input=false && terraform apply -destroy -input=false -auto-approve",
+        "plan": "terraform init -input=false -reconfigure -backend-config=envs/{env}.backend.hcl && terraform plan -input=false -var-file=envs/{env}.tfvars -out=tfplan-{env}",
+        "apply": "terraform apply -input=false tfplan-{env}",
+        "destroy": "terraform init -input=false -reconfigure -backend-config=envs/{env}.backend.hcl && terraform apply -destroy -input=false -auto-approve -var-file=envs/{env}.tfvars",
         "url_from": {
          "kind": "command",
          "command": "terraform output -raw url"
@@ -1176,10 +1176,10 @@
        "delivery.adapter": {
         "tool": "AWS CDK",
         "iac": true,
-        "validate": "cdk synth --quiet",
-        "plan": "cdk diff",
-        "apply": "cdk deploy --all --require-approval never --outputs-file cdk-outputs.json",
-        "destroy": "cdk destroy --all --force",
+        "validate": "cdk synth --quiet -c env={env}",
+        "plan": "cdk diff -c env={env}",
+        "apply": "cdk deploy --all -c env={env} --require-approval never --outputs-file cdk-outputs.json",
+        "destroy": "cdk destroy --all --force -c env={env}",
         "url_from": {
          "kind": "command",
          "command": "python3 -c \"import json; print(next(v['url'] for v in json.load(open('cdk-outputs.json')).values() if 'url' in v))\""
@@ -1194,10 +1194,21 @@
         "iac": false,
         "validate": "docker compose config -q",
         "plan": null,
-        "apply": "docker compose up -d --wait --remove-orphans",
-        "destroy": "docker compose down --remove-orphans",
+        "apply": "DOCKER_HOST=ssh://{host} docker compose up -d --wait --remove-orphans",
+        "destroy": "DOCKER_HOST=ssh://{host} docker compose down --remove-orphans",
         "url_from": {
-         "kind": "config"
+         "kind": "template",
+         "template": "{url}"
+        },
+        "params": {
+         "host": {
+          "staging": null,
+          "production": null
+         },
+         "url": {
+          "staging": null,
+          "production": null
+         }
         },
         "secrets": [
          "DEPLOY_SSH_KEY"
@@ -1210,14 +1221,17 @@
         "tool": "Vercel CLI",
         "iac": false,
         "validate": null,
-        "plan": "vercel pull --yes --environment=production && vercel build --prod",
-        "apply": "vercel deploy --prebuilt --prod",
-        "destroy": "vercel remove {app} --yes",
+        "plan": "vercel pull --yes --environment={target} && vercel build --environment={target}",
+        "apply": "vercel deploy --prebuilt --environment={target}",
+        "destroy": null,
         "url_from": {
          "kind": "stdout"
         },
         "params": {
-         "app": null
+         "target": {
+          "staging": "preview",
+          "production": "production"
+         }
         },
         "secrets": [
          "VERCEL_TOKEN",
@@ -1233,13 +1247,18 @@
         "iac": false,
         "validate": null,
         "plan": null,
-        "apply": "railway up --ci --service {service}",
+        "apply": "railway up --ci --service {service} --environment {env}",
         "destroy": null,
         "url_from": {
-         "kind": "config"
+         "kind": "template",
+         "template": "{url}"
         },
         "params": {
-         "service": null
+         "service": null,
+         "url": {
+          "staging": null,
+          "production": null
+         }
         },
         "secrets": [
          "RAILWAY_TOKEN"
@@ -1251,7 +1270,7 @@
        "delivery.adapter": {
         "tool": "flyctl",
         "iac": false,
-        "validate": "fly config validate --strict",
+        "validate": "fly config validate --strict --app {app}",
         "plan": null,
         "apply": "fly deploy --remote-only --app {app} --yes",
         "destroy": "fly apps destroy {app} --yes",
@@ -1260,7 +1279,10 @@
          "template": "https://{app}.fly.dev"
         },
         "params": {
-         "app": null
+         "app": {
+          "staging": null,
+          "production": null
+         }
         },
         "secrets": [
          "FLY_API_TOKEN"

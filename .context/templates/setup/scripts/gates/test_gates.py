@@ -5012,7 +5012,8 @@ class Discovery(unittest.TestCase):
         self.assertEqual(vercel["configures"]["delivery.execution"], "local"); self.assertIn("scripts/validate-iac.sh", vercel["skipped"])
         for tool, rows in spec["configures"].items():
             a = rows["delivery.adapter"]
-            self.assertTrue(a.get("apply") and a.get("url_from", {}).get("kind") in ("command", "stdout", "template", "config"), tool)
+            self.assertTrue(a.get("apply") and a.get("url_from", {}).get("kind") in delivery.URL_KINDS, tool)
+            self.assertEqual(delivery.adapter_problems(a), [], f"{tool}: every shipped row names its environment (RDR 6)")
         self.assertNotIn("Other", spec["configures"], "Other: the row is the finalisation's RDR")
         mig = lambda t: r({"backend.runtime": "Python", "database.primary.engine": "PostgreSQL", "database.migrations_tool": t})["configures"].get("delivery.migrate")
         self.assertEqual(mig("Alembic"), "alembic upgrade head")
@@ -7594,8 +7595,8 @@ if __name__ == "__main__":
 class Delivery(unittest.TestCase):
     """EVOL-081, CI-only delivery: one executor (validate → plan → migrate → apply → probe → record → lkg), one reader of
     the deploy records (annotated tags), the static check of the pipeline (production behind approval)."""
-    ROW = {"tool": "Terraform", "iac": True, "validate": "tf validate", "plan": "tf plan -out=tfplan", "apply": "tf apply tfplan",
-           "destroy": "tf destroy", "url_from": {"kind": "command", "command": "tf output -raw url"}, "secrets": ["TF_TOKEN"], "rollback": "redeploy-lkg"}
+    ROW = {"tool": "Terraform", "iac": True, "validate": "tf validate", "plan": "tf plan -out=tfplan-{env}", "apply": "tf apply tfplan-{env}",
+           "destroy": "tf destroy -var-file={env}.tfvars", "url_from": {"kind": "command", "command": "tf output -raw url"}, "secrets": ["TF_TOKEN"], "rollback": "redeploy-lkg"}
 
     def _git(self, repo, *c):
         return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True, text=True).stdout
@@ -7698,7 +7699,7 @@ class Delivery(unittest.TestCase):
             calls = []
             repo = self._repo(tmp)
             delivery.teardown(repo, "staging", environ={"CI": "1"}, runner=self._runner("", calls))
-            self.assertEqual(calls[0][0], ["tf", "destroy"]); self.assertEqual(delivery.records(repo), [], "a teardown writes no record")
+            self.assertEqual(calls[0][0], ["tf", "destroy", "-var-file=staging.tfvars"]); self.assertEqual(delivery.records(repo), [], "a teardown writes no record")
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp, adapter={**self.ROW, "destroy": None})
             with self.assertRaisesRegex(GateFault, "no `destroy` command"):
@@ -7714,6 +7715,33 @@ class Delivery(unittest.TestCase):
         with self.assertRaisesRegex(GateFault, "not an environment name"):
             delivery._env_name("prod; rm -rf /")
 
+    def test_every_row_names_its_environment(self):
+        """RDR 6 (2026-11-09): plan, apply, destroy and a url_from template name the environment — {env} or a
+        per-environment param — or the row is red; one value for two environments is red; a map fills per environment."""
+        blind = {**self.ROW, "plan": "tf plan -out=tfplan", "apply": "tf apply tfplan", "destroy": "tf destroy"}
+        self.assertEqual(sum("does not name the environment" in p for p in delivery.adapter_problems(blind)), 3)
+        self.assertEqual(delivery.adapter_problems(self.ROW), [])
+        shared = {**self.ROW, "apply": "vercel deploy --prod --scope {team}", "params": {"team": "acme"}}
+        self.assertIn("`apply` does not name", " ".join(delivery.adapter_problems(shared)), "a shared param is no environment")
+        self.assertEqual(delivery.adapter_problems({**shared, "params": {"team": "acme-{env}"}}), [], "a shared param may name {env}")
+        fly = {**self.ROW, "apply": "fly deploy --app {app}", "destroy": "fly apps destroy {app}",
+               "url_from": {"kind": "template", "template": "https://{app}.fly.dev"}, "params": {"app": {"staging": "web-stg", "production": "web"}}}
+        self.assertEqual(delivery.adapter_problems(fly), [])
+        self.assertIn("url_from.template` does not name", " ".join(delivery.adapter_problems({**fly, "url_from": {"kind": "template", "template": "https://web.fly.dev"}})))
+        same = {**fly, "params": {"app": {"staging": "web", "production": "web"}}}
+        self.assertIn("holds one value for staging and production", " ".join(delivery.adapter_problems(same)))
+        self.assertIn("no `url_from`", " ".join(delivery.adapter_problems({**self.ROW, "url_from": {"kind": "config"}})), "one URL for every environment left the vocabulary")
+        self.assertEqual(delivery.steps(fly["apply"], "staging", fly["params"])[0][1], ["fly", "deploy", "--app", "web-stg"])
+        self.assertEqual(delivery.steps(fly["apply"], "production", fly["params"])[0][1], ["fly", "deploy", "--app", "web"])
+        with self.assertRaisesRegex(GateFault, r"does not fill it for qa"):
+            delivery.steps(fly["apply"], "qa", fly["params"])
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, adapter=blind)
+            calls = []
+            with self.assertRaisesRegex(GateFault, "does not name the environment"):
+                delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
+            self.assertEqual(calls, [], "an env-blind row runs nothing")
+
     def test_variables_are_the_step_environment_and_every_command_is_filled_first(self):
         """Round-1 cure: `$NAME` is the step's value (a migrate row passes the database URL), an unset name is a fault;
         an unfilled command anywhere in the run runs nothing; a rollback never re-runs the forward migration."""
@@ -7723,7 +7751,7 @@ class Delivery(unittest.TestCase):
         with self.assertRaisesRegex(GateFault, r"reads \$DATABASE_URL"):
             delivery.steps('migrate -database "$DATABASE_URL" up', "staging", None, {})
         with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
-            repo = self._repo(tmp, adapter={**self.ROW, "apply": "fly deploy --app {app}", "params": {"app": None}})
+            repo = self._repo(tmp, adapter={**self.ROW, "apply": "fly deploy --app {app}", "params": {"app": {"staging": None, "production": None}}})
             calls = []
             with self.assertRaisesRegex(GateFault, r"names \{app\}"):
                 delivery.run(repo, "staging", environ={"CI": "1"}, runner=self._runner(s.url, calls))
@@ -7775,7 +7803,7 @@ class Delivery(unittest.TestCase):
                 write(repo / dst, bad)
                 out = delivery.render(delivery.check(repo)); self.assertIn("RED", out, dst)
                 self.assertTrue("is not the environment it deploys (production)" in out or "without `trigger: manual`" in out, out)
-                write(repo / dst, text.replace("python3 scripts/gate.py delivery --run --env staging", "tf apply tfplan"))
+                write(repo / dst, text.replace("python3 scripts/gate.py delivery --run --env staging", "tf apply tfplan-staging"))
                 self.assertIn("runs the adapter's apply directly", delivery.render(delivery.check(repo)))
                 (repo / dst).unlink()
             write(repo / ".github/workflows/deploy.yml", (tpl / "deploy.github-actions.yml").read_text())

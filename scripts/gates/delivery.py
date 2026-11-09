@@ -27,8 +27,10 @@ record    annotated tag `deploy/{env}/{YYYYMMDDTHHMMSSZ}` on the deployed SHA, m
           probe, migrations, metrics, hosting[, rebaseline]}; `lkg/{env}/{ts}` lightweight on the same SHA. This module
           creates tags only; PUSHING them is the pipeline's step (or the DEVOPS agent's, in local mode) — never here.
 Commands from the adapter row run without a shell: ` && ` splits steps, leading `NAME=value` words set the step's
-environment, `{env}` is the environment name, `$NAME` / `${NAME}` the step environment's value (an unset name is a fault, never
-an empty word). Every command of the run is filled before its first step runs: one left unfilled runs nothing. Secrets: only the row's names and `delivery.secrets`, from the environment
+environment, `{env}` is the environment name, `{param}` the row's `params` — a string holds for every environment (it may
+name `{env}`), a map {env: value} per environment — and `$NAME` / `${NAME}` the step environment's value (an unset name is a
+fault, never an empty word). Every plan / apply / destroy and a url_from template names its environment — `{env}`, or a
+per-environment param holding a value of its own per environment — or the row is red (RDR 6): a staging deploy never reaches production. Every command of the run is filled before its first step runs: one left unfilled runs nothing. Secrets: only the row's names and `delivery.secrets`, from the environment
 or the pipeline's `DELIVERY_SECRETS` JSON map, reach the commands; the map itself never does.
 """
 from __future__ import annotations
@@ -50,7 +52,9 @@ ENV_RE = re.compile(r"[a-z][a-z0-9-]{0,30}")
 SHA_RE = re.compile(r"[0-9a-f]{40}")
 VAR_RE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-URL_KINDS = ("command", "stdout", "template", "config")
+URL_KINDS = ("command", "stdout", "template")
+ENV_BOUND = ("plan", "apply", "destroy")
+PH = r"(?<!\$)\{%s\}"
 REFUSED = "This project deploys from its pipeline — run DEVOPS --deploy, which starts the pipeline and watches the run."
 RESOURCES = "config/system_resources.json"
 PIPELINES = (".github/workflows/deploy.yml", "bitbucket-pipelines.yml")
@@ -89,6 +93,39 @@ def adapter_problems(a) -> list[str]:
     u = a.get("url_from")
     if not isinstance(u, dict) or u.get("kind") not in URL_KINDS:
         out.append(f"the adapter row has no `url_from` ({' | '.join(URL_KINDS)}) — a deploy whose URL is unknown cannot be probed")
+    par = a.get("params") if isinstance(a.get("params"), dict) else {}
+    cmds = [(k, a.get(k)) for k in ENV_BOUND] + ([("url_from.template", u.get("template"))] if isinstance(u, dict) and u.get("kind") == "template" else [])
+    for k, cmd in cmds:
+        if isinstance(cmd, str) and cmd.strip() and not _env_bound(cmd, par):
+            out.append(f"`{k}` does not name the environment — a staging deploy could reach production; name {{env}} or a per-environment param (RDR 6)")
+    for k, v in par.items():
+        if isinstance(v, dict):
+            seen = {}
+            for e, x in v.items():
+                if isinstance(x, str) and x.strip():
+                    if x in seen:
+                        out.append(f"`params.{k}` holds one value for {seen[x]} and {e} — one environment would deploy over the other")
+                    seen.setdefault(x, e)
+    return out
+
+
+def _env_bound(cmd: str, par: dict) -> bool:
+    """The command names its environment: `{env}` once the shared params are filled, or a per-environment param."""
+    for k, v in par.items():
+        if isinstance(v, dict) and re.search(PH % re.escape(str(k)), cmd):
+            return True
+        if isinstance(v, str):
+            cmd = re.sub(PH % re.escape(str(k)), lambda _m, v=v: v, cmd)
+    return bool(re.search(PH % "env", cmd))
+
+
+def _params(params, env: str) -> dict:
+    """The row's params for one environment: a string for every environment, a map's own entry; null stays a placeholder."""
+    out = {}
+    for k, v in (params or {}).items():
+        v = v.get(env) if isinstance(v, dict) else v
+        if isinstance(v, str) and v.strip():   # a null param stays a placeholder: refused, never run as "None"
+            out[k] = v
     return out
 
 
@@ -198,12 +235,11 @@ def steps(cmd: str, env: str, params: dict | None = None, environ: dict | None =
     `{env}` and each `{param}` of the row's `params` are filled — a placeholder left over is a fault, never run.
     With `environ`, `$NAME` / `${NAME}` in a word is that variable's value (the step's assignments first)."""
     out = []
-    for k, v in {**(params or {}), "env": env}.items():
-        if isinstance(v, str) and v.strip():   # a null param stays a placeholder: refused below, never run as "None"
-            cmd = re.sub(r"(?<!\$)\{" + re.escape(str(k)) + r"\}", lambda _m, v=v: v, cmd)
+    for k, v in {**_params(params, env), "env": env}.items():
+        cmd = re.sub(PH % re.escape(str(k)), lambda _m, v=v: v, cmd)
     left = re.findall(r"(?<!\$)\{([A-Za-z_]+)\}", cmd)
     if left:
-        raise GateFault(f"the adapter command names {', '.join('{' + x + '}' for x in left)} and its row's `params` does not fill it")
+        raise GateFault(f"the adapter command names {', '.join('{' + x + '}' for x in left)} and its row's `params` does not fill it for {env} — DEVOPS --configure fills it")
     for part in cmd.split(" && "):
         words = shlex.split(part)
         assign = {}
@@ -270,16 +306,6 @@ def services(repo: Path) -> list[tuple[str, str]]:
     return out or [("app", "/")]
 
 
-def config_url(repo: Path) -> str:
-    p = repo / RESOURCES
-    doc = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
-    for r in doc.get("resources", []):
-        u = (r.get("config") or {}).get("baseUrl") if isinstance(r, dict) and r.get("type") != "integration" else None
-        if isinstance(u, str) and u.strip():
-            return u
-    raise GateFault(f"url_from is `config` but {RESOURCES} names no own service with a baseUrl")
-
-
 def url_of(repo: Path, adapter: dict, apply_out: str, env: str, environ: dict, runner) -> str:
     from .performance import check_url
     u = adapter["url_from"]
@@ -289,12 +315,9 @@ def url_of(repo: Path, adapter: dict, apply_out: str, env: str, environ: dict, r
         url = ([ln for ln in apply_out.splitlines() if ln.strip()] or [""])[-1]
     elif u["kind"] == "template":
         try:
-            par = {k: v for k, v in (adapter.get("params") or {}).items() if isinstance(v, str) and v.strip()}
-            url = u["template"].format(env=env, **par)
+            url = u["template"].format(**{**_params(adapter.get("params"), env), "env": env})
         except (KeyError, IndexError, AttributeError, ValueError):
             raise GateFault("url_from.template names a parameter the adapter's `params` does not hold") from None
-    else:
-        url = config_url(repo)
     return check_url(url.strip())
 
 
@@ -555,7 +578,7 @@ def check(repo: Path) -> dict:
             continue
         probs = (_github if rel.startswith(".github/") else _bitbucket)(doc, rel)
         apply_cmd = ((c.get("adapter") or {}).get("apply") or "").split(" && ")[-1].strip()
-        if apply_cmd and apply_cmd in text:
+        if apply_cmd and re.search(re.sub(r"\\\{[A-Za-z_]+\\\}", r"\\S+", re.escape(apply_cmd)), text):   # a placeholder is any filled word
             probs.append(f"{rel} runs the adapter's apply directly — every deploy goes through `gate.py delivery --run` (probe + record)")
         if not CALL.search(text):
             probs.append(f"{rel} has no stage that calls `gate.py delivery --run --env …`")
