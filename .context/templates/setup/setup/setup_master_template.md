@@ -1,5 +1,5 @@
 ---
-version: 3.0.0
+version: 3.1.0
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -97,6 +97,7 @@ performance:
 qa:
   smoke_cadence: null                 # Q23.4: per-slice | feature-close (EVOL-077)
   browser_mcp: null                   # Q23.5, when a frontend exists: chrome-devtools | playwright | none (EVOL-077)
+  dast_tool: null                     # Q23.7, when the scope serves HTTP: owasp-zap | skip — skip ticks each DAST probe n/a with its reason (EVOL-076)
 ci_cd:
   platform: null
   tier: null
@@ -126,6 +127,8 @@ quality:
     install_hint: null
     sca_threshold: null
     enabled: null
+  qa:
+    blocking_severity: null           # Q23.6: critical | high | medium | low — at or above blocks QA approval (EVOL-076)
   sast: null                          # derived: the SAST packs that landed for the stack (EVOL-074)
   data: null                          # derived: the migration pack, where database.migrations_tool holds an answer (EVOL-071)
   performance: null                   # derived: the performance thresholds landed, where a surface exists (EVOL-073)
@@ -262,7 +265,8 @@ last_update: [TIMESTAMP]
 - **Pipeline Depth:** frontmatter `ci_cd.tier`
 - **IDE Preference:** [VSCode | IntelliJ IDEA | PyCharm | None]
 - **E2E Testing:** [Playwright (Web UI) | Newman (API) | Skip]
-- **DAST Tools:** [OWASP ZAP | Skip]
+- **DAST Tools:** [owasp-zap | skip] — frontmatter `qa.dast_tool` (Q23.7); every DAST probe runs or is ticked `n/a: <reason>` (EVOL-076)
+- **QA blocking severity:** `config/quality.json → qa.blocking_severity` (Q23.6): a QA finding at or above it blocks approval; critical always blocks (EVOL-076)
 - **Visual QA cases:** [chrome-devtools | playwright | none] — frontmatter `qa.browser_mcp` (Q23.5, when a frontend exists); a browser MCP adds `[QA-VIS-{CASE}]` cases to the smoke (EVOL-077)
 - **Smoke cadence:** [per-slice | feature-close] — frontmatter `qa.smoke_cadence` (Q23.4, EVOL-077)
 - **Stateless Strategy:** [Session Management: Redis/JWT | Cache: Redis Cluster/CDN | Idempotency: Keys/Deduplication]

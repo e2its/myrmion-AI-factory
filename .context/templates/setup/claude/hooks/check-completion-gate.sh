@@ -12,8 +12,10 @@
 #     its value read by the one parser (scripts/gates/common.py); a comment or a per-increment status is not a marker
 #   - the content after the change cannot be built (file unreadable, old_string absent), or its status/verdict line
 #     cannot be read — fail-closed
-#   - an item is not done — ONE vocabulary: python3 scripts/gate.py checklist (#115): only [x] is done;
+#   - dev_plan.md: an item is not done — ONE vocabulary: python3 scripts/gate.py checklist (#115): only [x] is done;
 #     an open [ ], a failed [!] and any other mark are not
+#   - qa_report*.md: the report is not approvable — python3 scripts/gate.py qa --verdict (EVOL-076): every item done,
+#     no finding at or above qa.blocking_severity, every owed item present; an unreadable severity blocks
 # Blocks with exit 2 + stderr (the Claude Code blocking contract; exit 1 would not block — EVOL-043).
 # ============================================================================
 
@@ -96,7 +98,24 @@ case "$TRC" in   # 0 terminal · 5 not terminal · anything else (a fault, an un
   *) echo "BLOCKED: the governance reader (scripts/gates/) failed while reading the status of '$BASENAME'. Resolution: bash scripts/factory-sync.sh, then retry." >&2; exit 2 ;;
 esac
 RC=0
-COUNT=$(printf '%s\n' "$CONTENT" | python3 scripts/gate.py checklist 2>&1) || RC=$?
+if [[ "$BASENAME" == "dev_plan.md" ]]; then
+  COUNT=$(printf '%s\n' "$CONTENT" | python3 scripts/gate.py checklist 2>&1) || RC=$?
+else
+  COUNT=$(printf '%s\n' "$CONTENT" | python3 scripts/gate.py qa --verdict 2>&1) || RC=$?
+  case "$RC" in
+    0) exit 0 ;;
+    1)
+      {
+        echo "BLOCKED: '$BASENAME' cannot be approved — the verdict is computed, not written (gate.py qa --verdict):"
+        printf '%s\n' "$COUNT" | head -n 20
+        echo "  Resolve each red line (fix the finding, run or justify the probe, tick the item), then QA --verify again; or write verdict: REJECTED."
+      } >&2
+      exit 2 ;;
+    *)
+      { echo "BLOCKED: the QA verdict of '$BASENAME' could not be computed (gate.py qa --verdict exit $RC):"; printf '%s\n' "$COUNT" | tail -n 3; } >&2
+      exit 2 ;;
+  esac
+fi
 
 case "$RC" in
   0) exit 0 ;;

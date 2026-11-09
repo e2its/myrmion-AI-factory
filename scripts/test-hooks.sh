@@ -60,6 +60,7 @@ EOF
 cat > "$REPO/config/quality.json" <<'EOF'
 {"budgets": {"session_start": 2000, "prompt_submit": 16000, "pre_edit": 6000, "snapshot": 16000, "law_sentence_max_chars": 240, "dc_invariant_max_chars": 160},
  "documentation": {"paths": ["**/*.md", "docs/**"], "exclusions": [".github/workflows/**"]},
+ "qa": {"blocking_severity": "high"},
  "planning": {"governed_paths": ["src/**", "config/**", ".claude/rules/**"], "gate_inputs": ["docs/constitution.md", "config/**", ".claude/rules/**"], "exempt_classes": ["feature", "increment", "train", "sub-increment", "epic"], "plan_artefact": null, "adoption_window_minutes": 30}
 }
 EOF
@@ -394,6 +395,19 @@ run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path
 assert_pass "terminal status, all ticked: passes"
 run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/qa_report.md","content":"---\nverdict: APPROVED\n---\n- [x] lint\n- [!] FAILED complexity\n"}}'
 assert_block "terminal verdict with a failed [!] item and no [ ]: exit 2 (#115 — only [x] is done)" "1 failed"
+# EVOL-076 — a qa_report's verdict is computed: a finding at or above qa.blocking_severity cannot be written APPROVED
+QAREP() { python3 -c 'import json,sys; body="---\nverdict: APPROVED\n---\n" + "".join(f"- [x] [{i}] done\n" for i in ("QA-PRE-DEPLOY","QA-GOV-1","QA-GOV-PRIV","QA-DAST-1")) + "- [x] [QA-DAST-2] full scan — n/a: no full scan in the test plan\n- [x] [QA-DAST-3] api scan — n/a: no API contract\n\n## Findings\n| ID | Severity | Source | Finding | Evidence |\n|---|---|---|---|---|\n" + (f"| F-1 | {sys.argv[1]} | SAST | sql built by concatenation | src/a.py:3 |\n" if sys.argv[1] else ""); print(json.dumps({"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/qa/qa_report_final_1.md","content":body}}))' "$1"; }
+run_hook check-completion-gate.sh "$(QAREP high)"
+assert_block "APPROVED with a high finding at threshold high: exit 2, the finding named" "at or above the blocking severity"
+run_hook check-completion-gate.sh "$(QAREP medium)"
+assert_pass "APPROVED with a medium finding under threshold high: passes"
+run_hook check-completion-gate.sh "$(QAREP '')"
+assert_pass "APPROVED, every owed item present, no finding: passes"
+cp "$REPO/config/quality.json" "$SANDBOX/quality.qa.bak"
+python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d.pop("qa"); json.dump(d,open(p,"w"))' "$REPO/config/quality.json"
+run_hook check-completion-gate.sh "$(QAREP '')"
+assert_block "APPROVED with no qa.blocking_severity answered: exit 2 (an unreadable severity is never permissive)" "could not be computed"
+cp "$SANDBOX/quality.qa.bak" "$REPO/config/quality.json"
 BIGPLAN=$(python3 -c 'print("---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n" + "- [x] done\n" * 9000 + "* [ ] open task\n")')
 run_hook check-completion-gate.sh "$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":sys.argv[1]}}))' "$BIGPLAN")"
 assert_block "large plan (>64 KB), terminal status on top, one '* [ ]' at the end: exit 2 (DC-13 — no SIGPIPE skip)" "Completion gate failed"

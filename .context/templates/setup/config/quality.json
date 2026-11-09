@@ -44,6 +44,10 @@
       "code-simplifier"
     ]
   },
+  "qa": {
+    "_doc": "QA exit by severity (EVOL-076). blocking_severity (SETUP Q23.6): critical | high | medium | low — a finding in a QA report's Findings table at or above it makes the report not approvable (gate.py qa --verdict, the completion hook); critical always blocks; absent or another value blocks every approval until answered.",
+    "blocking_severity": "{{QA_BLOCKING_SEVERITY}}"
+  },
   "security_scan": {
     "enabled": true,
     "scanner": "{{SECURITY_SCANNER}}",

@@ -1646,6 +1646,38 @@
    }
   },
   {
+   "id": "Q23.6",
+   "tier": 2,
+   "since": "10.1.0",
+   "keys": {
+    "quality.qa.blocking_severity": {
+     "options": [
+      "critical",
+      "high",
+      "medium",
+      "low"
+     ],
+     "fills": [
+      "QA_BLOCKING_SEVERITY"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q23.7",
+   "tier": 2,
+   "since": "10.1.0",
+   "when": "project_scope IN [full-stack, backend-only, integration] OR frontend.framework exists",
+   "keys": {
+    "qa.dast_tool": {
+     "options": [
+      "owasp-zap",
+      "skip"
+     ]
+    }
+   }
+  },
+  {
    "id": "Q24",
    "tier": 2,
    "since": "1.0.0",

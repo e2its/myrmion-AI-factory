@@ -1,5 +1,5 @@
 ---
-version: 1.1.2
+version: 1.2.0
 date: 2026-01-26
 ---
 
@@ -23,12 +23,14 @@ Strategy, scan modes, vulnerability classification, and remediation workflow for
 - **API:** `scripts/security-scan.sh --dast-api` (~15m) schema-driven API scan.
 
 ## 4. Vulnerability Classification
-| Risk | Action | SLA |
-|------|--------|-----|
-| High | Block deploy/merge | Fix <24h |
-| Medium | Warning + review | Fix <7 days |
-| Low | Log for backlog | Fix next sprint |
-| Info | No action | Optional |
+Each ZAP alert is a `## Findings` row of the QA report at its severity: High → high, Medium → medium, Low → low, Informational → info. Whether it blocks merge and deploy is the project's answer, `config/quality.json → qa.blocking_severity` (SETUP Q23.6; critical always blocks), and `gate.py qa --verdict` computes it (EVOL-076). A finding below the threshold is fixed within its SLA:
+
+| Risk | SLA |
+|------|-----|
+| High | Fix <24h |
+| Medium | Fix <7 days |
+| Low | Fix next sprint |
+| Info | Optional |
 
 False positives: document in `security/dast/false-positives.md`, update exclusions in `zap-config.yaml`, require the security lens's approval (`factory-critic-security`, via /QA).
 
