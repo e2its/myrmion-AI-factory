@@ -74,7 +74,40 @@ This ADR implements issue #164 (epic #112, Wave 3). It was verified on `main` at
   - Vercel (Fluid): 300 s default, 800 s max (Pro).
   - Cloud Run functions: HTTP up to 60 min.
   - SDK defaults are unbounded or long: botocore 60 s + 60 s; JS v3 `requestTimeout` 0; Java v2 `apiCallTimeout` unset; Go `Client.Timeout` 0; requests none; axios 0. The bound is therefore always written in code.
-- **SDK bound forms per stack:** <!-- drafting: second docs-reader batch pending -->
+- **SDK bound forms per stack** (three docs-readers, 2026-11-09; context7 and the vendors' API pages):
+  - **Units differ.** Python takes seconds (botocore, requests, httpx, azure-core kwargs). JavaScript takes milliseconds. Java takes `Duration`, .NET `TimeSpan`, Go `time.Duration`, Rust `Duration`.
+  - **The attempt count is counted two ways.**
+    - It includes the first try in: botocore `retries={"total_max_attempts": n}`, AWS JS v3 `maxAttempts` (= maxRetries + 1), AWS Rust `RetryConfig::standard().with_max_attempts(n)`, AWS Java v2 `retryStrategy(b -> b.maxAttempts(n))` and Azure JS Storage `retryOptions.maxTries`.
+    - It counts retries only in: botocore `retries={"max_attempts": n}`, AWS .NET `MaxErrorRetry`, Azure .NET `Retry.MaxRetries`, Azure JS core `retryOptions.maxRetries`, httpx `HTTPTransport(retries=n)` and reqwest `max_retries_per_request`.
+  - **Some timeouts bound the whole call, retries included.** These are AWS Rust `operation_timeout`, AWS Java v2 `apiCallTimeout`, Go `http.Client.Timeout`, `fetch(u, {signal: AbortSignal.timeout(ms)})` and reqwest `timeout`.
+  - **Other timeouts bound one attempt.** These are AWS Java v2 `apiCallAttemptTimeout`, AWS Rust `operation_attempt_timeout`, Azure JS Storage `tryTimeoutInMs` and Azure .NET `Retry.NetworkTimeout`.
+  - **Standard HTTP clients retry nothing by default.** This covers requests (`HTTPAdapter` `max_retries` defaults to 0), axios, fetch, Go `net/http`, `java.net.http` and `System.Net.Http`.
+    - httpx retries only connect errors, and only when asked.
+    - reqwest retries protocol NACKs by default, 2 times.
+  - **Some bounds do not bind.**
+    - AWS JS v3 `requestTimeout` only warns unless `throwOnRequestTimeout: true` is set (since 3.910.0).
+    - AWS .NET `Timeout` does not apply to async calls; a `CancellationToken` does.
+    - requests has no Session-level timeout: `timeout=(connect, read)` is set per call.
+    - Google Cloud clients are bounded per call (Python `timeout=`/`retry=`, Node gax `CallOptions`).
+  - **Defaults.**
+    - botocore: 60 s + 60 s; legacy mode, 5 attempts.
+    - AWS Rust: connect 3.1 s, read none, 3 attempts.
+    - AWS JS v3: timeouts 0 (off).
+    - AWS Java v2: timeouts off; 3 attempts (legacy 4, DynamoDB 8).
+    - AWS .NET: `Timeout` 100 s; `MaxErrorRetry` 2 (DynamoDB 10).
+    - azure-core Python: 300 s + 300 s; `retry_total` 10.
+    - Azure Java: connect 10 s; read and response 60 s.
+    - undici: connect 10 s; headers and body 300 s.
+    - .NET: `HttpClient.Timeout` 100 s; `SocketsHttpHandler.ConnectTimeout` infinite.
+  - **Known-cold** (not sourced, so no pack rule covers them):
+    - boto3 `Session.client` and `boto3.resource` with `config=`;
+    - first-try semantics of urllib3 `Retry.total`, azure-core Python `retry_total`, Azure Java `setMaxRetries` and Go `retry.StandardOptions.MaxAttempts`;
+    - whether AWS JS v3 `requestTimeout` bounds one attempt or the whole operation;
+    - the scope of Go `BuildableClient.WithTimeout`;
+    - AWS Java `RetryPolicy.numRetries` and the `UrlConnectionHttpClient` timeouts;
+    - .NET `IHttpClientFactory` configuration;
+    - Azure Service Bus retry fields;
+    - Google Java per-client `setRetrySettings` and Google .NET `CallSettings`.
 
 ## Decision
 
@@ -129,8 +162,17 @@ This ADR implements issue #164 (epic #112, Wave 3). It was verified on `main` at
 
 ### 5. Every external client in a time-limited function is bounded — `scripts/gates/bounds.py`, `gate.py bounds` (T)
 - **Selection.** The check applies when `hosting.type == function`. One pack, `security/bounds/<lang>.yml`, ships per `backend.runtime` that has a SAST pack (Python, Node.js, Java, Go, .NET, Rust), marked `stack_conditional`. Each pack holds the hosting provider's SDK client construction and the language's standard HTTP clients.
-- **Rules.** An *unbounded* rule finds a construction that lacks a connect bound, a per-attempt read bound or an attempt count. An *extraction* rule emits `bound <connect_s> <read_s> <attempts>` through message interpolation.
-- **The design does the arithmetic.** The function resource in `design.md` carries `clients: [{name, connect_s, read_s, attempts, calls}]`, and Σ calls × attempts × (connect_s + read_s) ≤ `timeout_seconds`. A literal tuple in code that no function declares is red: a bound chosen without the arithmetic.
+- **Rules.**
+  - **Unbounded.** An *unbounded* rule finds a construction that has no whole-call deadline and lacks a connect bound, a per-attempt read bound or an attempt count.
+    - A client with no built-in retry counts as 1 attempt by construction.
+    - A bound that does not bind counts as absent: JS v3 `requestTimeout` without `throwOnRequestTimeout: true`, or .NET `Timeout` on an async call.
+  - **Extraction.** An *extraction* rule emits its values through message interpolation, as `bound <unit> <count> <connect> <read> <attempts>` or `deadline <unit> <value>`. The `unit` (s/ms) and the `count` (`total`/`retries`) are fixed per rule.
+  - **Normalisation.** `bounds.py` converts to seconds and to attempts that include the first try: a retries-only count adds one. Semgrep does no arithmetic.
+  - **Coverage.** A known-cold form is in no pack.
+- **The design does the arithmetic.**
+  - The function resource in `design.md` carries `clients: [{name, calls, connect_s, read_s, attempts} | {name, calls, deadline_s}]`.
+  - The sum over its clients of calls × (deadline_s, or attempts × (connect_s + read_s)) must be ≤ `timeout_seconds`.
+  - A literal bound in code that no function declares is red: it was chosen without the arithmetic.
 - **Ratchet.** `docs/project_log/bounds_baseline.json` (`unbounded: {"path#rule": count}`) only shrinks. `SETUP --upgrade` records it once (`--baseline --init`).
 - **Delivery.** It is a verification-loop member; it needs semgrep, not a build.
 
