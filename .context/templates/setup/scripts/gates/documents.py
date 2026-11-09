@@ -45,7 +45,9 @@ DOWN = "the source of truth is down"
 MEMO = "GATE_DOCUMENTS_MEMO"
 BASE = "GATE_DOCUMENTS_BASE"   # set by the profile: the store's address is read from the base (EVOL-080, owner RDR «1»)
 VERIFY = ("ci", "local")   # documents.verify (Q38.8): the CI carries a read credential, or verification is local only (declared)
-TRUSTED = ("site", "space", "deployment")   # where the credential goes: under the profile, the base's values
+STEER = {"confluence": ("site", "space", "deployment"), "built": ("commands", "credentials")}   # where the credential goes
+_ENV_FLOOR = ("PATH", "PATHEXT", "SYSTEMROOT", "HOME", "LANG", "LC_ALL", "TMPDIR", "TEMP", "TMP", "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE",
+              "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy")   # a built command's environment, plus its credentials
 _ENV_NAME = re.compile(r"[A-Z_][A-Z0-9_]{0,63}")
 ADAPTERS = ("none", "confluence", "built")
 HOMES = ("Repo", "External")
@@ -99,9 +101,12 @@ class Outage:
 
     def __init__(self):
         self.down: StoreDown | None = None
+        self.unread: set[str] = set()   # what the caller left unjudged (a feature, a path) — nothing about it is judged absent
 
-    def note(self, e: StoreDown):
+    def note(self, e: StoreDown, what: str | None = None):
         self.down = self.down or e
+        if what:
+            self.unread.add(what)
 
     def settle(self, red) -> None:
         if self.down is None:
@@ -173,7 +178,10 @@ def approved(fm: dict) -> bool:
 # ─── the pin ────────────────────────────────────────────────────────────────────
 
 def sha(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    try:
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    except UnicodeEncodeError:   # a lone surrogate, from a JSON escape in a store's answer
+        raise GateFault("the text carries a character UTF-8 cannot encode — a deliverable is published and hashed as UTF-8") from None
 
 
 def load_pin(raw: str, where: str) -> dict:
@@ -241,43 +249,40 @@ def _inside(repo: Path, rel: str) -> Path:
 
 
 def _write_pin(repo: Path, rel: str, pin: dict):
-    (repo / (rel + PIN)).write_text(json.dumps(pin, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    _inside(repo, rel + PIN).write_text(json.dumps(pin, indent=1, sort_keys=True) + "\n", encoding="utf-8")
 
 
 # ─── the one reader ─────────────────────────────────────────────────────────────
 
-def _trusted(repo: Path, c: dict) -> dict:
-    """Under the profile (BASE set), Confluence's address — site, space, deployment — is the base's: a pull request never
-    sends the credential to an address it names. A store new in the pull request is read after it merges."""
-    ref = os.environ.get(BASE)
-    if not ref or c["adapter"] != "confluence":
-        return c
+def _base_block(repo: Path, ref: str) -> dict:
+    """`config/quality.json → documents` at `ref`; {} when the base names none."""
     raw = _at(repo, ref, "config/quality.json")
     try:
         b = json.loads(raw).get("documents") if raw else None
-    except (ValueError, AttributeError):
-        raise GateFault(f"config/quality.json at {clean(ref, 80)} is not a JSON object — the base's store address cannot be read") from None
-    if not isinstance(b, dict) or b.get("adapter") != "confluence":
-        raise _down(f"the Confluence address is new in this pull request — the profile sends the credential only to the base's "
-                    "address (config/quality.json at the base); the pins are read once it merges")
-    return {**c, **{k: b.get(k) for k in TRUSTED}}
+    except (ValueError, AttributeError, RecursionError):
+        raise GateFault(f"config/quality.json at {clean(ref, 80)} is not a JSON object — the base's store cannot be read") from None
+    return b if isinstance(b, dict) else {}
 
 
-def moved(repo: Path, c: dict) -> list[str]:
-    """The trusted keys this tree changes against the base (under the profile; [] otherwise)."""
-    try:
-        t = _trusted(repo, c)
-    except StoreDown:
-        return []
-    return [k for k in TRUSTED if t is not c and (t.get(k) or "") != (c.get(k) or "")]
+def _guard(repo: Path, c: dict):
+    """Under the profile (BASE set), the credential goes only to the store the base names: a pull request that adds the
+    store or changes where it points (Confluence's site, space, deployment; a built store's commands and credentials)
+    is read once it merges."""
+    ref = os.environ.get(BASE)
+    if not ref:
+        return
+    b = _base_block(repo, ref)
+    diff = [k for k in ("adapter", *STEER.get(c["adapter"], ())) if (b.get(k) or None) != (c.get(k) or None)]
+    if diff:
+        raise _down(f"the store is new in this pull request or changes in it (documents.{', documents.'.join(diff)}) — the profile never "
+                    "sends the credential where a pull request points it; the pins are read once it merges (rebase when the base moved it)")
 
 
 def open_store(repo: Path, c: dict | None = None, **inject):
     c = c or cfg(repo)
-    if c["adapter"] == "confluence":
-        return Confluence(_trusted(repo, c), **inject)
-    if c["adapter"] == "built":
-        return Built(c, repo)
+    if c["adapter"] in ADAPTERS[1:]:
+        _guard(repo, c)
+        return Confluence(c, **inject) if c["adapter"] == "confluence" else Built(c, repo)
     raise GateFault("a pin names a store, but config/quality.json → documents names none — answer Q38 (SETUP --upgrade) or restore the file")
 
 
@@ -305,21 +310,32 @@ def read_pinned(repo: Path, rel: str, pin: dict, st=None, c: dict | None = None)
     if pin["source"] != c["adapter"]:
         raise GateFault(f"{rel}: the pin names the source `{pin['source']}`; the project's store is `{c['adapter']}` — "
                         "bring the artefact back as a file and `--approve` it there")
-    memo = os.environ.get(MEMO)
-    m = Path(memo) / pin["sha256"] if memo and Path(memo).is_dir() else None
+    m = _memo(pin)
     if m is not None and m.is_file():
         t = m.read_bytes().decode("utf-8", "replace")
         if sha(t) == pin["sha256"]:
             return t
     _, body = _verified(st or open_store(repo, c), rel, pin)
-    if m is not None:
-        try:
-            fd = os.open(m, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
-            with os.fdopen(fd, "wb") as f:
-                f.write(body.encode("utf-8"))
-        except OSError:
-            pass   # the memo saves a read, never decides one
+    _remember(pin, body)
     return body
+
+
+def _memo(pin: dict) -> Path | None:
+    memo = os.environ.get(MEMO)
+    return Path(memo) / pin["sha256"] if memo and Path(memo).is_dir() else None
+
+
+def _remember(pin: dict, body: str):
+    """The verified bytes into the run's memo (the gate warms it: every member after it reads them without a call)."""
+    m = _memo(pin)
+    if m is None:
+        return
+    try:
+        fd = os.open(m, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "wb") as f:
+            f.write(body.encode("utf-8"))
+    except OSError:
+        pass   # the memo saves a read, never decides one
 
 
 def text(repo: Path, rel: str, ref: str | None = None, store=None) -> str | None:
@@ -367,6 +383,7 @@ def _title(c: dict, rel: str) -> str:
 
 def _external(repo: Path, rel: str) -> dict:
     _inside(repo, rel)
+    _inside(repo, rel + PIN)   # the pin is written inside the repository too — checked before anything is published
     c = cfg(repo)
     cat = category_of(rel)
     if home(c, cat) != "external":
@@ -389,7 +406,14 @@ def approve(repo: Path, rel: str, store=None, now: str | None = None) -> dict:
     if pin and pin["source"] != c["adapter"]:
         pin = None   # pinned in another store: published anew in this one
     st = store or open_store(repo, c)
-    cur = st.read(pin["id"]) if pin else None
+    try:
+        cur = st.read(pin["id"]) if pin else None
+    except StoreDown:
+        raise
+    except GateFault as e:
+        raise GateFault(f"{rel}: the pinned page {pin['id']} cannot be read in the store ({clean(e, 200)}) — when the store moved, carry each "
+                        "pin over in the moving pull request: `--pull` at the old address, delete the pin, change the address, `--approve` "
+                        "at the new one") from None
     if cur is not None and sha(cur[1]) == sha(body):
         pid, v = pin["id"], cur[0]
     else:
@@ -451,7 +475,7 @@ def _secret(env, name: str) -> str:
 def _wiring(e: NoCredential) -> str:
     what = "refuses the CI's credential" if e.refused else "has no credential in the CI"
     return (f"wiring: the store {what} — {clean(str(e).removeprefix(DOWN + ' — '), 300)}. Export a read-only service-account "
-            "credential from the CI's secrets (MATERIALIZATION_REPORT.md → Deliverable homes), or declare verification local only: "
+            "credential from the CI's secrets (MATERIALIZATION_REPORT.md → Deliverable homes — next steps), or declare verification local only: "
             "config/quality.json → documents.verify: local (SETUP Q38.8)")
 
 
@@ -466,9 +490,12 @@ def check(repo: Path, base: str | None = None, store=None, control_point: str = 
     files = _files(repo)
     pins = [f for f in files if f.endswith(PIN)]
     reds, warns, live = [], [], []
-    warns += [f"WARN documents.{k} changes in this pull request — the profile reads the base's address until it merges" for k in moved(repo, c)]
     fork = None
     if base:
+        b = _base_block(repo, base) if c["adapter"] != "none" else {}
+        if b.get("adapter") == c["adapter"] and (b.get("verify") or "ci") != c["verify"]:
+            warns.append(f"WARN documents.verify changes in this pull request ({b.get('verify') or 'ci'} → {c['verify']}) — "
+                         "name the reason in the pull request")
         from .seal import _reference
         fork = _reference(repo, base)   # what the branch forked from — a re-approval on the base's tip is not this branch's
     if read_only(c):
@@ -521,10 +548,12 @@ def check(repo: Path, base: str | None = None, store=None, control_point: str = 
     st = store
     n = 0
     try:
+        if st is None and (live or (control_point == "ci" and c["verify"] == "ci" and external)):
+            st = open_store(repo, c)   # at the CI the credential's wiring is proven before the first pin (verify: ci)
         for rel, pin in live:
-            st = st or open_store(repo, c)
             try:
-                cur, _ = _verified(st, rel, pin)
+                cur, body = _verified(st, rel, pin)
+                _remember(pin, body)
                 if cur != pin["version"]:
                     tip = _tip_version(repo, base, rel + PIN)
                     reds.append(f"{rel}: the base approved v{cur} after this branch forked (pinned v{pin['version']}) — rebase onto the base"
@@ -678,9 +707,10 @@ class Confluence:
         self.site, self.space = site, str(c.get("space") or "")
         self.cloud = (c.get("deployment") or ("cloud" if u.hostname.endswith(".atlassian.net") else "dc")) == "cloud"
         env = os.environ if env is None else env
-        env = {n: _secret(env, n) for n in ("CONFLUENCE_API_TOKEN", "CONFLUENCE_USER_EMAIL")}
+        names = ("CONFLUENCE_API_TOKEN", "CONFLUENCE_USER_EMAIL") if self.cloud else ("CONFLUENCE_API_TOKEN",)   # the email only where it is sent
+        env = {n: _secret(env, n) for n in names}
         tok = env.get("CONFLUENCE_API_TOKEN")
-        for name in ("CONFLUENCE_API_TOKEN", "CONFLUENCE_USER_EMAIL"):
+        for name in names:
             v = env.get(name) or ""
             if v and (not v.isascii() or not v.isprintable() or v != v.strip()):
                 raise GateFault(f"{name} carries a space, a line break or a non-ASCII character — re-export it from the vault "
@@ -795,6 +825,7 @@ class Built:
         gone = [n for n in names if not _secret(os.environ, n)]
         if gone:
             raise NoCredential(f"{DOWN} — {', '.join(gone)} is not set — export it from the vault entry the built store names")
+        self.env = {k: os.environ[k] for k in (*_ENV_FLOOR, *names) if k in os.environ}   # no other variable reaches the command
 
     def _run(self, op: str, subs: dict) -> dict:
         try:
@@ -804,7 +835,7 @@ class Built:
         except ValueError:
             raise GateFault(f"config/quality.json → documents.commands.{op} is not a command line") from None
         try:
-            r = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", timeout=120, cwd=self.cwd)
+            r = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", timeout=120, cwd=self.cwd, env=self.env)
         except UnicodeDecodeError:
             raise GateFault(f"the {op} command answered bytes that are not UTF-8 — a deliverable is UTF-8 text") from None
         except FileNotFoundError:
@@ -815,9 +846,11 @@ class Built:
             raise _down(f"the {op} command ({clean(argv[0], 80)}) could not run ({type(e).__name__})") from None
         if r.returncode != 0:   # its stderr is never echoed: an adapter may print its credential there
             raise _down(f"the {op} command ({clean(argv[0], 80)}) exited {r.returncode}")
+        if len(r.stdout) > 2 * MAX_PAGE:
+            raise GateFault(f"the {op} command answered more than {2 * MAX_PAGE // (1024 * 1024)} MB — refused")
         try:
             d = json.loads(r.stdout)
-        except ValueError:
+        except (ValueError, RecursionError):
             d = None
         return d if isinstance(d, dict) else {}
 

@@ -458,6 +458,7 @@ Prerequisite: `docs/setup.md` with a `project_tracking` section (configured duri
 - Every agent and gate reads the pinned bytes through the one reader: `gate.py documents --read`.
 - A refine first pulls the pinned draft back: `--pull`.
 - The `documents` gate turns red when the store moved past its pin without re-approval. When the store does not answer, the gate reports n/a with a warning.
+- With `documents.verify: ci` (Q38.8), the CI reads every pin with a read-only credential: a missing or refused one is red. `local` declares the pins verified on developers' machines only.
 
 **SSOT mode:** the derived `project_tracking.adapter`. `github` or `jira` → external mode (the external board IS the plan — **`execution-plan.md` does NOT exist on disk**). `none` → local mode (`state.md` + `issue-bodies/` + `execution-plan.md` are the only sources of truth).
 

@@ -85,6 +85,8 @@ def call(service: str, site_hint: str, auth_hint: str, method: str, url: str, he
                 why = _reason(e)
                 cls = Unreachable if e.code >= 500 else GateFault
                 raise cls(f"{service} answered {e.code} for {short}" + (f" ({clean(why, 300)})" if why else "")) from None
+        except RecursionError:
+            raise GateFault(f"{service} answered {short} with JSON nested too deep to read — refused") from None
         except (json.JSONDecodeError, UnicodeDecodeError) as e:   # an answer that is not JSON: its position, never a header
             raise Unreachable(f"{service} could not be reached at {short} (the answer is not JSON: {clean(e, 120)}) — transient: re-run; "
                               "a fault, never a pass") from None

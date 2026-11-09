@@ -467,7 +467,7 @@ python3 subproducts/po-package/build_po_package.py                # first packag
 
 ### Deliverable homes — next steps (EVOL-080)
 - **Store (Q38):** [None | Confluence Cloud | Confluence Data Center | built: <answer>] — homes business [Repo | External], design [Repo | External], report [Repo | External] (`config/quality.json → documents`).
-- **Verification in CI (Q38.8):** [ci — set `CONFLUENCE_API_TOKEN` (and `CONFLUENCE_USER_EMAIL` on Cloud; a built store: each name in `documents.credentials`) as CI secrets from a read-only service account, limited to the one space and with an expiry; checked on the first pull request: missing or refused = RED | local — accepted risk: the CI never reads the pins; they are verified on developers' machines only].
+- **Verification in CI (Q38.8):** [ci — set `CONFLUENCE_API_TOKEN` (and `CONFLUENCE_USER_EMAIL` on Cloud; a built store: each name in `documents.credentials`) as CI secrets from a read-only service account, limited to the one space and with an expiry; checked on every pull request: missing = RED once a category is External, refused = RED when a pin is read; a fork's pull request gets no secrets — red until a maintainer runs it (GitHub: set Dependabot secrets too) | local — accepted risk: the CI never reads the pins; they are verified on developers' machines only].
 
 ### Measurement — next steps
 - **Surface ceiling (Q31, EVOL-045):** `config/quality.json → surface.ceiling_files / ceiling_lines` = [30] / [800] — every push measures its diff against them (`gate.py surface`); the plan splits over-ceiling increments into sub-increments on a train.

@@ -142,7 +142,18 @@ def _cell(raw: str) -> str:
     return (m.group(1) if m else c).strip("`*").strip()
 
 
-def declared(repo: Path, c: dict, listing: list[str] | None = None) -> tuple[dict[str, dict], list[dict]]:
+def _plan(repo: Path, plan: str, outage) -> str | None:
+    """A plan's text; with `outage`, a store down leaves the plan unjudged (None) and the caller settles it (EVOL-080 § 3)."""
+    try:
+        return _doc(repo, plan)
+    except documents.StoreDown as e:
+        if outage is None:
+            raise
+        outage.note(e, Path(plan).parent.name)   # the feature: its cases are unjudged, never unknown or stale
+        return None
+
+
+def declared(repo: Path, c: dict, listing: list[str] | None = None, outage=None) -> tuple[dict[str, dict], list[dict]]:
     """qualified id → {at, manual}; findings (a folder that is not a feature, a duplicate, a malformed id, a plan glob that matches nothing)."""
     listing = listing if listing is not None else files(repo)
     arts = _arts(listing)
@@ -158,7 +169,10 @@ def declared(repo: Path, c: dict, listing: list[str] | None = None) -> tuple[dic
         feature = Path(plan).parent.name
         if not FEATURE.match(feature):
             bad.append({"path": plan, "reason": f"plan folder `{feature}` is not a feature id — plans live at docs/spec/{{FEATURE}}/ (traceability.plans)"}); continue
-        for n, header, cells in _rows(_doc(repo, plan)):
+        text = _plan(repo, plan, outage)
+        if text is None:
+            continue
+        for n, header, cells in _rows(text):
             if header[0] != "ID" or not cells or not cells[0]:
                 continue   # a table that declares no cases
             cell = cells[0]
@@ -194,14 +208,17 @@ def _rows(text: str):
             yield n, header, cells
 
 
-def retired(repo: Path, c: dict, listing: list[str], dec: dict) -> tuple[dict[str, dict], list[dict]]:
+def retired(repo: Path, c: dict, listing: list[str], dec: dict, outage=None) -> tuple[dict[str, dict], list[dict]]:
     """EVOL-106 — qualified id → {at, reason} from each plan's `| Retired ID | Reason |` table; findings: a retired id
     still declared, or retired with no reason. A retired id leaves the baseline through --refresh (it is not declared)."""
     out: dict[str, dict] = {}
     bad: list[dict] = []
     for plan in [p for p in _arts(listing) if _root_match(p, [c["plans"]])]:
         feature = Path(plan).parent.name
-        for n, header, cells in _rows(_doc(repo, plan)):
+        text = _plan(repo, plan, outage)
+        if text is None:
+            continue
+        for n, header, cells in _rows(text):
             if header[0] != "RETIRED ID" or not cells or not cells[0]:
                 continue
             qid, where = f"{feature}/{cells[0]}", f"{plan}:{n}"
@@ -279,7 +296,9 @@ def walks(repo: Path, c: dict, listing: list[str], dec: dict, lnk: dict, base: l
                 if not c["id"].match(item):
                     bad.append({"path": rel, "reason": f"{where}: `{item}` is not a case id (traceability.id_pattern) — a walk lists the cases it covers"}); continue
                 qid = f"{feature}/{item}"
-                if qid not in dec:
+                if qid not in dec and outage is not None and feature in outage.unread:
+                    pass   # its plan is unread: the walk is unjudged
+                elif qid not in dec:
                     bad.append({"path": rel, "reason": f"{where}: `{qid}` names no case the plan declares — a walk covers declared cases"})
                 elif dec[qid]["manual"]:
                     bad.append({"path": rel, "reason": f"{where}: `{qid}` is a manual case — a walked case needs its automated spec"})
@@ -391,16 +410,17 @@ def check(repo: Path) -> dict:
             return {"ok": False, "required": True, "reason": "traceability.required is false without a `reason` — say why this repo declares no test plan (fail closed)", "findings": [], "cases": []}
         return {"ok": True, "required": False, "reason": c["reason"], "findings": [], "cases": []}
     listing = files(repo)
-    dec, bad_dec = declared(repo, c, listing)
+    outage = documents.Outage()
+    dec, bad_dec = declared(repo, c, listing, outage)
     lnk, bad_lnk = links(repo, c, listing)
     base = read_baseline(repo, c)
-    outage = documents.Outage()
     walked, bad_walk = walks(repo, c, listing, dec, lnk, base, outage)
-    _, bad_ret = retired(repo, c, listing, dec)
+    _, bad_ret = retired(repo, c, listing, dec, outage)
     findings = list(bad_dec) + list(bad_lnk) + list(bad_walk) + list(bad_ret)
     if (repo / c["baseline"]).is_file() and not is_tracked(repo, c["baseline"]):
         findings.append({"path": c["baseline"], "reason": "the baseline is on disk but git does not track it — commit it (CI reads the commit; an uncommitted baseline is a push that is green here and red there)"})
-    for qid in sorted(set(lnk) - set(dec)):
+    unread = lambda q: q.partition("/")[0] in outage.unread   # a feature whose plan the store could not answer
+    for qid in sorted(q for q in set(lnk) - set(dec) if not unread(q)):
         findings.append({"path": lnk[qid][0], "reason": f"`{qid}` names no case any plan declares — an unknown link is as wrong as a case with no test"})
     owed = sorted(q for q, d in dec.items() if not d["manual"])
     unlinked = [q for q in owed if q not in lnk]
@@ -410,7 +430,7 @@ def check(repo: Path) -> dict:
     shrink = sorted(q for q in base if q in lnk and q in dec)
     for q in shrink:
         findings.append({"path": c["baseline"], "reason": f"`{q}` is linked now — the baseline only shrinks: remove it (gate.py traceability --baseline --refresh)"})
-    stale = sorted(q for q in base if q not in dec)
+    stale = sorted(q for q in base if q not in dec and not unread(q))
     for q in stale:
         findings.append({"path": c["baseline"], "reason": f"`{q}` names no declared case any more — stale debt, remove it (gate.py traceability --baseline --refresh)"})
     def status(q):

@@ -93,6 +93,8 @@ The issue states the what; everything below is the how, resolved from the SDLC.
   - Store down: unreachable, 5xx, a repeated 429, 401 or 403. This is `StoreDown` (a `GateFault`; the message starts `the source of truth is down`).
     - `profile --run` reports a member that exits 2 with that line as n/a with a WARN, which is shown on the board and in the CI log. It is the LAW-11/LAW-13 noisy warning, never a pass in silence.
     - A direct call (an approval, a read) exits 2: nothing approves on an unread source of truth.
+    - The one exception: at the `ci` control point, a missing or refused credential (`NoCredential`) is a red wiring finding under `documents.verify: ci` (§ Owner decisions). The bare check takes `--control-point push|ci|static`, as `qa`, `digests` and `scm-protection` do, and the profile hands it; no new channel.
+  - Under the profile (`GATE_DOCUMENTS_BASE`, set by `profile --run`), the credential goes only to the store the base names. A pull request that adds the store or changes where it points (Confluence's site, space, deployment; a built store's commands and credentials) is the store down until it merges.
   - Red, never infra: a missing page or version, a version or hash mismatch, and a page that no longer carries the artefact.
 - **Sharing the transport.** The REST transport moves out of `tracker.py` into `scripts/gates/rest.py`, which Jira and Confluence share (LAW-03). It follows no redirect, retries a 429 once, never puts a token in a message, and raises `Unreachable` for the transport class.
 
@@ -106,7 +108,7 @@ The issue states the what; everything below is the how, resolved from the SDLC.
 - **(b) Re-approval.** A pin that changed against the merge-base, whose version or hash moved while `approved_at` did not advance, is red.
 - **(c) Drift.** The store's current version must equal the pin. Anything else is red («moved without re-approval»): re-approve through the owner phase's refine (`--pull`, refine, `--approve`), or restore the pinned version in the store. When the base's tip pins that current version, the base re-approved it after the fork: the red says «rebase onto the base».
 - **(d) Pinned read.** Each pin read verifies version and hash.
-- **(e) No copy.** A file under a category homed externally whose frontmatter says approved (`status` `APPROVED` or `accepted`, `verdict` `APPROVED`, `overall_verdict` `PASS` or `APPROVED`) is red. Its remedy is `--approve`. A draft, a rejected report or an in-progress report is work in the repo.
+- **(e) No copy.** A file under a category homed externally whose frontmatter says approved (`status`, `verdict` or `overall_verdict` carrying `APPROVED`, `ACCEPTED` or `PASS` — one set for every key, `common.approved`) is red. Its remedy is `--approve`. A draft, a rejected report or an in-progress report is work in the repo.
 - **Scope.** With no external home configured, the member is n/a with its reason, and the gate costs nothing.
 
 ### 5. Stores
@@ -137,10 +139,10 @@ The issue states the what; everything below is the how, resolved from the SDLC.
   - Q38.3 `documents.token`: `vault_name`.
   - Q38.4 `documents.user`: `vault_name`, asked when the deployment is `cloud`. This is the account email, a personal datum, so it is kept as a vault name too.
   - Q38.5–Q38.7 `deliverables.{business,design,report}.home`, options `Repo | External`, asked when `documents.adapter IN [confluence, built]` (a condition on an unanswered key never holds). Recommendation: External for a category the team reads outside the code.
-  - Q38.8 `documents.verify`, options `ci | local`, with the same condition (owner RDR, § Owner decisions). Recommendation: `ci`, a read-only service-account credential exported by the governance-check workflow. A missing or refused credential at the `ci` control point is red; `local` gives n/a + WARN, a declared risk. Under the profile, the store's address is the base's (`GATE_DOCUMENTS_BASE`).
+  - Q38.8 `documents.verify`, options `ci | local`, with the same condition (owner RDR, § Owner decisions). Recommendation: `ci`, a read-only service-account credential exported by the governance-check workflow. A missing or refused credential at the `ci` control point is red; `local` gives n/a + WARN, a declared risk. Under the profile, the credential goes only to the store the base names (§ 3).
 - **Source and home count.** One declared source per project: the grammar tests a list only with `exists`, and three asked categories need no second store. `External` is that source.
 - **A code-run category home in an answer** is an unknown key, so discovery rejects it (V-unknown).
-- **Config.** `config/quality.json → documents {adapter, site, space, deployment, title_prefix, homes {business, design, report}, commands}` is rendered from the answers (`DOCUMENTS_*` placeholders). Materialisation asks for `--probe` on a built adapter. `none` adds nothing.
+- **Config.** `config/quality.json → documents {adapter, site, space, deployment, verify, title_prefix, homes {business, design, report}, commands, credentials}` is rendered from the answers (`DOCUMENTS_*` placeholders). Materialisation asks for `--probe` on a built adapter. `none` adds nothing.
 
 ### 7. Writers and readers (LAW-17)
 - **Approval.** Each approval checkpoint of an asked category runs `gate.py documents --approve <path>` when its home is external:
@@ -190,8 +192,8 @@ Migration row `documents (EVOL-080)`, since 10.4.0, detect `config/quality.json#
 - **A pin stands only when it can.** A pin is admitted as an artefact's home only when it is well formed, comes from the project's store, and sits under a category homed there. A forged pin, or a pin from another store, leaves a deletion red. A re-pin, a draft over a pin, and a deleted pin are judged like the file.
 - **Re-approval on the base.** When the base re-approved after the fork, the red says to rebase onto the base. An edit made in the store is drift; the red names both cures (restore the version, or `--pull`, refine, `--approve`).
 - **One approval predicate** (`common.approved`, read by qa and documents). Decoration is ignored, a REJECTED or INVALIDATED verdict denies, and a non-string value approves nothing.
-- **Nothing leaves the repo unscanned.**
-  - `--approve` runs the secrets floor (`SECRET_PATTERNS`, DC-31) on the bytes. A hit refuses the publish and names the file, never the match. If the floor is not delivered, the publish is refused too.
+- **Nothing leaves the repo without the secrets floor.**
+  - `--approve` runs the secrets floor (`SECRET_PATTERNS`, DC-31 layer 1) on the bytes. A hit refuses the publish and names the file, never the match. If the floor is not delivered, the publish is refused too.
   - A credential that is not ASCII, printable and trimmed is refused by name, never shown.
   - Neither a header refused by the transport nor a built adapter's stderr ever reaches a message.
 - **Store bytes never backtrack.** A page is unwrapped by a linear scan: exactly one code macro, and a body made of CDATA only. Text inside a CDATA is never read as structure, so an artefact that quotes Confluence storage round-trips. A page over 8 MB and an answer over 16 MB are refused.
@@ -207,5 +209,26 @@ Migration row `documents (EVOL-080)`, since 10.4.0, detect `config/quality.json#
 - `approved_at` / `approved_by` in the lock's permitted keys predate this change.
 
 ### Owner decisions
-- **RDR CI verification of pins (2026-11-09).** Owner, verbatim: «1, y sino se provee 3 coo backup». CI carries a read-only credential: the site and space are read from the base config, a missing credential is a wiring finding, and an outage stays n/a + WARN. Without a credential, verification is local only (option 3), documented as a known risk. How the backup is selected: pending.
+- **RDR CI verification of pins (2026-11-09).** Owner, verbatim: «1, y sino se provee 3 coo backup». CI carries a read-only credential: it goes only to the store the base names, a missing credential is a wiring finding, and an outage stays n/a + WARN. Without a credential, verification is local only (option 3), documented as a known risk. The backup's selection is the next decision.
 - **RDR backup selection (2026-11-09).** Owner, verbatim: «1». It is declared at SETUP. `documents.verify: ci|local` is asked only when an external store is answered. With `ci`, a missing credential at the `ci` control point is a RED wiring finding. With `local`, the result is n/a + WARN «verified locally only (declared)», and the materialisation report records the accepted risk.
+
+### Round 2 (four lenses, the cure diff) — cured
+- **The credential goes only where the base points.** The round-1 overlay (the base's site and space under the tree's other keys) is replaced by a guard: a pull request that adds the store or changes any key that steers the credential is the store down until it merges. A built store is covered too (its commands and credentials), and an adapter switch is a new store.
+- **A store move is one pull request.** `--pull` each pinned artefact at the old address, delete its pin, change the address, `--approve` at the new one. An approval whose pinned page cannot be read names this recovery.
+- **A built command gets only its credentials.** It runs with PATH, HOME, the locale, the temp folder, the proxy and CA variables and the names in `documents.credentials` — no other variable of the CI reaches it. Its answer is capped at 16 MB; JSON nested past reading is red, in `rest.py` too. A text UTF-8 cannot encode is red at the hash.
+- **The wiring is proven before the first pin.** At `ci` with `verify: ci` and a category homed outside, the store is opened even with no pin, so a missing credential is red on the first pull request. A refused one is red when a pin is read.
+- **A weaker verification is named.** A pull request that moves `documents.verify` (e.g. `ci → local`) carries a WARN.
+- **The gate warms the run's memo**, so the members after it read each pin without a call.
+- **The email is checked only where it is sent** (Cloud).
+- **The pin is written inside the repository**, checked before anything is published.
+- **An unread plan leaves its cases unjudged.** Traceability takes the outage in `declared` and `retired`; the links, walks and baseline entries of a feature whose plan the store could not answer are never unknown or stale. Six gate-level tests prove a red stands beside an outage (bounds, coherence, data, digests, freeze, traceability).
+- **Text aligned.** README (Q38.8), the rule's CI and address bullets, the materialisation and upgrade instructions (a built store's credentials in the workflow's env block; a fork's pull request gets no secrets), the report, the CI templates (GitHub's fork and Dependabot secrets; GitLab variables masked, not protected).
+
+### Round 2 — accepted, not cured
+- **The declared scanner does not read the draft before the publish.** `--approve` runs the secrets floor only. `security_scan.secrets_command` reads git history ranges, not a file: it reads the draft's bytes when its commits are pushed, after the publish. A file-mode scanner contract would be a new key per scanner (DC-29). Residual risk: a token the floor's patterns miss reaches the store before the push scan names it; the store is the team's own, behind its access control.
+- Direct calls (`gate.py documents --read`, a gate run outside the profile) read the tree's address: the guard applies under the profile, where a pull request's tree is untrusted.
+- A pin's id may name any page the credential can read; a read-only account limited to the one space bounds it.
+- The secrets floor's patterns are not exhaustive (DC-31 says so); the declared scanner is the second layer.
+- The other members run with the CI's full environment, as before this change.
+- A credential with a line break or a non-ASCII character is a fault (exit 2) named by variable, not the wiring red.
+
