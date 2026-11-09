@@ -28,6 +28,7 @@
 #        another fixture proves step 0 only — the toolchain checks are written for the default stack)
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
 set -u
+. "$(dirname "${BASH_SOURCE[0]}")/git-test-env.sh"   # git isolated from the user's config: no gpg signing per commit
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEFAULT_ANSWERS="$ROOT/scripts/fixtures/synthetic-answers/default.json"
 ANSWERS="$DEFAULT_ANSWERS"
@@ -129,6 +130,8 @@ NUM["PERFORMANCE_THRESHOLDS"] = json.dumps(RES["configures"].get("performance.th
 NUM["DELIVERY_ADAPTER"] = json.dumps(RES["configures"].get("delivery.adapter"))   # the chosen deploy-tool row, or null (EVOL-081)
 NUM["DELIVERY_EXECUTION"] = str(RES["configures"].get("delivery.execution") or "local")   # ci when a platform is answered (EVOL-081)
 NUM["DELIVERY_MIGRATE"] = json.dumps(RES["configures"].get("delivery.migrate"))   # the migrations tool's deploy command, or null
+if RES["placeholders"].get("QA_BLOCKING_SEVERITY"):   # Q23.6 (EVOL-076): the answer lands, never the generic sample a threshold refuses
+    NUM["QA_BLOCKING_SEVERITY"] = str(RES["placeholders"]["QA_BLOCKING_SEVERITY"])
 if isinstance(A.get("surface.runtime_surface"), list):
     NUM["RUNTIME_SURFACE"] = json.dumps(A["surface.runtime_surface"])
 if A.get("security.standard"):   # Q35 / Q35.1: standard `none` asks no level — the level renders `n/a` (Factory-setup-materialization)

@@ -616,7 +616,7 @@
       "role": "OWASP ZAP baseline config for the DAST lane."
     },
     "setup/gitignore.hbs": {
-      "version": "1.2.1",
+      "version": "1.2.2",
       "content_type": "stack_configured",
       "target": ".gitignore",
       "role": "Gitignore handlebars template — rendered at materialization."
@@ -1490,7 +1490,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.30.0",
+      "version": "2.30.1",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -1915,7 +1915,7 @@
       "version": "2.2.0",
       "type": "hook",
       "path": ".claude/hooks/check-completion-gate.sh",
-      "role": "PreToolUse hook (Write) — blocks terminal status (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED) in dev_plan.md or qa_report*.md when unchecked items remain."
+      "role": "PreToolUse hook (Edit|Write) — blocks a terminal dev_plan.md (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED) with unchecked items, and an approved qa_report*.md the computed verdict refuses (gate.py qa --verdict)."
     },
     "hooks/check-concurrency-lock.sh": {
       "version": "2.1.0",
@@ -1981,7 +1981,7 @@
       "path": "scripts/test-adr-accept.sh"
     },
     "scripts/test-check-adr-constitution-sync.sh": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "path": "scripts/test-check-adr-constitution-sync.sh"
     },
     "skills/factory-pr-review/scripts/check_docs_sync.py": {
@@ -2078,7 +2078,7 @@
       "role": ". Meta-sourced, ships via factory-sync only; not part of the SETUP materialization surface."
     },
     "scripts/test-code-review-gate.sh": {
-      "version": "1.4.1",
+      "version": "1.4.2",
       "type": "script",
       "role": "L6 CI gate test — validates code_review_hash.py + preflight.sh Step 0-bis against synthetic repos. 14 scenarios: hash determinism, RDR-1 invariance (docs commit stable / code commit changes), EMPTY sentinel, git-unavailable→rc2 (CRITICAL-1 regression), bad-stdin/missing-files→rc2, marker missing/blockers/override/corrupt (CRITICAL-2 regression)/clean, enabled=false, pr_blocker=false routing, executor-missing, tests-only diff gating (has_tests regression). Wired into governance-check.yml T2 step.",
       "path": "scripts/test-code-review-gate.sh"
@@ -2184,13 +2184,13 @@
       "path": "scripts/test-materialization-surface.sh"
     },
     "scripts/test-security-scan.sh": {
-      "version": "1.0.2",
+      "version": "1.0.3",
       "type": "script",
       "role": "Secrets-lane dispatcher self-test (scenarios via stub scanner: clean, fail-open-noisy, require-scanner strict, disabled, unconfigured, broken-JSON diagnosis, eval-injection regression, {{RANGE}} word-drop, findings fail-closed, base/head resolved to commits, a bare placeholder after a flag refused, an unknown placeholder never run; and the real trufflehog through the dispatcher where installed — #189). The only executable coverage of the push-time secrets gate fail-directions. Wired into governance-check T2.",
       "path": "scripts/test-security-scan.sh"
     },
     "scripts/test-validate-governance.sh": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "type": "script",
       "role": "Manifest-gate self-test (7 sandbox scenarios: clean, planted orphan, DUP-PATH, NO-TARGET, declared merge collision tolerated, stale-is-advisory pin, malformed-manifest never-green). Fail-directions run zero times per year on clean data — the pre-EVOL-040 rot mode. Wired into governance-check T2.",
       "path": "scripts/test-validate-governance.sh"
@@ -2205,7 +2205,7 @@
       "path": "scripts/test-check-journey-grammar.sh"
     },
     "scripts/test-po-package.sh": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "type": "script",
       "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project — in the three design-system cases a project can be materialised in. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-po-package.sh"
@@ -2221,7 +2221,7 @@
       "path": ".claude/skills/factory-po-intake/SKILL.md"
     },
     "scripts/test-measure.sh": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "type": "script",
       "role": "T2 test of the measurement subproduct (EVOL-042, META-ONLY). Self-test of the template source, synthetic materialisation (placeholders → JSON, universal files byte-identical, real reports from fixtures, degradation, plain-language faults), exclusion class (imported by nobody, runbook closure). Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-measure.sh"
@@ -2275,7 +2275,7 @@
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.36.0",
+      "version": "1.36.1",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2287,7 +2287,7 @@
       "path": "scripts/test-gates.sh"
     },
     "scripts/test-hooks.sh": {
-      "version": "1.13.0",
+      "version": "1.13.1",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh"
@@ -2513,13 +2513,13 @@
       "path": "scripts/test-check-design-sections.sh"
     },
     "scripts/fixtures/synthetic-answers/default.json": {
-      "version": "1.11.0",
+      "version": "1.11.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json"
     },
     "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
-      "version": "1.10.0",
+      "version": "1.10.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json"
@@ -2552,7 +2552,7 @@
       "path": "scripts/gates/frontmatter.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12.json": {
-      "version": "1.10.0",
+      "version": "1.10.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json"
@@ -2573,30 +2573,30 @@
       "path": "scripts/gates/freeze.py"
     },
     "scripts/test-red-stacks.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "type": "utility",
       "path": "scripts/test-red-stacks.sh"
     },
     "scripts/fixtures/synthetic-answers/java.json": {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/java.json"
     },
     "scripts/fixtures/synthetic-answers/go.json": {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/go.json"
     },
     "scripts/fixtures/synthetic-answers/rust.json": {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/rust.json"
     },
     "scripts/fixtures/synthetic-answers/frontend-only.json": {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/frontend-only.json"
@@ -2702,7 +2702,7 @@
       "path": "scripts/gates/data.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json"
@@ -2730,7 +2730,7 @@
       "path": "scripts/test-pipeline-schemas.sh"
     },
     "scripts/fixtures/synthetic-answers/bitbucket.json": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/bitbucket.json"
@@ -2739,6 +2739,11 @@
       "version": "1.0.0",
       "type": "script",
       "path": "scripts/gates/qa.py"
+    },
+    "scripts/git-test-env.sh": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/git-test-env.sh"
     }
   },
   "runtime_artefacts": {

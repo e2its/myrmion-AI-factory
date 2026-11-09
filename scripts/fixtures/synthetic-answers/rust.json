@@ -4,6 +4,8 @@
     "project_mode": "Greenfield",
     "qa.smoke_cadence": "per-slice",
     "project_scope": "backend-only",
+    "quality.qa.blocking_severity": "low",
+    "qa.dast_tool": "skip",
     "domain.monetary_amounts": false,
     "backend.runtime": "Rust",
     "frontend.framework": "None",
@@ -24,6 +26,7 @@
     "performance.api_p95": "200 ms"
   },
   "expect": {
+    "contains": {"config/quality.json": ["\"blocking_severity\": \"low\""]},
     "landed": [
       ".claude/rules/database.md",
       "contracts/errors.yaml"

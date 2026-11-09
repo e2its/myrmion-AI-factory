@@ -43,7 +43,7 @@ All decisions below are agent-internal: the issue states the WHAT. Each one carr
 - **One template:** `.context/templates/qa/qa_report_template.md` is the only template. QAV's inline copy is removed, and QAV points to the template.
 - **Findings table:** the template gains `## Findings` with the columns `| ID | Severity | Source | Finding | Evidence |`. Severity uses a closed vocabulary: `critical | high | medium | low | info`.
 - **Every finding goes there:** SAST, DAST, the QA scripts, the DC items and regressions.
-- **Tool severities map in QAV in one line each:**
+- **Tool severities map once, in the template's `## Findings`** (QAV points to it):
   - ZAP: High → high, Medium → medium, Low → low, Informational → info.
   - SAST: the tool's level, mapped the same way.
   - A failing script or regression: `critical`.
@@ -55,29 +55,33 @@ All decisions below are agent-internal: the issue states the WHAT. Each one carr
 `scripts/gates/qa.py` is the one reader. It reads stdin when no file is given. A report is approvable only when all of these hold:
 
 - every checklist item is done, through `checklist.count`, the one done vocabulary;
-- every `## Findings` row has a severity from the vocabulary (an unknown severity is red) and is below the threshold;
+- the report has exactly one `Findings` section (a sub-table under it counts; a second section is red);
+- every row in it has a severity from the vocabulary and is below the threshold. An unknown severity is red, and so is a row whose cells do not line up with the header (an escaped `\|`, a missing cell);
 - the items that must exist are present:
   - `[QA-PRE-DEPLOY]`;
   - `[QA-GOV-1]` (protected paths);
   - `[QA-GOV-PRIV]` (privacy);
   - `[QA-GOV-AIB]`, only where `.claude/rules/ai_budget_governance.md` is materialised;
   - `[QA-DAST-1]`, `[QA-DAST-2]` and `[QA-DAST-3]`;
-- each DAST item either ran or ends `n/a: <reason>` with a non-empty reason. An absent item is a probe skipped in silence, and is red.
+- each DAST item and `[QA-PRE-DEPLOY]` either ran or says `n/a: <reason>` with a non-empty reason. An absent item is a probe skipped in silence, and is red. The template's hint comments (`<!-- … -->`) are never read as the writer's n/a;
+- under `qa.dast_tool: owasp-zap`, `[QA-DAST-1]` (the baseline) never says n/a: the tool was answered, so the scan runs.
 
 Exit codes: 0 approvable, 1 not approvable, 2 fault.
 
-- **The hook:** `check-completion-gate.sh` judges `qa_report*.md` through `gate.py qa --verdict`, so a blocking finding cannot be written as `verdict: APPROVED`. `dev_plan.md` stays on `gate.py checklist`.
+- **Approved, one definition:** `qa.approved(fm)`. A report is approved when its `status`, `verdict` or `overall_verdict` says APPROVED (case aside) and none says REJECTED or INVALIDATED. The hook and § 4 read it.
+- **The hook:** `check-completion-gate.sh` judges every approved `qa_report*.md` through `gate.py qa --verdict`. A blocking finding cannot be written as approved, whichever key carries it. A frontmatter value written as a block or left empty is blocked: the line every reader reads is one line. `dev_plan.md` stays on `gate.py checklist`.
 - **QAV auto-approval:** it calls the same reader and never re-derives.
 
 ### 4. Increment state agrees with the report — `gate.py qa --check` (light member)
 
 The check is diff-scoped to the base, like `gate.py train` (h)(i). It runs only under the `full-sdlc` preset; any other preset has no QA phase and is n/a.
 
-- **A merged increment needs an approved report.** On every changed `docs/spec/{F}/increment_plan.md`, an `INC-N` with status `MERGED` needs:
+- **A merged increment needs an approved report.** On every changed `docs/spec/{F}/increment_plan.md`, an `INC-N` that this change flips to `MERGED` needs:
   - its newest `docs/spec/{F}/qa/qa_report_INC-N_*.md` to exist;
-  - that report at `status: APPROVED`;
+  - that report approved (§ 3, `approved`);
   - that report approvable by § 3.
-- **Every changed approved report must hold.** Every changed `qa_report*.md` at `status: APPROVED` or `verdict: APPROVED` must be approvable. This catches an approval written past the hook.
+- **Already merged:** an `INC-N` already `MERGED` at the merge-base of the base and `HEAD` is never re-judged. A merge-base or `git show` that fails or times out is a fault, never a pass.
+- **Every changed approved report must hold.** Every changed `qa_report*.md` that is approved must be approvable. This catches an approval written past the hook.
 - **«Done» means `MERGED`.** `IMPLEMENTED_AND_VERIFIED` is written before QA runs (QAV:152), so it cannot be the «done» that a QA report contradicts.
 - **Old reports:** a report outside the diff is never re-judged. A report approved before 10.1.0 stays as it is, because it lacks the new items through no fault of its own.
 - **Surviving risk:** a hand edit that flips `MERGED` without changing the plan file cannot happen, because the flip is the plan change.
@@ -90,7 +94,7 @@ QA reads the record. It never probes and never keeps a trace of its own.
 - **Otherwise, `delivery.last(repo, env)` must hold all of these:**
   - **Reached.** A record exists. Its `sha` is `HEAD`, or an ancestor of `HEAD` from which `runtime.changed` touches nothing.
   - **Alive.** `probe` is non-empty and every service in it is `up`.
-  - **Migrated.** `migrations` is a list (the runner's trace). When the list is not empty, `delivery.migrate` must be configured: shipped migrations with no runner never ran.
+  - **Migrated.** `migrations` is a list (the runner's trace). When the list is not empty, `delivery.migrate` must be configured: shipped migrations with no runner never ran. The one exception is a tool that migrates inside the application: the answered `database.migrations_tool` whose registry row configures `delivery.migrate: null` (DbUp). The alive probe is its proof.
 - **Where it runs:** QAV runs it as Gate 0, before any verification, on the environment the smoke uses. Its result ticks `[QA-PRE-DEPLOY]`.
 - **Rationale:** the record already proves the deploy, the probe and the trace. A second home for any of them is what the issue forbids.
 
@@ -143,9 +147,11 @@ Each item below is proven red first, then green.
   - no `migrations` key;
   - migrations with no runner.
   It is green on a good record and n/a with no deployment.
-- The completion hook test: `verdict: APPROVED` with a `high` finding at threshold `high` is blocked.
+- The completion hook test: an approved report (`verdict` or `status`) with a `high` finding at threshold `high` is blocked.
 - The rest of the suite:
   - a mutation sweep in a scratch copy;
   - the full suite, lock-step, manifest parity, discovery, budgets, ADR sync, retired terms, `validate-governance`;
   - the synthetic materialisations, 9 of 9 with `--answers`;
   - the full profile.
+- **Round 2 (adjudication default):** the residual cures are accepted unreviewed through the review marker's override. They are: `approved` refuses REJECTED; hint comments are never the writer's n/a; the in-app migrator comes from the registry row; a misaligned row names its cause; a one-line value is owed in the hook; the ADR text is aligned. 6 mutants were killed.
+- **Test git isolation:** the shell tests source `scripts/git-test-env.sh`, and `test_gates` sets the same keys. With no global or system config, there is no gpg signing per commit, and the same identity applies everywhere. The containerised trufflehog step was replayed with a root-owned container over a uid-1000 tree: green.

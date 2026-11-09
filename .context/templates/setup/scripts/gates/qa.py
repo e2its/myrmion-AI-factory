@@ -7,15 +7,19 @@ the increment state against the report. QA writes the report; this module decide
           · info) below `config/quality.json → qa.blocking_severity` (critical · high · medium · low: at or above
           blocks, so critical always blocks; absent or another value is a fault — SETUP Q23.6), and the items that
           must exist exist: QA-PRE-DEPLOY, QA-GOV-1 (protected paths), QA-GOV-PRIV (privacy), QA-GOV-AIB where
-          rules/ai_budget_governance.md is materialised, QA-DAST-1..3 each run or `n/a: <reason>` — an absent probe
-          is one skipped in silence. The completion hook asks it before `verdict: APPROVED` lands on a qa_report.
+          rules/ai_budget_governance.md is materialised, QA-PRE-DEPLOY and QA-DAST-1..3 each run or `n/a: <reason>`
+          — an absent probe is one skipped in silence; with `qa.dast_tool: owasp-zap` answered the baseline scan
+          (QA-DAST-1) never says n/a. The completion hook asks it before a qa_report is written approved (`approved`).
 --ready --env E   QA's preconditions, read from #135's deploy record (`gate.py delivery --last E`), never probed here:
           reached (the record's SHA is HEAD, or an ancestor whose runtime surface HEAD has not moved), alive (a
           non-empty probe, every service `up`), migrated (a `migrations` trace; a shipped migration needs
-          `delivery.migrate`). n/a when the project deploys nothing (delivery.deploys).
---check   (light member) on base...HEAD, under the full-sdlc preset: an INC that a changed increment_plan.md marks
-          MERGED needs its newest `qa/qa_report_INC-N_*.md` APPROVED and approvable; every changed qa_report at
-          status or verdict APPROVED is approvable. A report outside the diff is never re-judged.
+          `delivery.migrate`, or an answered `database.migrations_tool` whose registry row configures
+          `delivery.migrate: null` — it migrates inside the application (DbUp), the alive probe its proof). n/a when the
+          project deploys nothing.
+--check   (light member) on base...HEAD, under the full-sdlc preset: an INC that this change flips to MERGED (MERGED
+          in a changed increment_plan.md, not MERGED at the merge-base) needs its newest `qa/qa_report_INC-N_*.md`
+          approved and approvable; every changed qa_report that is approved is approvable. An increment merged
+          before the change, and a report outside the diff, are never re-judged.
 """
 from __future__ import annotations
 
@@ -31,10 +35,11 @@ REQUIRED = ("QA-PRE-DEPLOY", "QA-GOV-1", "QA-GOV-PRIV", "QA-DAST-1", "QA-DAST-2"
 AIB = "QA-GOV-AIB"
 DAST = re.compile(r"QA-DAST-\d+")
 ITEM_ID = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\[.\]\s*\[(QA-[A-Z0-9-]+)\]")
-FINDINGS = re.compile(r"(?m)^#{2,3}\s+(?:\d+\.\s*)?Findings\s*$")
-HEADING = re.compile(r"(?m)^#{1,3}\s")
+FINDINGS = re.compile(r"(?m)^(?P<lvl>#{2,3})\s+(?:\d+\.\s*)?Findings\s*$")
 NA = re.compile(r"\bn/a\b", re.I)
-NA_REASON = re.compile(r"\bn/a:\s*(?P<why>[^<]*\w[^<]*)", re.I)
+NA_REASON = re.compile(r"\bn/a:[^<\w]*\w", re.I)   # disjoint classes: linear on a writer-controlled line
+NA_OWED = ("QA-PRE-DEPLOY",)   # besides the DAST probes: an n/a states its reason
+GIT_TIMEOUT = 60
 PLAN_GLOB = "docs/spec/*/increment_plan.md"
 REPORT_GLOB = "docs/spec/*/qa/qa_report*.md"
 
@@ -50,16 +55,43 @@ def threshold(repo: Path) -> str:
     return v
 
 
+def approved(fm: dict) -> bool:
+    """A qa_report is approved when its status, verdict or overall_verdict says APPROVED (case and decoration aside)
+    and none says REJECTED or INVALIDATED — the one definition the completion hook and `check` read."""
+    def head(k):
+        w = re.sub(r"[^A-Z_]", " ", str(fm.get(k) or "").upper()).split()
+        return w[0] if w else ""
+    heads = {head("status"), head("verdict"), head("overall_verdict")}
+    return "APPROVED" in heads and not heads & {"REJECTED", "INVALIDATED"}
+
+
+def _uncomment(line: str) -> str:
+    """The line without its `<!-- … -->` comments (an unclosed one hides the rest, as a renderer does) — linear."""
+    out, rest = [], line
+    while True:
+        i = rest.find("<!--")
+        if i < 0:
+            return "".join(out + [rest])
+        out.append(rest[:i])
+        j = rest.find("-->", i + 4)
+        if j < 0:
+            return "".join(out)
+        rest = rest[j + 3:]
+
+
 def _cells(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
 
 
 def findings(text: str) -> list[dict] | None:
-    """The `## Findings` rows as {id, severity, finding}; None when the report has no Findings table."""
-    m = FINDINGS.search(text)
-    if not m:
+    """The `## Findings` rows as {id, severity, finding}; None when the report has no Findings table, or more than one
+    Findings section (which one counts is not the writer's to choose). The section ends at a heading of its level
+    or above: a `###` sub-table inside a `## Findings` stays inside it."""
+    ms = list(FINDINGS.finditer(text))
+    if len(ms) != 1:
         return None
-    nxt = HEADING.search(text, m.end())
+    m = ms[0]
+    nxt = re.compile(rf"(?m)^#{{1,{len(m.group('lvl'))}}}\s").search(text, m.end())
     rows = [ln for ln in text[m.end(): nxt.start() if nxt else len(text)].splitlines() if ln.strip().startswith("|")]
     if not rows:
         return None
@@ -71,7 +103,8 @@ def findings(text: str) -> list[dict] | None:
         cells = _cells(ln)
         if all(re.fullmatch(r":?-{3,}:?", c) for c in cells if c):
             continue
-        sev = cells[si].strip("`* ").lower() if si < len(cells) else ""
+        # a row whose cells do not line up with the header (an escaped `\|`, a second table) has no readable severity
+        sev = cells[si].strip("`* ").lower() if len(cells) == len(head) else ""
         out.append({"id": cells[0], "severity": sev, "finding": " ".join(cells[si + 1:si + 3])[:160]})
     return out
 
@@ -89,7 +122,9 @@ def verdict(repo: Path, text: str) -> dict:
             "the report has no `## Findings` table with a Severity column — every finding is written there with its severity"]})
         fs = []
     else:
-        bad = [f"{f['id'] or '(no id)'}: severity {f['severity']!r} is not one of {', '.join(RANK)}" for f in fs if f["severity"] not in RANK]
+        bad = [f"{f['id'] or '(no id)'}: " + (f"severity {f['severity']!r} is not one of {', '.join(RANK)}" if f["severity"] else
+                "its cells do not line up with the header (an escaped `\\|` or a missing cell) — no readable severity")
+               for f in fs if f["severity"] not in RANK]
         block = [f"{f['id']}: {f['severity']} — at or above the blocking severity `{thr}`: {f['finding']}" for f in fs
                  if f["severity"] in RANK and RANK[f["severity"]] >= RANK[thr]]
         rows.append({"id": "findings", "ok": not (bad or block), "problems": bad + block,
@@ -102,9 +137,13 @@ def verdict(repo: Path, text: str) -> dict:
     want = list(REQUIRED) + ([AIB] if (rules_root(repo) / "ai_budget_governance.md").is_file() else [])
     missing = [i for i in want if i not in items]
     na = []
+    zap = _answer(repo, "qa.dast_tool") == "owasp-zap"
     for i, ln in sorted(items.items()):
-        if DAST.fullmatch(i) and NA.search(ln) and not NA_REASON.search(ln):
+        ln = _uncomment(ln)   # the template's hint comments are never the writer's n/a
+        if (DAST.fullmatch(i) or i in NA_OWED) and NA.search(ln) and not NA_REASON.search(ln):
             na.append(f"[{i}] says n/a without its reason — write `n/a: <why this probe does not apply>`")
+        elif zap and i == "QA-DAST-1" and NA.search(ln):
+            na.append("[QA-DAST-1] says n/a, but the project answered qa.dast_tool: owasp-zap — the baseline scan runs")
     rows.append({"id": "items", "ok": not (missing or na), "note": f"{len(want)} required item(s) present",
                  "problems": [f"[{i}] is absent — " + ("a DAST probe skipped in silence: run it or tick it `n/a: <reason>`"
                                                        if DAST.fullmatch(i) else "QA owes this item on every report")
@@ -112,6 +151,22 @@ def verdict(repo: Path, text: str) -> dict:
     red = [r for r in rows if not r["ok"]]
     return {"ok": not red, "entries": rows, "threshold": thr,
             "reason": f"not approvable — {len(red)} of {len(rows)} check(s) red" if red else f"approvable — blocking severity `{thr}`"}
+
+
+def _answer(repo: Path, k: str):
+    from . import data
+    return data.answers(repo).get(k)
+
+
+def _in_app(repo: Path, tool) -> bool:
+    """The answered migrations tool runs inside the application: its registry row configures `delivery.migrate: null`
+    (DbUp) — read from the registry, never a list kept here."""
+    if not isinstance(tool, str):
+        return False   # no tool answered: nothing to look up
+    from . import data, discovery
+    rows = (discovery._specs(discovery.load_registry(repo)).get(data.TOOL_KEY) or {}).get("configures") or {}
+    row = rows.get(tool)
+    return isinstance(row, dict) and "delivery.migrate" in row and row["delivery.migrate"] is None
 
 
 def ready(repo: Path, env: str) -> dict:
@@ -122,10 +177,10 @@ def ready(repo: Path, env: str) -> dict:
     if rec is None:
         return {"ok": False, "entries": [], "reason": f"no deploy record for {env} — the build is not reached; DEVOPS --deploy --env {env} first"}
     rows, sha = [], rec["sha"]
-    head = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    head = _run(repo, "rev-parse", "HEAD").stdout.strip()
     reached = []
     if sha != head:
-        anc = subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", sha, "HEAD"], capture_output=True, text=True).returncode
+        anc = _run(repo, "merge-base", "--is-ancestor", sha, "HEAD").returncode
         if anc != 0:
             reached.append(f"{rec['tag']} deployed {sha[:8]}, which is not this branch's build — deploy HEAD first")
         else:
@@ -142,14 +197,32 @@ def ready(repo: Path, env: str) -> dict:
     mig = rec.get("migrations")
     if not isinstance(mig, list):
         migrated = [f"{rec['tag']} carries no migration trace (`migrations`) — the runner's record is missing"]
-    elif mig and not (delivery.cfg(repo) or {}).get("migrate"):
-        migrated = [f"{len(mig)} migration file(s) shipped and `delivery.migrate` is not configured — nothing ran them"]
+    elif mig and not (delivery.cfg(repo) or {}).get("migrate") and not _in_app(repo, _answer(repo, "database.migrations_tool")):
+        migrated = [f"{len(mig)} migration file(s) shipped and `delivery.migrate` is not configured — nothing ran them "
+                    "(only a tool that migrates inside the application, per its registry row, needs no runner)"]
     else:
-        migrated = []
+        migrated = []   # a runner ran them, or the answered tool migrates inside the application (alive proves it)
     rows.append({"id": "migrated", "ok": not migrated, "problems": migrated, "note": f"{len(mig) if isinstance(mig, list) else 0} migration file(s) traced"})
     red = [r for r in rows if not r["ok"]]
     return {"ok": not red, "entries": rows,
             "reason": f"{len(red)} precondition(s) red — QA does not start" if red else f"{env}: reached, alive and migrated"}
+
+
+def _run(repo: Path, *args) -> subprocess.CompletedProcess:
+    try:
+        return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=GIT_TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise GateFault(f"git {args[0]} could not run ({e.__class__.__name__}) — the QA reader cannot judge") from None
+
+
+def _merged_at(repo: Path, base: str, rel: str) -> set:
+    """The INC ids the plan marks MERGED at the merge-base — an increment merged before this change is not re-judged."""
+    from .train import increments
+    mb = _run(repo, "merge-base", base, "HEAD")
+    if mb.returncode != 0:
+        raise GateFault(f"no merge-base between {base} and HEAD — the QA reader cannot tell what this change merged")
+    old = _run(repo, "show", f"{mb.stdout.strip()}:{rel}")
+    return {i["id"] for i in increments(old.stdout) if i["status"] == "MERGED"} if old.returncode == 0 else set()
 
 
 def check(repo: Path, base: str) -> dict:
@@ -160,24 +233,23 @@ def check(repo: Path, base: str) -> dict:
     paths = [p for p in seal.diff_paths(repo, base) if (repo / p).is_file()]
     rows = []
     for rel in sorted(p for p in paths if glob_match(p, PLAN_GLOB)):
-        feature = rel.split("/")[2]
+        feature, before = rel.split("/")[2], _merged_at(repo, base, rel)
         for inc in increments((repo / rel).read_text(encoding="utf-8", errors="replace")):
-            if inc["status"] != "MERGED":
+            if inc["status"] != "MERGED" or inc["id"] in before:
                 continue
             reps = sorted((repo / f"docs/spec/{feature}/qa").glob(f"qa_report_{inc['id']}_*.md"))
             if not reps:
                 rows.append({"id": f"{rel} {inc['id']}", "ok": False, "note": "", "problems": [f"{inc['id']} is MERGED with no QA report — /qa --verify {feature} {inc['id']} first"]})
                 continue
             text = reps[-1].read_text(encoding="utf-8", errors="replace")
-            st = frontmatter_of(text).get("status")
+            fm = frontmatter_of(text)
             v = verdict(repo, text)
-            probs = ([] if st == "APPROVED" else [f"its newest report {reps[-1].name} is {st!r}, not APPROVED"]) + \
+            probs = ([] if approved(fm) else [f"its newest report {reps[-1].name} is {fm.get('status')!r}, not APPROVED"]) + \
                     ([] if v["ok"] else [f"{reps[-1].name} is not approvable: " + "; ".join(p for r in v["entries"] for p in r["problems"])])
             rows.append({"id": f"{rel} {inc['id']}", "ok": not probs, "problems": probs, "note": f"MERGED on {reps[-1].name}"})
     for rel in sorted(p for p in paths if glob_match(p, REPORT_GLOB)):
         text = (repo / rel).read_text(encoding="utf-8", errors="replace")
-        fm = frontmatter_of(text)
-        if "APPROVED" not in (fm.get("status"), fm.get("verdict")):
+        if not approved(frontmatter_of(text)):
             continue
         v = verdict(repo, text)
         rows.append({"id": rel, "ok": v["ok"], "note": v["reason"], "problems": [p for r in v["entries"] for p in r["problems"]]})

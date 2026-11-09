@@ -170,6 +170,9 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
   # Gate 0 (EVOL-076): the build QA verifies is reached, alive and migrated — read from #135's deploy record
   # (gate.py delivery --last), never probed or traced here. n/a when the project deploys nothing.
   pre_rc, pre = RUN("python3 scripts/gate.py qa --ready --env dev --json")   # dev: the deployment the smoke walks (Gate 4)
+  IF pre_rc == 2:
+    ❌ BLOCK: "QA does not start: the deploy record cannot be read — {stderr}"   # a fault carries no JSON
+    STOP
   IF pre_rc != 0:
     ❌ BLOCK: "QA does not start: {pre.reason} — {each red line of pre.entries}"
     REDIRECT: "DEVOPS --deploy --env dev {FEATURE_ID} (the pipeline deploys HEAD and writes the record), then re-run."
@@ -636,6 +639,12 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
 3. **Static Audit:** Review code, tests, coverage vs test_plan.md
    - Pass → MARK `[QA-GOV-3]` [x] | Issues found → document in report
 
+3a. **Privacy (PLAW-07):** walk privacy.md's checklist against the change — every personal datum it adds or touches classified, minimised, under its consent, erasable.
+   - Each item held → MARK `[QA-GOV-PRIV]` [x], its evidence (the datum, file:line, the rule held) in § 1 | A gap → a `## Findings` row (`critical`: unconsented or unerasable personal data; `high`: unclassified or not minimised)
+
+3b. **AI budget** (only where ai_budget_governance.md is materialised): every model call the change adds or touches is within the rule's limits and tracked.
+   - Within → MARK `[QA-GOV-AIB]` [x], each call (file:line, its limit) in § 1 | Over a limit or untracked → a `## Findings` row (`high`)
+
 4. **Evidence Request:** Ask user for dynamic test logs
 
 5. **Log Analysis:** Verify PASS in all cases → STATIC_PASS or REJECTED
@@ -680,7 +689,7 @@ IF g.sast IS NOT NULL:
   sast_findings = parse_sast_results(sast_result.output, commands)  # From BVL
 
   # EVOL-076: every finding is a `## Findings` row at its severity; the verdict decides, never this step
-  FOR EACH f IN sast_findings: ADD_FINDING(id, severity: f.severity mapped, source: SAST, finding, evidence: file:line)
+  FOR EACH f IN sast_findings: ADD_FINDING(id, severity: f.severity mapped as the template's § Findings maps it, source: SAST, finding, evidence: file:line)
   MARK [QA-STATIC-3] [x]   # the scan ran; a scan that could not run is [!] FAILED
 ```
 
@@ -757,14 +766,11 @@ Generate the mode-aware qa_report file:
 - every item done (`[x]` only, #115);
 - a severity on every `## Findings` row, none at or above `qa.blocking_severity` (critical always blocks);
 - `[QA-PRE-DEPLOY]`, `[QA-GOV-1]`, `[QA-GOV-PRIV]` present, plus `[QA-GOV-AIB]` where the AI-budget rule is materialised;
-- each `[QA-DAST-*]` run, or `n/a: <reason>`.
+- `[QA-PRE-DEPLOY]` and each `[QA-DAST-*]` run, or `n/a: <reason>` — with `qa.dast_tool: owasp-zap` answered, `[QA-DAST-1]` never says n/a.
 
-Exit 1 → verdict MUST be REJECTED; exit 2 → the severity is unreadable, nothing is approved (SETUP --upgrade asks Q23.6). The completion hook asks the same before `verdict: APPROVED` lands.
+Exit 1 → verdict MUST be REJECTED; exit 2 → the severity is unreadable, nothing is approved (SETUP --upgrade asks Q23.6). The completion hook asks the same before a report is written approved (`status` or `verdict` APPROVED, `gates/qa.py approved`).
 
-**Severity of a finding** (closed vocabulary `critical | high | medium | low | info`):
-- a tool's own grade is mapped one to one;
-- a failing mandatory script, a direct or indirect regression, a DC item that fails → `critical`;
-- a flaky test → `low`.
+**Severity of a finding:** the closed vocabulary and its mapping live once, in the template's `## Findings` section — READ it; never re-type it here.
 
 ### QA Report Template
 
@@ -781,6 +787,9 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
   rc, v = RUN("python3 scripts/gate.py qa --verdict --json --file {qa_report_path}")   # 1 = not approvable · 2 = severity unreadable
   counts = RUN("python3 scripts/gate.py checklist --json --file {qa_report_path}")    # the frontmatter counts only
 
+  IF rc == 2:
+    ❌ BLOCK: "The QA verdict cannot be computed: {stderr} — SETUP --upgrade (Q23.6), then re-run."   # no JSON on a fault
+    STOP
   IF rc != 0:
     ❌ OVERRIDE verdict to REJECTED:
     verdict = "REJECTED"

@@ -35,6 +35,7 @@
 # ============================================================================
 
 set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/git-test-env.sh"   # git isolated from the user's config: no gpg signing per commit
 
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
   cd "$CLAUDE_PROJECT_DIR"

@@ -424,7 +424,7 @@ Role: Phase agent `factory-qa` — final post-code certification and verificatio
 
 | Command | Arguments | Description |
 | --- | --- | --- |
-| `/qa --verify {ID} [{INC-N}]` | Optional `INC-N` | Checkbox-driven: generates the `[ ]` checklist (`[QA-PRE-*]` incl. `[QA-PRE-SCM]`, `[QA-GOV-*]`, `[QA-STATIC-*]`, `[QA-DC-*]`, `[QA-TC-*]`, `[QA-REL-*]`, `[QA-CVP-*]`, `[QA-REG-*]`, `[QA-DAST-*]`, plus `[QA-AGG-*]` in aggregate mode for incremental features), marks `[x]` as it executes. **Slice mode** (`INC-N` provided): verifies a single increment that has reached `IMPLEMENTED_AND_VERIFIED` per-entry — checklist filtered to scenarios assigned to the slice; required for incremental features before the aggregate. **Aggregate mode** (no `INC-N`): final feature-level verification; for incremental features requires every `qa_report_{INC-N}_*.md` already APPROVED. Auto-approves when ALL `[x]` AND verdict APPROVED. Requires a deployed environment. |
+| `/qa --verify {ID} [{INC-N}]` | Optional `INC-N` | Checkbox-driven: generates the `[ ]` checklist (`[QA-PRE-*]` incl. `[QA-PRE-SCM]`, `[QA-GOV-*]`, `[QA-STATIC-*]`, `[QA-DC-*]`, `[QA-TC-*]`, `[QA-REL-*]`, `[QA-CVP-*]`, `[QA-REG-*]`, `[QA-DAST-*]`, plus `[QA-AGG-*]` in aggregate mode for incremental features), marks `[x]` as it executes. **Slice mode** (`INC-N` provided): verifies a single increment that has reached `IMPLEMENTED_AND_VERIFIED` per-entry — checklist filtered to scenarios assigned to the slice; required for incremental features before the aggregate. **Aggregate mode** (no `INC-N`): final feature-level verification; for incremental features requires every `qa_report_{INC-N}_*.md` already APPROVED. Auto-approves only on the computed verdict (`gate.py qa --verdict`, EVOL-076): every `[x]`, no `## Findings` row at or above `qa.blocking_severity` (critical always blocks), `[QA-PRE-DEPLOY]` / `[QA-GOV-PRIV]` / `[QA-GOV-AIB]` and every `[QA-DAST-*]` present (run or `n/a: <reason>`). Requires a deployed build reached, alive and migrated (`gate.py qa --ready`). |
 | `/qa --reject {ID} "[REASON]"` | Reason | Generates remediation items `[FIX-N]` → `/implement --fix`. |
 | `/qa --e2e {ID}` | — | Runs E2E tests. |
 
@@ -708,7 +708,7 @@ graph TD
 | Blocked implementation | `dev_plan.md → task BLOCKED` | `/implement --fix ID "Technical hint..."` |
 | BVL exhausts its attempts (3) | task `FLAGGED` in `dev_plan.md` | Resilience Protocol (`Factory-implement-build`): retry, modify or escalate by RDR |
 | SAST vulnerabilities | `sec_audit.md → VULNERABLE` | Inline fix loop in `/implement --build` |
-| DAST vulnerabilities | `qa/qa_report_*.md → REJECTED` | Remediate → `/qa --verify ID [INC-N]` (slice or aggregate, depending on origin) |
+| DAST vulnerabilities at or above `qa.blocking_severity` | `qa/qa_report_*.md → REJECTED` | Remediate → `/qa --verify ID [INC-N]` (slice or aggregate, depending on origin) |
 | Hardcoded config | `qa/qa_report_*.md → REJECTED` | Fix → `/qa --verify ID [INC-N]` |
 | Drift violation | `qa/qa_report_*.md → REJECTED` | `/blueprint --refine ID` or fix and re-run |
 

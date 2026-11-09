@@ -536,8 +536,9 @@ def cmd_qa(repo, a):
     try:
         if acts[0] == "verdict":
             if a.file:
+                p = Path(a.file) if Path(a.file).is_absolute() else repo / a.file   # as gate.py checklist resolves it
                 try:
-                    text = Path(a.file).read_text(encoding="utf-8")
+                    text = p.read_text(encoding="utf-8")
                 except OSError as e:
                     raise GateFault(f"the QA report {a.file} cannot be read ({e.strerror}) — nothing can be approved") from None
             else:

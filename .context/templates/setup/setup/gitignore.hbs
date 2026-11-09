@@ -156,7 +156,7 @@ tests/e2e/specs/__snapshots__/
 # ================================================
 # DAST ARTIFACTS (OWASP ZAP)
 # ================================================
-{{#if DAST_TOOLS == "OWASP ZAP"}}
+{{#if qa.dast_tool == "owasp-zap"}}
 # OWASP ZAP scanning artifacts
 security/dast/reports/
 *.zap
