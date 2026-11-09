@@ -25,6 +25,8 @@ Repository settings → Deployments → `production`.
 
 Bitbucket has no separate approval: the manual `trigger` is the approval, so without Premium deployment permissions it is weak — the deploy pipeline's header says so.
 
+Bitbucket Cloud has no git-tag protection: any user with write access can move or delete a deploy record (`deploy/**`, `lkg/**`). A planted or moved tag never passes as a record — the executor reads only well-formed records — and the light performance check names it red until it is deleted on origin. Keep write access to the people who need it.
+
 ## Checklist
 
 - [ ] no direct push to the protected branch (pull requests only)

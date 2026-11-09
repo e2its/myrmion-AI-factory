@@ -31,8 +31,9 @@ Repository → Settings → Environments → `production` (create it before the 
 | **Prevent self-review** | on for a team · off for a single maintainer | the person who starts a deploy does not approve it alone |
 | **Environment secrets** | the adapter row's names, production values only | never repository secrets: every job sees those |
 | **Required status check** | the Deploy workflow's `pr-verify` added to {{SCM_REQUIRED_CHECKS}} | the agent's sweep and smoke verdicts decide the merge |
+| **Tag ruleset** (Settings → Rules → Rulesets → New tag ruleset) | active; targets `refs/tags/deploy/**` and `refs/tags/lkg/**`; rules: restrict updates, restrict deletions — creation stays open, no bypass needed | the deploy records are tags: nobody moves or deletes one (Team or Pro on a private repository) |
 
-`gate.py scm-protection` verifies the reviewers and the branch policy at `ci`; self-review is reported, never red.
+`gate.py scm-protection` verifies the reviewers, the branch policy and the tag ruleset at `ci`; self-review is reported, never red. Push a throwaway `deploy/x/1` tag once after creating the ruleset, then try to move it: the move must be refused.
 
 ## Checklist
 
@@ -41,5 +42,5 @@ Repository → Settings → Environments → `production` (create it before the 
 - [ ] force-push forbidden
 - [ ] deletion forbidden
 - [ ] approvals: {{SCM_APPROVALS}} (a project decision — `scm.approvals`)
-- [ ] deploying from CI: `production` environment with required reviewers, deployment branches `main` only, its secrets as environment secrets, `pr-verify` required
+- [ ] deploying from CI: `production` environment with required reviewers, deployment branches `main` only, its secrets as environment secrets, `pr-verify` required, the tag ruleset over `deploy/**` and `lkg/**`
 - [ ] `python3 scripts/gate.py scm-protection --control-point ci` green in CI, or this checklist ticked by a repository administrator when CI carries no token

@@ -21,8 +21,10 @@ config    `config/quality.json → delivery`: `execution` (ci | local, derived f
           its environment, production behind approval (GitHub `environment: production`; Bitbucket
           `deployment: production` + `trigger: manual`); every tag push names its own environment; the adapter row
           has `apply` and `url_from`; `execution` is the derivation of ci_cd.platform (None → local, else ci).
-          RED when GitHub Actions / Bitbucket Pipelines deploys from CI and its pipeline does not call the executor;
-          n/a with `execution: local`, no block, or another platform (it writes its own pipeline).
+          RED when the platform deploys from CI and its pipeline (PIPELINE_FILE) does not call the executor — a shipped
+          template on GitHub Actions / Bitbucket Pipelines, one the AI Factory authors at SETUP on every other Q21
+          platform (RDR 9; epic #210 ships their templates); there the approval is the platform's own, not read here.
+          n/a with `execution: local`, no block, or no deploy tool and none answered — no server, nothing deploys (RDR 7).
 record    annotated tag `deploy/{env}/{YYYYMMDDTHHMMSSZ}` on the deployed SHA, message = JSON {env, sha, at, adapter,
           probe, migrations, metrics, hosting[, rebaseline]}; `lkg/{env}/{ts}` lightweight on the same SHA. This module
           creates tags only; PUSHING them is the pipeline's step (or the DEVOPS agent's, in local mode) — never here.
@@ -57,8 +59,10 @@ ENV_BOUND = ("plan", "apply", "destroy")
 PH = r"(?<!\$)\{%s\}"
 REFUSED = "This project deploys from its pipeline — run DEVOPS --deploy, which starts the pipeline and watches the run."
 RESOURCES = "config/system_resources.json"
-PIPELINES = (".github/workflows/deploy.yml", "bitbucket-pipelines.yml")
-COVERED = {"GitHub Actions": ".github/workflows/deploy.yml", "Bitbucket Pipelines": "bitbucket-pipelines.yml"}
+PIPELINE_FILE = {"GitHub Actions": ".github/workflows/deploy.yml", "Bitbucket Pipelines": "bitbucket-pipelines.yml",
+                 "GitLab CI": ".gitlab/deploy.yml", "Azure DevOps": "deploy-pipeline.yml", "Jenkins": "Jenkinsfile.deploy",
+                 "AWS CodePipeline": "buildspec-deploy.yml", "GCP Cloud Build": "cloudbuild-deploy.yaml"}
+COVERED = ("GitHub Actions", "Bitbucket Pipelines")   # a shipped template; every other platform's pipeline is authored (RDR 9)
 ALL_ENVS_PUSH = re.compile(r"refs/tags/(deploy|lkg)/\*")
 
 
@@ -557,17 +561,23 @@ def check(repo: Path) -> dict:
                     "reason": "delivery.execution is not what ci_cd.platform derives"}
     if execution(c) == "local":
         return {"ok": True, "na": True, "reason": "delivery.execution is local — no pipeline deploys", "entries": []}
-    files = [p for p in PIPELINES if (repo / p).is_file() and "gate.py delivery" in (repo / p).read_text(encoding="utf-8", errors="replace")]
+    if c.get("adapter") is None and not data.answers(repo).get("hosting.deploy_tool"):
+        return {"ok": True, "na": True, "reason": "no deploy tool, none answered — the project has no server to deploy (RDR 7)", "entries": []}
+    calls = lambda p: (repo / p).is_file() and "gate.py delivery" in (repo / p).read_text(encoding="utf-8", errors="replace")
+    want_file = PIPELINE_FILE.get(plat.strip()) if isinstance(plat, str) else None
+    files = [want_file] if want_file and calls(want_file) else [] if want_file else [p for p in PIPELINE_FILE.values() if calls(p)]
     if not files:
-        if plat in COVERED:
-            return {"ok": False, "entries": [_row(COVERED[plat], [f"{plat} deploys from CI and {COVERED[plat]} does not call `gate.py delivery --run` — SETUP --upgrade lands the deploy pipeline"])],
+        if want_file:
+            how = "SETUP --upgrade lands the deploy pipeline" if plat.strip() in COVERED else "the AI Factory authors it at SETUP for this platform (RDR 9; epic #210 ships its template)"
+            return {"ok": False, "entries": [_row(want_file, [f"{plat} deploys from CI and {want_file} does not call `gate.py delivery --run` — {how}"])],
                     "reason": "the deploy pipeline is missing"}
-        return {"ok": True, "na": True, "reason": "no deploy pipeline file (GitHub Actions / Bitbucket Pipelines) — another platform writes its own (discovery RDR)", "entries": []}
+        return {"ok": True, "na": True, "reason": "no deploy pipeline file and no CI platform answered", "entries": []}
     rows = [_row("delivery.adapter", adapter_problems(c.get("adapter")), str((c.get("adapter") or {}).get("tool")))]
     for rel in files:
         text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        shipped = rel in (PIPELINE_FILE[k] for k in COVERED)
         try:
-            doc = parse_yaml(text)
+            doc = parse_yaml(text) if shipped else None
         except Exception as err:   # the mini parser's every failure is one finding, never a crash
             try:
                 import yaml  # type: ignore  # noqa: F401
@@ -576,7 +586,7 @@ def check(repo: Path) -> dict:
                 why = "cannot be read without PyYAML — install PyYAML where the gates run (the subset parser reads frontmatter, not pipelines)"
             rows.append(_row(rel, [why]))
             continue
-        probs = (_github if rel.startswith(".github/") else _bitbucket)(doc, rel)
+        probs = (_github if rel.startswith(".github/") else _bitbucket)(doc, rel) if shipped else []
         apply_cmd = ((c.get("adapter") or {}).get("apply") or "").split(" && ")[-1].strip()
         if apply_cmd and re.search(re.sub(r"\\\{[A-Za-z_]+\\\}", r"\\S+", re.escape(apply_cmd)), text):   # a placeholder is any filled word
             probs.append(f"{rel} runs the adapter's apply directly — every deploy goes through `gate.py delivery --run` (probe + record)")
@@ -584,7 +594,8 @@ def check(repo: Path) -> dict:
             probs.append(f"{rel} has no stage that calls `gate.py delivery --run --env …`")
         if ALL_ENVS_PUSH.search(text):
             probs.append(f"{rel} pushes every environment's tags — each stage pushes only its own (refs/tags/deploy/<env>/*, refs/tags/lkg/<env>/*)")
-        rows.append(_row(rel, probs, "every deploy stage calls the executor; production waits for approval"))
+        rows.append(_row(rel, probs, "every deploy stage calls the executor; production waits for approval" if shipped
+                         else "every deploy stage calls the executor; production's approval is the platform's own (its template: epic #210)"))
     red = [r for r in rows if not r["ok"]]
     return {"ok": not red, "entries": rows, "reason": f"{len(red)} of {len(rows)} red" if red else f"{len(rows)} green"}
 

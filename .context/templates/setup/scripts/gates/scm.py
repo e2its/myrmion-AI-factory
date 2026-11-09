@@ -384,6 +384,32 @@ def _production_env(rm: dict, tok: str, fetch, branches: list[str]) -> tuple[lis
     return out, notes
 
 
+RECORD_TAGS = ("refs/tags/deploy/**", "refs/tags/lkg/**")
+
+
+def _record_tags(rm: dict, tok: str, fetch) -> list[str]:
+    """EVOL-081 RDR 8: the deploy records are tags no person moves or deletes — an active tag ruleset includes
+    refs/tags/deploy/** and refs/tags/lkg/** (or ~ALL), excludes neither, and carries the `update` and `deletion` rules.
+    Creation stays open: the pipeline only creates, so no bypass actor is needed."""
+    h = {"Authorization": f"Bearer {tok}", "X-GitHub-Api-Version": "2022-11-28"}
+    api = "https://api.github.com" if rm["host"] == "github.com" else f"https://{rm['host']}/api/v3"
+    base = f"{api}/repos/{rm['owner']}/{rm['repo']}"
+    held = {p: set() for p in RECORD_TAGS}
+    for rs in fetch(f"{base}/rulesets?targets=tag", h, missing_ok=True) or []:
+        d = fetch(f"{base}/rulesets/{rs.get('id')}", h, missing_ok=True) or {} if isinstance(rs, dict) else {}
+        if d.get("target") != "tag" or d.get("enforcement") != "active":
+            continue
+        ref = (d.get("conditions") or {}).get("ref_name") or {}
+        inc, exc = ref.get("include") or [], ref.get("exclude") or []
+        types = {r.get("type") for r in d.get("rules") or [] if isinstance(r, dict)}
+        for p in RECORD_TAGS:
+            if (p in inc or "~ALL" in inc) and not any(str(x).startswith(p.rsplit("/", 1)[0]) or x == "~ALL" for x in exc):
+                held[p] |= types
+    missing = [p for p, t in held.items() if not {"update", "deletion"} <= t]
+    return [f"no active tag ruleset blocks update and deletion of {', '.join(missing)} — a person could move or delete a deploy record; "
+            "add one (Settings → Rules → Rulesets → New tag ruleset; rules: restrict updates, restrict deletions)"] if missing else []
+
+
 def _ci_platform(repo: Path) -> str | None:
     """ci_cd.platform: the GitHub deploy workflow (and its `production` environment) exists only on GitHub Actions."""
     from . import data
@@ -428,7 +454,7 @@ def check(repo: Path, control_point: str = "push", fetch=None, env: dict | None 
         branches[b] = {k: v for k, v in norm.items() if k not in ("extra",)}; findings += f; unverifiable += u
     if c["platform"] == "GitHub" and (key(repo, "delivery.execution") or "local") == "ci" and _ci_platform(repo) == "GitHub Actions":
         f, u = _production_env(rm, tok, fetch, c["branches"])
-        findings += f; unverifiable += u
+        findings += f + _record_tags(rm, tok, fetch); unverifiable += u
     reason = (f"{c['platform']} {rm['owner']}/{rm['repo']}: {len(findings)} missing setting(s) on {', '.join(c['branches'])} — apply {book}" if findings
               else f"{c['platform']} {rm['owner']}/{rm['repo']}: {', '.join(c['branches'])} protected as configured" + (f" (not exposed by the API, tick in {book}: {'; '.join(unverifiable)})" if unverifiable else ""))
     return {"ok": not findings, "status": "RED" if findings else "ok", "required": True, "platform": c["platform"], "repository": f"{rm['owner']}/{rm['repo']}",

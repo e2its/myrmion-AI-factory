@@ -3855,8 +3855,15 @@ class Scm(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             base = self._gh(rulesets=[self._rs(self.FULL)])
-            def fetch_with(env, policies=None):
+            tags = [{"id": 90, "target": "tag", "enforcement": "active", "conditions": {"ref_name": {"include": list(scm.RECORD_TAGS), "exclude": []}},
+                     "rules": [{"type": "update"}, {"type": "deletion"}]}]
+            def fetch_with(env, policies=None, tag_rulesets=None):
                 def f(url, headers, missing_ok=False):
+                    trs = tags if tag_rulesets is None else tag_rulesets
+                    if url.endswith("/rulesets?targets=tag"):
+                        return [{"id": r["id"]} for r in trs]
+                    if url.endswith("/rulesets/90"):
+                        return next((r for r in trs if r["id"] == 90), None)
                     if url.endswith("/environments/production"):
                         return env
                     if url.endswith("/environments/production/deployment-branch-policies"):
@@ -3884,6 +3891,15 @@ class Scm(unittest.TestCase):
                 self.assertFalse(r["ok"]); self.assertIn(word, " ".join(r["findings"]), "round-2 cure: only the protected branches, by exact name")
             r = scm.check(repo, fetch=fetch_with(ok_env, [{"name": "main", "type": "branch"}]), **kw)
             self.assertTrue(r["ok"], scm.render(r)); self.assertIn("prevent_self_review off", " ".join(r["unverifiable"]), "self-review is a note, never red")
+            main = [{"name": "main", "type": "branch"}]
+            for trs, why in (([], "no tag ruleset"), ([{**tags[0], "rules": [{"type": "deletion"}]}], "deletion only"),
+                             ([{**tags[0], "enforcement": "evaluate"}], "evaluate mode"),
+                             ([{**tags[0], "conditions": {"ref_name": {"include": ["refs/tags/deploy/**"], "exclude": []}}}], "lkg uncovered"),
+                             ([{**tags[0], "conditions": {"ref_name": {"include": ["~ALL"], "exclude": ["refs/tags/lkg/**"]}}}], "lkg excluded")):
+                r = scm.check(repo, fetch=fetch_with(ok_env, main, trs), **kw)
+                self.assertFalse(r["ok"], why); self.assertIn("blocks update and deletion of", " ".join(r["findings"]), why)
+            r = scm.check(repo, fetch=fetch_with(ok_env, main, [{**tags[0], "conditions": {"ref_name": {"include": ["~ALL"], "exclude": []}}}]), **kw)
+            self.assertTrue(r["ok"], "RDR 8: a ruleset over every tag holds the records too")
             write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitLab CI\n---\n# Setup\n")
             self.assertTrue(scm.check(repo, fetch=fetch_with(None), **kw)["ok"], "GitHub-hosted on another CI: no GitHub deploy workflow, the environment is not asked")
 
@@ -7811,6 +7827,17 @@ class Delivery(unittest.TestCase):
             self.assertIn("no `url_from`", delivery.render(delivery.check(repo)))
         with tempfile.TemporaryDirectory() as tmp:
             self.assertTrue(delivery.check(self._repo(tmp, execution="local")).get("na"))
+        with tempfile.TemporaryDirectory() as tmp:   # RDR 7: no deploy tool and none answered — no server, nothing deploys
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["adapter"] = None; write(repo / "config/quality.json", json.dumps(q))
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\n---\n# Setup\n")
+            r = delivery.check(repo); self.assertTrue(r.get("na"), delivery.render(r)); self.assertIn("no server to deploy", r["reason"])
+            write(repo / "docs/setup.md", "---\nci_cd:\n  platform: GitHub Actions\nhosting:\n  deploy_tool: Terraform\n---\n# Setup\n")
+            self.assertFalse(delivery.check(repo)["ok"], "a deploy tool answered and no row: red")
+            q = json.loads((repo / "config/quality.json").read_text()); q["delivery"]["adapter"] = {**self.ROW, "tool": "Other"}
+            write(repo / "config/quality.json", json.dumps(q))
+            write(repo / ".github/workflows/deploy.yml", (tpl / "deploy.github-actions.yml").read_text())
+            self.assertIn("is `Other`", delivery.render(delivery.check(repo)), "Other stays red until its row is declared (RDR 2)")
 
     def test_check_holds_the_mode_key_and_the_covered_pipeline(self):
         """Round-1 cure: `execution` is ci_cd.platform's derivation; a covered platform deploying from CI has its pipeline;
@@ -7828,7 +7855,16 @@ class Delivery(unittest.TestCase):
             setup(repo, "Bitbucket Pipelines")
             self.assertIn("bitbucket-pipelines.yml does not call", delivery.render(delivery.check(repo)))
             setup(repo, "Jenkins")
-            self.assertTrue(delivery.check(repo).get("na"), "another platform writes its own pipeline")
+            out = delivery.render(delivery.check(repo))
+            self.assertIn("Jenkinsfile.deploy does not call", out, "RDR 9: an uncovered platform's pipeline is authored at SETUP, and held")
+            self.assertIn("the AI Factory authors it at SETUP", out)
+            write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('staging') { steps { sh 'python3 scripts/gate.py delivery --run --env staging' } } } }\n")
+            r = delivery.check(repo); self.assertTrue(r["ok"], delivery.render(r))
+            self.assertIn("approval is the platform's own", delivery.render(r))
+            write(repo / "Jenkinsfile.deploy", "pipeline { stages { stage('s') { steps { sh 'git push origin refs/tags/deploy/*' } } } }\n// gate.py delivery\n")
+            out = delivery.render(delivery.check(repo))
+            self.assertIn("no stage that calls", out); self.assertIn("pushes every environment's tags", out)
+            (repo / "Jenkinsfile.deploy").unlink()
             setup(repo, "GitHub Actions")
             text = (tpl / "deploy.github-actions.yml").read_text()
             write(repo / ".github/workflows/deploy.yml", text)
