@@ -11,7 +11,8 @@ A delivered artefact is never deleted (EVOL-072, DC-38): a markdown or .feature 
 replaced by a non-file (a link), or moved to a name that is no artefact — whose BASE `status` is delivered
 (APPROVED_STATES or MERGED) or terminal (CANCELLED / SUPERSEDED: the trace it keeps) is red. A move to another
 markdown or .feature name keeps the artefact (renames detected). A base frontmatter the parser cannot read is still
-judged: its `status:` line is read directly (a gate that cannot read never reads green).
+judged: its `status:` line is read directly (a gate that cannot read never reads green). A file that left while its
+pin stands in the tree moved to its home (EVOL-080): no deletion — its frontmatter is judged on the pinned bytes.
 
 A template under `.context/templates/` is never an artefact (EVOL-118): its `status` is the materialised artefact's
 default, its frontmatter moves with its manifest bump, and a template may retire.
@@ -22,6 +23,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from . import documents
 from .common import GateFault, frontmatter_of, iteration_state, read_frontmatter
 from .planning import APPROVED_STATES
 from .seal import _git, _reference
@@ -83,14 +85,20 @@ def _gone(repo: Path, ref: str) -> list[str]:
         if st[:1] in ("R", "C"):
             old, new = f[i + 1], f[i + 2]
             i += 3
-            if st[:1] == "R" and old.endswith(ARTEFACT) and not new.endswith(ARTEFACT) and not old.startswith(TEMPLATES):
+            if st[:1] == "R" and old.endswith(ARTEFACT) and not new.endswith(ARTEFACT) and not old.startswith(TEMPLATES) and not _homed(repo, old):
                 out.append(old)
             continue
         path = f[i + 1]
         i += 2
-        if st[:1] in ("D", "T") and path.endswith(ARTEFACT) and not path.startswith(TEMPLATES):
+        if st[:1] in ("D", "T") and path.endswith(ARTEFACT) and not path.startswith(TEMPLATES) and not _homed(repo, path):
             out.append(path)
     return out
+
+
+def _homed(repo: Path, path: str) -> bool:
+    """The file left for its home (EVOL-080): its pin stands in the tree — a move, never a deletion; its frontmatter is
+    then judged on the pinned bytes."""
+    return not (repo / path).is_file() and (repo / (path + documents.PIN)).is_file()
 
 
 def _at(repo: Path, ref: str, path: str) -> str | None:
@@ -111,7 +119,8 @@ def check(repo: Path, base: str) -> list[dict]:
                              f"a terminal artefact ({status}) was deleted — it is the trace of what was decided; keep the file"})
     for path in [p for p in _git(repo, "diff", "--name-only", "--no-renames", ref).splitlines() if p.endswith(ARTEFACT) and not p.startswith(TEMPLATES)]:
         disk = repo / path   # an approved artefact is markdown or a spec.feature: a binary or a YAML document is not this gate's
-        if not disk.is_file():
+        homed = _homed(repo, path)
+        if not disk.is_file() and not homed:
             continue  # deleted or no longer a file: judged above
         before_text = _at(repo, ref, path)
         if before_text is None:
@@ -123,7 +132,9 @@ def check(repo: Path, base: str) -> list[dict]:
         if _status(before) not in APPROVED_STATES:
             continue
         try:
-            after = read_frontmatter(disk)
+            after = frontmatter_of(documents.text(repo, path) or "") if homed else read_frontmatter(disk)
+        except documents.StoreDown:
+            raise
         except GateFault as e:
             findings.append({"path": path, "key": "(frontmatter)", "reason": f"the frontmatter no longer parses ({e}) on an approved artefact — {RESOLUTION}"})
             continue

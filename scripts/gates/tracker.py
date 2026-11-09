@@ -32,13 +32,11 @@ import json
 import os
 import re
 import subprocess
-import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 from . import aligned as aligned_mod
+from . import rest
 from . import train as train_mod
 from .common import FM_RE, GateFault, clean, key, parse_yaml, read_frontmatter
 
@@ -210,10 +208,7 @@ def plan_ensure(board: dict, rows: list, flow: dict) -> tuple[list[dict], list[s
     return reqs, red
 
 
-def _num(v) -> bool:
-    """An ASCII decimal: `str.isdigit` also takes `²`, which `int` refuses."""
-    t = str(v if v is not None else "")
-    return t.isascii() and t.isdigit()
+_num = rest.ascii_int   # an ASCII decimal (`²` is refused) — one definition, in the transport
 
 
 def _body(repo: Path, body: str) -> Path:
@@ -555,48 +550,10 @@ class GitHub:
 
 # ─── adapter: jira (REST) ───────────────────────────────────────────────────────
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """A redirect is answered, never followed: the token is sent to the configured site only (urllib re-sends headers)."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
-_OPEN = urllib.request.build_opener(_NoRedirect).open
-
-
 def _http(method: str, url: str, headers: dict, body=None):
-    """→ (status, parsed JSON | None). 429 waits its Retry-After once (≤ 60 s); 401/403 name the token; a redirect and
-    every other error fault."""
-    data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={"Accept": "application/json", "User-Agent": "myrmion-gate",
-                                                                        **({"Content-Type": "application/json"} if data else {}), **headers})
-    short = url.split("?")[0]
-    for attempt in (1, 2):
-        try:
-            with _OPEN(req, timeout=30) as r:
-                raw = r.read().decode("utf-8")
-                return r.status, (json.loads(raw) if raw.strip() else None)
-        except urllib.error.HTTPError as e:
-            with e:   # an HTTPError holds the response open: closed on every path
-                if e.code == 429:
-                    if attempt == 2:
-                        raise GateFault(f"Jira kept rate-limiting {short} — re-run later") from None
-                    ra = e.headers.get("Retry-After") or "5"
-                    time.sleep(min(int(ra) if _num(ra) else 5, 60))
-                    continue
-                if 300 <= e.code < 400:
-                    raise GateFault(f"Jira redirected {short} ({e.code}) — the token is never sent on: set project_ids.site to the address the API answers on") from None
-                if e.code in (401, 403):
-                    raise GateFault(f"Jira refused {short} ({e.code}) — the token in JIRA_API_TOKEN (and JIRA_USER_EMAIL on Cloud) cannot do this") from None
-                try:
-                    msg = json.loads(e.read().decode("utf-8") or "{}")
-                    why = "; ".join([*(msg.get("errorMessages") or []), *(f"{k}: {v}" for k, v in (msg.get("errors") or {}).items())])
-                except (ValueError, OSError, AttributeError):
-                    why = ""
-                raise GateFault(f"Jira answered {e.code} for {short}" + (f" ({clean(why, 300)})" if why else "")) from None
-        except (urllib.error.URLError, OSError, ValueError) as e:
-            raise GateFault(f"Jira could not be reached at {short} ({clean(e, 200)}) — transient: re-run; a fault, never a pass") from None
+    """→ (status, parsed JSON | None) through the shared transport (`rest.call`, EVOL-080): no redirect followed, 429 once."""
+    return rest.call("Jira", "set project_ids.site to the address the API answers on",
+                     "the token in JIRA_API_TOKEN (and JIRA_USER_EMAIL on Cloud) cannot do this", method, url, headers, body)
 
 
 def _adf(text: str) -> dict:

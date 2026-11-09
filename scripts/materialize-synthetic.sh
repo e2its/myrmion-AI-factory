@@ -141,6 +141,12 @@ if RES["placeholders"].get("QA_BLOCKING_SEVERITY"):   # Q23.6 (EVOL-076): the an
 NUM["TRACKER_ADAPTER"] = str(RES["placeholders"].get("TRACKER_ADAPTER") or "none")   # derived from Q27 (EVOL-079)
 NUM["BOARD_COLUMNS"] = json.dumps(A.get("project_tracking.board_columns") or ["Backlog", "Ready", "In Progress", "Done"])   # Q27.1
 NUM["TRACKER_FLOW"] = json.dumps(A.get("project_tracking.flow") or ["Backlog", "Ready", "In Progress", "Done"])   # Q27.7
+NUM["DOCUMENTS_ADAPTER"] = str(RES["placeholders"].get("DOCUMENTS_ADAPTER") or "none")   # derived from Q38 (EVOL-080)
+for tok, k, dflt in (("DOCUMENTS_SITE", "documents.site", ""), ("DOCUMENTS_SPACE", "documents.space", ""),
+                     ("DOCUMENTS_HOME_BUSINESS", "deliverables.business.home", "Repo"), ("DOCUMENTS_HOME_DESIGN", "deliverables.design.home", "Repo"),
+                     ("DOCUMENTS_HOME_REPORT", "deliverables.report.home", "Repo")):
+    NUM[tok] = str(A.get(k) or dflt)   # not asked → "" / Repo (Factory-setup-materialization § Deliverable homes)
+NUM["DOCUMENTS_DEPLOYMENT"] = str(RES["placeholders"].get("DOCUMENTS_DEPLOYMENT") or "")
 NUM["E2E_TOOL"] = str(RES["placeholders"].get("E2E_TOOL") or A.get("testing.e2e_tool") or "none").strip().lower()   # Q23.8 (EVOL-106): the answered tool, or none
 if isinstance(A.get("surface.runtime_surface"), list):
     NUM["RUNTIME_SURFACE"] = json.dumps(A["surface.runtime_surface"])
@@ -279,8 +285,8 @@ if "| DC-18 |" not in cat:
     cases = cases.rstrip("\n") + "\n\n" + case(tcases, "DC-18").group(0)
 (proj / "defect-prevention.md").write_text(cat, encoding="utf-8"); (proj / "defect-prevention-cases.md").write_text(cases, encoding="utf-8")
 PY
-  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance`, no `delivery`, no `proof` and no `tracker` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081, EVOL-106, EVOL-079) — their migrations are owed
-  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery", "proof", "tracker")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance`, no `delivery`, no `proof`, no `tracker` and no `documents` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081, EVOL-106, EVOL-079, EVOL-080) — their migrations are owed
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery", "proof", "tracker", "documents")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped (a `was` value — replaced), a
   # tests command the project edited (kept), no red_reads (added); no `sast` row (EVOL-074 — added), no `contract-parity` row (EVOL-070 — added where Q4.5 selects it), no `performance` row (EVOL-073 — added with a frontend)
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]

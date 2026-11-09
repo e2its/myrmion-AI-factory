@@ -36,6 +36,7 @@ import json
 import re
 from pathlib import Path
 
+from . import documents
 from .common import FM_RE, GateFault, clean as _clean, context, key, parse_yaml
 from .frontmatter import _at
 from .seal import _reference, tree_entries
@@ -389,16 +390,27 @@ def _accepted(repo: Path, adr: str, cache: dict, what: str = "a destructive step
     feature, _, rid = adr.rpartition("/")
     rel = FDR_GLOB.format(feature=feature) if feature else ADR_DIR
     d = repo / rel
-    hits = sorted(p for p in d.glob(f"{rid}*.md") if re.fullmatch(re.escape(rid) + r"(?:[-_].*)?\.md", p.name)) if d.is_dir() else []
+    named = re.compile(re.escape(rid) + r"(?:[-_].*)?\.md")
+    hits = sorted(p for p in d.glob(f"{rid}*.md") if named.fullmatch(p.name)) if d.is_dir() else []
+    pinned = set()
+    if feature and d.is_dir():   # an FDR is a design artefact: it may live in the store, its pin in the tree (EVOL-080)
+        pinned = {d / p.name[:-len(documents.PIN)] for p in d.glob(f"{rid}*.md{documents.PIN}")
+                  if p.is_file() and named.fullmatch(p.name[:-len(documents.PIN)])} - set(hits)
+        hits = sorted(set(hits) | pinned)
     why = None
     if not hits:
         why = (f"names {adr}, and no {rel}/{rid}-*.md exists — record the decision first: a feature's FDR "
                f"(`<feature>/FDR-NNNN`, written at BLUEPRINT) or a project ADR (`ADR-NNN`)")
     else:
         try:
-            m = FM_RE.match(hits[0].read_text(encoding="utf-8", errors="replace"))
+            m = FM_RE.match((documents.text(repo, hits[0].relative_to(repo).as_posix()) or "") if hits[0] in pinned
+                            else hits[0].read_text(encoding="utf-8", errors="replace"))
+        except documents.StoreDown:
+            raise   # the store down is infrastructure, never a finding
         except OSError as e:
             m, why = None, f"names {adr}, which cannot be read ({type(e).__name__})"
+        except GateFault as e:   # a pin that does not hold its approved bytes
+            m, why = None, f"names {adr}, which cannot be read — {e}"
         try:
             fm = parse_yaml(m.group(1)) if m else {}
         except GateFault:

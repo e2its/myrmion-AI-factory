@@ -20,6 +20,7 @@ import json
 import re
 from pathlib import Path
 
+from . import documents
 from .common import GateFault, clean as _clean, key, parse_yaml
 from .digests import changed_paths
 from .seal import DEFAULT_SEAL_DIR, _norm_path, vcfg
@@ -183,12 +184,21 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
         cfg = vcfg(repo)
     except GateFault:
         cfg = {"dir": DEFAULT_SEAL_DIR}
-    changed = sorted(c for c in {_norm_path(c) for c in changed_paths(repo, base, cfg)} if (repo / c).is_file())
-    designs = [c for c in changed if DESIGN_RE.fullmatch(c)]
+    moved = {_norm_path(c) for c in changed_paths(repo, base, cfg)}
+    changed = sorted(c for c in moved if (repo / c).is_file())
+    # a changed pin is a changed design (EVOL-080): the artefact in its home, read through the one reader
+    designs = sorted({c for c in documents.artefacts(sorted(moved)) if DESIGN_RE.fullmatch(c) and documents.exists(repo, c)})
     contracts = [c for c in changed if CONTRACT_RE.fullmatch(c)]
     rows = []
     for d in designs:
-        problems, judged, why = questions((repo / d).read_text(encoding="utf-8", errors="replace"))
+        disk = repo / d
+        try:
+            text = disk.read_text(encoding="utf-8", errors="replace") if disk.is_file() else documents.text(repo, d)
+        except documents.StoreDown:
+            raise
+        except GateFault as e:   # a pin the store does not honour is red, never infra
+            rows.append({"id": d, "ok": False, "problems": [str(e)], "note": "the pinned design could not be read"}); continue
+        problems, judged, why = questions(text or "")
         note = f"n/a — {why}" if not judged else f"{judged} weighted capabilit{'y' if judged == 1 else 'ies'} answered with a cited source"
         rows.append({"id": d, "ok": not problems, "problems": problems, "note": note, "na": not judged and not problems})
     if contracts:

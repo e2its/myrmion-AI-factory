@@ -974,6 +974,7 @@ Step R.3: Determine Verdict
   #   CLEAN_PASS            → status: APPROVED
   #   PASS_WITH_WARNINGS    → status: APPROVED   (warnings documented in § findings)
   #   BLOCKED after the R.5 round (user adjudication pending) → status: CHANGES_REQUESTED
+  # An APPROVED report with `report` homed External: python3 scripts/gate.py documents --approve <report path> (rules/documentation.md § Deliverable homes, EVOL-080)
 
 Step R.4: Generate Review Report Snippet
   FOR EACH phase:

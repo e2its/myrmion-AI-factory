@@ -453,6 +453,12 @@ Prerequisite: `docs/setup.md` with a `project_tracking` section (configured duri
 
 **The board follows the work (EVOL-079).** Every phase command opens with `gate.py tracker --start`: the phase's item moves to In Progress before the work begins. A Done item stays Done: new work opens a refinement item, unless the change is a ratified realignment (`--aligns`). Adapters: GitHub Projects (`gh`), Jira Cloud or Data Center (the token comes from the vault; the agent reads through jira-cli or the Atlassian MCP server), or `none` (`state.md`). Any other tracker takes `none`, with a warning.
 
+**Deliverable homes (EVOL-080).** Business, design and report artefacts may live in a document store instead of the repo. The CODESIGN journey and slice map, the BLUEPRINT design and test plan, and the QA, review and audit reports are in scope. Code-run artefacts always stay in the repo: Gherkin, contracts, tests, config and the mock. SETUP asks the store (Q38: Confluence Cloud or Data Center, `None`, or any other store, whose adapter is built at materialisation and proven by `gate.py documents --probe`) and each category's home.
+- An approval publishes the artefact and pins `{id, version, sha256}` in the repo: `gate.py documents --approve`.
+- Every agent and gate reads the pinned bytes through the one reader: `gate.py documents --read`.
+- A refine first pulls the pinned draft back: `--pull`.
+- The `documents` gate turns red when the store moved past its pin without re-approval. When the store does not answer, the gate reports n/a with a warning.
+
 **SSOT mode:** the derived `project_tracking.adapter`. `github` or `jira` → external mode (the external board IS the plan — **`execution-plan.md` does NOT exist on disk**). `none` → local mode (`state.md` + `issue-bodies/` + `execution-plan.md` are the only sources of truth).
 
 Artifacts (external mode): `docs/backlog/project-config.json` (non-sensitive connection identifiers and field mapping only — no issue registry, no tokens). Cache: `/memories/repo/project-board-cache.md`.

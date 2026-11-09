@@ -540,6 +540,7 @@ FUNCTION devops_auto_approve(FEATURE_ID, devops_plan_path):
     UPDATE_FRONTMATTER(devops_plan_path, "status", "APPROVED")
     UPDATE_FRONTMATTER(devops_plan_path, "approved_at", "{ISO_8601}")
     UPDATE_FRONTMATTER(devops_plan_path, "approved_by", "DEVOPS")
+    IF documents.homes.design == "External": RUN: python3 scripts/gate.py documents --approve {devops_plan_path}   # rules/documentation.md § Deliverable homes (EVOL-080)
     LOG: "DevOps auto-approved: all 7 checks passed"
     APPEND_TO_WORKLOG: |
       {"timestamp":"YYYY-MM-DD","phase":"DevOps","user_agent":"DEVOPS","action":"--configure {FEATURE_ID}","result":"APPROVED","feature_id":"{FEATURE_ID}","observations":"devops_plan.md created + auto-approved — {N_envs} environments — cost: {total_cost}"}
@@ -597,6 +598,8 @@ SAVE(devops_plan_path)
 ## `DEVOPS --refine {ID} "{FEEDBACK}"`
 
 **Purpose**: Adjust infrastructure plan based on feedback.
+
+> **Pinned artefact (rules/documentation.md § Deliverable homes, EVOL-080).** With `design` homed External, run `python3 scripts/gate.py documents --pull <path>` on each pinned artefact before refining it. The approval at the end re-pins it.
 
 ```yaml
 PREREQUISITES: devops_plan.md exists (any status except APPROVED with active provision)

@@ -40,6 +40,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from . import documents
 from .common import GateFault, glob_match, key
 
 CANARY_CLAUSES = [("Given", "the canary page is open"), ("When", "the canary acts"), ("Then", "the canary shows its result")]
@@ -413,7 +414,7 @@ def trace(repo: Path, feature: str, control_point: str = "push") -> dict:
     c = tr.cfg(repo)
     if not c["required"]:
         return {"ok": True, "na": True, "entries": [], "trace": [], "reason": f"traceability is not required here ({c['reason']})"}
-    if not (repo / "docs" / "spec" / feature / "test_plan.md").is_file():
+    if not documents.exists(repo, f"docs/spec/{feature}/test_plan.md"):   # a file or its pin (EVOL-080)
         return {"ok": False, "entries": [], "trace": [], "reason": f"docs/spec/{feature}/test_plan.md is absent — no case to trace (a typo is never green)"}
     try:
         pc = cfg(repo)

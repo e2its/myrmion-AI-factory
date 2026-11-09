@@ -20,10 +20,12 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from . import branch as branch_mod
 from .common import GateFault, context
+from .documents import DOWN, MEMO
 
 MODES = ("development", "production")
 STRICTEST = "production"
@@ -51,6 +53,7 @@ MEMBERS = [
     ("qa",               False, False, "gate.py",                 ["gate", "qa", "--check", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
     ("proof",            False, False, "gate.py",                 ["gate", "proof", "--check"], False),
     ("traceability",     False, False, "gate.py",                 ["gate", "traceability"], False),
+    ("documents",        False, False, "gate.py",                 ["gate", "documents", "--base", "{base}"], False),
     ("discovery",        False, False, "gate.py",                 ["gate", "discovery"], True),   # the SETUP question registry lives in the framework repo; a project consumes it in place
     ("scm-protection",   False, False, "gate.py",                 ["gate", "scm-protection", "--control-point", "{control_point}"], False),
     ("governance",       False, False, "validate-governance.sh (framework repo: manifest drift / orphan / stale)", ["bash", "scripts/validate-governance.sh", "--base", "{base_branch}"], True),   # a project has no framework manifest; manifest-parity covers its own
@@ -146,6 +149,17 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
         return {**pr, "control_point": control_point, "base": None, "results": [], "owed_elsewhere": [],
                 "verdict": "RED", "summary": f"no diff base — nothing was measured: {e}"}
     ctx = context(repo)
+    with tempfile.TemporaryDirectory(prefix="gate-documents-") as memo:   # one run reads each pinned artefact once; nothing survives the run (EVOL-080)
+        results, elsewhere = _members(repo, pr, base, br, control_point, only, ctx, {**os.environ, MEMO: memo})
+    red = [r["member"] for r in results if r["status"] == "RED"]
+    faults = [r["member"] for r in results if r["status"] == "FAULT"]
+    verdict = "RED" if red else ("FAULT" if faults else "ok")
+    parts = ([f"red: {', '.join(red)}"] if red else []) + ([f"could not run: {', '.join(faults)}"] if faults else [])
+    return {**pr, "control_point": control_point, "base": base, "results": results, "owed_elsewhere": elsewhere,
+            "verdict": verdict, "summary": " · ".join(parts)}
+
+
+def _members(repo, pr, base, br, control_point, only, ctx, env):
     results, elsewhere = [], []
     for name, nb, nd, owner, runner, meta_only in MEMBERS:
         if pr["profile"] == "light" and (nb or nd):
@@ -163,22 +177,32 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
             results.append({"member": name, "rc": 1, "status": "RED", "tail": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh", "output": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh"})
             continue
         try:
-            r = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True, timeout=900)
+            r = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True, timeout=900, env=env)
             rc, text = r.returncode, (r.stdout + r.stderr)
         except (OSError, subprocess.TimeoutExpired) as e:
             rc, text = 2, f"could not run: {e}"
         clean = re.sub(r"\x1b\[[0-9;]*m", "", text).strip()
         tail = " ".join(ln.strip() for ln in clean.splitlines()[-3:])
-        na = rc == 0 and re.match(rf"^{re.escape(name)}: n/a\b", clean)   # a member switched off by config says so on the board, never a plain ✓
-        results.append({"member": name, "rc": rc, "status": "n/a" if na else ("ok" if rc == 0 else ("RED" if rc == 1 else "FAULT")), "tail": tail[:400],
-                        "warn": _warn_line(clean) if rc == 0 and not na else None,   # an advisory a passing member names (EVOL-064)
-                        "output": "" if rc == 0 else clean[-6000:]})   # a red member keeps its evidence
-    red = [r["member"] for r in results if r["rc"] == 1]
-    faults = [r["member"] for r in results if r["rc"] not in (0, 1)]
-    verdict = "RED" if red else ("FAULT" if faults else "ok")
-    parts = ([f"red: {', '.join(red)}"] if red else []) + ([f"could not run: {', '.join(faults)}"] if faults else [])
-    return {**pr, "control_point": control_point, "base": base, "results": results, "owed_elsewhere": elsewhere,
-            "verdict": verdict, "summary": " · ".join(parts)}
+        status, warn = classify(name, rc, clean)
+        results.append({"member": name, "rc": rc, "status": status, "tail": tail[:400], "warn": warn,
+                        "output": clean[-6000:] if status in ("RED", "FAULT") else ""})   # a red member keeps its evidence
+    return results, elsewhere
+
+
+def classify(name: str, rc: int, text: str) -> tuple[str, str | None]:
+    """(status, warning). rc 0 → ok (n/a when the member says `<name>: n/a`; a WARN verdict line is shown); rc 1 → RED;
+    rc 2 whose last line is gate.py's «the source of truth is down» → n/a with a WARN (EVOL-080: an unreachable store is the noisy warning of
+    LAW-11/LAW-13, never a pass in silence and never a block); any other exit → FAULT."""
+    t = text.strip()
+    if rc == 0:
+        if re.match(rf"^{re.escape(name)}: n/a\b", t):   # a member switched off by config says so on the board, never a plain ✓
+            return "n/a", None
+        return "ok", _warn_line(t)   # an advisory a passing member names (EVOL-064)
+    if rc == 2:   # only gate.py's own fault line — the last one — counts; a line quoted from an artefact never turns a fault into n/a
+        last = t.splitlines()[-1].strip() if t else ""
+        if re.match(rf"^gate: {re.escape(DOWN)}\b", last):
+            return "n/a", f"WARN {last[:380]}"
+    return ("RED" if rc == 1 else "FAULT"), None
 
 
 def _warn_line(text: str) -> str | None:
@@ -193,9 +217,9 @@ def render(rep: dict) -> str:
         return "\n".join(lines + [f"  {rep['summary']}"])
     lines.append(f"  control point {rep['control_point']} · base {rep['base']} · {len(rep['results'])} member(s) ran, every one reports:")
     for r in rep["results"]:
-        mark = "·" if r["status"] == "n/a" else ("✓" if r["rc"] == 0 else ("✗" if r["rc"] == 1 else "?"))
-        lines.append(f"  {mark} {r['member']}" + (f" — {r['tail']}" if r["status"] == "n/a" else (f" — {r['warn']}" if r.get("warn") else "" if r["rc"] == 0 else f" — {r['status']}")))
-        if r["rc"] != 0:
+        mark = {"n/a": "·", "ok": "✓", "RED": "✗"}.get(r["status"], "?")
+        lines.append(f"  {mark} {r['member']}" + (f" — {r['warn']}" if r.get("warn") else f" — {r['tail']}" if r["status"] == "n/a" else "" if r["status"] == "ok" else f" — {r['status']}"))
+        if r["status"] in ("RED", "FAULT"):
             lines.extend("      " + ln for ln in (r.get("output") or r["tail"]).splitlines() if ln.strip())
     if rep["owed_elsewhere"]:
         lines.append("  owed at their own control point (not run here): " + ", ".join(f"{e['member']} → {e['owner']}" for e in rep["owed_elsewhere"]))

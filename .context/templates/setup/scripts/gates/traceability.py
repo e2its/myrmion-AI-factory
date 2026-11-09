@@ -42,7 +42,8 @@ import re
 import subprocess
 from pathlib import Path
 
-from .common import GateFault, key, read_frontmatter
+from . import documents
+from .common import GateFault, frontmatter_of, key, read_frontmatter
 from .seal import _norm_path, _root_match
 
 HOMES = {
@@ -118,6 +119,17 @@ def files(repo: Path) -> list[str]:
     return sorted(_norm_path(n) for n in names if n and (repo / n).is_file())
 
 
+def _arts(listing: list[str]) -> list[str]:
+    """The listing with every pin named by its artefact (EVOL-080): a plan or a report may live in the store."""
+    return sorted(documents.artefacts(listing))
+
+
+def _doc(repo: Path, rel: str) -> str:
+    """The artefact's text through the one reader: the file (lenient bytes) when there is one, else its pin read live."""
+    p = repo / rel
+    return p.read_text(encoding="utf-8", errors="replace") if p.is_file() else (documents.text(repo, rel) or "")
+
+
 def is_tracked(repo: Path, rel: str) -> bool:
     return rel in set(_git(repo, "ls-files", "--", rel).splitlines())
 
@@ -133,11 +145,12 @@ def _cell(raw: str) -> str:
 def declared(repo: Path, c: dict, listing: list[str] | None = None) -> tuple[dict[str, dict], list[dict]]:
     """qualified id → {at, manual}; findings (a folder that is not a feature, a duplicate, a malformed id, a plan glob that matches nothing)."""
     listing = listing if listing is not None else files(repo)
-    plans = [p for p in listing if _root_match(p, [c["plans"]])]
+    arts = _arts(listing)
+    plans = [p for p in arts if _root_match(p, [c["plans"]])]
     out: dict[str, dict] = {}
     bad: list[dict] = []
     if not plans:
-        others = [p for p in listing if p.endswith("test_plan.md")]
+        others = [p for p in arts if p.endswith("test_plan.md")]
         if others:
             bad.append({"path": "config/quality.json", "reason": f"traceability.plans `{c['plans']}` matches nothing while a test plan exists at {others[0]} — the glob does not name the plans"})
         return out, bad
@@ -145,7 +158,7 @@ def declared(repo: Path, c: dict, listing: list[str] | None = None) -> tuple[dic
         feature = Path(plan).parent.name
         if not FEATURE.match(feature):
             bad.append({"path": plan, "reason": f"plan folder `{feature}` is not a feature id — plans live at docs/spec/{{FEATURE}}/ (traceability.plans)"}); continue
-        for n, header, cells in _rows((repo / plan).read_text(encoding="utf-8", errors="replace")):
+        for n, header, cells in _rows(_doc(repo, plan)):
             if header[0] != "ID" or not cells or not cells[0]:
                 continue   # a table that declares no cases
             cell = cells[0]
@@ -186,9 +199,9 @@ def retired(repo: Path, c: dict, listing: list[str], dec: dict) -> tuple[dict[st
     still declared, or retired with no reason. A retired id leaves the baseline through --refresh (it is not declared)."""
     out: dict[str, dict] = {}
     bad: list[dict] = []
-    for plan in [p for p in listing if _root_match(p, [c["plans"]])]:
+    for plan in [p for p in _arts(listing) if _root_match(p, [c["plans"]])]:
         feature = Path(plan).parent.name
-        for n, header, cells in _rows((repo / plan).read_text(encoding="utf-8", errors="replace")):
+        for n, header, cells in _rows(_doc(repo, plan)):
             if header[0] != "RETIRED ID" or not cells or not cells[0]:
                 continue
             qid, where = f"{feature}/{cells[0]}", f"{plan}:{n}"
@@ -239,6 +252,7 @@ def _walked_items(text: str) -> list[tuple[int, str]]:
 
 def walks(repo: Path, c: dict, listing: list[str], dec: dict, lnk: dict, base: list[str]) -> tuple[dict[str, list[str]], list[dict]]:
     """report → the case ids it walks; findings: a walked case with no automated spec (manual, unlinked or in the baseline), unknown, or malformed."""
+    listing = _arts(listing)
     folders = sorted({str(Path(p).parent) for p in listing if _root_match(p, [c["plans"]])})
     out: dict[str, list[str]] = {}
     bad: list[dict] = []
@@ -246,13 +260,19 @@ def walks(repo: Path, c: dict, listing: list[str], dec: dict, lnk: dict, base: l
         feature = Path(folder).name
         for rel in [p for p in listing if str(Path(p).parent) == folder and WALK.match(Path(p).name)]:
             try:
-                status = str((read_frontmatter(repo / rel) or {}).get("status") or "").upper()
+                if (repo / rel).is_file():
+                    status, text = str((read_frontmatter(repo / rel) or {}).get("status") or "").upper(), None
+                else:   # its pin, read live (EVOL-080)
+                    text = documents.text(repo, rel) or ""
+                    status = str((frontmatter_of(text) or {}).get("status") or "").upper()
+            except documents.StoreDown:
+                raise   # the store down is infrastructure, never a finding
             except GateFault as e:
                 bad.append({"path": rel, "reason": f"frontmatter unreadable: {e}"}); continue
             if status == "DRAFT":
                 continue   # a skeleton, not a walk
             ids: list[str] = []
-            for n, item in _walked_items((repo / rel).read_text(encoding="utf-8", errors="replace")):
+            for n, item in _walked_items(text if text is not None else (repo / rel).read_text(encoding="utf-8", errors="replace")):
                 where = f"{rel}:{n}"
                 if not c["id"].match(item):
                     bad.append({"path": rel, "reason": f"{where}: `{item}` is not a case id (traceability.id_pattern) — a walk lists the cases it covers"}); continue

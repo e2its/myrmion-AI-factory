@@ -343,6 +343,7 @@ IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-comman
 
 ### On Approval
 - Update `vision.md` frontmatter: `status: APPROVED`
+- `business` homed External: run `python3 scripts/gate.py documents --approve` on `vision.md` and `navigation_map.md`, then commit the pins (rules/documentation.md § Deliverable homes, EVOL-080)
 - Enables template composition in `--start` (features inherit app_shell)
 - Log in worklog
 

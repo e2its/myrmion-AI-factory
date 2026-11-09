@@ -29,7 +29,7 @@ os.environ.update({"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", 
                    "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "test@example.com"})
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, bounds, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, proof, qa, retired, runtime, scm, seal, traceability, tracker, train  # noqa: E402
+from gates import agents, aligned, bounds, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, documents, freeze, frontmatter, manifest, performance, planning, profile, proof, qa, rest, retired, runtime, scm, seal, traceability, tracker, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -4641,7 +4641,9 @@ class Discovery(unittest.TestCase):
 
     def test_discovery_is_a_light_framework_member(self):
         names = [m[0] for m in profile.MEMBERS]
-        self.assertEqual(names.index("discovery"), names.index("traceability") + 1)
+        self.assertEqual(names.index("documents"), names.index("traceability") + 1, "EVOL-080: the deliverable homes, a downstream member, light")
+        self.assertEqual(names.index("discovery"), names.index("documents") + 1)
+        self.assertIn("documents", {m["member"] for m in profile.owed("light")})
         row = next(m for m in profile.MEMBERS if m[0] == "discovery")
         self.assertEqual(row, ("discovery", False, False, "gate.py", ["gate", "discovery"], True))
         self.assertIn("discovery", {m["member"] for m in profile.owed("light")})
@@ -4965,6 +4967,28 @@ class Discovery(unittest.TestCase):
             self.assertIn("semgrep scan --config security/sast", g(be, fe).get("sast", {}).get("command", ""), f"{be} + {fe}")
         self.assertNotIn("sast", g("Ruby", "None")); self.assertNotIn("sast", g("PHP", "None"))
 
+    def test_v14_deliverable_homes_are_the_readers_categories(self):
+        """EVOL-080: the asked homes (`deliverables.<category>.home`) are exactly documents.CATEGORIES' asked categories."""
+        def add(r, cats):
+            r["questions"].append({"id": "Q90", "tier": 2, "since": "1.0.0", "keys": {"documents.source": {"free": "text", "suggestions": ["Confluence", "None"]}}})
+            for n, c in enumerate(cats):
+                r["questions"].append({"id": f"Q90.{n + 1}", "tier": 2, "since": "1.0.0", "keys": {f"deliverables.{c}.home": {"options": ["External", "Repo"], "record_only": "x"}}})
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self.assertEqual(self._rule(discovery.validate(repo), "V14"), [], "no documents source declared: nothing to hold")
+            self._reg(repo, lambda r: add(r, ["business", "design"]))
+            v14 = self._rule(discovery.validate(repo), "V14")
+            self.assertTrue(any("`report`" in f and "not asked" in f for f in v14), v14)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda r: add(r, ["business", "design", "report", "scenario"]))
+            v14 = self._rule(discovery.validate(repo), "V14")
+            self.assertTrue(any("`scenario`" in f and "compiles" in f for f in v14), v14)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda r: add(r, ["business", "design", "report"]))
+            self.assertEqual(self._rule(discovery.validate(repo), "V14"), [])
+
     def test_v12_configures_rows(self):
         cases = [
             ("unknown field", lambda s: s["Python"]["verification.gates"]["tests"].__setitem__("reads", ["x/**"]), "`reads` is not a gate-row field"),
@@ -5094,6 +5118,38 @@ class Discovery(unittest.TestCase):
         with self.assertRaises(GateFault) as cm:
             r("Linear", **{"project_tracking.adapter": "jira"})
         self.assertIn("derived, never answered", str(cm.exception))
+
+    def test_q38_documents_source_is_derived(self):
+        """EVOL-080: Confluence → confluence, None → none, any other store → built + a warning; the homes are asked only with a
+        store; a home for a category the code runs is no key — the answers file naming one is refused."""
+        real = Path(__file__).resolve().parents[2]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        r = lambda src, **k: discovery.resolve(real, {"documents.source": src, **k})
+        for src, adapter in (("Confluence", "confluence"), ("none", "none")):
+            got = r(src)
+            self.assertEqual((got["derived_answers"].get("documents.adapter"), got["warnings"]), (adapter, []), src)
+            self.assertEqual(got["placeholders"].get("DOCUMENTS_ADAPTER"), adapter)
+        self.assertTrue({"Q38.1", "Q38.2", "Q38.3", "Q38.5"} <= set(r("Confluence")["pending"]))
+        self.assertFalse({"Q38.1", "Q38.5"} & set(r("None")["pending"]), "no store: no home asked")
+        built = r("Notion")
+        self.assertEqual(built["derived_answers"].get("documents.adapter"), "built")
+        self.assertTrue(any("`Notion` has no shipped store" in w for w in built["warnings"]), built["warnings"])
+        self.assertIn("Q38.5", built["pending"]); self.assertNotIn("Q38.1", built["pending"])
+        cloud = r("Confluence", **{"documents.site": "https://acme.atlassian.net"})
+        self.assertEqual(cloud["derived_answers"].get("documents.deployment"), "cloud"); self.assertIn("Q38.4", cloud["pending"])
+        dc = r("Confluence", **{"documents.site": "https://wiki.acme.test"})
+        self.assertEqual(dc["derived_answers"].get("documents.deployment"), "dc"); self.assertNotIn("Q38.4", dc["pending"])
+        for k in ("documents.token", "documents.user"):
+            self.assertEqual(discovery._specs(discovery.load_registry(real))[k]["free"], "vault_name", k)
+        with tempfile.TemporaryDirectory() as tmp:
+            ans = Path(tmp) / "a.json"
+            gt = lambda: subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(real), "discovery", "--resolve", "--answers", str(ans)],
+                                        capture_output=True, text=True)
+            write(ans, json.dumps({"answers": {"documents.source": "Confluence", "deliverables.design.home": "External"}}))
+            self.assertEqual(gt().returncode, 0)
+            write(ans, json.dumps({"answers": {"documents.source": "Confluence", "deliverables.scenario.home": "External"}}))
+            g = gt(); self.assertEqual(g.returncode, 2, "a code-run category has no home to answer"); self.assertIn("deliverables.scenario.home", g.stderr)
 
     def test_q23_5_configures_the_browser_mcp(self):
         real = Path(__file__).resolve().parents[2]
@@ -9674,7 +9730,7 @@ class Tracker(unittest.TestCase):
         px = unittest.mock.patch.dict(os.environ, {"no_proxy": "127.0.0.1", "NO_PROXY": "127.0.0.1"})   # a CI proxy never sees the local server
         px.start(); self.addCleanup(px.stop)
         self.assertEqual(tracker._http("GET", base + "/ok", auth), (200, {"ok": True}))
-        with unittest.mock.patch.object(tracker.time, "sleep") as nap:
+        with unittest.mock.patch.object(rest.time, "sleep") as nap:
             self.assertEqual(tracker._http("GET", base + "/429-odd", auth), (200, {"ok": True}), "a Retry-After that is no ASCII number waits the default")
         nap.assert_called_once_with(5)
         self.assertEqual(tracker._http("GET", base + "/429-once", auth), (200, {"ok": True}), "a 429 waits its Retry-After once")
@@ -9730,3 +9786,813 @@ class Tracker(unittest.TestCase):
             self.assertEqual(run("--move", "x").returncode, 2)
             write(repo / "config/quality.json", "{}")
             self.assertEqual(run("--start", "--item", "[FEAT-001] QA:").returncode, 2, "a missing config is a fault, never a verdict")
+
+
+DOCS_FX = HERE.parent / "fixtures/documents"
+DOC = "docs/spec/FEAT-001/design.md"
+V3 = "---\nstatus: APPROVED\n---\n# Design\n\nThe client waits 2 s. A literal ]]> survives.\n"
+V4 = "---\nstatus: APPROVED\n---\n# Design\n\nEdited in the store after approval.\n"
+
+
+class FakeStore:
+    """An in-memory store: per page id a version history (version n = history[n - 1]); `down` makes every call a StoreDown."""
+
+    def __init__(self, pages=None, down=None):
+        self.pages = {k: list(v) for k, v in (pages or {}).items()}
+        self.titles, self.calls, self.down = {}, [], down
+
+    def read(self, pid, version=None):
+        self.calls.append(("read", pid, version))
+        if self.down:
+            raise documents.StoreDown(f"{documents.DOWN} — the fake store ({self.down})")
+        h = self.pages.get(pid)
+        if h is None:
+            raise GateFault(f"page {pid} is gone")
+        v = len(h) if version is None else version
+        if not 1 <= v <= len(h):
+            raise GateFault(f"page {pid} has no version {v}")
+        if isinstance(h[v - 1], Exception):
+            raise h[v - 1]
+        return v, h[v - 1]
+
+    def publish(self, pid, title, text):
+        self.calls.append(("publish", pid, title))
+        if self.down:
+            raise documents.StoreDown(f"{documents.DOWN} — the fake store ({self.down})")
+        if pid is None:
+            pid = self.titles.get(title) or str(100 + len(self.pages))
+            self.titles[title] = pid
+            self.pages.setdefault(pid, [])
+        self.pages[pid].append(text)
+        return pid, len(self.pages[pid])
+
+
+class FakeConfluence:
+    """Recorded Confluence responses (scripts/fixtures/documents/) by (method, path after the site)."""
+
+    def __init__(self, site, answers):
+        self.site, self.answers, self.calls = site, answers, []
+
+    def __call__(self, method, url, headers, body=None):
+        assert url.startswith(self.site), url
+        path = url[len(self.site):]
+        self.calls.append((method, path, headers, body))
+        a = self.answers.get((method, path))
+        if a is None:
+            raise AssertionError(f"unrecorded call {method} {path}")
+        if isinstance(a, Exception):
+            raise a
+        return 200, (json.loads((DOCS_FX / a).read_text()) if isinstance(a, str) else a)
+
+
+class Documents(unittest.TestCase):
+    """EVOL-080, deliverable homes: one source of truth per category; an external home is pinned by id, version and hash,
+    read live at the pinned version (never the latest), written only at approval; the store down is a recorded warning."""
+
+    def _git(self, repo, *c):
+        return subprocess.run(["git", "-C", str(repo), *c], capture_output=True, text=True, check=True).stdout
+
+    def _repo(self, tmp, homes=None, adapter="confluence", commands=None, git=False):
+        repo = Path(tmp)
+        block = {"adapter": adapter, "site": "https://acme.atlassian.net", "space": "ENG", "deployment": "cloud", "title_prefix": "Acme",
+                 "homes": homes if homes is not None else {"business": "Repo", "design": "External", "report": "Repo"}, "commands": commands}
+        write(repo / "config/quality.json", json.dumps({"documents": block}))
+        if git:
+            self._git(repo, "init", "-q", "-b", "main")
+            self._git(repo, "config", "user.email", "t@t.test"); self._git(repo, "config", "user.name", "t")
+        return repo
+
+    def _pin(self, repo, rel=DOC, version=3, text=V3, pid="9", at="2026-11-03T10:00:00Z", source="confluence"):
+        write(repo / (rel + documents.PIN), json.dumps({"source": source, "id": pid, "version": version, "approved_at": at, "sha256": documents.sha(text)}))
+
+    # ── the closed list ──
+    def test_the_categories_are_a_closed_list(self):
+        self.assertEqual(sorted(k for k, v in documents.CATEGORIES.items() if v["kind"] == "asked"), ["business", "design", "report"])
+        self.assertTrue(all(v.get("why") for v in documents.CATEGORIES.values() if v["kind"] == "repo"), "a derived category says why the repo is its only home")
+        self.assertEqual(documents.category_of(DOC), "design")
+        self.assertEqual(documents.category_of("docs/spec/FEAT-001/qa/qa_report_INC-1_20261101.md"), "report")
+        self.assertEqual(documents.category_of("docs/spec/FEAT-001/user_journey.md"), "business")
+        for repo_only in ("docs/spec/FEAT-001/spec.feature", "contracts/openapi/api.yaml", "docs/spec/FEAT-001/increment_plan.md", "config/quality.json", "docs/spec/FEAT-001/mock.html"):
+            self.assertEqual(documents.CATEGORIES[documents.category_of(repo_only)]["kind"], "repo", repo_only)
+        self.assertIsNone(documents.category_of("src/app.py"))
+
+    def test_a_pin_is_held_to_its_shape(self):
+        good = {"source": "confluence", "id": "9", "version": 3, "approved_at": "2026-11-03T10:00:00Z", "sha256": documents.sha(V3)}
+        self.assertEqual(documents.load_pin(json.dumps(good), "x")["version"], 3)
+        for bad in ({**good, "version": 0}, {**good, "version": "3"}, {**good, "version": True}, {**good, "id": ""}, {**good, "id": "../9"},
+                    {**good, "approved_at": "yesterday"}, {**good, "sha256": "abc"}, {**good, "source": ""}, {k: v for k, v in good.items() if k != "sha256"}, [1]):
+            with self.assertRaises(GateFault, msg=bad):
+                documents.load_pin(json.dumps(bad), "x")
+        with self.assertRaises(GateFault):
+            documents.load_pin("{not json", "x")
+
+    # ── the one reader ──
+    def test_the_reader_returns_the_pinned_version_never_the_latest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            fs = FakeStore({"9": ["v1", "v2", V3, V4]})
+            self.assertEqual(documents.text(repo, DOC, store=fs), V3, "v4 is the latest, v3 the approved: the gate reads v3")
+            self.assertEqual(fs.calls, [("read", "9", None), ("read", "9", 3)])
+            fs2 = FakeStore({"9": ["v1", "v2", V3]})
+            self.assertEqual(documents.text(repo, DOC, store=fs2), V3)
+            self.assertEqual(fs2.calls, [("read", "9", None)], "no drift: the current version is the pinned one — one call, no historical read")
+
+    def test_a_version_whose_bytes_changed_is_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            with self.assertRaises(GateFault) as e:
+                documents.text(repo, DOC, store=FakeStore({"9": ["v1", "v2", V3 + "folded in by a deleted version\n"]}))
+            self.assertIn("hash", str(e.exception))
+            self.assertNotIsInstance(e.exception, documents.StoreDown, "different bytes at the pinned number is red, never the store down")
+
+    def test_a_store_returning_another_version_is_red(self):
+        class Liar(FakeStore):
+            def read(self, pid, version=None):
+                return 4, V3
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            with self.assertRaises(GateFault) as e:
+                documents.text(repo, DOC, store=Liar({}))
+            self.assertIn("version 4", str(e.exception))
+
+    def test_a_file_wins_over_its_pin_and_absent_is_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            write(repo / DOC, "---\nstatus: DRAFT\n---\n# refine\n")
+            fs = FakeStore({"9": [V3]})
+            self.assertEqual(documents.text(repo, DOC, store=fs), "---\nstatus: DRAFT\n---\n# refine\n", "the draft of a refine is read, the pin waits")
+            self.assertEqual(fs.calls, [])
+            self.assertIsNone(documents.text(repo, "docs/spec/FEAT-002/design.md", store=fs))
+            self.assertTrue(documents.exists(repo, DOC) and not documents.exists(repo, "docs/spec/FEAT-002/design.md"))
+
+    def test_listing_maps_a_pin_to_its_artefact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            write(repo / "docs/spec/FEAT-002/design.md", "x")
+            self.assertEqual(documents.glob(repo, "docs/spec/*/design.md"), [DOC, "docs/spec/FEAT-002/design.md"])
+            self.assertEqual(documents.artefacts([DOC + documents.PIN, "src/a.py", DOC]), [DOC, "src/a.py"])
+
+    def test_the_reader_at_a_ref_reads_the_pin_committed_there(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, git=True)
+            self._pin(repo)
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "pin v3")
+            self._pin(repo, version=4, text=V4, at="2026-11-05T10:00:00Z")
+            fs = FakeStore({"9": ["v1", "v2", V3, V4]})
+            self.assertEqual(documents.text(repo, DOC, ref="HEAD", store=fs), V3, "the base reads the pin of the base")
+            self.assertEqual(documents.text(repo, DOC, store=fs), V4)
+            self.assertIsNone(documents.text(repo, "docs/spec/FEAT-002/design.md", ref="HEAD", store=fs))
+
+    def test_a_run_memo_serves_only_the_approved_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as memo:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            with unittest.mock.patch.dict(os.environ, {documents.MEMO: memo}):
+                fs = FakeStore({"9": ["v1", "v2", V3]})
+                self.assertEqual(documents.text(repo, DOC, store=fs), V3)
+                self.assertEqual(documents.text(repo, DOC, store=fs), V3)
+                self.assertEqual(len(fs.calls), 1, "one run reads each pin once")
+                (Path(memo) / documents.sha(V3)).write_text("tampered")
+                self.assertEqual(documents.text(repo, DOC, store=fs), V3, "a memo entry whose bytes are not the pin's is never served")
+                self.assertEqual(len(fs.calls), 2)
+
+    def test_the_session_read_and_the_ci_read_return_the_same_bytes(self):
+        """DoD: one pin, two independent reads (two processes' worth — no memo shared) → the same bytes, the pin's hash."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            site = "https://acme.atlassian.net"
+            reads = []
+            for _ in range(2):
+                fc = FakeConfluence(site, {("GET", "/wiki/api/v2/pages/9?body-format=storage"): "cloud-page-v3.json"})
+                st = documents.Confluence(documents.cfg(repo), fetch=fc, env={"CONFLUENCE_API_TOKEN": "t0k", "CONFLUENCE_USER_EMAIL": "dev@acme.test"})
+                reads.append(documents.text(repo, DOC, store=st))
+            self.assertEqual(reads[0], reads[1])
+            self.assertEqual(reads[0], V3)
+            self.assertEqual(documents.sha(reads[0]), json.loads((repo / (DOC + documents.PIN)).read_text())["sha256"])
+
+    # ── the gate ──
+    def test_drift_is_red(self):
+        """DoD: a version that moved without re-approval fails."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            r = documents.check(repo, store=FakeStore({"9": ["v1", "v2", V3, V4]}))
+            self.assertFalse(r["ok"], documents.render(r))
+            self.assertIn("moved", documents.render(r))
+            self.assertIn("v4", documents.render(r))
+            self.assertTrue(documents.check(repo, store=FakeStore({"9": ["v1", "v2", V3]}))["ok"])
+
+    def test_a_version_published_outside_approval_moves_no_pin(self):
+        """DoD: publishing writes a new version; the pin moves only with re-approval."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            fs = FakeStore({"9": ["v1", "v2", V3]})
+            before = (repo / (DOC + documents.PIN)).read_text()
+            fs.publish("9", "Acme · " + DOC, V4)
+            self.assertEqual((repo / (DOC + documents.PIN)).read_text(), before)
+            self.assertFalse(documents.check(repo, store=fs)["ok"], "the store moved, the pin did not: drift, red")
+
+    def test_approve_publishes_a_new_version_and_moves_the_pin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            write(repo / DOC, V4)
+            fs = FakeStore({"9": ["v1", "v2", V3]})
+            r = documents.approve(repo, DOC, store=fs, now="2026-11-09T12:00:00Z")
+            self.assertTrue(r["ok"], r)
+            self.assertEqual(fs.pages["9"], ["v1", "v2", V3, V4], "publishing writes a new version")
+            pin = json.loads((repo / (DOC + documents.PIN)).read_text())
+            self.assertEqual((pin["version"], pin["sha256"], pin["approved_at"], pin["id"], pin["source"]), (4, documents.sha(V4), "2026-11-09T12:00:00Z", "9", "confluence"))
+            self.assertFalse((repo / DOC).exists(), "no copy of the source of truth stays in the repo")
+            self.assertTrue(documents.check(repo, store=fs)["ok"])
+
+    def test_approve_is_idempotent_and_creates_on_first_publish(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / DOC, V3)
+            fs = FakeStore()
+            documents.approve(repo, DOC, store=fs, now="2026-11-09T12:00:00Z")
+            pid = json.loads((repo / (DOC + documents.PIN)).read_text())["id"]
+            self.assertEqual(fs.pages[pid], [V3])
+            self.assertEqual(fs.calls[0], ("publish", None, "Acme · " + DOC), "the first publish finds or creates the page by its title")
+            write(repo / DOC, V3)
+            documents.approve(repo, DOC, store=fs, now="2026-11-09T13:00:00Z")
+            self.assertEqual(fs.pages[pid], [V3], "the same bytes again publish no new version")
+            self.assertEqual(json.loads((repo / (DOC + documents.PIN)).read_text())["version"], 1)
+
+    def test_approve_without_a_file_accepts_the_current_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            fs = FakeStore({"9": ["v1", "v2", V3, V4]})
+            documents.approve(repo, DOC, store=fs, now="2026-11-09T12:00:00Z")
+            self.assertEqual(json.loads((repo / (DOC + documents.PIN)).read_text())["version"], 4, "re-approving the drifted version pins it")
+            self.assertEqual(len(fs.pages["9"]), 4, "nothing published")
+            fs.pages["9"].append("---\nstatus: DRAFT\n---\n")
+            with self.assertRaises(GateFault):
+                documents.approve(repo, DOC, store=fs, now="2026-11-09T13:00:00Z")
+
+    def test_approve_refuses_what_is_not_approved_or_not_homed_outside(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / DOC, "---\nstatus: DRAFT\n---\n")
+            with self.assertRaises(GateFault) as e:
+                documents.approve(repo, DOC, store=FakeStore())
+            self.assertIn("APPROVED", str(e.exception))
+            write(repo / "docs/spec/FEAT-001/test_plan.md", V3)
+            write(repo / "docs/spec/FEAT-001/qa/qa_report_INC-1_1.md", V3)
+            with self.assertRaises(GateFault):
+                documents.approve(repo, "docs/spec/FEAT-001/qa/qa_report_INC-1_1.md", store=FakeStore())   # report homed in the repo
+            with self.assertRaises(GateFault):
+                documents.approve(repo, "docs/spec/FEAT-001/spec.feature", store=FakeStore())
+
+    def test_pull_writes_the_pinned_bytes_as_the_draft(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            documents.pull(repo, DOC, store=FakeStore({"9": ["v1", "v2", V3, V4]}))
+            self.assertEqual((repo / DOC).read_text(), V3)
+            with self.assertRaises(GateFault):
+                documents.pull(repo, DOC, store=FakeStore({"9": [V3]}))   # never over a draft
+
+    def test_a_pin_off_its_category_or_home_is_red(self):
+        """DoD: an external home for a category the code compiles or runs is rejected."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo, rel="docs/spec/FEAT-001/spec.feature")
+            self._pin(repo, rel="docs/spec/FEAT-001/qa/qa_report_INC-1_1.md")
+            self._pin(repo, rel="docs/spec/FEAT-001/test_plan.md", source="built")
+            r = documents.check(repo, store=FakeStore({"9": [V3]}))
+            out = documents.render(r)
+            self.assertFalse(r["ok"], out)
+            self.assertIn("spec.feature", out); self.assertIn("compiles", out)
+            self.assertIn("qa_report_INC-1_1.md", out); self.assertIn("home is the repo", out)
+            self.assertIn("test_plan.md", out); self.assertIn("`built`", out)
+
+    def test_an_approved_copy_of_an_external_category_is_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / DOC, V3)
+            write(repo / "docs/spec/FEAT-002/design.md", "---\nstatus: DRAFT\n---\n")
+            write(repo / "docs/spec/FEAT-001/qa/qa_report_INC-1_1.md", "---\nverdict: APPROVED\n---\n")   # report: home repo
+            r = documents.check(repo, store=FakeStore())
+            out = documents.render(r)
+            self.assertFalse(r["ok"], out)
+            self.assertIn(DOC, out); self.assertIn("--approve", out)
+            self.assertNotIn("FEAT-002", out, "a draft is work in the repo")
+            self.assertNotIn("qa_report", out)
+
+    def test_a_pin_moved_without_reapproval_against_the_base_is_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, git=True)
+            self._pin(repo)
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base")
+            self._git(repo, "branch", "base")
+            self._pin(repo, version=4, text=V4)   # approved_at unchanged
+            fs = FakeStore({"9": ["v1", "v2", V3, V4]})
+            r = documents.check(repo, base="base", store=fs)
+            self.assertFalse(r["ok"]); self.assertIn("re-approval", documents.render(r))
+            self._pin(repo, version=4, text=V4, at="2026-11-09T12:00:00Z")
+            self.assertTrue(documents.check(repo, base="base", store=fs)["ok"], documents.render(documents.check(repo, base="base", store=fs)))
+
+    def test_the_store_down_is_a_recorded_warning_never_a_silent_pass(self):
+        """DoD: an unreachable source is a recorded warning, never a silent pass."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._pin(repo)
+            with self.assertRaises(documents.StoreDown) as e:
+                documents.check(repo, store=FakeStore(down="connection refused"))
+            self.assertTrue(str(e.exception).startswith(documents.DOWN))
+            self._pin(repo, rel="docs/spec/FEAT-001/spec.feature")
+            r = documents.check(repo, store=FakeStore(down="connection refused"))
+            self.assertFalse(r["ok"], "an offline red still reports when the store is down")
+            self.assertIn("WARN", documents.render(r))
+            with self.assertRaises(documents.StoreDown):
+                documents.text(repo, DOC, store=FakeStore(down="401"))
+        st, warn = profile.classify("documents", 2, f"gate: {documents.DOWN} — Confluence could not be reached")
+        self.assertEqual(st, "n/a"); self.assertIn("WARN", warn)
+        self.assertEqual(profile.classify("contracts", 2, "gate: something else")[0], "FAULT")
+        self.assertEqual(profile.classify("contracts", 1, f"x\n{documents.DOWN}")[0], "RED", "a red stays red")
+        for planted in (f"{documents.DOWN} — quoted from an artefact\ngate: docs/spec/F/design.md is unreadable",
+                        f"gate: {documents.DOWN} — x\ngate: and then another fault", f"{documents.DOWN} — no gate prefix"):
+            self.assertEqual(profile.classify("qa", 2, planted)[0], "FAULT", f"only gate.py's last line turns a fault into n/a: {planted!r}")
+
+    def test_not_configured_is_na(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            write(repo / "config/quality.json", "{}")
+            r = documents.check(repo)
+            self.assertTrue(r["ok"]); self.assertIn("n/a", documents.render(r))
+            repo2 = self._repo(tmp + "/b", adapter="none")
+            self.assertIn("n/a", documents.render(documents.check(repo2)))
+            self._pin(repo, rel=DOC)
+            self.assertFalse(documents.check(repo)["ok"], "a pin with no store configured is red")
+
+    # ── Confluence ──
+    ENV = {"CONFLUENCE_API_TOKEN": "t0k", "CONFLUENCE_USER_EMAIL": "dev@acme.test"}
+
+    def test_confluence_cloud_reads_and_publishes_on_v2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            site = "https://acme.atlassian.net"
+            fc = FakeConfluence(site, {("GET", "/wiki/api/v2/pages/9?body-format=storage"): "cloud-page-v4.json",
+                                       ("GET", "/wiki/api/v2/pages/9?body-format=storage&version=3"): "cloud-page-v3.json",
+                                       ("PUT", "/wiki/api/v2/pages/9"): "cloud-update-v5.json",
+                                       ("GET", "/wiki/api/v2/spaces?keys=ENG"): "cloud-spaces.json",
+                                       ("GET", "/wiki/api/v2/pages?space-id=77&title=Acme%20%C2%B7%20docs%2Fspec%2FFEAT-002%2Fdesign.md&status=current"): "cloud-pages-none.json",
+                                       ("POST", "/wiki/api/v2/pages"): "cloud-create.json"})
+            st = documents.Confluence(documents.cfg(repo), fetch=fc, env=self.ENV)
+            self.assertEqual(st.read("9"), (4, V4))
+            self.assertEqual(st.read("9", 3), (3, V3))
+            self.assertTrue(fc.calls[0][2]["Authorization"].startswith("Basic "))
+            self.assertEqual(st.publish("9", "Acme · " + DOC, V3), ("9", 5))
+            put = [c for c in fc.calls if c[0] == "PUT"][0][3]
+            self.assertEqual((put["version"]["number"], put["status"], put["body"]["representation"]), (5, "current", "storage"))
+            self.assertEqual(documents.unwrap(put["body"]["value"]), V3, "what is published reads back byte for byte, `]]>` included")
+            self.assertEqual(st.publish(None, "Acme · docs/spec/FEAT-002/design.md", V3), ("12", 1))
+            post = [c for c in fc.calls if c[0] == "POST"][0][3]
+            self.assertEqual((post["spaceId"], post["status"]), ("77", "current"))
+
+    def test_confluence_data_center_reads_on_v1_with_a_bearer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            block = json.loads((repo / "config/quality.json").read_text())
+            block["documents"].update(site="https://wiki.acme.test/confluence", deployment="dc")
+            write(repo / "config/quality.json", json.dumps(block))
+            site = "https://wiki.acme.test/confluence"
+            fc = FakeConfluence(site, {("GET", "/rest/api/content/9?expand=body.storage,version"): "dc-content-v4.json",
+                                       ("GET", "/rest/api/content/9?expand=body.storage,version&status=historical&version=3"): "dc-content-v3.json",
+                                       ("PUT", "/rest/api/content/9"): "dc-update-v5.json"})
+            st = documents.Confluence(documents.cfg(repo), fetch=fc, env={"CONFLUENCE_API_TOKEN": "pat"})
+            self.assertEqual(st.read("9", 3), (3, V3))
+            self.assertEqual(fc.calls[0][2]["Authorization"], "Bearer pat")
+            self.assertEqual(st.publish("9", "Acme · " + DOC, V3), ("9", 5))
+            put = [c for c in fc.calls if c[0] == "PUT"][0][3]
+            self.assertEqual((put["version"]["number"], put["type"], put["body"]["storage"]["representation"]), (5, "page", "storage"))
+
+    def test_confluence_config_and_credentials(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            with self.assertRaises(documents.StoreDown) as e:
+                documents.Confluence(documents.cfg(repo), fetch=lambda *a: None, env={})
+            self.assertIn("CONFLUENCE_API_TOKEN", str(e.exception))
+            with self.assertRaises(documents.StoreDown):
+                documents.Confluence(documents.cfg(repo), fetch=lambda *a: None, env={"CONFLUENCE_API_TOKEN": "t"})   # Cloud needs the email
+            for site in ("http://acme.atlassian.net", "https://u:p@acme.atlassian.net", "acme"):
+                block = json.loads((repo / "config/quality.json").read_text())
+                block["documents"]["site"] = site
+                write(repo / "config/quality.json", json.dumps(block))
+                with self.assertRaises(GateFault) as e:
+                    documents.Confluence(documents.cfg(repo), fetch=lambda *a: None, env=self.ENV)
+                self.assertNotIsInstance(e.exception, documents.StoreDown, "a malformed site is the team's config, never the store down")
+
+    def test_confluence_transport_faults_are_the_store_down(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            site = "https://acme.atlassian.net"
+            fc = FakeConfluence(site, {("GET", "/wiki/api/v2/pages/9?body-format=storage"): rest.Unreachable("Confluence could not be reached"),
+                                       ("GET", "/wiki/api/v2/pages/8?body-format=storage"): GateFault("Confluence answered 404 for x")})
+            st = documents.Confluence(documents.cfg(repo), fetch=fc, env=self.ENV)
+            with self.assertRaises(documents.StoreDown):
+                st.read("9")
+            with self.assertRaises(GateFault) as e:
+                st.read("8")
+            self.assertNotIsInstance(e.exception, documents.StoreDown, "a page that is gone is red, never the store down")
+
+    def test_a_page_that_no_longer_carries_one_artefact_block_is_red(self):
+        storage = json.loads((DOCS_FX / "two-macros.json").read_text())["body"]["storage"]["value"]
+        for s in (storage, "<p>rewritten by hand</p>"):
+            with self.assertRaises(GateFault) as e:
+                documents.unwrap(s)
+            self.assertIn("one artefact block", str(e.exception))
+        self.assertEqual(documents.unwrap(documents.wrap("p.md", "a]]>b]]>")), "a]]>b]]>")
+        self.assertIn("&lt;x&gt;", documents.wrap("<x>", "y"), "the title parameter is escaped")
+
+    # ── a store built at materialisation ──
+    STORE = r'''
+import json, sys
+from pathlib import Path
+D = Path(sys.argv[1])
+op = sys.argv[2]
+if op == "read":
+    pid, v = sys.argv[3], sys.argv[4]
+    h = json.loads((D / pid).read_text())
+    n = int(v) if v else len(h)
+    print(json.dumps({"version": n, "body": h[n - 1] if "LIE" not in D.name else h[-1]}))
+else:
+    pid, title, f = sys.argv[3], sys.argv[4], sys.argv[5]
+    pid = pid or "p1"
+    h = json.loads((D / pid).read_text()) if (D / pid).exists() else []
+    h.append(Path(f).read_text())
+    (D / pid).write_text(json.dumps(h))
+    print(json.dumps({"id": pid, "version": len(h)}))
+'''
+
+    def _built(self, tmp, name="store"):
+        d = Path(tmp) / name
+        d.mkdir()
+        (Path(tmp) / "store.py").write_text(self.STORE)
+        py = sys.executable
+        return {"read": f"{py} {tmp}/store.py {d} read {{id}} {{version}}", "publish": f"{py} {tmp}/store.py {d} publish {{id}} {{title}} {{file}}"}
+
+    def test_a_built_store_passes_the_probe_and_a_faking_one_fails_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp + "/r", adapter="built", commands=self._built(tmp))
+            r = documents.probe(repo, now="2026-11-09T12:00:00Z")
+            self.assertTrue(r["ok"], documents.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp + "/r", adapter="built", commands=self._built(tmp, "LIE"))
+            r = documents.probe(repo, now="2026-11-09T12:00:00Z")
+            self.assertFalse(r["ok"], "an adapter that reads the latest for every version fails the probe")
+            self.assertIn("version 1", documents.render(r))
+
+    def test_a_built_store_command_failing_is_the_store_down_and_bad_json_is_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            py = sys.executable
+            repo = self._repo(tmp, adapter="built", commands={"read": f"{py} -c 'import sys; sys.exit(3)'", "publish": f"{py} -c 'print(1)'"})
+            self._pin(repo, source="built")
+            with self.assertRaises(documents.StoreDown):
+                documents.text(repo, DOC)
+            write(repo / "config/quality.json", json.dumps({"documents": {"adapter": "built", "homes": {"design": "External"},
+                                                                           "commands": {"read": f"{py} -c 'print(7)'", "publish": f"{py} -c 'print(1)'"}}}))
+            with self.assertRaises(GateFault) as e:
+                documents.text(repo, DOC)
+            self.assertNotIsInstance(e.exception, documents.StoreDown)
+            self.assertIn("{version, body}", str(e.exception))
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "documents", "--read", DOC], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2, "a direct read of an unreadable source of truth exits 2 — nothing rests on it")
+
+    # ── the CLI ──
+    def test_cli_verbs_are_exclusive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, adapter="none")
+            run = lambda *a: subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "documents", *a], capture_output=True, text=True)
+            self.assertEqual(run().returncode, 0)
+            for misuse in (("--read", DOC, "--pull", DOC), ("--ref", "HEAD"), ("--approve", DOC, "--probe"), ("--read", DOC, "--base", "x")):
+                self.assertEqual(run(*misuse).returncode, 2, misuse)
+
+
+# ── EVOL-080, the threaded gates: a pin (no file) changes each verdict exactly as the file would; the store down is StoreDown ──
+PINNED_DOCS = {"adapter": "confluence", "site": "https://acme.atlassian.net", "space": "ENG", "deployment": "cloud",
+               "title_prefix": "Acme", "homes": {"business": "External", "design": "External", "report": "External"}}
+
+
+def pinned_docs(repo: Path):
+    q = json.loads((repo / "config/quality.json").read_text())
+    q["documents"] = PINNED_DOCS
+    write(repo / "config/quality.json", json.dumps(q))
+
+
+def pin_moved(repo: Path, rel: str, text: str | None = None, pid: str = "9") -> dict:
+    """The artefact moved to its home: the pin in the tree, the file gone, version 3 of page `pid` holding `text`."""
+    p = repo / rel
+    text = p.read_text(encoding="utf-8") if text is None else text
+    write(repo / (rel + documents.PIN), json.dumps({"source": "confluence", "id": pid, "version": 3,
+                                                    "approved_at": "2026-11-03T10:00:00Z", "sha256": documents.sha(text)}))
+    p.unlink(missing_ok=True)
+    return {pid: ["v1", "v2", text]}
+
+
+def on_store(pages=None, down=None):
+    return unittest.mock.patch.object(documents, "open_store", lambda repo, c=None, **k: FakeStore(pages, down))
+
+
+def store_fails():
+    return documents.StoreDown(documents.DOWN + " — x")
+
+
+def pgit(repo, *c):
+    return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True, text=True).stdout
+
+
+class BoundsPinned(unittest.TestCase):
+    def _repo(self, tmp):
+        repo = Bounds()._repo(tmp, [{"calls": 1, "connect_s": 1, "read_s": 6, "attempts": 1}])
+        pinned_docs(repo)
+        pages = pin_moved(repo, "docs/spec/F-1/design.md")
+        pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "pinned")
+        return repo, pages
+
+    def test_a_pinned_design_declares_its_functions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, pages = self._repo(tmp)
+            with on_store(pages):
+                fns, probs = bounds.functions(repo)
+            self.assertEqual([f["id"] for f in fns], ["orders-fn"], "the pinned design declares the function exactly as the file did")
+            self.assertEqual(probs, [])
+
+    def test_store_down_propagates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, pages = self._repo(tmp)
+            with on_store(pages, down="x"):
+                self.assertRaises(documents.StoreDown, bounds.functions, repo)
+
+
+class FreezePinned(unittest.TestCase):
+    def test_a_changed_pin_is_a_changed_design(self):
+        for cell, ok in (("", False), ("revoke all · https://datatracker.ietf.org/doc/html/rfc7009", True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = Freeze()._repo(tmp)
+                pinned_docs(repo)
+                pages = pin_moved(repo, Freeze.DESIGN, Freeze._design(cell))
+                with on_store(pages):
+                    r = freeze.check(repo, "main")
+                self.assertEqual(r["ok"], ok, (cell, r))
+                self.assertEqual([e["id"] for e in r["entries"]], [Freeze.DESIGN], "the pin is named by its artefact")
+
+    def test_store_down_propagates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Freeze()._repo(tmp)
+            pinned_docs(repo)
+            pages = pin_moved(repo, Freeze.DESIGN, Freeze._design(""))
+            with on_store(pages, down="x"):
+                self.assertRaises(documents.StoreDown, freeze.check, repo, "main")
+
+
+class DigestsPinned(unittest.TestCase):
+    def test_a_pinned_design_is_judged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Digests()._repo(tmp)
+            pinned_docs(repo)
+            rel = "docs/spec/FEAT-001/design.md"
+            pages = pin_moved(repo, rel, "---\ngovernance_digest_version: \"abcdef12\"\n---\n## 7. GCD\nnothing referenced\n")
+            with on_store(pages):
+                r = digests.check(repo, "main")
+            self.assertFalse(r["ok"], r)
+            self.assertEqual([a["artefact"] for a in r["artefacts"]], [rel])
+            self.assertIn("incomplete", r["artefacts"][0]["reason"])
+            pages = pin_moved(repo, rel, "---\ngovernance_digest_version: \"abcdef12\"\n---\n## 7. GCD\n"
+                              + "".join(f"- rules/{b}.md\n" for b in digests.bound_rules(repo, "main")))
+            with on_store(pages):
+                r = digests.check(repo, "main")
+            self.assertTrue(r["ok"], r)
+
+
+class SealPinned(unittest.TestCase):
+    def test_a_moved_pin_moves_the_readset(self):
+        reads = ["docs/spec/*/design.md"]
+        a = {"docs/spec/F/design.md.pin.json": "aaa", "src/x.py": "1"}
+        b = {"docs/spec/F/design.md.pin.json": "bbb", "src/x.py": "1"}
+        self.assertNotEqual(seal.readset_hash(a, reads), seal.readset_hash(b, reads), "a moved pin invalidates the seal like an edited file")
+        self.assertTrue(seal._in_readset("docs/spec/F/design.md.pin.json", reads))
+        self.assertFalse(seal._in_readset("src/x.py.pin.json", reads))
+        self.assertEqual(seal.readset_hash({"src/x.py": "1"}, reads), seal.readset_hash({"src/x.py": "2"}, reads))
+
+
+class FrontmatterPinned(unittest.TestCase):
+    BASE = "---\nstatus: APPROVED\nscope: backend\n---\n"
+
+    def test_an_approved_artefact_moved_home_is_not_deleted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = FrontmatterLock()._repo(tmp, self.BASE)
+            pinned_docs(repo)
+            rel = "docs/spec/F-001/design.md"
+            with on_store(pin_moved(repo, rel, self.BASE + "body\n")):
+                self.assertEqual(frontmatter.check(repo, "main"), [], "the artefact moved to its home: no deletion")
+            with on_store(pin_moved(repo, rel, self.BASE.replace("backend", "frontend") + "body\n")):
+                self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["scope"], "the pinned bytes are locked like the file")
+            os.remove(repo / (rel + documents.PIN))
+            self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["(deleted)"], "no pin: a deletion stays red")
+
+    def test_store_down_propagates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = FrontmatterLock()._repo(tmp, self.BASE)
+            pinned_docs(repo)
+            with on_store(pin_moved(repo, "docs/spec/F-001/design.md", self.BASE + "body\n"), down="x"):
+                self.assertRaises(documents.StoreDown, frontmatter.check, repo, "main")
+
+
+class ContractsPinned(unittest.TestCase):
+    API = ContractPlans.API
+    _api = staticmethod(ContractPlans._api)
+
+    def _row(self, r, rid):
+        return next((e for e in r["entries"] if e["id"] == rid), None)
+
+    def _branch(self, repo):
+        pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "base"); pgit(repo, "branch", "-M", "main"); pgit(repo, "checkout", "-qb", "feature/F-1-x")
+
+    def test_a_pinned_plan_plans_the_new_operation(self):
+        plan = "docs/spec/F-1/test_plan.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp)); pinned_docs(repo); write(repo / self.API, self._api({("get", "/orders/{id}"): "getOrder"}))
+            self._branch(repo)
+            write(repo / self.API, self._api({("get", "/orders/{id}"): "getOrder", ("post", "/orders"): "createOrder"}))
+            pages = pin_moved(repo, plan, "| ID | Endpoint | Method | Operation |\n|---|---|---|---|\n| TC-API-01 | /orders | POST | `createOrder` |\n")
+            with on_store(pages):
+                r = contracts.check(repo, "main")
+            self.assertTrue(self._row(r, "contract tests")["ok"], contracts.render(r))
+
+    def test_a_changed_pin_is_a_changed_plan_and_its_journey_is_read_through_the_reader(self):
+        plan, journey = "docs/spec/F-1/test_plan.md", "docs/spec/F-1/user_journey.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp)); pinned_docs(repo); write(repo / self.API, self._api({("get", "/orders/{id}"): "getOrder"}))
+            write(repo / journey, "## Section 2: Journey Steps\n### Paso 1\nThe buyer opens the order.\n")
+            write(repo / plan, "| ID | Operation |\n|---|---|\n")
+            self._branch(repo)
+            pages = {**pin_moved(repo, journey), **pin_moved(repo, plan, "| ID | Operation |\n|---|---|\n| TC-API-01 | `getOrder` |\n", pid="10")}
+            with on_store(pages):
+                r = contracts.check(repo, "main")
+            self.assertIsNotNone(self._row(r, plan), "a pinned plan changed since the base is judged as the file would be")
+            self.assertIn("no `### Journey coverage`", contracts.render(r))
+
+
+class ProofPinned(unittest.TestCase):
+    def test_a_pinned_plan_is_no_absent_plan(self):
+        P = Proof("test_trace_scenario_to_evidence")
+        ok = {"ok": True, "problems": []}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = P._repo(tmp); pinned_docs(repo)
+            pages = pin_moved(repo, "docs/spec/FEAT-001/test_plan.md")
+            with on_store(pages), P._evidence(repo, {"FEAT-001/AC-01": ok, "FEAT-001/AC-02": ok}):
+                r = proof.trace(repo, "FEAT-001")
+            self.assertNotIn("is absent", r.get("reason", ""))
+            self.assertTrue(r["ok"], r["entries"])
+
+
+class TraceabilityPinned(unittest.TestCase):
+    REPORT = "docs/spec/FEAT-001/smoke_e2e_report_INC-1.md"
+
+    def _repo(self, tmp):
+        T = Traceability("test_declared_links_and_the_ratchet")
+        repo = T._repo(tmp); pinned_docs(repo)
+        write(repo / "tests/test_login.py", 'import pytest\n\n@pytest.mark.case("FEAT-001/AC-01")\ndef test_login(): pass\n\n@pytest.mark.case("FEAT-001/TC-API-01")\ndef test_api(): pass\n')
+        write(repo / "docs/project_log/traceability_baseline.json", json.dumps({"unlinked": ["FEAT-001/TC-01"]}))
+        write(repo / self.REPORT, "---\nstatus: APPROVED\n---\nCovered TCs: AC-01, TC-01\n")
+        T._commit(repo, "linked")
+        return repo
+
+    def test_a_pinned_plan_declares_and_a_pinned_report_walks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            pages = {**pin_moved(repo, "docs/spec/FEAT-001/test_plan.md"), **pin_moved(repo, self.REPORT, pid="10")}
+            with on_store(pages):
+                c = traceability.cfg(repo)
+                dec, bad = traceability.declared(repo, c)
+                r = traceability.check(repo)
+            self.assertEqual(sorted(dec), ["FEAT-001/AC-01", "FEAT-001/TC-01", "FEAT-001/TC-API-01"], bad)
+            self.assertEqual(r["walks"], {self.REPORT: ["AC-01", "TC-01"]}, r["findings"])
+            self.assertTrue(any("FEAT-001/TC-01" in f["reason"] and f["path"] == self.REPORT for f in r["findings"]),
+                            "a pinned walk is held to its spec as the file is")
+
+    def test_the_store_down_is_no_finding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            pin_moved(repo, self.REPORT)
+            with on_store(down="x"), self.assertRaises(documents.StoreDown):
+                traceability.check(repo)
+
+
+class DataPinned(unittest.TestCase):
+    FDR = "docs/spec/FEAT-3/fdr/FDR-0002-drop-legacy.md"
+    MIG = ("src/migrations/002.sql", "-- FDR: FEAT-3/FDR-0002 the column retires\nDROP TABLE orders;\n")
+
+    def _repo(self, tmp, status):
+        D = Data("test_a_decision_record_is_an_accepted_adr_or_a_features_fdr")
+        repo = D._repo(tmp); pinned_docs(repo)
+        write(repo / self.FDR, f"---\nid: FDR-0002\nstatus: {status}\n---\n# drop\n")
+        return repo, D
+
+    def test_a_pinned_fdr_sanctions_as_the_file_would(self):
+        for status, ok in (("accepted", True), ("proposed", False)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo, D = self._repo(tmp, status)
+                with on_store(pin_moved(repo, self.FDR)):
+                    r, out = D._mig(repo, *self.MIG)
+                self.assertEqual(D._row(r, "migrations")["ok"], ok, out)
+                if not ok:
+                    self.assertIn("which is `proposed`", out)
+
+    def test_the_store_down_propagates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, D = self._repo(tmp, "accepted")
+            pin_moved(repo, self.FDR)
+            with on_store(down="x"), self.assertRaises(documents.StoreDown):
+                D._mig(repo, *self.MIG)
+
+
+class QaPinned(unittest.TestCase):
+    def test_a_pinned_report_decides_a_merged_increment_and_is_judged_when_changed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Qa()._repo(tmp)
+            pinned_docs(repo)
+            plan = lambda st: f"# Increment plan\n### INC-1 — login\n- **Status:** {st}\n"
+            write(repo / "docs/setup.md", "---\nproject_tracking:\n  feature_phases: full-sdlc\n---\n")
+            write(repo / "docs/spec/F-1/increment_plan.md", plan("BUILDING"))
+            pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "preset")
+            base = pgit(repo, "rev-parse", "HEAD").strip()
+            write(repo / "docs/spec/F-1/increment_plan.md", plan("MERGED"))
+            rel = "docs/spec/F-1/qa/qa_report_INC-1_20261109T100000Z.md"
+            bad = qa_report("high")
+            pages = pin_moved(repo, rel, bad)
+            pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "merged on a pinned report")
+            with on_store(pages):
+                r = qa.check(repo, base)
+            self.assertFalse(r["ok"])
+            self.assertIn("qa_report_INC-1_20261109T100000Z.md is not approvable", qa.render(r), "the pin is the report: read live, judged as the file would be")
+            self.assertIn(rel, [e["id"] for e in r["entries"]], "a changed pin is a changed report")
+            good = qa_report()
+            pages = pin_moved(repo, rel, good)
+            pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "re-approved")
+            with on_store(pages):
+                r = qa.check(repo, base)
+            self.assertTrue(r["ok"], qa.render(r))
+            with on_store({"9": ["v1", "v2", store_fails()]}), self.assertRaises(documents.StoreDown, msg="a store that cannot answer is infra, never a red"):
+                qa.check(repo, base)
+
+
+class DeliveryPinned(unittest.TestCase):
+    def test_a_pinned_sweep_and_smoke_are_the_pr_verdicts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Delivery()._repo(tmp)
+            pinned_docs(repo)
+            q = json.loads((repo / "config/quality.json").read_text()); q["documentation"] = {"paths": ["**/*.md", "docs/**"], "exclusions": []}
+            write(repo / "config/quality.json", json.dumps(q))
+            write(repo / "docs/setup.md", "---\nproject_tracking:\n  feature_phases: full-sdlc\nqa:\n  smoke_cadence: feature-close\n---\n# Setup\n")
+            write(repo / "docs/spec/F-1/increment_plan.md", "# Plan\n### INC-1 — a\n### INC-2 — b\n")
+            pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "preset"); base = pgit(repo, "rev-parse", "HEAD").strip()
+            write(repo / "src/app.py", "x = 1\n")
+            sweep, smoke = "---\nstatus: COMPLETED\nnot_delivered: []\n---\n", "---\nstatus: APPROVED\n---\n"
+            pages = {**pin_moved(repo, "docs/spec/F-1/review/preventive_sweep_20261108.md", sweep),
+                     **pin_moved(repo, "docs/spec/F-1/smoke_e2e_report.md", smoke, pid="10")}
+            pgit(repo, "add", "-A"); pgit(repo, "commit", "-qm", "pinned verdicts")
+            with on_store(pages):
+                r = delivery.pr(repo, base, "feature/F-1-inc-2-b")
+            self.assertTrue(r["ok"], delivery.render(r))
+            self.assertEqual([e["id"] for e in r["entries"]], ["docs/spec/F-1/review/preventive_sweep_20261108.md", "docs/spec/F-1/smoke_e2e_report.md"])
+            with on_store({**pages, "10": ["v1", "v2", "---\nstatus: DRAFT\n---\n"]}):
+                with self.assertRaisesRegex(GateFault, "not the approved bytes"):
+                    delivery.pr(repo, base, "feature/F-1-inc-2-b")
+            with on_store({**pages, "9": ["v1", "v2", store_fails()]}), self.assertRaises(documents.StoreDown):
+                delivery.pr(repo, base, "feature/F-1-inc-2-b")
+
+
+class CoherencePinned(unittest.TestCase):
+    def test_a_pinned_certifying_report_is_found_and_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            c = Coherence()
+            repo = c._repo(tmp, "feature/F-001-x")
+            pinned_docs(repo)
+            rel = "docs/spec/F-001/qa/qa_report_final_20260101.md"
+            text = "---\nstatus: APPROVED\n---\n"
+            pages = pin_moved(repo, rel, text)
+            c._commit(repo, "pinned verdict")
+            with on_store(pages):
+                findings, faults = coherence.currency(repo, "origin/main")
+            self.assertEqual(faults, [])
+            self.assertIn("certifies-missing", {f["path"]: f["reason"] for f in findings}.get(rel, ""), "a pinned terminal verdict owes its certification")
+            with on_store({"9": ["v1", "v2", store_fails()]}), self.assertRaises(documents.StoreDown, msg="never `frontmatter unreadable`"):
+                coherence.currency(repo, "origin/main")
+            loose = "docs/spec/F-001/review/peer_review_20260101.md"
+            write(repo / ".gitignore", "*.pin.json\n"); c._commit(repo, "ignore pins")
+            pages = {**pages, **pin_moved(repo, loose, text, pid="11")}
+            with on_store(pages):
+                reasons = {f["path"]: f["reason"] for f in coherence.currency(repo, "origin/main")[0]}
+            self.assertIn("not tracked", reasons.get(loose + documents.PIN, ""), "an untracked pin is a verdict of record not versioned")

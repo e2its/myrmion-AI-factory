@@ -352,6 +352,8 @@ Findings (carried + new) are the input to the project's security/issue tracker โ
 
 ## Command: `--approve`
 
+> **Deliverable homes (EVOL-080).** `report` homed External: once `technical_due.md` / `software_audit.md` is written APPROVED, run `python3 scripts/gate.py documents --approve` on it and commit the pin. `--refine` on a pinned audit runs `--pull` first (rules/documentation.md ยง Deliverable homes).
+
 ### Risk Score Calculation
 ```yaml
 risk_score = 0

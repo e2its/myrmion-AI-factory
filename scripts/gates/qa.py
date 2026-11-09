@@ -35,6 +35,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from . import documents
 from .common import GateFault, frontmatter_of, glob_match, key, rules_root
 
 RANK = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
@@ -51,6 +52,12 @@ NA_OWED = ("QA-PRE-DEPLOY",)   # besides the DAST probes: an n/a states its reas
 GIT_TIMEOUT = 60
 PLAN_GLOB = "docs/spec/*/increment_plan.md"
 REPORT_GLOB = "docs/spec/*/qa/qa_report*.md"
+
+
+def _text(repo: Path, rel: str) -> str | None:
+    """A report or plan as QA reads it: the file (decoding as ever), else its pin read live (EVOL-080)."""
+    p = repo / rel
+    return p.read_text(encoding="utf-8", errors="replace") if p.is_file() else documents.text(repo, rel)
 
 
 def threshold(repo: Path) -> str:
@@ -170,7 +177,7 @@ def _proof_row(repo: Path, text: str, control_point: str = "push") -> dict | Non
     needs the whole trace of its feature green. None when the report names no feature with a test plan."""
     fm = frontmatter_of(text)
     f = str(fm.get("id") or "").strip()
-    if not f or "/" in f or not (repo / "docs/spec" / f / "test_plan.md").is_file():
+    if not f or "/" in f or not documents.exists(repo, f"docs/spec/{f}/test_plan.md"):
         return None
     from . import proof
     t = proof.trace(repo, f, control_point)   # at ci the seal is not on the runner: n/a, never red (seal.check)
@@ -316,12 +323,11 @@ def _close_rows(repo: Path, env: str, feature: str, rec: dict) -> list[dict]:
                 prod.append(f"{k}: {err}")
     rows.append({"id": "production", "ok": not prod, "problems": prod, "note": "every adapter command fills for production"})
     rel = f"docs/spec/{feature}/devops_plan.md"
-    plan = repo / rel
+    text = _text(repo, rel)
     rb = []
-    if not plan.is_file():
+    if text is None:
         rb.append(f"{rel} is absent — DEVOPS --configure writes it with its `## Rollback` section")
     else:
-        text = plan.read_text(encoding="utf-8", errors="replace")
         m = ROLLBACK.search(text)
         if not m:
             rb.append(f"{rel} has no `## Rollback` section — what a rollback restores and what it cannot")
@@ -360,25 +366,25 @@ def check(repo: Path, base: str, control_point: str = "push") -> dict:
     from .train import increments
     if data.answers(repo).get("project_tracking.feature_phases") != "full-sdlc":
         return {"ok": True, "na": True, "entries": [], "reason": "the feature preset is not full-sdlc — no QA phase"}
-    paths = [p for p in seal.diff_paths(repo, base) if (repo / p).is_file()]
+    paths = documents.artefacts(p for p in seal.diff_paths(repo, base) if (repo / p).is_file())   # a changed pin is a changed report
     rows = []
     for rel in sorted(p for p in paths if glob_match(p, PLAN_GLOB)):
         feature, before = rel.split("/")[2], _merged_at(repo, base, rel)
         for inc in increments((repo / rel).read_text(encoding="utf-8", errors="replace")):
             if inc["status"] != "MERGED" or inc["id"] in before:
                 continue
-            reps = sorted((repo / f"docs/spec/{feature}/qa").glob(f"qa_report_{inc['id']}_*.md"))
+            reps = [Path(r) for r in documents.glob(repo, f"docs/spec/{feature}/qa/qa_report_{inc['id']}_*.md")]
             if not reps:
                 rows.append({"id": f"{rel} {inc['id']}", "ok": False, "note": "", "problems": [f"{inc['id']} is MERGED with no QA report — /qa --verify {feature} {inc['id']} first"]})
                 continue
-            text = reps[-1].read_text(encoding="utf-8", errors="replace")
+            text = _text(repo, reps[-1].as_posix())
             fm = frontmatter_of(text)
             v = verdict(repo, text, control_point)
             probs = ([] if approved(fm) else [f"its newest report {reps[-1].name} is {fm.get('status')!r}, not APPROVED"]) + \
                     ([] if v["ok"] else [f"{reps[-1].name} is not approvable: " + "; ".join(p for r in v["entries"] for p in r["problems"])])
             rows.append({"id": f"{rel} {inc['id']}", "ok": not probs, "problems": probs, "note": f"MERGED on {reps[-1].name}"})
     for rel in sorted(p for p in paths if glob_match(p, REPORT_GLOB)):
-        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        text = _text(repo, rel)
         if not approved(frontmatter_of(text)):
             continue
         v = verdict(repo, text, control_point)

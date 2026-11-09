@@ -387,6 +387,12 @@ PY
 3. **The adapter.** Re-render `docs/backlog/tool-adapter.md` from the derived adapter's template (Jira loses its stub banner). A tracker with no adapter (Linear and any other): the derived adapter is `none` — `state.md` lands (`templates_to_add`); copy the open items into it with one `gate.py tracker --ensure` (one row per item, its state), then remove `project-config.json` (`templates_to_remove`). The old stub files under `docs/backlog-tool-adapters/` stay; the team's own board is no longer driven. Jira with Q27.8 `mcp`: run the browser-mcp block above — it merges every `configures → mcp.servers` row, the `atlassian` row included, by the same rule.
 4. **Nothing moves at upgrade.** The next phase command's `tracker --start` moves its item; an item in a column outside the flow stays where it is.
 
+**documents (EVOL-080).** One row, three writes:
+
+1. **The answers.** `--resolve` lists the pending Q38 (`documents.source`) and, by its derived `documents.adapter`, Q38.1–Q38.7; ask them (RDR). The recommendation is `None` unless the team already reads its documents in a wiki.
+2. **The documents block.** Add the template's `documents` block to `config/quality.json`: `adapter` ← the derived adapter, `site` / `space` / `deployment` ← Q38.1 / Q38.2 / the derived deployment, `title_prefix` ← the project name, `homes` ← Q38.5–Q38.7 (`Repo` for an unasked category). A project answering `None` gets `{adapter: none}` and nothing else moves. A store with no shipped adapter (`built`): build `documents.commands` (Factory-setup-materialization § Deliverable homes) and run `python3 scripts/gate.py documents --probe` — no category is homed `External` before it is green.
+3. **No document moves at upgrade.** An approved artefact of a category homed `External` stays a file until its owner phase approves it again; `python3 scripts/gate.py documents` names each one (`--approve` publishes it and writes its pin).
+
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).

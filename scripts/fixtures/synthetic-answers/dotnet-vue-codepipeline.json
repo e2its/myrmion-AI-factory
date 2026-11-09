@@ -22,6 +22,7 @@
     "scm.platform": "GitHub",
     "project_tracking.tool": "None",
     "project_tracking.flow": ["Backlog", "Ready", "In Progress", "Done"],
+    "documents.source": "None",
     "po_package.mode": "full",
     "po_package.ds_rebuild_command": null,
     "surface.runtime_surface": ["src/**", "scripts/**"],

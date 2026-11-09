@@ -30,6 +30,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from . import documents
 from .common import GateFault, clean, context, glob_match, parse_yaml, tracked_files
 
 PACKS = "security/bounds"
@@ -122,8 +123,16 @@ def scan(repo: Path, runner=subprocess.run) -> list[dict]:
 def functions(repo: Path) -> tuple[list[dict], list[str]]:
     """The function resources every design declares → ([{at, id, timeout, clients}], problems)."""
     fns, probs = [], []
-    for rel in sorted(p for p in tracked_files(repo) if glob_match(p, DESIGN_GLOB)):
-        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+    for rel in sorted(p for p in documents.artefacts(tracked_files(repo)) if glob_match(p, DESIGN_GLOB)):
+        disk = repo / rel   # a file wins over its pin; a pinned design is read at its pinned version (EVOL-080)
+        try:
+            text = disk.read_text(encoding="utf-8", errors="replace") if disk.is_file() else documents.text(repo, rel)
+        except documents.StoreDown:
+            raise
+        except GateFault as e:   # a pin the store does not honour is red, never infra
+            probs.append(f"{rel}: {e}"); continue
+        if text is None:
+            continue
         for block in YAML_BLOCK.findall(text):
             if "infrastructure_needs" not in block:
                 continue

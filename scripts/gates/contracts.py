@@ -76,6 +76,7 @@ from pathlib import Path
 
 import unicodedata
 
+from . import documents
 from .common import GateFault, clean as _clean, key, parse_yaml, tracked_files
 from .freeze import CONTRACT_RE, _load, _parse, _walk
 from .frontmatter import _at   # lenient: a base blob that is not UTF-8 reads, never faults
@@ -274,6 +275,18 @@ def _inside(repo: Path, p: Path) -> bool:
         return False
 
 
+def _plans(repo: Path) -> list[str]:
+    """Every docs/spec/*/test_plan.md — a file or its pin (EVOL-080) — that resolves inside the repository."""
+    return [r for r in documents.glob(repo, "docs/spec/*/test_plan.md")
+            if _inside(repo, repo / r if (repo / r).is_file() else repo / (r + documents.PIN))]
+
+
+def _doc(repo: Path, rel: str) -> str | None:
+    """The artefact's text through the one reader: the file (lenient bytes) when there is one, else its pin read live."""
+    p = repo / rel
+    return p.read_text(encoding="utf-8", errors="replace") if p.is_file() else documents.text(repo, rel)
+
+
 def _unreadable(what: str, e: BaseException) -> str:
     if isinstance(e, GateFault):
         return f"cannot be read as {what} — {str(e).replace('frontmatter is not valid YAML', 'not valid YAML')}; fix its syntax"
@@ -387,11 +400,8 @@ def statuses(repo: Path, docs: dict) -> tuple[dict[str, str], list[str]]:
             if o["named"]:
                 ops.setdefault(n, set()).update(o["responses"])
     plan_probs = []
-    for p in sorted((repo / "docs/spec").glob("*/test_plan.md")) if (repo / "docs/spec").is_dir() else []:
-        if not _inside(repo, p):
-            continue
-        rel = p.relative_to(repo).as_posix()
-        for head, rows in _tables(p.read_text(encoding="utf-8", errors="replace")):
+    for rel in _plans(repo):
+        for head, rows in _tables(_doc(repo, rel) or ""):
             low = [h.lower() for h in head]
             if low[:1] != ["id"] or "operation" not in low or "expected status" not in low:
                 continue
@@ -619,10 +629,8 @@ def _base_ops(repo: Path, ref: str) -> set[str]:
 def _plan_ops(repo: Path) -> set[str]:
     """Every operation a TC-API row names, in any docs/spec/*/test_plan.md (the `Operation` cell of an ID table)."""
     out: set[str] = set()
-    for p in sorted((repo / "docs/spec").glob("*/test_plan.md")) if (repo / "docs/spec").is_dir() else []:
-        if not _inside(repo, p):
-            continue
-        for head, rows in _tables(p.read_text(encoding="utf-8", errors="replace")):
+    for rel in _plans(repo):
+        for head, rows in _tables(_doc(repo, rel) or ""):
             low = [h.lower() for h in head]
             if low[:1] == ["id"] and "operation" in low:
                 i = low.index("operation")
@@ -671,7 +679,7 @@ def _plan_rows(repo: Path, base: str | None, docs: dict) -> list[dict]:
         ref = _reference(repo, base)
         names = {n for d in docs.values() for n in operations(d)}
         new = names - _base_ops(repo, ref)
-        changed = _changed(repo, ref)
+        changed = documents.artefacts(sorted(_changed(repo, ref)))   # a changed pin is a changed plan (EVOL-080)
     except GateFault as e:
         return [{"id": "contract tests", "ok": False, "problems": [f"cannot read the base — {e}"], "note": ""}]
     planned, rows = _plan_ops(repo), []
@@ -684,10 +692,10 @@ def _plan_rows(repo: Path, base: str | None, docs: dict) -> list[dict]:
     rows.append({"id": "contract tests", "ok": not problems, "problems": problems,
                  "note": f"{len(new)} new operation(s), each named by a TC-API row"})
     for f in sorted(p for p in changed if PLAN_RE.fullmatch(p)):
-        plan, journey = repo / f, repo / f.replace("test_plan.md", "user_journey.md")
-        if not plan.is_file() or not journey.is_file() or not _inside(repo, plan) or not _inside(repo, journey):
+        j = f.replace("test_plan.md", "user_journey.md")
+        if not all(documents.exists(repo, r) and _inside(repo, repo / r if (repo / r).is_file() else repo / (r + documents.PIN)) for r in (f, j)):
             continue
-        problems = coverage(plan.read_text(encoding="utf-8", errors="replace"), journey.read_text(encoding="utf-8", errors="replace"), names)
+        problems = coverage(_doc(repo, f), _doc(repo, j), names)
         rows.append({"id": f, "ok": not problems, "problems": problems, "note": "every journey step covered by an operation or a reason"})
     return rows
 

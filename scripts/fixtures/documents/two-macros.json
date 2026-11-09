@@ -1,0 +1,23 @@
+{
+ "id": "9",
+ "status": "current",
+ "title": "Acme · docs/spec/FEAT-001/design.md",
+ "spaceId": "77",
+ "parentType": "page",
+ "version": {
+  "number": 3,
+  "createdAt": "2026-11-03T10:00:00.000Z",
+  "message": "",
+  "minorEdit": false,
+  "authorId": "5b10"
+ },
+ "body": {
+  "storage": {
+   "representation": "storage",
+   "value": "<p>Managed by the SDLC.</p><ac:structured-macro ac:name=\"code\"><ac:plain-text-body><![CDATA[x]]></ac:plain-text-body></ac:structured-macro><ac:structured-macro ac:name=\"code\" ac:schema-version=\"1\" ac:local-id=\"a1b2\"><ac:parameter ac:name=\"title\">docs/spec/FEAT-001/design.md</ac:parameter><ac:plain-text-body><![CDATA[---\nstatus: APPROVED\n---\n# Design\n\nThe client waits 2 s. A literal ]]]]><![CDATA[> survives.\n]]></ac:plain-text-body></ac:structured-macro>"
+  }
+ },
+ "_links": {
+  "webui": "/spaces/ENG/pages/9"
+ }
+}

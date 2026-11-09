@@ -2267,6 +2267,121 @@
      "record_only": "the answer configures config/quality.json → performance.thresholds, which gate.py performance reads; nothing reads this copy"
     }
    }
+  },
+  {
+   "id": "Q38",
+   "tier": 2,
+   "since": "10.4.0",
+   "keys": {
+    "documents.source": {
+     "free": "text",
+     "suggestions": [
+      "Confluence",
+      "None"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q38.1",
+   "tier": 2,
+   "since": "10.4.0",
+   "when": "documents.adapter == confluence",
+   "keys": {
+    "documents.site": {
+     "free": "text",
+     "fills": [
+      "DOCUMENTS_SITE"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q38.2",
+   "tier": 2,
+   "since": "10.4.0",
+   "when": "documents.adapter == confluence",
+   "keys": {
+    "documents.space": {
+     "free": "text",
+     "fills": [
+      "DOCUMENTS_SPACE"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q38.3",
+   "tier": 2,
+   "since": "10.4.0",
+   "when": "documents.adapter == confluence",
+   "keys": {
+    "documents.token": {
+     "free": "vault_name"
+    }
+   }
+  },
+  {
+   "id": "Q38.4",
+   "tier": 2,
+   "since": "10.4.0",
+   "when": "documents.adapter == confluence AND documents.deployment == cloud",
+   "keys": {
+    "documents.user": {
+     "free": "vault_name"
+    }
+   }
+  },
+  {
+   "id": "Q38.5",
+   "tier": 2,
+   "since": "10.4.0",
+   "when": "documents.adapter IN [confluence, built]",
+   "keys": {
+    "deliverables.business.home": {
+     "options": [
+      "External",
+      "Repo"
+     ],
+     "fills": [
+      "DOCUMENTS_HOME_BUSINESS"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q38.6",
+   "tier": 2,
+   "since": "10.4.0",
+   "when": "documents.adapter IN [confluence, built]",
+   "keys": {
+    "deliverables.design.home": {
+     "options": [
+      "External",
+      "Repo"
+     ],
+     "fills": [
+      "DOCUMENTS_HOME_DESIGN"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q38.7",
+   "tier": 2,
+   "since": "10.4.0",
+   "when": "documents.adapter IN [confluence, built]",
+   "keys": {
+    "deliverables.report.home": {
+     "options": [
+      "External",
+      "Repo"
+     ],
+     "fills": [
+      "DOCUMENTS_HOME_REPORT"
+     ]
+    }
+   }
   }
  ],
  "derived": {
@@ -2471,6 +2586,35 @@
    },
    "fills": [
     "TRACKER_ADAPTER"
+   ]
+  },
+  "documents.adapter": {
+   "from": "Q38 documents.source: Confluence → confluence, None → none, anything else → built (its store adapter built at materialisation, proven by gate.py documents --probe) and a warning naming the answer (EVOL-080)",
+   "matches": {
+    "key": "documents.source",
+    "values": {
+     "confluence": "confluence",
+     "none": "none"
+    },
+    "else": "built",
+    "warn": "`{answer}` has no shipped store — its adapter (documents.commands read / publish) is built at materialisation and proven by `gate.py documents --probe` before any category is homed there"
+   },
+   "fills": [
+    "DOCUMENTS_ADAPTER"
+   ]
+  },
+  "documents.deployment": {
+   "from": "Q38.1 documents.site: an *.atlassian.net site → cloud (REST v2, email + API token), any other → dc (Data Center REST v1, personal access token) (EVOL-080)",
+   "matches": {
+    "key": "documents.site",
+    "values": {
+     "atlassian.net": "cloud"
+    },
+    "else": "dc",
+    "warn": "`{answer}` is not an Atlassian Cloud site — Confluence Data Center (REST v1, a personal access token)"
+   },
+   "fills": [
+    "DOCUMENTS_DEPLOYMENT"
    ]
   }
  },
@@ -2868,6 +3012,12 @@
    "since": "10.3.0",
    "detect": "config/quality.json#/tracker",
    "apply": "tracker (EVOL-079)"
+  },
+  {
+   "id": "documents (EVOL-080)",
+   "since": "10.4.0",
+   "detect": "config/quality.json#/documents",
+   "apply": "documents (EVOL-080)"
   }
  ]
 }

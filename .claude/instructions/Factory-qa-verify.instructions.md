@@ -393,6 +393,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
           4. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
           5. When overall_verdict turns PASS: certifies = RUN python3 scripts/gate.py certify --subject tree --paths '{src_root}/**' '{tests_root}/**'
              and WRITE the printed block under frontmatter `certifies:` (EVOL-044 — the smoke certifies the build it ran on)
+             then, with `report` homed External, once the report is APPROVED: RUN python3 scripts/gate.py documents --approve docs/spec/{FEATURE_ID}/smoke_e2e_report.md (rules/documentation.md § Deliverable homes, EVOL-080)
           5. Move the SMOKE-E2E issue to Done
           6. Re-run QA --verify {FEATURE_ID}
       STOP
@@ -829,6 +830,7 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
   IF verdict == "APPROVED":
     # gate.py qa --verdict exit 0 — auto-approve
     UPDATE_FRONTMATTER(qa_report_path, "status", "APPROVED")
+    IF documents.homes.report == "External": RUN: python3 scripts/gate.py documents --approve {qa_report_path}   # rules/documentation.md § Deliverable homes (EVOL-080)
     LOG: "QA auto-approved: computed verdict approvable — {counts.total} items done, no finding at or above {v.threshold}"
     APPEND_TO_WORKLOG:
       {"timestamp":"YYYY-MM-DD","phase":"QA","user_agent":"QA","action":"--verify {{FEATURE_ID}}","result":"APPROVED","feature_id":"{{FEATURE_ID}}","observations":"qa_report generated + auto-approved — verdict: APPROVED — MERGE + production deployment now enabled"}
