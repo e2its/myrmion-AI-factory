@@ -605,11 +605,13 @@ SWEEP_GLOB = "docs/spec/*/review/preventive_sweep_*.md"
 
 
 def _verdict(repo: Path, rel: str, paths: list[str], status: str, what: str, extra=None) -> dict:
-    """One owed verdict artefact: in this PR's diff, at `status` (and `not_delivered: []` for the sweep)."""
-    from .common import read_frontmatter
-    if rel not in paths or not (repo / rel).is_file():
+    """One owed verdict artefact: in this PR's diff, at `status` (and `not_delivered: []` for the sweep). `paths` names
+    a pin by its artefact; a pinned verdict is read live through the one reader (EVOL-080)."""
+    from . import documents
+    from .common import frontmatter_of, read_frontmatter
+    if rel not in paths or not documents.exists(repo, rel):
         return _row(rel, [f"not in this pull request — {what}"])
-    fm = read_frontmatter(repo / rel)
+    fm = read_frontmatter(repo / rel) if (repo / rel).is_file() else frontmatter_of(documents.text(repo, rel))
     probs = [] if fm.get("status") == status else [f"status is {fm.get('status')!r}, not {status}"]
     for k, v in (extra or {}).items():
         if fm.get(k) != v:
@@ -624,7 +626,7 @@ def pr(repo: Path, base: str, branch: str) -> dict:
     COMPLETED with `not_delivered: []`; the smoke at `qa.smoke_cadence` — `per-slice`: the increment's
     `smoke_e2e_report_INC-N.md` APPROVED; the PR that closes the feature (no increment in the branch, or its last
     INC of increment_plan.md) also `smoke_e2e_report.md` APPROVED. Their currency is `gate.py currency`'s."""
-    from . import data, seal
+    from . import data, documents, seal
     from . import branch as branch_mod
     from .common import glob_match
     from .train import INC_RE as PLAN_INC
@@ -639,8 +641,8 @@ def pr(repo: Path, base: str, branch: str) -> dict:
         return {"ok": True, "na": True, "reason": "the feature preset is not full-sdlc — no verdict owed", "entries": []}
     if seal.docs_only(repo, base)["ok"]:
         return {"ok": True, "na": True, "reason": "documentation only — no verdict owed", "entries": []}
-    paths = seal.diff_paths(repo, base)
-    sweeps = sorted(p for p in paths if glob_match(p, SWEEP_GLOB) and (repo / p).is_file())
+    paths = documents.artefacts(seal.diff_paths(repo, base))   # a changed pin is a changed verdict
+    sweeps = sorted(p for p in paths if glob_match(p, SWEEP_GLOB) and documents.exists(repo, p))
     if not sweeps:
         return {"ok": False, "entries": [], "reason": f"no preventive-sweep report ({SWEEP_GLOB}) in this pull request — the agent sweeps the change first"}
     rows = [_verdict(repo, sweeps[-1], paths, "COMPLETED", "the agent sweeps the change first", {"not_delivered": []})]

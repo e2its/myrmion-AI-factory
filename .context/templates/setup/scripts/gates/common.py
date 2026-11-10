@@ -284,6 +284,17 @@ def frontmatter_of(text: str) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def approved(fm: dict, accept=frozenset({"APPROVED"})) -> bool:
+    """The one approval predicate (qa, documents): the first word of status, verdict or overall_verdict is in `accept`
+    (case and decoration aside) and none says REJECTED or INVALIDATED. A value that is not a string approves nothing."""
+    def head(k):
+        v = fm.get(k)
+        w = re.sub(r"[^A-Z_]", " ", v.upper()).split() if isinstance(v, str) else []
+        return w[0] if w else ""
+    heads = {head("status"), head("verdict"), head("overall_verdict")}
+    return bool(heads & set(accept)) and not heads & {"REJECTED", "INVALIDATED"}
+
+
 def iteration_state(fm: dict) -> dict:
     """read_iteration_state (LAW-09, factory-iteration-model § Dual-format read): the one reader of an artefact's iteration."""
     its = fm.get("iterations")
@@ -374,7 +385,7 @@ _RANGE_SHAPE = re.compile(r"[A-Za-z0-9._/~^-]+(\.\.\.?[A-Za-z0-9._/~^-]+)?")   #
 
 
 def _range_commit(repo: Path, ref: str, env: dict | None) -> str:
-    r = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+    r = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", ref + "^{commit}"],
                        capture_output=True, text=True, timeout=30, env=env)
     if r.returncode or not r.stdout.strip():
         raise GateFault(f"the scan range side `{clean(ref, 120)}` is not a commit here — fetch it (a shallow clone needs more history; a range cannot start before the first commit), then scan again; the scanner never runs on a range it cannot resolve")

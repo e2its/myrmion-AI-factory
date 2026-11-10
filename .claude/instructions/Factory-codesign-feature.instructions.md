@@ -690,6 +690,8 @@ FUNCTION codesign_auto_approve(FEATURE_ID):
     artifacts = [user_journey.md, spec.feature] + (has_ui ? [mock.html] : []) + (slicing_strategy == "incremental" ? [slice_map.md] : [])
     FOR EACH artifact IN artifacts:
       UPDATE_FRONTMATTER("{base_path}/{artifact}", "status", "APPROVED")
+      IF documents.homes.business == "External" AND artifact IN [user_journey.md, slice_map.md]:   # rules/documentation.md § Deliverable homes (EVOL-080)
+        RUN: python3 scripts/gate.py documents --approve {base_path}/{artifact}   # publish + pin; commit the pin
     LOG: "CODESIGN auto-approved: all applicable validations passed"
     APPEND_TO_WORKLOG:
       {"timestamp":"YYYY-MM-DD","phase":"Co-Creation","user_agent":"CODESIGN","action":"--start {{FEATURE_ID}}","result":"APPROVED","feature_id":"{{FEATURE_ID}}","observations":"3-4 artifacts created + auto-approved (all applicable validations passed; slice_map.md when incremental) — BLUEPRINT now enabled"}
@@ -720,6 +722,9 @@ IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-comman
 ```
 
 ### Refine Execution Sequence
+
+> **Pinned artefact (rules/documentation.md § Deliverable homes, EVOL-080).** With `business` homed External, run `python3 scripts/gate.py documents --pull <path>` on each pinned artefact before refining it. The approval at the end re-pins it.
+
 ```yaml
 # Step 1: Apply feedback (classify by concern, PO / UX — same context)
 # Step 2: Compute refine_changes (diff of new vs existing concepts)

@@ -96,6 +96,7 @@ FUNCTION qa_iteration_detection_gate(FEATURE_ID, command):
   # It ensures QA is not verifying stale code built against old specs.
 
   # Step 0: Legacy-Safe Defaults
+  # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
   spec_iteration = READ_FRONTMATTER("spec.feature", "iteration") OR 1
   tp_based_on = READ_FRONTMATTER("test_plan.md", "based_on_iteration") OR 1
   tp_pending = READ_FRONTMATTER("test_plan.md", "pending_iteration") OR NULL
@@ -316,6 +317,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       ❌ BLOCK: "`{INCREMENT_ID}` is not an increment id (INC-N)."
       STOP
     slice_report = "docs/spec/{FEATURE_ID}/smoke_e2e_report_{INCREMENT_ID}.md"
+    # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
     IF NOT FILE_EXISTS(slice_report):
       ❌ BLOCK: "The smoke for increment {INCREMENT_ID} has not run on its {preproduction} deployment."
       REDIRECT: "Walk the increment's cases plus every earlier increment's on the {preproduction} build, record them in {slice_report} (template .context/templates/qa/smoke_e2e_report_template.md, increment_id: {INCREMENT_ID}), then re-run."
@@ -393,12 +395,14 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
           4. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
           5. When overall_verdict turns PASS: certifies = RUN python3 scripts/gate.py certify --subject tree --paths '{src_root}/**' '{tests_root}/**'
              and WRITE the printed block under frontmatter `certifies:` (EVOL-044 — the smoke certifies the build it ran on)
+             then, with `report` homed External, once the report is APPROVED: RUN python3 scripts/gate.py documents --approve docs/spec/{FEATURE_ID}/smoke_e2e_report.md (rules/documentation.md § Deliverable homes, EVOL-080)
           5. Move the SMOKE-E2E issue to Done
           6. Re-run QA --verify {FEATURE_ID}
       STOP
 
     # Verify the smoke report exists on disk and is still valid
     smoke_report = "docs/spec/{FEATURE_ID}/smoke_e2e_report.md"
+    # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
     IF FILE_EXISTS(smoke_report):
       fm = READ_FRONTMATTER(smoke_report)
       IF fm.status == "INVALIDATED":
@@ -829,6 +833,7 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
   IF verdict == "APPROVED":
     # gate.py qa --verdict exit 0 — auto-approve
     UPDATE_FRONTMATTER(qa_report_path, "status", "APPROVED")
+    IF documents.homes.report == "External": RUN: python3 scripts/gate.py documents --approve {qa_report_path}   # rules/documentation.md § Deliverable homes (EVOL-080)
     LOG: "QA auto-approved: computed verdict approvable — {counts.total} items done, no finding at or above {v.threshold}"
     APPEND_TO_WORKLOG:
       {"timestamp":"YYYY-MM-DD","phase":"QA","user_agent":"QA","action":"--verify {{FEATURE_ID}}","result":"APPROVED","feature_id":"{{FEATURE_ID}}","observations":"qa_report generated + auto-approved — verdict: APPROVED — MERGE + production deployment now enabled"}

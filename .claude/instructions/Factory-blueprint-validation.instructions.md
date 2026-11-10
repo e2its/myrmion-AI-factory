@@ -361,6 +361,7 @@ See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 f
 ### Freezing
 - Set `design.md` frontmatter: `status: APPROVED`
 - Set `test_plan.md` frontmatter: `status: APPROVED`
+- `design` homed External: run `python3 scripts/gate.py documents --approve` on both, then commit the pins (rules/documentation.md § Deliverable homes, EVOL-080)
 - Both artifacts become reference documents for IMPLEMENT
 
 ### CIP Codebase Inventory Update Gate (BLOCKING — M-04)

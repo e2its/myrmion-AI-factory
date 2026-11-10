@@ -1,5 +1,5 @@
 ---
-version: 3.3.0
+version: 3.4.0
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -160,6 +160,22 @@ project_tracking:
   flow: null                          # the board column per lifecycle state: backlog, ready, in progress, done
   transport: null                     # jira only — cli | mcp
   token: null                         # jira only — the vault entry's NAME, never the value
+documents:
+  source: null                        # Q38 — where approved deliverables live: Confluence | None | any other store, built at materialisation (EVOL-080)
+  adapter: null                       # derived from source — confluence | none | built
+  site: null                          # Q38.1, confluence — the https address the REST API answers on
+  deployment: null                    # derived from site — cloud (*.atlassian.net) | dc
+  space: null                         # Q38.2, confluence — the space key
+  token: null                         # Q38.3, confluence — the vault entry's NAME, never the value
+  user: null                          # Q38.4, Confluence Cloud — the vault entry's NAME holding the account email
+  verify: null                        # Q38.8 — ci (the CI carries a read-only credential) | local (verified locally only, declared)
+deliverables:
+  business:
+    home: null                        # Q38.5 — External | Repo (user journey, slice map, vision, navigation map)
+  design:
+    home: null                        # Q38.6 — External | Repo (design, test plan, devops plan, FDRs)
+  report:
+    home: null                        # Q38.7 — External | Repo (QA, review, smoke and audit reports)
 synthetic_data:
   enabled: null
   id_strategy: null

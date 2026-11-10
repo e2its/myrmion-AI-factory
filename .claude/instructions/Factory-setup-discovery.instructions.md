@@ -626,6 +626,60 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Persist:** `performance.web` → `config/quality.json → performance.thresholds` (`lcp_ms`, `fcp_ms`, `cls`, `bundle_kb`) and the loop member `performance`
 - **One RDR per surface present.** No threshold is invented and no baseline is written at materialisation: the first deployed measurement writes it (rules/performance.md).
 
+#### Q38: Deliverable Store (EVOL-080)
+- **Type:** Open text with suggestions
+- **Suggestions:** `Confluence` (Cloud or Data Center) | `None` (every deliverable lives in the repo, as today). Any other store is accepted: its adapter is built at materialisation (`documents.commands`, proven by `gate.py documents --probe`), with a warning naming the answer.
+- **Simplified:** es: "¿Dónde quiere el equipo leer los documentos aprobados (diseño, informes, recorrido de usuario)? (escribe el nombre o 'None')" / en: "Where does the team want to read approved documents (design, reports, user journey)? (type the name or 'None')"
+- **RDR Recommendation:** `None` unless the team already reads its documents in a wiki — one source of truth per document, so a wiki copy beside the repo is never kept.
+- **Derived `documents.adapter`:** `confluence` | `none` | `built`, computed from the answer (`gate.py discovery --resolve` prints it and the warning). It selects `config/quality.json → documents.adapter`.
+- **Persist:** `documents.source`
+
+#### Q38.1: Confluence Site (conditional: registry `when`)
+- **Type:** Free text — the https address the REST API answers on (Data Center: with its context path)
+- **Simplified:** es: "¿Cuál es la dirección de vuestro Confluence?" / en: "What is your Confluence address?"
+- **Derived `documents.deployment`:** `cloud` for an `*.atlassian.net` site, `dc` otherwise.
+- **Persist:** `documents.site`
+
+#### Q38.2: Confluence Space (conditional: registry `when`)
+- **Type:** Free text — the space key the pages live in
+- **Simplified:** es: "¿En qué espacio de Confluence van los documentos?" / en: "Which Confluence space holds the documents?"
+- **Persist:** `documents.space`
+
+#### Q38.3: Confluence Token Vault Entry (conditional: registry `when`)
+- **Type:** Free text — the vault entry's NAME
+- **Simplified:** es: "¿Cómo se llama en tu bóveda el secreto con el token de Confluence?" / en: "What is the vault entry holding the Confluence token called?"
+- **RDR Recommendation:** a dedicated bot account's token, write access to the one space. The value never enters the repository: the vault exports it as `CONFLUENCE_API_TOKEN`.
+- **Persist:** `documents.token`
+
+#### Q38.4: Confluence Account Email Vault Entry (conditional: registry `when`)
+- **Type:** Free text — the vault entry's NAME (Confluence Cloud authenticates the token with the account's email, a personal datum)
+- **Simplified:** es: "¿Cómo se llama en tu bóveda el secreto con el correo de esa cuenta?" / en: "What is the vault entry holding that account's email called?"
+- **Persist:** `documents.user`
+
+#### Q38.5: Business Documents Home (conditional: registry `when`)
+- **Options:** `External` (the store answered in Q38) | `Repo`
+- **Simplified:** es: "¿Dónde viven el recorrido de usuario, el mapa de entregas y la visión: en el repositorio o en la herramienta?" / en: "Where do the user journey, the slice map and the vision live: the repository or the tool?"
+- **RDR Recommendation:** `External` when the business reads them outside the code. An approved document is published at its approval and pinned in the repo by id, version and hash; every gate reads the pinned version live.
+- **Persist:** `deliverables.business.home`
+
+#### Q38.6: Design Documents Home (conditional: registry `when`)
+- **Options:** `External` | `Repo`
+- **Simplified:** es: "¿Dónde viven el diseño, el plan de pruebas y el plan de despliegue?" / en: "Where do the design, the test plan and the deployment plan live?"
+- **Persist:** `deliverables.design.home`
+
+#### Q38.7: Reports Home (conditional: registry `when`)
+- **Options:** `External` | `Repo`
+- **Simplified:** es: "¿Dónde viven los informes aprobados de QA, revisión, humo y auditoría?" / en: "Where do the approved QA, review, smoke and audit reports live?"
+- **Persist:** `deliverables.report.home`
+
+#### Q38.8: Verification in CI (conditional: registry `when`)
+- **Options:** `ci` (the CI carries a read-only credential and reads every pinned artefact on each pull request) | `local` (no CI credential: the pins are verified on the developers' machines only, a declared and recorded risk)
+- **Simplified:** es: "¿La CI tendrá una credencial de solo lectura para comprobar los documentos aprobados?" / en: "Will the CI carry a read-only credential to check the approved documents?"
+- **RDR Recommendation:** `ci` — a dedicated service account, read access to the one space, with an expiry. With `ci`, a credential missing or refused at the CI is a RED wiring finding; with `local`, the gate is n/a with a WARN at the CI and `MATERIALIZATION_REPORT.md` records the accepted risk (owner RDR, EVOL-080).
+- **Persist:** `documents.verify`
+
+> **Never asked (EVOL-080):** the Gherkin, the contracts, the tests, the config, the mocks, the plans and the records live in the repo only — the code compiles, runs or machine-reads them, or delivery state moves them without an approval.
+
 > **Derived, no question (EVOL-051 / EVOL-053):** `verification.gates` (the path-to-gate map) and `traceability.home` (the one place a test states its case: the pytest `case` marker for Python, the title tag otherwise) are derived from the stack answers (Q5 runtime, Q33 runtime surface) at `--generate` — see Factory-setup-materialization. They are project configuration, editable after materialisation; they are never asked.
 
 ---

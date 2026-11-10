@@ -25,9 +25,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from . import corpus
+from . import corpus, documents
 from .coherence import FEATURE_IN_BRANCH
-from .common import GateFault, context, read_frontmatter
+from .common import GateFault, context, frontmatter_of, read_frontmatter
 from .seal import _base_of, _delta, _reference, current_branch, tree_entries, vcfg
 
 SNAPSHOT = ".context/governance_snapshot.md"
@@ -95,7 +95,7 @@ def check(repo: Path, base: str, branch: str | None = None, control_point: str =
     except GateFault as e:
         return {"ok": False, "feature": fid, "artefacts": [], "reason": str(e)}
     folder = repo / "docs/spec" / fid
-    present = [a for a in cfg["digest_artefacts"] if (folder / a).is_file()]
+    present = [a for a in cfg["digest_artefacts"] if documents.exists(repo, f"docs/spec/{fid}/{a}")]   # a file or its pin (EVOL-080)
     if not present:
         return {"ok": True, "feature": fid, "artefacts": [], "reason": f"docs/spec/{fid}/ carries none of {', '.join(cfg['digest_artefacts'])} yet — nothing to judge"}
     fp_error = None
@@ -107,16 +107,22 @@ def check(repo: Path, base: str, branch: str | None = None, control_point: str =
         except GateFault as e:
             fp, fp_error = None, str(e)
     rules = bound_rules(repo, base, cfg)
-    rows, red = [], []
+    rows, red, outage = [], [], documents.Outage()
     for a in present:
         p = folder / a
         rel = f"docs/spec/{fid}/{a}"
         try:
-            fm = read_frontmatter(p)
+            if p.is_file():
+                fm = read_frontmatter(p)
+                text = p.read_text(encoding="utf-8", errors="replace")
+            else:   # pinned: the approved bytes, read live at the pinned version
+                text = documents.text(repo, rel) or ""
+                fm = frontmatter_of(text)
+        except documents.StoreDown as e:
+            outage.note(e); continue   # unjudged: settled below, never a lost red
         except GateFault as e:
             rows.append({"artefact": rel, "ok": False, "reason": f"unreadable frontmatter: {e}"}); red.append(rel); continue
         have = str(fm.get(DIGEST_KEY) or "").strip()
-        text = p.read_text(encoding="utf-8", errors="replace")
         problems = []
         if not have:
             problems.append(f"no `{DIGEST_KEY}` in the frontmatter — the digest was never generated (BLUEPRINT § GCD writes it; IMPLEMENT --plan copies it into dev_plan.md)")
@@ -131,6 +137,7 @@ def check(repo: Path, base: str, branch: str | None = None, control_point: str =
         rows.append({"artefact": rel, "ok": not problems, "reason": "; ".join(problems) or "current and complete"})
         if problems:
             red.append(rel)
+    outage.settle(red)
     note = " (fingerprint n/a at ci: the snapshot is not on the runner)" if control_point == "ci" else ""
     return {"ok": not red, "feature": fid, "fingerprint": fp, "bound": rules, "artefacts": rows,
             "reason": (f"{len(red)} of {len(rows)} planning artefact(s) stale or incomplete" if red else f"{len(rows)} planning artefact(s) current and complete") + note}

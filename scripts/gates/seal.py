@@ -73,6 +73,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from .common import GateFault, _glob_regex, clean, key, scanner_command
+from .documents import PIN
 
 DEFAULT_SEAL_DIR = ".claude/state"
 SECURITY = {"secrets", "sast", "sca"}
@@ -321,7 +322,9 @@ def tree_entries(repo: Path, ref: str | None = None, skip: str = DEFAULT_SEAL_DI
 
 
 def _in_readset(path: str, reads: list[str]) -> bool:
-    return _root_match(_norm_path(path), reads)
+    """A read glob `G` also reads `G.pin.json`: a moved pin moves the read-set like an edited file (EVOL-080)."""
+    p = _norm_path(path)
+    return _root_match(p, reads) or (p.endswith(PIN) and _root_match(p[:-len(PIN)], reads))
 
 
 def readset_hash(entries: dict[str, str], globs: list[str]) -> str:
@@ -735,9 +738,9 @@ def _source(rel: str, sources: list[dict]) -> tuple[dict, str] | None:
     """The first row, in declared order, that proves `rel`: (row, "file") when its test reads hold it, (row, "inline")
     when its `inline.reads` do — one dispatch for the seal and `scoped` (EVOL-116)."""
     for s in sources:
-        if s["reads"] and _in_readset(rel, s["reads"]):
+        if s["reads"] and _root_match(_norm_path(rel), s["reads"]):   # a test is a file, never a pin
             return s, "file"
-        if s.get("inline") and _in_readset(rel, s["inline"]["reads"]):
+        if s.get("inline") and _root_match(_norm_path(rel), s["inline"]["reads"]):
             return s, "inline"
     return None
 

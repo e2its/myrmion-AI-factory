@@ -116,6 +116,7 @@ FUNCTION try_cached_feature_state(FEATURE_ID):
 
 FUNCTION compute_feature_state(FEATURE_ID):
   base_path = "docs/spec/{{FEATURE_ID}}"
+  # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
   
   # Global Vision artifacts (project-scoped, not per-feature)
   vision:

@@ -56,6 +56,17 @@
     "helper": null,
     "canary": null
   },
+  "documents": {
+    "_doc": "Deliverable homes (EVOL-080), read by python3 scripts/gate.py documents. adapter (derived from SETUP Q38): none (every deliverable lives in the repo) | confluence | built (any other store: commands {read, publish} built at materialisation, no shell — read {id} {version} prints {version, body}, publish {id} {title} {file} prints {id, version}; proven by gate.py documents --probe). homes (Q38.5–Q38.7): business, design, report → External | Repo; every other category is derived to the repo. An externally homed artefact is a pin <path>.pin.json {source, id, version, approved_at, sha256}, read live at its pinned version; only gate.py documents --approve publishes and moves a pin. Confluence: site (Q38.1), space (Q38.2), deployment derived (cloud | dc); the token comes from the vault into CONFLUENCE_API_TOKEN (and CONFLUENCE_USER_EMAIL on Cloud), never a file; under the profile the address is the base's. verify (Q38.8): ci — the CI carries a read-only credential, missing or refused there is red | local — verified locally only, declared. credentials (built): the environment names the commands read.",
+    "adapter": "{{DOCUMENTS_ADAPTER}}",
+    "site": "{{DOCUMENTS_SITE}}",
+    "space": "{{DOCUMENTS_SPACE}}",
+    "deployment": "{{DOCUMENTS_DEPLOYMENT}}",
+    "verify": "{{DOCUMENTS_VERIFY}}",
+    "title_prefix": "{{PROJECT_NAME}}",
+    "homes": {"business": "{{DOCUMENTS_HOME_BUSINESS}}", "design": "{{DOCUMENTS_HOME_DESIGN}}", "report": "{{DOCUMENTS_HOME_REPORT}}"},
+    "commands": null
+  },
   "tracker": {
     "_doc": "The backlog lifecycle (EVOL-079), read by python3 scripts/gate.py tracker. adapter (derived from SETUP Q27): github | jira | none — none is docs/backlog/state.md. flow (Q27.7): the board column for backlog, ready, in progress, done, in that order; the gate moves items only into these four. The tracker ids live in docs/backlog/project-config.json → project_ids; a Jira token comes from the vault into JIRA_API_TOKEN (and JIRA_USER_EMAIL on Cloud), never a file.",
     "adapter": "{{TRACKER_ADAPTER}}",

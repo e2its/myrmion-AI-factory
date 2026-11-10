@@ -11,7 +11,8 @@ A delivered artefact is never deleted (EVOL-072, DC-38): a markdown or .feature 
 replaced by a non-file (a link), or moved to a name that is no artefact — whose BASE `status` is delivered
 (APPROVED_STATES or MERGED) or terminal (CANCELLED / SUPERSEDED: the trace it keeps) is red. A move to another
 markdown or .feature name keeps the artefact (renames detected). A base frontmatter the parser cannot read is still
-judged: its `status:` line is read directly (a gate that cannot read never reads green).
+judged: its `status:` line is read directly (a gate that cannot read never reads green). A file that left while its
+pin stands in the tree moved to its home (EVOL-080): no deletion — its frontmatter is judged on the pinned bytes.
 
 A template under `.context/templates/` is never an artefact (EVOL-118): its `status` is the materialised artefact's
 default, its frontmatter moves with its manifest bump, and a template may retire.
@@ -22,6 +23,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from . import documents
 from .common import GateFault, frontmatter_of, iteration_state, read_frontmatter
 from .planning import APPROVED_STATES
 from .seal import _git, _reference
@@ -75,22 +77,38 @@ def _base_status(text: str) -> str:
 
 
 def _gone(repo: Path, ref: str) -> list[str]:
-    """The artefacts that leave the diff: deleted, type-changed (a link in place of the file), or renamed to a non-artefact."""
+    """The artefacts that leave the diff: deleted, type-changed (a link in place of the file), or renamed to a non-artefact.
+    A pin names its artefact (EVOL-080): a pin deleted with no file left is the artefact deleted."""
     out, f = [], _git(repo, "diff", "--name-status", "-z", "-M", ref).split("\0")
+    art = lambda x: documents.artefacts([x])[0]
     i = 0
     while i < len(f) - 1:
         st = f[i]
         if st[:1] in ("R", "C"):
-            old, new = f[i + 1], f[i + 2]
+            old, new = art(f[i + 1]), art(f[i + 2])
             i += 3
-            if st[:1] == "R" and old.endswith(ARTEFACT) and not new.endswith(ARTEFACT) and not old.startswith(TEMPLATES):
+            if st[:1] == "R" and old.endswith(ARTEFACT) and not new.endswith(ARTEFACT) and not old.startswith(TEMPLATES) and _left(repo, f[i - 2], old):
                 out.append(old)
             continue
-        path = f[i + 1]
+        path = art(f[i + 1])
         i += 2
-        if st[:1] in ("D", "T") and path.endswith(ARTEFACT) and not path.startswith(TEMPLATES):
+        if st[:1] in ("D", "T") and path.endswith(ARTEFACT) and not path.startswith(TEMPLATES) and _left(repo, f[i - 1], path) and path not in out:
             out.append(path)
     return out
+
+
+def _left(repo: Path, raw: str, path: str) -> bool:
+    """The artefact left the tree: its file gone with no pin standing in (a move home is never a deletion); its pin
+    gone with no file left (a draft that replaced the pin is the artefact still there)."""
+    if raw != path:
+        return not (repo / path).is_file() and not _homed(repo, path)
+    return not _homed(repo, path)
+
+
+def _homed(repo: Path, path: str) -> bool:
+    """The file left for its home (EVOL-080): its pin stands in the tree — a move, never a deletion; its frontmatter is
+    then judged on the pinned bytes."""
+    return not (repo / path).is_file() and documents.admitted(repo, path)   # a bare file name is no pin: it must stand as one
 
 
 def _at(repo: Path, ref: str, path: str) -> str | None:
@@ -99,21 +117,40 @@ def _at(repo: Path, ref: str, path: str) -> str | None:
     return r.stdout if r.returncode == 0 else None
 
 
+def _before(repo: Path, ref: str, path: str) -> str | None:
+    """The artefact at `ref`: its file, else its pinned bytes read live (EVOL-080); None when neither was there."""
+    t = _at(repo, ref, path)
+    return t if t is not None else documents.text(repo, path, ref=ref)
+
+
 def check(repo: Path, base: str) -> list[dict]:
     """[{path, key, reason}] — one per key changed outside the permitted transitions. GateFault on an unreadable base."""
     ref = _reference(repo, base)
-    findings = []
+    findings, outage = [], documents.Outage()
     for path in _gone(repo, ref):
-        status = _base_status(_at(repo, ref, path) or "")
+        try:
+            status = _base_status(_before(repo, ref, path) or "")
+        except documents.StoreDown as e:
+            outage.note(e); continue   # unjudged: settled below, never a lost red (EVOL-080 § 3)
+        except GateFault:
+            status = "APPROVED"   # a pin exists only by approval: its unreadable bytes were delivered
         if status in KEPT:
             findings.append({"path": path, "key": "(deleted)", "reason": f"a delivered artefact ({status}) was deleted — "
                              "mark it terminal (status CANCELLED or SUPERSEDED) and keep the file; never delete it" if status in DELIVERED else
                              f"a terminal artefact ({status}) was deleted — it is the trace of what was decided; keep the file"})
-    for path in [p for p in _git(repo, "diff", "--name-only", "--no-renames", ref).splitlines() if p.endswith(ARTEFACT) and not p.startswith(TEMPLATES)]:
+    changed = documents.artefacts(_git(repo, "diff", "--name-only", "--no-renames", ref).splitlines())   # a moved pin is a changed artefact
+    for path in [p for p in changed if p.endswith(ARTEFACT) and not p.startswith(TEMPLATES)]:
         disk = repo / path   # an approved artefact is markdown or a spec.feature: a binary or a YAML document is not this gate's
-        if not disk.is_file():
+        homed = _homed(repo, path)
+        if not disk.is_file() and not homed:
             continue  # deleted or no longer a file: judged above
-        before_text = _at(repo, ref, path)
+        try:
+            before_text = _before(repo, ref, path)
+        except documents.StoreDown as e:
+            outage.note(e); continue
+        except GateFault as e:
+            findings.append({"path": path, "key": "(base)", "reason": f"the approved version at the base cannot be read ({e}) — restore it in the store"})
+            continue
         if before_text is None:
             continue
         try:
@@ -123,7 +160,9 @@ def check(repo: Path, base: str) -> list[dict]:
         if _status(before) not in APPROVED_STATES:
             continue
         try:
-            after = read_frontmatter(disk)
+            after = frontmatter_of(documents.text(repo, path) or "") if homed else read_frontmatter(disk)
+        except documents.StoreDown as e:
+            outage.note(e); continue
         except GateFault as e:
             findings.append({"path": path, "key": "(frontmatter)", "reason": f"the frontmatter no longer parses ({e}) on an approved artefact — {RESOLUTION}"})
             continue
@@ -140,4 +179,5 @@ def check(repo: Path, base: str) -> list[dict]:
             else:
                 why = f"key `{k}` was {'added' if k not in before else 'removed' if k not in after else 'changed'}"
             findings.append({"path": path, "key": k, "reason": f"{why} on an approved artefact — {RESOLUTION}"})
+    outage.settle(findings)
     return findings

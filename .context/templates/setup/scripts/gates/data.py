@@ -36,6 +36,7 @@ import json
 import re
 from pathlib import Path
 
+from . import documents
 from .common import FM_RE, GateFault, clean as _clean, context, key, parse_yaml
 from .frontmatter import _at
 from .seal import _reference, tree_entries
@@ -382,23 +383,37 @@ def _heads(texts: dict[str, str]) -> list[str]:
     return sorted(r for r in revs if r not in parents)
 
 
-def _accepted(repo: Path, adr: str, cache: dict, what: str = "a destructive step") -> str | None:
-    """None when the decision record (FDR or ADR) exists and is accepted; else the reason. `what` is the act it sanctions."""
+def _accepted(repo: Path, adr: str, cache: dict, what: str = "a destructive step", outage=None) -> str | None:
+    """None when the decision record (FDR or ADR) exists and is accepted; else the reason. `what` is the act it sanctions.
+    With `outage`, a pinned record the store cannot answer is left unjudged and settled by the caller (EVOL-080 § 3)."""
     if adr in cache:
         return cache[adr]
     feature, _, rid = adr.rpartition("/")
     rel = FDR_GLOB.format(feature=feature) if feature else ADR_DIR
     d = repo / rel
-    hits = sorted(p for p in d.glob(f"{rid}*.md") if re.fullmatch(re.escape(rid) + r"(?:[-_].*)?\.md", p.name)) if d.is_dir() else []
+    named = re.compile(re.escape(rid) + r"(?:[-_].*)?\.md")
+    hits = sorted(p for p in d.glob(f"{rid}*.md") if named.fullmatch(p.name)) if d.is_dir() else []
+    pinned = set()
+    if feature and d.is_dir():   # an FDR is a design artefact: it may live in the store, its pin in the tree (EVOL-080)
+        pinned = {d / p.name[:-len(documents.PIN)] for p in d.glob(f"{rid}*.md{documents.PIN}")
+                  if p.is_file() and named.fullmatch(p.name[:-len(documents.PIN)])} - set(hits)
+        hits = sorted(set(hits) | pinned)
     why = None
     if not hits:
         why = (f"names {adr}, and no {rel}/{rid}-*.md exists — record the decision first: a feature's FDR "
                f"(`<feature>/FDR-NNNN`, written at BLUEPRINT) or a project ADR (`ADR-NNN`)")
     else:
         try:
-            m = FM_RE.match(hits[0].read_text(encoding="utf-8", errors="replace"))
+            m = FM_RE.match((documents.text(repo, hits[0].relative_to(repo).as_posix()) or "") if hits[0] in pinned
+                            else hits[0].read_text(encoding="utf-8", errors="replace"))
+        except documents.StoreDown as e:
+            if outage is None:
+                raise   # the store down is infrastructure, never a finding
+            outage.note(e); return None
         except OSError as e:
             m, why = None, f"names {adr}, which cannot be read ({type(e).__name__})"
+        except GateFault as e:   # a pin that does not hold its approved bytes
+            m, why = None, f"names {adr}, which cannot be read — {e}"
         try:
             fm = parse_yaml(m.group(1)) if m else {}
         except GateFault:
@@ -410,7 +425,7 @@ def _accepted(repo: Path, adr: str, cache: dict, what: str = "a destructive step
     return why
 
 
-def migrations(repo: Path, ref: str | None, tool: str, engine: str | None) -> tuple[dict, list[dict]]:
+def migrations(repo: Path, ref: str | None, tool: str, engine: str | None, outage=None) -> tuple[dict, list[dict]]:
     """(the migrations row, the classes of the new migrations)."""
     adapter = TOOLS.get(tool)
     if adapter is None:
@@ -444,12 +459,12 @@ def migrations(repo: Path, ref: str | None, tool: str, engine: str | None) -> tu
         st = [] if down else steps(text, p, adapter)
         for s in st:
             why = (f"has no decision tag (`ADR: ADR-NNN` or `FDR: <feature>/FDR-NNNN`) on its line or in the comment right above"
-                   if not s["adr"] else _accepted(repo, s["adr"], cache))
+                   if not s["adr"] else _accepted(repo, s["adr"], cache, outage=outage))
             if why:
                 problems.append(f"{p}:{s['line']}: {s['kind']} {why} (rules/database.md § Destructive steps)")
         if engine == "PostgreSQL" and not down:
             for s in index_steps(text, p, adapter):
-                why = _accepted(repo, s["adr"], cache) if s["adr"] else "locks writes on a live table"
+                why = _accepted(repo, s["adr"], cache, outage=outage) if s["adr"] else "locks writes on a live table"
                 if why:
                     problems.append(f"{p}:{s['line']}: an index on `{s['table']}` {why} — build it CONCURRENTLY, or tag the step with its decision record (FDR or ADR)")
         u, v = _unit(p) if adapter != "alembic" else ("", None)
@@ -658,12 +673,14 @@ def check(repo: Path, base: str | None = None) -> dict:
                 "reason": f"no `{TOOL_KEY}` in {SETUP_MD} — the migration pack covers PostgreSQL, MySQL and SQLite with a backend"}
     ref = _reference(repo, base) if base else None
     layouts, tests = _globs(repo)
-    mig, classes = migrations(repo, ref, tool.strip(), ans.get(ENGINE_KEY))
+    outage = documents.Outage()
+    mig, classes = migrations(repo, ref, tool.strip(), ans.get(ENGINE_KEY), outage)
     rows = [mig] + factory(repo, ref, layouts, tests)
     s = seeds(repo)
     if s is not None:
         rows.append(s)
     red = [r for r in rows if not r["ok"]]
+    outage.settle(red)
     return {"ok": not red, "entries": rows, "migrations": classes,
             "reason": f"{len(red)} of {len(rows)} red" if red else f"{len(rows)} green — {tool.strip()}"}
 

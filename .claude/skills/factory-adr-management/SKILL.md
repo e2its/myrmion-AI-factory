@@ -113,6 +113,7 @@ Flips a proposed record to `accepted`. For ADRs, mechanically amends `docs/const
 
 1. Read frontmatter; validate `status: proposed`, `feature_id` matches owning directory.
 2. Flip `status: proposed → accepted`. Set `accepted_at: ISO_8601`.
+   `design` homed External: run `python3 scripts/gate.py documents --approve` on the FDR, then commit the pin (rules/documentation.md § Deliverable homes, EVOL-080).
 3. Append worklog entry: `fdr_accepted` with `{number, feature_id}`.
 4. Bump `governance_versions.json` entry for the FDR file (`1.0.0`).
 5. Return `{path, status: accepted}`.

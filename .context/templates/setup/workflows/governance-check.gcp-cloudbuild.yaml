@@ -38,5 +38,12 @@ steps:
         set -e
         python3 scripts/gate.py profile --run --control-point ci --base "origin/${_BASE_BRANCH}" --branch "$BRANCH_NAME"
         python3 scripts/gate.py one-definition
+# EVOL-080: when config/quality.json → documents names a store, the documents member reads the approved artefacts kept outside the repo with a read-only service-account credential — CONFLUENCE_API_TOKEN (and CONFLUENCE_USER_EMAIL on Cloud), or each name in documents.credentials for a built store; missing or refused at the ci control point is a RED wiring finding, unless documents.verify: local (declared at SETUP) — from Secret Manager: add `secretEnv: ['CONFLUENCE_API_TOKEN', 'CONFLUENCE_USER_EMAIL']` to the governance-check step and
+# availableSecrets:
+#   secretManager:
+#     - versionName: projects/$PROJECT_ID/secrets/<confluence-token>/versions/latest
+#       env: 'CONFLUENCE_API_TOKEN'
+#     - versionName: projects/$PROJECT_ID/secrets/<confluence-email>/versions/latest
+#       env: 'CONFLUENCE_USER_EMAIL'
 options:
   logging: CLOUD_LOGGING_ONLY

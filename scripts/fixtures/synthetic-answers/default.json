@@ -22,6 +22,7 @@
     "project_tracking.tool": "GitHub Projects",
     "project_tracking.board_columns": ["Todo", "In Progress", "Review", "Done"],
     "project_tracking.flow": ["Todo", "Todo", "In Progress", "Done"],
+    "documents.source": "None",
     "po_package.mode": "full",
     "po_package.ds_rebuild_command": "npm run cards",
     "dependencies.backend": ["fastapi >=0.110,<1"],

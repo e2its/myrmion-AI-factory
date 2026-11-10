@@ -18,6 +18,9 @@
 #             zip refused inside the repo, config faults in plain language, mode matrix,
 #             include/exclude, hostile section id confined, same-day rebuild starts clean,
 #             config paths that point nowhere said out loud.
+#   Part 2c — business homed in the document store (EVOL-080): the package and the verdict read the approved
+#             version through the delivered reader (told the repo, writing nothing into it), the credential goes
+#             to the store only, the store down or the reader missing stops either tool in plain language.
 #   Part 2b — language: per-file override, English fallback, EN/ES parity.
 #   Part 3  — the three design-system cases (6A vision only · 6B code cards outside CI,
 #             refreshed by asking Claude or by a command · 6C code rebuild in CI): runbook header truthful, code cards win per
@@ -50,7 +53,7 @@ check() { # check <label> <command...> — passes when the command succeeds
 expect_exit() { # expect_exit <want> <label> <substring-or-empty> cmd...
   local want=$1 label=$2 substr=$3; shift 3
   local out got
-  out=$("$@" 2>&1); got=$?
+  out=$("$@" 2>&1); got=$?; LAST_OUT=$out
   if [ "$got" -ne "$want" ]; then bad "$label (want exit $want, got $got)" "$out"; return; fi
   if [ -n "$substr" ] && ! printf '%s' "$out" | grep -qF -- "$substr"; then
     bad "$label (exit ok, expected text not found: '$substr')" "$out"; return
@@ -435,6 +438,152 @@ printf '\n${not_a_variable}\n' >> "$PROJ/subproducts/po-package/static/en/README
 expect_exit 2 "an unknown build variable stops the build" "unknown or malformed build variable" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/out2" --no-zip
 cp "$SRC/static/en/README.md" "$PROJ/subproducts/po-package/static/en/README.md"
+
+echo "── Part 2c: approved business homed in the document store (EVOL-080) ──"
+# The project's one reader as SETUP delivers it, a built store with history that needs its declared credential, the business
+# pinned: the files leave the repo. Every run below happens with CLAUDE_PROJECT_DIR pointing elsewhere (the reader must be told
+# the repo) and without the exported no-bytecode variable (the reader's child must not write into the repo on its own).
+mkdir -p "$PROJ/scripts" "$SANDBOX/store" "$SANDBOX/elsewhere" && cp "$ROOT/.context/templates/setup/scripts/gate.py" "$PROJ/scripts/gate.py" \
+  && cp -R "$ROOT/.context/templates/setup/scripts/gates" "$PROJ/scripts/gates" && rm -rf "$PROJ/scripts/gates/__pycache__" "$PROJ/scripts/gates/test_gates.py"
+CANARY="po-canary-7f3a9c41"
+cat > "$SANDBOX/store.py" <<'PY'
+import json, os, sys
+from pathlib import Path
+d, op, pid, v = Path(sys.argv[1]), sys.argv[2], sys.argv[3], sys.argv[4]
+if (d / "DOWN").exists() or (d / f"DOWN-{pid}").exists() or os.environ.get("PO_T_STORE_TOKEN") != "po-canary-7f3a9c41":
+    sys.exit(f"store refused with token {os.environ.get('PO_T_STORE_TOKEN')}")   # loud on purpose: never echoed upward
+with open(d / "reads.log", "a", encoding="utf-8") as log:
+    log.write(pid + "\n")
+h = json.loads((d / pid).read_text(encoding="utf-8"))
+n = int(v) if v else len(h)
+print(json.dumps({"version": n, "body": h[n - 1]}))
+PY
+python3 - "$PROJ" "$SANDBOX/store" "$SANDBOX/store.py" "$SANDBOX/fx/mutated/FEAT-999/user_journey.md" <<'PY' || bad "fixture: could not home the business in the store"
+import hashlib, json, sys
+from pathlib import Path
+repo, store, script, synced = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3], Path(sys.argv[4])
+(repo / "config" / "quality.json").write_text(json.dumps({"documents": {
+    "adapter": "built", "verify": "local", "credentials": ["PO_T_STORE_TOKEN"], "homes": {"business": "External"},
+    "commands": {"read": f"{sys.executable} {script} {store} read {{id}} {{version}}"}}}), encoding="utf-8")
+(repo / "docs/spec/FEAT-999").mkdir(parents=True, exist_ok=True)
+slices = "# Slice map — FEAT-998\r\n\r\n| Slice | Steps |\r\n|---|---|\r\n| S1 | Paso 1 |\r\n"   # CRLF: the package keeps the approved bytes
+nav = (repo / "docs/ux/vision/navigation_map.md").read_text(encoding="utf-8")
+crlf = lambda text: text.replace("\n", "\r\n")   # approved on a CRLF checkout: the parse reads it as a file is read
+for pid, rel, body in (("j998", "docs/spec/FEAT-998/user_journey.md", crlf((repo / "docs/spec/FEAT-998/user_journey.md").read_text(encoding="utf-8"))),
+                       ("nav", "docs/ux/vision/navigation_map.md", crlf("---\nstatus: APPROVED\n---\n" + nav)),
+                       ("s998", "docs/spec/FEAT-998/slice_map.md", slices),
+                       ("j999", "docs/spec/FEAT-999/user_journey.md", synced.read_text(encoding="utf-8"))):
+    path = repo / rel
+    body = path.read_text(encoding="utf-8") if body is None else body
+    (store / pid).write_text(json.dumps([body, body + "\nLATEST-NOT-APPROVED\n"]), encoding="utf-8")   # the store is ahead of the pin
+    Path(str(path) + ".pin.json").write_text(json.dumps({"source": "built", "id": pid, "version": 1, "approved_at": "2026-11-10T00:00:00Z",
+                                                         "sha256": hashlib.sha256(body.encode("utf-8")).hexdigest()}), encoding="utf-8")
+    (store / f"{pid}.approved").write_bytes(body.encode("utf-8"))
+    if path.exists():
+        (store / f"{pid}.file").write_bytes(path.read_bytes())   # the file as it was, for the restore
+    path.unlink(missing_ok=True)
+PY
+unset PYTHONDONTWRITEBYTECODE
+export CLAUDE_PROJECT_DIR="$SANDBOX/elsewhere" PO_T_STORE_TOKEN="$CANARY"
+find "$PROJ" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null
+BEFORE=$(snapshot "$PROJ")
+OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/pinned" --zip-dir "$SANDBOX/pinned-zips" 2>&1); RC=$?
+PKGDIR=$(find "$SANDBOX/pinned" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1)
+[ "$RC" -eq 0 ] && ok "the package builds with the approved business homed in the store, read from the repo it was told" || bad "pinned build failed (exit $RC)" "$OUT"
+cmp -s "$PKGDIR/20-features/FEAT-998/user_journey.md" "$SANDBOX/store/j998.approved" \
+  && ok "the package carries the approved journey — the pinned version, not the store's latest" \
+  || bad "the package does not carry the approved journey" "$(ls "$PKGDIR/20-features/FEAT-998" 2>&1)"
+# one reader call is two store calls here (the current version, then the pinned one — the store is ahead of the pin)
+[ "$(grep -c '^j998$' "$SANDBOX/store/reads.log" 2>/dev/null)" = 2 ] \
+  && ok "one build reads each approved version once" || bad "the build read the same approved version more than once" "$(sort "$SANDBOX/store/reads.log" | uniq -c)"
+cmp -s "$PKGDIR/20-features/FEAT-998/slice_map.md" "$SANDBOX/store/s998.approved" \
+  && ok "the package carries the approved slice map byte for byte (CRLF kept)" || bad "the pinned slice map is missing or altered"
+check "the catalogue and the glossary read the pinned journey" sh -c "grep -q '| Paso 1 | Guest |' '$PKGDIR/00-core/feature-catalogue.md' && grep -q '| Booking | concept |' '$PKGDIR/00-core/domain-glossary.md'"
+check "the route map reads the pinned navigation map, its CRLF frontmatter parsed off" sh -c "[ -s '$PKGDIR/00-core/route-map.md' ] && ! grep -qE 'LATEST-NOT-APPROVED|status: APPROVED' '$PKGDIR/00-core/route-map.md'"
+mv "$PROJ/docs/spec/FEAT-999/user_journey.md.pin.json" "$SANDBOX/j999.pin"
+expect_exit 0 "the golden return is judged against the glossary of the approved journey in the store" "No findings." \
+  python3 "$VAL" --dir "$RET" --repo "$PROJ"
+mv "$SANDBOX/j999.pin" "$PROJ/docs/spec/FEAT-999/user_journey.md.pin.json"
+VOUT=$(python3 "$VAL" --dir "$SANDBOX/fx/mutated" --repo "$PROJ" 2>&1); VRC=$?
+[ "$VRC" -eq 0 ] && printf '%s' "$VOUT" | grep -qF "left out: unchanged since the last sync" \
+  && ok "the return is judged against the approved synced journey in the store (diff-only)" || bad "the pinned synced copy was not read (exit $VRC)" "$VOUT"
+python3 -B - "$PROJ" <<'PY' && ok "the scope falls back to the approved journey in the store before the project's" \
+  || bad "the scope skipped the pinned journey"
+import sys
+from pathlib import Path
+repo = Path(sys.argv[1]); sys.path.insert(0, str(repo / "subproducts/po-package"))
+import po_lib as L, validate_po_return as V
+cfg = L.load_config(); cfg["project"]["scope"] = "integration"
+got = V._resolve_scope({}, "", "FEAT-998", V.Context(repo, cfg, L.empty_vocab(), frozenset(), frozenset()))
+assert got == "full-stack", got
+PY
+[ "$(snapshot "$PROJ")" = "$BEFORE" ] && ok "the builder and the validator wrote nothing into the repository through the reader — bytecode included" \
+  || bad "a pinned run changed the repository" "$(diff <(echo "$BEFORE") <(snapshot "$PROJ") | head -5)"
+: > "$SANDBOX/store/DOWN"
+expect_exit 2 "the store down stops the build in plain language" "is approved in the document store and could not be read" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/pinned-down" --zip-dir "$SANDBOX/pinned-down-zips"; ERRS="$LAST_OUT"
+ls "$SANDBOX"/pinned-down-zips/*.zip >/dev/null 2>&1 && bad "a package was zipped with the store down" || ok "the store down leaves no package to send"
+expect_exit 2 "the store down stops the validation in plain language — never a verdict" "is approved in the document store and could not be read" \
+  python3 "$VAL" --dir "$SANDBOX/fx/mutated" --repo "$PROJ"; ERRS="$ERRS
+$LAST_OUT"
+rm -f "$SANDBOX/store/DOWN"; : > "$SANDBOX/store/DOWN-j999"
+expect_exit 2 "only the synced journey unreadable still stops the validation, naming it" "docs/spec/FEAT-999/user_journey.md is approved in the document store" \
+  python3 "$VAL" --dir "$SANDBOX/fx/mutated" --repo "$PROJ"
+ERRS="$ERRS
+$LAST_OUT"
+rm -f "$SANDBOX/store/DOWN-j999"
+LEAK=$( { grep -rlF "$CANARY" "$PKGDIR" 2>/dev/null; printf '%s\n%s\n%s' "$OUT" "$VOUT" "$ERRS" | grep -F "$CANARY"; } || true)
+python3 - "$CANARY" "$SANDBOX/pinned-zips" <<'PY' || LEAK="$LEAK${LEAK:+
+}a zip member carries it"
+import sys, zipfile
+from pathlib import Path
+zips = sorted(Path(sys.argv[2]).glob("*.zip"))
+assert zips, "no zip was built"
+sys.exit(any(sys.argv[1].encode() in z.read(n) or sys.argv[1] in n for p in zips for z in [zipfile.ZipFile(p)] for n in z.namelist()))
+PY
+[ -z "$LEAK" ] && ok "the store's credential reached the store and nothing else — not the package, not the zip's members, not the output or the errors" \
+  || bad "the credential travelled" "$LEAK"
+python3 -B - "$PROJ" <<'PY' && ok "a reader that times out, cannot start or answers bytes that are not UTF-8 is named in plain words" \
+  || bad "a reader failure is not named"
+import subprocess, sys
+from pathlib import Path
+repo = Path(sys.argv[1]); sys.path.insert(0, str(repo / "subproducts/po-package"))
+import po_lib as L
+def answer(exc=None, out=b""):
+    def run(*a, **k):
+        if exc:
+            raise exc
+        return subprocess.CompletedProcess(a, 0, out, b"")
+    return run
+for fake, want in ((answer(subprocess.TimeoutExpired("gate.py", 300)), "the store did not answer in 300 s"),
+                   (answer(OSError(13, "Permission denied")), "the reader could not start: Permission denied"),
+                   (answer(out=b"\xff\xfe"), "the reader answered bytes that are not UTF-8")):
+    L._APPROVED.clear(); L.subprocess.run = fake
+    try:
+        L.read_artefact(repo, repo / "docs/spec/FEAT-998/user_journey.md")
+    except L.PoPackageError as exc:
+        assert want in str(exc), (want, str(exc))
+    else:
+        raise AssertionError(want)
+PY
+mv "$PROJ/scripts/gate.py" "$SANDBOX/gate.py.bak"
+expect_exit 2 "a missing reader says so and how to restore it" "scripts/gate.py is missing — run SETUP --upgrade" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/pinned-noreader" --no-zip
+mv "$SANDBOX/gate.py.bak" "$PROJ/scripts/gate.py"
+unset CLAUDE_PROJECT_DIR PO_T_STORE_TOKEN
+export PYTHONDONTWRITEBYTECODE=1
+python3 - "$PROJ" "$SANDBOX/store" <<'PY' || bad "fixture: could not bring the business back"
+import sys
+from pathlib import Path
+repo, store = Path(sys.argv[1]), Path(sys.argv[2])
+for pid, rel in (("j998", "docs/spec/FEAT-998/user_journey.md"), ("nav", "docs/ux/vision/navigation_map.md")):
+    (repo / rel).write_bytes((store / f"{pid}.file").read_bytes())
+for pin in repo.rglob("*.pin.json"):
+    pin.unlink()
+(repo / "config" / "quality.json").unlink()
+PY
+rm -rf "$PROJ/docs/spec/FEAT-999" "$PROJ/scripts/gate.py" "$PROJ/scripts/gates"
+find "$PROJ" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null
 
 echo "── Part 2b: language ──"
 materialise "$PROJ" null null no es

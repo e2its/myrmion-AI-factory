@@ -44,6 +44,7 @@ validate    V1 schema · V2 a single option not derived (a one-literal row its d
             or {type: http, url}: https on a host of MCP_HOSTS (the tracker vendor's own server, OAuth in the harness), no
             headers, no env — no credential in the entry (EVOL-079) · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
             configured id a row, a row no option configures names no STACK_LABEL_KEYS label.
+            V14 (EVOL-080) the asked deliverable homes (`deliverables.<category>.home`) are the documents reader's asked categories.
 configures  EVOL-067 — a key spec's `configures {<option literal>: {<config pointer>: value}}` and a derived entry's
             `configures {<config pointer>: value}` (unconditional, or only when its `when` condition holds — EVOL-074; V5 checks
             it): `--resolve` merges the answered rows into
@@ -1446,15 +1447,30 @@ def _v13(repo: Path, reg: dict) -> list[str]:
     return out
 
 
+def _v14(reg: dict) -> list[str]:
+    """EVOL-080: once the registry asks a documents source, the asked homes (`deliverables.<category>.home`) are exactly
+    the reader's asked categories (gates/documents.py → CATEGORIES) — a category the code compiles or runs is never asked."""
+    from .documents import CATEGORIES
+    specs = _specs(reg)
+    if "documents.source" not in specs:
+        return []
+    have = {k.split(".")[1] for k in specs if re.fullmatch(r"deliverables\.[a-z_]+\.home", k)}
+    want = {c for c, v in CATEGORIES.items() if v["kind"] == "asked"}
+    out = [f"V14 · `{c}` is an asked category of the documents reader and not asked here — add `deliverables.{c}.home`" for c in sorted(want - have)]
+    out += [f"V14 · `{c}` is asked here, but " + (CATEGORIES[c]["why"] if c in CATEGORIES else "the reader has no such category") +
+            " — its only home is the repo; remove `deliverables." + c + ".home`" for c in sorted(have - want)]
+    return out
+
+
 def validate(repo: Path) -> list[str]:
-    """Every finding of V1–V13, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
+    """Every finding of V1–V14, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
     reg = load_registry(repo)
     manifest = load_manifest(repo)
     fw = _semver(manifest.get("framework_version"))
     out = _v1(reg, fw)
     if fw is None:
         out.append(f"V1 · framework_version `{manifest.get('framework_version')}` in {MANIFEST} is not x.y.z — `since` cannot be held to it")
-    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg) + _v10(repo, reg, manifest) + _v11(repo, reg, fw) + _v12(reg) + _v13(repo, reg)
+    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg) + _v10(repo, reg, manifest) + _v11(repo, reg, fw) + _v12(reg) + _v13(repo, reg) + _v14(reg)
 
 
 def render(findings: list[str]) -> str:

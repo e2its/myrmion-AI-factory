@@ -3,7 +3,8 @@
 """Shared helpers for the PO package subproduct (generator + return validator).
 
 Subproduct, not product: deliverable-generation tooling imported by no framework or
-product module. It reads the repository and never writes into it.
+product module. It reads the repository — and, for business approved in the document store, its
+approved version through the project's one reader — and never writes into it.
 
 Nothing here is tied to a product or a tracker, and the only stack knowledge is the
 utility framework the framework's own CODESIGN templates load:
@@ -165,6 +166,65 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+PIN = ".pin.json"   # deliverable homes (EVOL-080): an approved artefact homed in the document store leaves this pin at its path
+
+
+def has_artefact(path: Path) -> bool:
+    """The file, or the pin of its approved version homed in the document store."""
+    return path.exists() or path.with_name(path.name + PIN).is_file()
+
+
+_APPROVED: dict[str, str] = {}   # one read of an approved version per run: the pinned bytes do not change under a run
+
+
+def read_artefact(repo: Path, path: Path, exact: bool = False) -> str:
+    """The file when there is one; else its approved version, read through the project's one reader
+    (`scripts/gate.py documents --read`, rules/documentation.md § Deliverable homes) — the pinned bytes, never
+    the store's latest. `exact` keeps them byte for byte (a copy into the package); otherwise line ends are read
+    as `read_text` reads a file, so a parse sees one artefact alike from either home. The reader is told the
+    repository (not left to the caller's CLAUDE_PROJECT_DIR) and writes nothing into it. A store that does not
+    answer stops the tool: nothing is built or judged without it."""
+    if path.exists() or not path.with_name(path.name + PIN).is_file():
+        return read_text(path)
+    try:
+        rel = path.relative_to(repo).as_posix()
+    except ValueError:
+        raise PoPackageError(f"{path} is outside the repository — its approved version cannot be read") from None
+    key = f"{repo.resolve()}::{rel}"
+    if key not in _APPROVED:
+        _APPROVED[key] = _read_approved(repo, rel)
+    body = _APPROVED[key]
+    return body if exact else body.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _read_approved(repo: Path, rel: str) -> str:
+    reader = repo / "scripts" / "gate.py"
+    if not reader.is_file():
+        raise PoPackageError(f"{rel} is approved in the document store, and the project's reader scripts/gate.py "
+                             "is missing — run SETUP --upgrade to restore it, then run again")
+    try:
+        proc = subprocess.run([sys.executable, str(reader), "--repo", str(repo), "documents", "--read", rel],
+                              cwd=repo, stdin=subprocess.DEVNULL, capture_output=True, timeout=300,
+                              env={**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"})
+    except subprocess.TimeoutExpired:
+        why = "the store did not answer in 300 s"
+    except OSError as exc:
+        why = f"the reader could not start: {exc.strerror or type(exc).__name__}"
+    else:
+        if proc.returncode == 0:
+            try:
+                body = proc.stdout.decode("utf-8")
+            except UnicodeDecodeError:
+                why = "the reader answered bytes that are not UTF-8"
+            else:
+                return body
+        else:
+            lines = proc.stderr.decode("utf-8", errors="replace").strip().splitlines()
+            why = (lines or ["the reader gave no reason"])[-1][:300]
+    raise PoPackageError(f"{rel} is approved in the document store and could not be read ({why}) — "
+                         "fix what it says, then run again")
+
+
 def slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
 
@@ -260,18 +320,18 @@ def spec_features(repo: Path, cfg: dict) -> list[str]:
             continue
         if entry.name in exclude:
             continue
-        if (entry / "user_journey.md").exists():
+        if has_artefact(entry / "user_journey.md"):
             found.append(entry.name)
     return found
 
 
 def load_glossary(repo: Path, cfg: dict) -> dict[str, set[str]]:
     """Union of the vocabulary of every journey the config selects (id_pattern, include,
-    exclude) — read live from the repo. An excluded feature contributes no names."""
+    exclude) — read live from the repo, or from the store at its approved version. An excluded feature contributes no names."""
     glossary = empty_vocab()
     root = repo / cfg["features"]["spec_root"]
     for feature_id in spec_features(repo, cfg):
-        vocab = journey_vocab(read_text(root / feature_id / "user_journey.md"))
+        vocab = journey_vocab(read_artefact(repo, root / feature_id / "user_journey.md"))
         for key in glossary:
             glossary[key] |= vocab[key]
     return glossary

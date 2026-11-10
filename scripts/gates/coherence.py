@@ -27,7 +27,8 @@ import re
 import subprocess
 from pathlib import Path
 
-from .common import GateFault, any_glob, clean, key, load_coherence, read_frontmatter, tracked_files
+from . import documents
+from .common import GateFault, any_glob, clean, frontmatter_of, key, load_coherence, read_frontmatter, tracked_files
 
 TERMINAL = {"APPROVED", "PASSED", "PASS", "SECURE", "IMPLEMENTED_AND_VERIFIED", "COMPLETED"}   # COMPLETED: the preventive sweep (EVOL-081)
 DEFAULT_CERTIFYING = ["docs/spec/*/qa/qa_report*.md", "docs/spec/*/review/peer_review_*.md",
@@ -139,12 +140,12 @@ def _kind(rel: str) -> str:
 
 def in_scope(repo: Path, globs: list[str], base: str | None) -> list[str]:
     """Verdict artefacts this push is accountable for: those touched in base..HEAD, plus every artefact of the
-    feature the branch names. Newest per (folder, kind); older ones are superseded."""
-    candidates = [rel for rel in tracked_files(repo) if any_glob(rel, globs)]
+    feature the branch names. Newest per (folder, kind); older ones are superseded. A pin names its artefact (EVOL-080)."""
+    candidates = [rel for rel in documents.artefacts(tracked_files(repo)) if any_glob(rel, globs)]
     touched: set[str] = set()
     if base:
         try:
-            touched = {ln for ln in _git(repo, "diff", "--name-only", f"{base}...HEAD").splitlines() if ln}
+            touched = set(documents.artefacts(ln for ln in _git(repo, "diff", "--name-only", f"{base}...HEAD").splitlines() if ln))
         except GateFault:
             touched = set()
     try:
@@ -168,13 +169,22 @@ def currency(repo: Path, base: str | None = "origin/main") -> tuple[list[dict], 
     findings: list[dict] = []
     faults: list[dict] = []
     tracked = set(tracked_files(repo))
-    for p in repo.glob("docs/spec/*/**/*.md"):
+    outage = documents.Outage()
+    for p in [*repo.glob("docs/spec/*/**/*.md"), *repo.glob("docs/spec/*/**/*.md" + documents.PIN)]:
         rel = str(p.relative_to(repo))
-        if any_glob(rel, globs) and rel not in tracked:
+        if any_glob(documents.artefacts([rel])[0], globs) and rel not in tracked:
             findings.append({"path": rel, "reason": "not tracked by git (ignored?) — a verdict of record must be versioned; remove it from .gitignore and commit it"})
     for rel in in_scope(repo, globs, base):
         try:
-            fm = read_frontmatter(repo / rel)
+            if (repo / rel).is_file():
+                fm = read_frontmatter(repo / rel)
+            else:
+                t = documents.text(repo, rel)
+                if t is None:
+                    raise GateFault("neither the file nor its pin is in the worktree — restore it, or commit its removal")
+                fm = frontmatter_of(t)
+        except documents.StoreDown as e:
+            outage.note(e); continue   # the store could not answer: infra, never a finding — settled below
         except GateFault as e:
             findings.append({"path": rel, "reason": f"frontmatter unreadable: {e}"})
             continue
@@ -197,6 +207,7 @@ def currency(repo: Path, base: str | None = "origin/main") -> tuple[list[dict], 
             continue
         if fresh != str(cert["hash"]):
             findings.append({"path": rel, "reason": f"STALE: certified {cert['subject']} {str(cert['hash'])[:12]}… but the certified files are now {fresh[:12]}… — re-take the verdict, never re-bless it"})
+    outage.settle(findings or faults)
     return findings, faults
 
 

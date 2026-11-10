@@ -314,6 +314,8 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
         targets.push("smoke_e2e_report")
       RETURN targets
 
+  # EVOL-080: an artefact homed External lives as <path>.pin.json. FILE_EXISTS / GLOB_EXISTS / LATEST match the pin too, and a flip first
+  # runs `python3 scripts/gate.py documents --pull <path>` (the pinned bytes back as the draft) — rules/documentation.md § Deliverable homes
   # Push pending_iteration to each downstream artifact
   FOR EACH artifact_name IN downstream_artifacts:
     

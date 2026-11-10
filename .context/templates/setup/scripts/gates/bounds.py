@@ -30,6 +30,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from . import documents
 from .common import GateFault, clean, context, glob_match, parse_yaml, tracked_files
 
 PACKS = "security/bounds"
@@ -119,11 +120,22 @@ def scan(repo: Path, runner=subprocess.run) -> list[dict]:
     return out
 
 
-def functions(repo: Path) -> tuple[list[dict], list[str]]:
-    """The function resources every design declares → ([{at, id, timeout, clients}], problems)."""
+def functions(repo: Path, outage: "documents.Outage | None" = None) -> tuple[list[dict], list[str]]:
+    """The function resources every design declares → ([{at, id, timeout, clients}], problems). With `outage`, a store
+    down leaves that design unjudged and is settled by the caller (EVOL-080 § 3)."""
     fns, probs = [], []
-    for rel in sorted(p for p in tracked_files(repo) if glob_match(p, DESIGN_GLOB)):
-        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+    for rel in sorted(p for p in documents.artefacts(tracked_files(repo)) if glob_match(p, DESIGN_GLOB)):
+        disk = repo / rel   # a file wins over its pin; a pinned design is read at its pinned version (EVOL-080)
+        try:
+            text = disk.read_text(encoding="utf-8", errors="replace") if disk.is_file() else documents.text(repo, rel)
+        except documents.StoreDown as e:
+            if outage is None:
+                raise
+            outage.note(e); continue
+        except GateFault as e:   # a pin the store does not honour is red, never infra
+            probs.append(f"{rel}: {e}"); continue
+        if text is None:
+            continue
         for block in YAML_BLOCK.findall(text):
             if "infrastructure_needs" not in block:
                 continue
@@ -207,7 +219,8 @@ def check(repo: Path, runner=subprocess.run) -> dict:
              for k, n in sorted(cur.items()) if n > base.get(k, 0)]
     stale = [f"{k}: the baseline holds {n}, the code {cur.get(k, 0)} — it only shrinks: gate.py bounds --baseline --refresh"
              for k, n in sorted(base.items()) if cur.get(k, 0) < n]
-    fns, fprobs = functions(repo)
+    outage = documents.Outage()
+    fns, fprobs = functions(repo, outage)
     declared, fn_probs = [], list(fprobs)
     for fn in fns:
         _, p, norm = budget(fn)
@@ -229,6 +242,7 @@ def check(repo: Path, runner=subprocess.run) -> dict:
             {"id": "functions", "ok": not fn_probs, "problems": fn_probs,
              "note": f"{len(fns)} function(s): their clients fit timeout_seconds"}]
     red = [r for r in rows if not r["ok"]]
+    outage.settle(red)
     return {"ok": not red, "entries": rows, "reason": f"{len(red)} of {len(rows)} red" if red else "every external client is bounded within its function's timeout"}
 
 

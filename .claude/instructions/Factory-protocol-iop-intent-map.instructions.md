@@ -324,6 +324,7 @@ FUNCTION cvp_on_demand(FEATURE_ID):
 
   # Step 2: Route to the most downstream agent with artifacts
   base_path = "docs/spec/{FEATURE_ID}"
+  # A pin counts (EVOL-080): FILE_EXISTS(p) sees p.pin.json; READ_FRONTMATTER(p) reads `gate.py documents --read p`.
   IF FILE_EXISTS("{base_path}/dev_plan.md"):
     target_agent = "implement"
   ELIF FILE_EXISTS("{base_path}/design.md"):

@@ -18,6 +18,15 @@
     "scm.platform": "GitHub",
     "project_tracking.tool": "Linear",
     "project_tracking.flow": ["Backlog", "Ready", "In Progress", "Done"],
+    "documents.source": "Confluence",
+    "documents.site": "https://acme.atlassian.net",
+    "documents.space": "ENG",
+    "documents.token": "confluence/api-token",
+    "documents.user": "confluence/user-email",
+    "deliverables.business.home": "External",
+    "deliverables.design.home": "External",
+    "documents.verify": "ci",
+    "deliverables.report.home": "Repo",
     "po_package.mode": "full",
     "po_package.ds_rebuild_command": null,
     "surface.runtime_surface": [
@@ -29,7 +38,7 @@
   "expect": {
     "warnings": ["`Linear` has no adapter"],
     "tracker": {"contains": ["\"adapter\": \"none\""], "landed": ["docs/backlog/state.md"], "absent": ["docs/backlog/project-config.json", "docs/backlog-tool-adapters/linear.md"]},
-    "contains": {"config/quality.json": ["\"blocking_severity\": \"critical\""]},
+    "contains": {"config/quality.json": ["\"site\": \"https://acme.atlassian.net\"", "\"deployment\": \"cloud\"", "\"business\": \"External\"", "\"report\": \"Repo\"", "\"blocking_severity\": \"critical\""]},
     "landed": [
       ".claude/rules/database.md",
       "contracts/errors.yaml",

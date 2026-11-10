@@ -27,6 +27,7 @@ governance-check:
   before_script:
     - apk add --no-cache bash git python3
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+  # EVOL-080: when config/quality.json → documents names a store, the documents member reads the approved artefacts kept outside the repo with a read-only service-account credential — CONFLUENCE_API_TOKEN (and CONFLUENCE_USER_EMAIL on Cloud), or each name in documents.credentials for a built store; missing or refused at the ci control point is a RED wiring finding, unless documents.verify: local (declared at SETUP) — as masked CI/CD variables, not protected: a protected variable reaches only protected branches, and a merge request's pipeline runs on its source branch
   # EVOL-054: GITLAB_TOKEN (scope read_api) as a masked, protected CI/CD variable lets the scm-protection member read the protected branches at the ci control point; without it the member is n/a with the checklist (never a silent green)
   script:
     - python3 scripts/gate.py profile --run --control-point ci --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --branch "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"

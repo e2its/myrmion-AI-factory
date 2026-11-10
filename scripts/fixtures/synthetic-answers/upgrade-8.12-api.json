@@ -78,7 +78,7 @@
       "Q35",
       "Q36",
       "Q37",
-      "Q37.1"
+      "Q37.1", "Q38"
     ],
     "defect_classes": {
       "present": [
@@ -126,7 +126,7 @@
       "delivery-execution (EVOL-081)",
       "deploy-records (EVOL-081)",
       "proof-at-the-close (EVOL-106)",
-      "tracker (EVOL-079)"
+      "tracker (EVOL-079)", "documents (EVOL-080)"
     ],
     "templates_to_add": [
       "workflows/deploy.github-actions.yml",

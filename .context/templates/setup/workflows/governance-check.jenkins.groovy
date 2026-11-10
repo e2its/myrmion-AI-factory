@@ -28,6 +28,8 @@ pipeline {
       when {
         changeRequest()   // every PR — a sub-increment PR targets its train, not main (EVOL-045)
       }
+      // EVOL-080: when config/quality.json → documents names a store, the documents member reads the approved artefacts kept outside the repo with a read-only service-account credential — CONFLUENCE_API_TOKEN (and CONFLUENCE_USER_EMAIL on Cloud), or each name in documents.credentials for a built store; missing or refused at the ci control point is a RED wiring finding, unless documents.verify: local (declared at SETUP) — wrap the sh step in
+      // withCredentials([string(credentialsId: '<confluence-token>', variable: 'CONFLUENCE_API_TOKEN'), string(credentialsId: '<confluence-email>', variable: 'CONFLUENCE_USER_EMAIL')]) { … }
       steps {
         sh '''
           set -e
