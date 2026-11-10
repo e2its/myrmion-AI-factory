@@ -42,6 +42,8 @@ python3 subproducts/po-package/build_po_package.py --roadmap ../roadmap.json
 
 El generador lee el repositorio y escribe **fuera** de él: un árbol intermedio en la carpeta temporal del sistema (o `PO_PACKAGE_OUT`, o `--out`) y un zip en `~/Downloads` (o `--zip-dir`). Nunca llama al tracker. Sin `--roadmap` el paquete simplemente no lleva roadmap.
 
+**Negocio guardado en el almacén de documentos** (`config/quality.json → documents.homes.business: External`). El generador y el validador leen cada journey, slice map, visión y mapa de navegación aprobados que usan, en su versión fijada a través de `scripts/gate.py documents --read`, nunca la última del almacén. Exporta antes la credencial del almacén, como para cualquier lectura. Si el almacén no responde, la herramienta se para (salida 2): sin el negocio aprobado no se construye ni se juzga nada.
+
 Antes de enviar, lee lo que ha impreso: el número de features, el número de tarjetas y cada `WARNING`. Un glosario vacío significa que no se pudo leer ningún journey: arréglalo primero, la regla del vocabulario cerrado no tiene de dónde agarrarse.
 
 ## 2. Montar el proyecto de Claude Desktop

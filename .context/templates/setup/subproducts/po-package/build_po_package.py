@@ -102,7 +102,7 @@ class Build:
 
 def _journey(build: Build, feature_id: str) -> str:
     path = build.repo / build.cfg["features"]["spec_root"] / feature_id / "user_journey.md"
-    return L.split_frontmatter(L.read_text(path))[1]
+    return L.split_frontmatter(L.read_artefact(build.repo, path))[1]
 
 
 def _steps(body: str) -> list[dict]:
@@ -135,8 +135,8 @@ def _feature_sheet(build: Build, feature_id: str) -> str:
 
 def build_catalogue(build: Build) -> str:
     head = ["# Feature catalogue\n",
-            "Every specified feature this package covers. Derived from the journeys in the "
-            "repository — this is what exists, not a proposal.\n"]
+            "Every specified feature this package covers. Derived from the approved journeys "
+            "— this is what exists, not a proposal.\n"]
     return "\n".join(head) + "".join(_feature_sheet(build, f) for f in build.features)
 
 
@@ -226,8 +226,8 @@ def build_core(build: Build) -> None:
     build.write("00-core/domain-glossary.md", build_glossary(build))
     build.write("00-core/roadmap.md", build_roadmap(build))
     nav = build.repo / build.cfg["design_system"]["vision_root"] / "navigation_map.md"
-    if nav.exists():
-        build.write("00-core/route-map.md", L.split_frontmatter(L.read_text(nav))[1])
+    if L.has_artefact(nav):
+        build.write("00-core/route-map.md", L.split_frontmatter(L.read_artefact(build.repo, nav))[1])
 
 
 # ── 10-design-system ─────────────────────────────────────────────────────────
@@ -487,8 +487,11 @@ def build_features(build: Build) -> None:
     for feature_id in build.features:
         target = _ensure(build.stage / "20-features" / feature_id)
         for name in ("user_journey.md", "spec.feature", "mock.html", "slice_map.md"):
-            if (root / feature_id / name).exists():
-                shutil.copy2(root / feature_id / name, target / name)
+            source = root / feature_id / name
+            if source.exists():
+                shutil.copy2(source, target / name)
+            elif L.has_artefact(source):   # approved in the document store: its pinned bytes
+                (target / name).write_text(L.read_artefact(build.repo, source, exact=True), encoding="utf-8", newline="")
 
 
 def build_templates(build: Build) -> None:

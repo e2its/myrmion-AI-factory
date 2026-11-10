@@ -279,8 +279,8 @@ def _resolve_scope(erq: dict, journey_text: str, folder: str, ctx: Context) -> s
     """ERQ, then the returned journey, then the journey already in the repo, then the project."""
     candidates = [erq.get("scope"), L.frontmatter_value(L.split_frontmatter(journey_text)[0], "scope")]
     existing = ctx.repo / ctx.cfg["features"]["spec_root"] / folder / "user_journey.md"
-    if existing.exists():
-        candidates.append(L.frontmatter_value(L.split_frontmatter(L.read_text(existing))[0], "scope"))
+    if L.has_artefact(existing):
+        candidates.append(L.frontmatter_value(L.split_frontmatter(L.read_artefact(ctx.repo, existing))[0], "scope"))
     candidates.append(ctx.cfg["project"].get("scope"))
     return next((c for c in candidates if c in L.ALL_SCOPES), "full-stack")
 
@@ -532,20 +532,29 @@ def _targets(root: Path, cfg: dict, rep: Report) -> tuple[Path | None, list[Path
     return vision, features
 
 
-def _synced_copy(target: Path, synced: Path, tmp: Path) -> Path | None:
+def _synced(path: Path) -> bool:
+    """The repo holds this file, or the pin of its approved version homed in the document store (EVOL-080)."""
+    pin = path.with_name(path.name + L.PIN)
+    return (path.is_file() and not path.is_symlink()) or (not path.exists() and pin.is_file() and not pin.is_symlink())
+
+
+def _synced_copy(target: Path, synced: Path, tmp: Path, repo: Path) -> Path | None:
     """The last synced version of a returned target, shaped like the target: the repo's copy of each file the
-    return carries, beside the return's own ERQ. None when the repo holds none of them (a new target)."""
+    return carries (an approved one homed in the store at its pinned version), beside the return's own ERQ.
+    None when the repo holds none of them (a new target)."""
     if not synced.is_dir():
         return None
     copy = tmp / target.name
     copy.mkdir()
     names = [p.name for p in target.iterdir()   # a symlink is never followed out of the return or the repo
-             if p.is_file() and not p.is_symlink() and p.name != "ERQ.md"
-             and (synced / p.name).is_file() and not (synced / p.name).is_symlink()]
+             if p.is_file() and not p.is_symlink() and p.name != "ERQ.md" and _synced(synced / p.name)]
     if not names:
         return None
     for name in names:
-        shutil.copy2(synced / name, copy / name)
+        if (synced / name).is_file():
+            shutil.copy2(synced / name, copy / name)
+        else:
+            (copy / name).write_text(L.read_artefact(repo, synced / name, exact=True), encoding="utf-8", newline="")
     if (target / "ERQ.md").is_file() and not (target / "ERQ.md").is_symlink():
         shutil.copy2(target / "ERQ.md", copy / "ERQ.md")
     return copy
@@ -556,11 +565,11 @@ def _outside_diff(vision: Path | None, feature_dirs: list[Path], ctx: Context) -
     base = Report()
     with tempfile.TemporaryDirectory(prefix="po-synced-") as tmp:
         if vision is not None:
-            copy = _synced_copy(vision, ctx.repo / ctx.cfg["design_system"]["vision_root"], Path(tmp))
+            copy = _synced_copy(vision, ctx.repo / ctx.cfg["design_system"]["vision_root"], Path(tmp), ctx.repo)
             if copy is not None:
                 validate_vision(copy, ctx, base)
         for feature_dir in feature_dirs:
-            copy = _synced_copy(feature_dir, ctx.repo / ctx.cfg["features"]["spec_root"] / feature_dir.name, Path(tmp))
+            copy = _synced_copy(feature_dir, ctx.repo / ctx.cfg["features"]["spec_root"] / feature_dir.name, Path(tmp), ctx.repo)
             if copy is not None:
                 validate_feature(copy, ctx, base)
     return {(f.where, f.check, f.message) for f in base.findings if f.check in DIFF_CHECKS}

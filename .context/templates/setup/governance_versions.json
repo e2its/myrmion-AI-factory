@@ -698,14 +698,14 @@
       "delivery": "both"
     },
     "subproducts/po-package/po_lib.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "subproducts/po-package/po_lib.py",
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "PO package shared helpers: repo/config resolution, journey-first closed vocabulary (§1/§6/§7), nesting-safe `<section data-component>` scanner, allowed external hosts derived from the framework CODESIGN templates, zip safety. Stack-agnostic, tracker-agnostic."
     },
     "subproducts/po-package/validate_po_return.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "subproducts/po-package/validate_po_return.py",
       "stack_conditional": "po_package.mode != \"off\"",
@@ -733,14 +733,14 @@
       "role": "Project config of the PO package — the file SETUP resolves placeholders in (project name, goal, scope, language, feature id pattern, package mode, design-system code-cards dir and rebuild command; JSON null where a key does not apply)."
     },
     "subproducts/po-package/build_po_package.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "subproducts/po-package/build_po_package.py",
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "PO package builder: reads the repo, stages OUTSIDE it, zips. Offline (roadmap arrives as a file exported through /backlog). 00-core product sheet, feature catalogue, closed-vocabulary glossary, route map, roadmap; 10-design-system tokens, component base (registry joined with the codebase inventory), one preview card per component; 20-features annexes; 30-templates PO-safe cuts. Design-system cards from code per component when the project configures a rebuild tool (no shell, timeout, fail-open), card-to-registry drift report, ds-only mode for CI, stale-runbook warning. Names no third-party tool."
     },
     "subproducts/po-package/RUNBOOK.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": "subproducts/po-package/RUNBOOK.md",
       "stack_conditional": "po_package.mode != \"off\"",
@@ -831,7 +831,7 @@
       "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
     },
     "subproducts/po-package/RUNBOOK.es.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": "subproducts/po-package/RUNBOOK.es.md",
       "stack_conditional": "po_package.mode != \"off\"",
@@ -2288,7 +2288,7 @@
       "path": "scripts/test-check-journey-grammar.sh"
     },
     "scripts/test-po-package.sh": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "type": "script",
       "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project — in the three design-system cases a project can be materialised in. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-po-package.sh"
@@ -2298,7 +2298,7 @@
       "path": ".claude/instructions/Factory-codesign-sync.instructions.md"
     },
     "skills/factory-po-intake/SKILL.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "type": "skill",
       "role": "PO Intake v1.0.0 — external CODESIGN authoring. Builds the PO package, validates a return with the subproduct's deterministic validator (self-test first, always), one RDR per change, writes the transient drop zone, calls /codesign --sync per ratified target, reconciles the component registry against the codebase inventory and plans component-catalog issues through /backlog only. Never edits docs/spec/** or docs/ux/vision/**, never fixes PO documents, never decides scope or ordering.",
       "path": ".claude/skills/factory-po-intake/SKILL.md"

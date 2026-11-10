@@ -42,6 +42,8 @@ python3 subproducts/po-package/build_po_package.py --roadmap ../roadmap.json
 
 The builder reads the repository and writes **outside** it: a staging tree in the system temp folder (or `PO_PACKAGE_OUT`, or `--out`) and a zip in `~/Downloads` (or `--zip-dir`). It never calls the tracker. Without `--roadmap` the package simply carries no roadmap.
 
+**Business kept in the document store** (`config/quality.json → documents.homes.business: External`). The builder and the validator read each approved journey, slice map, vision and navigation map they use at its pinned version through `scripts/gate.py documents --read` — never the store's latest. Export the store's credential first, as for any read. A store that does not answer stops the tool (exit 2): nothing is built or judged without the approved business.
+
 Before sending, read what it printed: the feature count, the card count, and every `WARNING`. An empty glossary means no journey could be read — fix that first, the closed-vocabulary rule has nothing to hold.
 
 ## 2. Set up the Claude Desktop project

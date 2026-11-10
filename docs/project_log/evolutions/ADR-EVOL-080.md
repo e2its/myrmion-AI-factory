@@ -152,6 +152,7 @@ The issue states the what; everything below is the how, resolved from the SDLC.
 - **Pull.** A refine, and the iteration-model cascade, on a pinned artefact first runs `--pull`.
 - **Agents.** Agents read a pinned artefact with `gate.py documents --read`. This is one line in the project CLAUDE.md template, and `rules/documentation.md` holds the body.
 - **Gates.** The readers that move to `documents.text` / the pin-aware listing are bounds, digests, freeze, seal, frontmatter-lock, contracts, data, qa, delivery, proof, traceability and coherence. Frontmatter-lock reads an approved artefact moved home through its pin, so `--approve` deleting the file is no deletion; a re-pin, a draft over a pin and a deleted pin are judged like the file.
+- **The PO package (owner RDR-2, § Owner decisions).** External CODESIGN authoring reads the business it ships and judges a return against through the same reader. The builder (journeys, slice maps, the navigation map, the glossary, the feature list) and the return validator (the scope fallback, the last synced copy of the diff-only judgement) take a pinned artefact's approved bytes with `gate.py --repo <repo> documents --read`, as a subprocess: the subproduct imports nothing. The reader is told the repository (never the caller's `CLAUDE_PROJECT_DIR`), writes no bytecode into it, and is called once per artefact and run. A copy into the package keeps the approved bytes exactly (CRLF kept, strict UTF-8); a parse reads line ends as it reads a file, so one artefact parses alike from either home. A store that does not answer, or a reader that is missing, stops either tool with exit 2 and a plain line — never a package without the approved business, never a verdict. The adoption side already reads the pin (`Factory-codesign-sync` § never_approved).
 
 ### 8. Upgrade
 Migration row `documents (EVOL-080)`, since 10.4.0, detect `config/quality.json#/documents`. It asks Q38 and its follow-ups, then writes the block. A project that answers `None` gets `{adapter: none}`, and nothing else moves.
@@ -177,7 +178,13 @@ Migration row `documents (EVOL-080)`, since 10.4.0, detect `config/quality.json#
   - `rest.py` no-redirect, 429 and fault classes;
   - the built-adapter `--probe` (a faking adapter fails);
   - V14 parity;
-  - each threaded gate reading a pinned artefact.
+  - each threaded gate reading a pinned artefact;
+  - the PO package (RDR-2), in `scripts/test-po-package.sh` Part 2c, through the delivered reader and a built store ahead of the pin that needs its declared credential, with `CLAUDE_PROJECT_DIR` pointing elsewhere and bytecode writes allowed:
+    - the package carries the approved journey, slice map (CRLF, byte for byte) and navigation map, never the latest; each approved version is read once per build;
+    - a journey and a navigation map approved with CRLF parse as their files would: the scope reads the journey's frontmatter, the route map carries no frontmatter;
+    - the glossary, catalogue and scope read the pinned journey; the golden return is judged against it; the diff-only judgement reads the pinned synced copy;
+    - the repository is untouched, bytecode included; the credential's canary is absent from the package, the zip's members, the output and the error lines (the fake store echoes it when it refuses);
+    - the store down stops the builder (no zip) and the validator with exit 2 and a plain line; one unreadable synced journey stops the validator, naming it; a missing reader names `SETUP --upgrade`; a reader that times out, cannot start or answers bytes that are not UTF-8 is named in plain words.
 - **Process:**
   - a mutation sweep in a scratch copy;
   - the full suite, `test-hooks.sh`, and 9/9 synthetic materialisations, one fixture answering Confluence;
@@ -211,6 +218,8 @@ Migration row `documents (EVOL-080)`, since 10.4.0, detect `config/quality.json#
 ### Owner decisions
 - **RDR CI verification of pins (2026-11-09).** Owner, verbatim: «1, y sino se provee 3 coo backup». CI carries a read-only credential: it goes only to the store the base names, a missing credential is a wiring finding, and an outage stays n/a + WARN. Without a credential, verification is local only (option 3), documented as a known risk. The backup's selection is the next decision.
 - **RDR backup selection (2026-11-09).** Owner, verbatim: «1». It is declared at SETUP. `documents.verify: ci|local` is asked only when an external store is answered. With `ci`, a missing credential at the `ci` control point is a RED wiring finding. With `local`, the result is n/a + WARN «verified locally only (declared)», and the materialisation report records the accepted risk.
+- **RDR-2 external CODESIGN authoring with business homed outside (2026-11-10).** Owner, verbatim: «Tecnicamente lo suyo seria integrarlo con tras opciones. confluence, github wiki y repo» · «ejemplo se construye en claude y se almacena en repo, confluence o Github wiki» · «estamos hablando solo de los documentos generados por ese subproducto, verdad, para el reto no hay problema». Read as option 1 (import through the one reader, § 7), store-agnostic: the repo, Confluence and any built store today. Scope: the four business artefacts the PO loop writes and reads back (`user_journey.md`, `slice_map.md`, `vision.md`, `navigation_map.md`). The PO package reads no design or report artefact; every other consumer of those reads through the reader (§ 4). Requirement: the package carries the approved business (the pinned version, never the store's latest); the validator judges a return against it; the store down stops the tool; nothing is copied into the repo; the credential never travels with the package. GitHub Wiki as a shipped store: RDR-3.
+- **RDR-3 GitHub Wiki (2026-11-10).** Owner, verbatim: «2». This change closes with the repo, Confluence and the built adapter as the stores. GitHub Wiki gets its own shipped adapter in #224 (EVOL-129, epic #151), under the same contract and gate. Until then, a project that answers GitHub Wiki gets the built adapter at materialisation, with a WARN; the PO package reads it unchanged through the reader.
 
 ### Round 2 (four lenses, the cure diff) — cured
 - **The credential goes only where the base points.** The round-1 overlay (the base's site and space under the tree's other keys) is replaced by a guard: a pull request that adds the store or changes any key that steers the credential is the store down until it merges. A built store is covered too (its commands and credentials), and an adapter switch is a new store.
@@ -231,4 +240,33 @@ Migration row `documents (EVOL-080)`, since 10.4.0, detect `config/quality.json#
 - The secrets floor's patterns are not exhaustive (DC-31 says so); the declared scanner is the second layer.
 - The other members run with the CI's full environment, as before this change.
 - A credential with a line break or a non-ASCII character is a fault (exit 2) named by variable, not the wiring red.
+
+### Round 3 (four lenses, the PO package import) — cured
+- **The reader is told the repository.** `CLAUDE_PROJECT_DIR` set by a session in another project made the reader resolve the wrong tree; the call now passes `--repo`.
+- **Nothing lands in the repository through the reader.** The child runs with `PYTHONDONTWRITEBYTECODE`, so an operator without it exported gets no `__pycache__` under `scripts/gates`; the snapshot is taken after the validator too.
+- **Exact bytes.** The answer is read as bytes and decoded strictly; text is written with `newline=""`. A CRLF artefact reaches the package unchanged; bytes that are not UTF-8 stop the tool.
+- **Plain failures.** A missing `scripts/gate.py` names `SETUP --upgrade`; a timeout says the store did not answer in 300 s; the reader's own line is passed through; the closing hint is «fix what it says, then run again».
+- **One read per artefact and run** (a run-scoped memo), `stdin` closed.
+- **Proof widened.** The declared credential reaches the store and nothing else (a canary); the golden return is judged against the approved journey; per-artefact outage; no zip with the store down; the test header names Part 2c.
+- **Text aligned.** The runbooks name every business artefact, the intake skill's exit-2 meaning names the store, the subproduct's own docstring and the catalogue header no longer say "the repository".
+
+### Round 3 — accepted, not cured (informational)
+- The vision's synced copy is not observed on its own: it takes the same `_synced_copy` path as the journey, which is.
+- The reader runs with the caller's full environment: it is the project's own trusted tree, and its built command gets only the declared credentials (Round 2).
+- `extra_files`, the builder's symlink following and a partial staging tree on failure predate this change; the staging folder lives outside the repo.
+- The subproduct's `--selftest` carries no pin case: meta CI covers the import (Part 2c), and the selftest stays hermetic.
+- `.pin.json` and the "synced" predicate are spelled in the subproduct as well as in `documents.py`: the subproduct imports nothing by contract (EVOL-052); both sides fail closed.
+- On Windows the reader's text-mode stdout would translate line ends; the framework's gates and hooks run under bash, and its CI on Linux runners.
+
+### Round 4 (four lenses, the cure diff) — cured
+- **One artefact parses alike from either home.** Exact bytes reached the frontmatter parse: a journey approved with CRLF lost its scope, and a navigation map kept its frontmatter in the route map (correctness and governance). `read_artefact` keeps the bytes only for a copy (`exact=True`); every parse reads line ends as `read_text` reads a file. Part 2c pins both with CRLF.
+- **The leak proof reaches the zip and the errors.** The canary is searched inside each zip member, not the deflated archive, and in the store-down and missing-reader output; the fake store echoes the token when it refuses.
+- **Every named failure is proven.** The timeout, a reader that cannot start and bytes that are not UTF-8 are asserted in-process; the missing-reader line is asserted with its `SETUP --upgrade` cure.
+
+### Round 4 — accepted, not cured (informational)
+- The memo is keyed by repository and path, not by the pin's hash: one CLI run cannot see a pin change, and no caller imports the subproduct.
+- The reader's last stderr line passes through as it is (300 characters): the reader cleans its own messages, and a raw tail needs `GATE_DEBUG=1`, which the operator sets.
+- The golden return asserts the verdict, not the read itself; the glossary mutant (read the file instead of the store) fails it.
+- The validator's missing-reader case is not run on its own: the builder and the validator share `read_artefact`.
+- The "GitHub Wiki gets a WARN" clause of RDR-3 is the discovery warning «`X` has no shipped store» (`test_q38_documents_source_is_derived`).
 
