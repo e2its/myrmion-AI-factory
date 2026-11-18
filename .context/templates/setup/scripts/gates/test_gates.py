@@ -7075,6 +7075,9 @@ class FreezeReferences(unittest.TestCase):
             write(repo / "docs/spec/FEAT-001/notes.md", "# Notes\n```\nReference: `Jira` · x\n```\nA `Reference:` line cites a product.\n")
             r = freeze.check(repo, "main"); self.assertTrue(r["ok"], freeze.render(r)); self.assertEqual(r["entries"], [])
             self.assertIn("no reference citation", r["reason"])
+            write(repo / "docs/spec/FEAT-001/notes.md", "# Notes\nReference: `Linear` · https://linear.app/docs\n```\nReference: `Jira`\n```\n")
+            r = freeze.check(repo, "main"); self.assertTrue(r["ok"], freeze.render(r))
+            self.assertIn("1 reference citation named", freeze.render(r), "the fenced example beside a real citation is not judged")
 
     def test_first_of_its_kind_or_no_answer_home_names_none(self):
         with tempfile.TemporaryDirectory() as tmp:

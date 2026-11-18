@@ -321,8 +321,9 @@ exp = json.load(open(sys.argv[1]))["expect"]; r = json.loads(sys.stdin.read())
 dc = r["defect_classes"]
 got = {"pending": r["pending"], "migrations": [m["id"] for m in r["migrations_owed"]],
        "to_add": dc.get("to_add"), "collisions": [c["id"] for c in dc.get("collisions", [])], "to_remove": dc.get("to_remove"),
-       "replaced": r["gates_upgrade"]["replaced"], "kept": r["gates_upgrade"]["kept"], "added": r["gates_upgrade"]["added"], "templates_to_add": r["templates_to_add"]}
-want = {**exp, **exp.get("defect_classes", {}), **exp.get("gates_upgrade", {})}
+       "replaced": r["gates_upgrade"]["replaced"], "kept": r["gates_upgrade"]["kept"], "added": r["gates_upgrade"]["added"], "templates_to_add": r["templates_to_add"],
+       "carried": [c["from"] for c in r.get("carried", [])]}   # EVOL-132: an installed Q13 answer is read under reference_products
+want = {"carried": [], **exp, **exp.get("defect_classes", {}), **exp.get("gates_upgrade", {})}
 for k in got:
     if got[k] != want.get(k):
         print(f"{k}: expected {want.get(k)}, got {got[k]}")

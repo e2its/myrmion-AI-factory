@@ -26,6 +26,7 @@ This ADR implements issue #229 (epic #151, P0). It was verified on `main` at fra
      - `{name, for, feature?, link?}`, where `for` is one of `product | feature | look_and_feel | operating_model` (closed vocabulary), or
      - `{first_of_its_kind: "<reason>"}`.
    - Any product may be named. The framework ships no list of products (LAW-07).
+   - Each entry is written as a flow mapping (`- {name: Linear, for: product}`). The fallback YAML-subset reader, used where PyYAML is absent, reads that form and not a block mapping inside a list; both readers agree on it.
 2. **The resolver refuses a malformed answer.** `_check_answers` is the one reader; it exits 2 on `--resolve` and `--eval`. It refuses:
    - a value that is not a non-empty list of mappings;
    - a blank name;
@@ -48,7 +49,7 @@ This ADR implements issue #229 (epic #151, P0). It was verified on `main` at fra
    - CODESIGN feature reads `product`, `operating_model`, and `feature` entries that name the feature.
    - CODESIGN vision reads `look_and_feel`.
    - BLUEPRINT reads `product`, and `feature` entries that name the feature.
-   - DEVOPS reads `operating_model` and `product`.
+   - DEVOPS reads `operating_model` and `product`. The reader sits in `Factory-devops-configure` (where the operating decisions are taken), not in provision-deploy, which executes them.
    - A decision cites ``Reference: `Name` · <official source>``. The facts come from the vendor's, standard's or platform's official documentation (the docs reader), never from the reference product.
    - #225 owns the RDR «Market:» line and reads this key once it ships.
 5. **The check is mechanical: `gate.py freeze` clause (e).** No new gate is added.
@@ -77,4 +78,10 @@ This ADR implements issue #229 (epic #151, P0). It was verified on `main` at fra
 - A carried Q13 value is kept verbatim as one entry's name. Splitting it into products is the person's re-answer.
 
 ## Verification record
-_(filled at delivery)_
+- **Red first.** The 11 new tests (`References` ×5, `FreezeReferences` ×6) were run against the gate code of `origin/main` (6bf8c26). All 11 fail; the registry test fails against the old registry.
+- **Mutation sweep.** 28 mutants on the new branches of `discovery.py` and `freeze.py`, run in a scratch worktree, are all killed. The one first survivor (the code-fence filter in `citations()`, masked by the caller's guard) is now killed by a mixed-file case.
+- **Synthetic materialisation.** 11 of 11 fixtures pass with `--answers`.
+  - `default` answers `reference_products` with product, feature and look-and-feel entries.
+  - `upgrade-8.12` answers the old Q13 key and expects it carried, with Q2.1 still pending.
+  - With the `carried` expectation removed, the run is red.
+- **Registry.** `gate.py discovery` is green (V1–V14).
