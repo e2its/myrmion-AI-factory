@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.24.0",
+      "version": "2.24.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -1697,7 +1697,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.37.0",
+      "version": "14.37.1",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
