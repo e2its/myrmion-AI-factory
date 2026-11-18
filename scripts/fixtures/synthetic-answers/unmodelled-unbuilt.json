@@ -1,0 +1,79 @@
+{
+  "_doc": "Synthetic SETUP answers (EVOL-131): unmodelled.json with Buildkite's owed pointer (delivery.execution) left undeclared — --resolve stops and the materialisation lands nothing. META-ONLY.",
+  "answers": {
+    "project_mode": "Greenfield",
+    "qa.smoke_cadence": "per-slice",
+    "project_scope": "full-stack",
+    "quality.qa.blocking_severity": "high",
+    "qa.dast_tool": "nuclei",
+    "domain.monetary_amounts": false,
+    "backend.runtime": "Crystal",
+    "backend.framework": "Kemal",
+    "frontend.framework": "Lit",
+    "frontend.meta_framework": "Vite",
+    "frontend.state_management": "@lit/context",
+    "frontend.pattern": "F2",
+    "qa.browser_mcp": "puppeteer",
+    "testing.e2e_tool": "none",
+    "database.primary.engine": "CockroachDB",
+    "database.migrations_tool": "micrate",
+    "database.cache.engine": "Hazelcast",
+    "hosting.provider": "Hetzner",
+    "hosting.type": "container",
+    "hosting.deploy_tool": "OpenTofu",
+    "hosting.secrets_manager": "Doppler",
+    "ci_cd.platform": "Buildkite",
+    "scm.platform": "Gitea",
+    "observability.monitoring": "Honeycomb",
+    "observability.error_tracking": "Raygun",
+    "observability.tracing": "Grafana Tempo",
+    "project_tracking.tool": "None",
+    "project_tracking.flow": [
+      "Backlog",
+      "Ready",
+      "In Progress",
+      "Done"
+    ],
+    "documents.source": "None",
+    "po_package.mode": "full",
+    "po_package.ds_rebuild_command": null,
+    "surface.runtime_surface": [
+      "src/**",
+      "web/**"
+    ],
+    "security.standard": "none",
+    "performance.api_p95": "200 ms",
+    "performance.web": "standard",
+    "verification.gates.tests.command": "crystal spec",
+    "verification.gates.tests.scoped": "crystal spec {paths}",
+    "verification.gates.sca.command": "osv-scanner scan source -r .",
+    "verification.gates.frontend-tests.command": "npx web-test-runner",
+    "verification.gates.frontend-tests.scoped": "npx web-test-runner {paths}",
+    "traceability.test_roots": [
+      "spec/**",
+      "web/test/**"
+    ],
+    "delivery.migrate": "micrate up",
+    "delivery.adapter.tool": "OpenTofu",
+    "delivery.adapter.iac": true,
+    "delivery.adapter.validate": "tofu init -input=false -backend=false && tofu validate -json",
+    "delivery.adapter.plan": "tofu init -input=false -reconfigure -backend-config=envs/{env}.backend.hcl && tofu plan -input=false -var-file=envs/{env}.tfvars -out=tfplan-{env}",
+    "delivery.adapter.apply": "tofu apply -input=false tfplan-{env}",
+    "delivery.adapter.destroy": "tofu init -input=false -reconfigure -backend-config=envs/{env}.backend.hcl && tofu apply -destroy -input=false -auto-approve -var-file=envs/{env}.tfvars",
+    "delivery.adapter.url_from.kind": "command",
+    "delivery.adapter.url_from.command": "tofu output -raw url",
+    "delivery.adapter.secrets": [],
+    "delivery.adapter.rollback": "redeploy-lkg",
+    "mcp.servers.puppeteer.command": "npx",
+    "mcp.servers.puppeteer.args": [
+      "-y",
+      "puppeteer-mcp-server@0.7.2",
+      "--isolated"
+    ]
+  },
+  "expect": {
+    "stop": [
+      "`ci_cd.platform` = `Buildkite` — declare `delivery.execution`"
+    ]
+  }
+}

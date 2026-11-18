@@ -27,7 +27,7 @@ Interactive requirements gathering. Creates `docs/setup.md` and generates `ADR-0
 - **Tiers, questions, unlocks:** the registry `.context/templates/setup/setup/discovery_registry.json`; the next questions: `python3 scripts/gate.py discovery --resolve`
 - AUDIT Detection Protocol (pre-populate from `docs/technical_due.md` if available)
 - Template Scanning Protocol (scan `.context/templates/`)
-- Universal Option Protocol ("Other" + "Help me decide" on every question)
+- Universal Option Protocol (the registry's `open` decides where «Other — name the one you use» is offered; "Help me decide" on every question — Factory-setup-discovery § 4.1.1)
 - Questions Q1-Q36 with their wording, options and sub-questions
 - Architecture topology selection (B1-B12 backend, F1-F10 frontend)
 - Visual DNA and Design System integration

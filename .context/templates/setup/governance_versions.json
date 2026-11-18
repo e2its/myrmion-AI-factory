@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.5.0",
+  "framework_version": "10.6.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-18",
   "governance_features": {
@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.24.0",
+      "version": "2.24.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -452,7 +452,7 @@
       "upgrade_strategy": "smart-additive-merge"
     },
     "setup/setup_master_template.md": {
-      "version": "3.4.0",
+      "version": "3.4.1",
       "content_type": "stack_configured",
       "target": "docs/setup.md"
     },
@@ -487,7 +487,7 @@
       "target": "config/coherence-context.json"
     },
     "config/quality.json": {
-      "version": "2.4.0",
+      "version": "2.4.1",
       "content_type": "stack_configured",
       "target": "config/quality.json"
     },
@@ -556,7 +556,7 @@
       "target": "docs/project_log/adr/ADR-SETUP.md"
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.10.0",
+      "version": "1.10.1",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md"
     },
@@ -898,7 +898,7 @@
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**)."
     },
     "scripts/gate.py": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
@@ -940,7 +940,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.42.0",
+      "version": "1.43.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -1131,11 +1131,11 @@
       "role": "The Python home of the case → test link at collection (EVOL-053): registers the `case` marker and refuses collection on a malformed or unknown FEATURE/CASE id, reading the declared set through gate.py traceability --declared --json. Wired once: pytest_plugins = [\"conftest_traceability\"] in tests/conftest.py."
     },
     "scripts/gates/scm.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "scripts/gates/scm.py",
       "delivery": "both",
-      "role": "gates: server-side branch protection per SCM platform (EVOL-054) — one reader at the ci control point: with a read-only token it asks the platform's API (GitHub rulesets + legacy protection, GitLab protected branches / approvals / pipeline rule, Bitbucket branch restrictions, Azure DevOps policies) per protected branch, normalises pull-request-required / required checks / force-push / deletion / approvals and judges them against config → scm (RED on a missing setting, the runbook docs/scm/protection.md as the cure); no token, Other, push or static → n/a with the checklist; an API error is a fault."
+      "role": "gates: server-side branch protection per SCM platform (EVOL-054) — one reader at the ci control point: with a read-only token it asks the platform's API (GitHub rulesets + legacy protection, GitLab protected branches / approvals / pipeline rule, Bitbucket branch restrictions, Azure DevOps policies) per protected branch, normalises pull-request-required / required checks / force-push / deletion / approvals and judges them against config → scm (RED on a missing setting, the runbook docs/scm/protection.md as the cure); no token, Other or a platform with no adapter (EVOL-131; on a known host a typo, RED), push or static → n/a with the checklist; an API error is a fault."
     },
     "scm/protection.github.md": {
       "version": "1.1.0",
@@ -1215,14 +1215,14 @@
       "target": "scripts/gates/dependencies.py"
     },
     "scripts/gates/discovery.py": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/discovery.py",
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
     },
     "setup/discovery_registry.json": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "content_type": "universal",
       "target": null,
       "role": "The SETUP discovery registry (EVOL-102) — consumed in place by SETUP and gate.py discovery, never copied: the questions, their tiers, keys, options and conditions; derived values never asked."
@@ -1605,7 +1605,7 @@
       "path": ".claude/commands/qa.md"
     },
     "commands/setup.md": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "path": ".claude/commands/setup.md"
     },
     "instructions/Factory-audit-checklist.instructions.md": {
@@ -1673,15 +1673,15 @@
       "path": ".claude/instructions/Factory-backlog-next-task.instructions.md"
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "3.4.0",
+      "version": "3.5.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md"
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "4.4.0",
+      "version": "4.5.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md"
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "3.3.0",
+      "version": "3.3.1",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md"
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
@@ -1697,7 +1697,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.37.0",
+      "version": "14.37.1",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
@@ -2025,7 +2025,7 @@
       "role": "PreToolUse hook (Bash) — Factory PR Review push gate. Intercepts `git push` token-boundary matches in tool_input.command, invokes the factory-pr-review preflight script (.claude/skills/factory-pr-review/scripts/preflight.sh) against origin/{base}..HEAD, and on hard-blocker findings exits 1 with a humanised message + finding catalog + resolution path (commit + re-push). Skips silently when the skill is not installed in the project, when on a protected branch (already covered by check-branch-protection.sh), or for `git push --dry-run`. Tooling failures (env, missing python) warn and pass — defence-in-depth must not break legitimate pushes."
     },
     "workflows/governance-check.yml": {
-      "version": "1.23.0",
+      "version": "1.24.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates."
@@ -2255,7 +2255,7 @@
       "path": ".github/workflows/lockstep-check.yml"
     },
     "config/quality.json": {
-      "version": "1.19.0",
+      "version": "1.19.1",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json"
@@ -2316,7 +2316,7 @@
       "path": ".claude/hooks/deliver-governance.sh"
     },
     "scripts/gate.py": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
@@ -2352,13 +2352,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.42.0",
+      "version": "1.43.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.39.0",
+      "version": "1.40.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2538,9 +2538,9 @@
       "path": "scripts/gates/traceability.py"
     },
     "scripts/gates/scm.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "type": "script",
-      "role": "gates: server-side branch protection per SCM platform (EVOL-054) — one reader at the ci control point: with a read-only token it asks the platform's API (GitHub rulesets + legacy protection, GitLab protected branches / approvals / pipeline rule, Bitbucket branch restrictions, Azure DevOps policies) per protected branch, normalises pull-request-required / required checks / force-push / deletion / approvals and judges them against config → scm (RED on a missing setting, the runbook docs/scm/protection.md as the cure); no token, Other, push or static → n/a with the checklist; an API error is a fault. Meta copy (lock-step pair scripts/gates/*.py).",
+      "role": "gates: server-side branch protection per SCM platform (EVOL-054) — one reader at the ci control point: with a read-only token it asks the platform's API (GitHub rulesets + legacy protection, GitLab protected branches / approvals / pipeline rule, Bitbucket branch restrictions, Azure DevOps policies) per protected branch, normalises pull-request-required / required checks / force-push / deletion / approvals and judges them against config → scm (RED on a missing setting, the runbook docs/scm/protection.md as the cure); no token, Other or a platform with no adapter (EVOL-131; on a known host a typo, RED), push or static → n/a with the checklist; an API error is a fault. Meta copy (lock-step pair scripts/gates/*.py).",
       "path": "scripts/gates/scm.py"
     },
     "agents/factory-docs-reader.md": {
@@ -2602,7 +2602,7 @@
       "path": "scripts/fixtures/synthetic-answers/default.json"
     },
     "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
-      "version": "1.13.0",
+      "version": "1.13.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json"
@@ -2613,7 +2613,7 @@
       "path": "scripts/gates/dependencies.py"
     },
     "scripts/gates/discovery.py": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "type": "script",
       "path": "scripts/gates/discovery.py",
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
@@ -2673,7 +2673,7 @@
       "path": "scripts/fixtures/synthetic-answers/go.json"
     },
     "scripts/fixtures/synthetic-answers/rust.json": {
-      "version": "1.9.0",
+      "version": "1.9.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/rust.json"
@@ -3008,6 +3008,18 @@
       "type": "utility",
       "path": "scripts/fixtures/documents/two-macros.json",
       "role": "META-ONLY recorded Confluence response (Cloud REST v2 or Data Center REST v1) read by the Documents tests (EVOL-080)."
+    },
+    "scripts/fixtures/synthetic-answers/unmodelled.json": {
+      "version": "1.0.0",
+      "delivery": "sync",
+      "type": "utility",
+      "path": "scripts/fixtures/synthetic-answers/unmodelled.json"
+    },
+    "scripts/fixtures/synthetic-answers/unmodelled-unbuilt.json": {
+      "version": "1.0.0",
+      "delivery": "sync",
+      "type": "utility",
+      "path": "scripts/fixtures/synthetic-answers/unmodelled-unbuilt.json"
     }
   },
   "runtime_artefacts": {

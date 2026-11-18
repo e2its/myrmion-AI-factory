@@ -32,6 +32,7 @@
     "performance.api_p95": "200 ms"
   },
   "expect": {
+    "free_text": ["backend.framework"],
     "warnings": ["`Notion` has no shipped store"],
     "contains": {"config/quality.json": ["\"adapter\": \"built\"", "\"blocking_severity\": \"low\""]},
     "landed": [

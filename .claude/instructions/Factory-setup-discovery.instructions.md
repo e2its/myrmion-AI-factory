@@ -32,9 +32,11 @@ Before starting discovery, scan workspace for `docs/technical_due.md`:
 Before each question, scan `.context/templates/` for matching template directories. If a relevant template exists, use it to inform recommendations. Build an inventory of available templates at session start.
 
 ### Universal Option Protocol (4.1.1)
-For EVERY question with predefined options, ALWAYS append:
-- **"Other (describe)"**: Allows custom input outside predefined options
-- **"Help me decide"**: Triggers detailed pros/cons analysis with project-specific recommendation
+The registry says which list is which (EVOL-131).
+- **Open list.** A list the registry declares `open: true` is a market list: a runtime, a framework, a database, a host, a CI, an SCM, a scanner or an observability tool. It offers its literals plus **«Other — name the one you use»**. Any name persists as given. `gate.py discovery --resolve` lists it under `unmodelled`, and § Discovery Finalization step 2b builds it. Some questions have a condition that only a listed literal can satisfy, such as Q15.1 for a SQL engine. When the answer is unmodelled, such a question stays pending. Ask it; `None` is an answer and names no tool. Where a list also carries the literal `Other` (Q20, Q21.2), ask the name and persist the name — the literal stays only in installed answers (step 2a).
+- **Vocabulary list.** A list with `open: false` is framework vocabulary: a topology, a tier, a mode or a severity. It offers its literals only, and `--resolve` refuses any other answer.
+- **Free text.** A key in `--resolve`'s `free_text` has no list for its parent's answer. Ask it as free text.
+- **"Help me decide"** goes on every question. It triggers a pros/cons analysis with a recommendation for this project.
 
 ---
 
@@ -285,7 +287,7 @@ Questions are organized in dependency order within tiers; conditions live in the
 - Fly.io → flyctl
 - Other → Other
 - **Derived, never asked:** the four one-tool rows (the registry's `decided_by` on `hosting.provider`). No `None`: a served project always deploys through a tool.
-- **Lands:** the tool's row → `config/quality.json → delivery.adapter`; `Other` → the row the finalisation declares (§ 4.1.3, step 2a).
+- **Lands:** the tool's row → `config/quality.json → delivery.adapter`; `Other` (an installed answer) → the row the finalisation declares (§ 4.1.3, step 2a); a named tool → step 2b.
 - **Persist:** `hosting.deploy_tool`
 
 #### Q20.2: Secrets Manager
@@ -688,8 +690,14 @@ Questions are organized in dependency order within tiers; conditions live in the
 
 1. **Set phase:** Update `docs/setup.md` → `phase: COMPLETED`
 2a. **Delivery gaps, before VVP (EVOL-081):**
-   - `hosting.provider == Other` → the adapter row has no default. RDR: (1) declare the row — `tool`, `iac`, `validate`, `plan`, `apply`, `destroy`, `url_from {kind: command|stdout|template}`, `params` (every plan / apply / destroy names `{env}` or a per-environment param, RDR 6), `secrets` (vault names only), `rollback: redeploy-lkg`; (2) pick a covered host; (3) no deploy stage — the pipeline fails closed with a plain message. The row lands in `config/quality.json → delivery.adapter`.
+   - `hosting.provider == Other` (an installed answer; a new one names the host — step 2b) → the adapter row has no default. RDR: (1) declare the row — `tool`, `iac`, `validate`, `plan`, `apply`, `destroy`, `url_from {kind: command|stdout|template}`, `params` (every plan / apply / destroy names `{env}` or a per-environment param, RDR 6), `secrets` (vault names only), `rollback: redeploy-lkg`; (2) pick a covered host; (3) no deploy stage — the pipeline fails closed with a plain message. The row lands in `config/quality.json → delivery.adapter`.
    - `ci_cd.platform` not GitHub Actions / Bitbucket Pipelines / None, with a hosting provider answered → no deploy template ships for it yet (epic #210); materialisation authors the pipeline (Factory-setup-materialization § Delivery). No RDR.
+2b. **Unmodelled answers (EVOL-131).** For each entry in `--resolve`'s `unmodelled`:
+   1. Spawn `factory-docs-reader` with the tool's name and what `owes` needs, for example the test command, the deploy command or the server package. It returns each fact with its source.
+   2. Declare each owed pointer in `docs/setup.md` under the pointer itself, for example `verification.gates.<gate>.command` or `delivery.execution`. Use a covered sibling's row in the registry as the shape. Vault names only; never a credential.
+   3. Run `--resolve` again. `stop` names every pointer still undeclared, out of shape or of another kind, and every gate all covered siblings set (the backend's `tests` and `sca`). The materialisation never runs past it.
+   4. Show the user, in one block, every declared value with its source: gate commands, `delivery.migrate`, `delivery.execution`, every adapter field, server packages. They run in CI, at deploy and in the harness. Nothing lands without the user's verbatim yes. A no clears those declarations, and `--resolve` stops again. A value changed after the yes is shown again.
+   5. A tool that cannot meet the contract (no test runner, no non-interactive deploy) is said in plain words. Its answer goes back to the user as an RDR: a covered tool, another tool that meets it, or `None` where the question offers it.
 2. **Version Verification Protocol (VVP) — § 4.1.3.1:** Resolve and pin latest stable/LTS versions for all selected stack components. See below.
 3. **Cost Estimation Protocol (CEP) — § 4.1.3.2:** Estimate monthly costs for every stack component and agent-runtime line item, persist to `docs/setup.md § costs:`, check against tier limit. See below.
 4. **Display complete summary:** General Info + Tripartite Architecture + Tooling + Databases + DevOps + AI + Project Tracking + **Pinned Versions** + **Costs (resolved)**
