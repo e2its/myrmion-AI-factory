@@ -3731,9 +3731,17 @@ class Scm(unittest.TestCase):
                 scm.check(repo, "ci", fetch=boom, env=env, origin=origin)
             q = json.loads((repo / "config/quality.json").read_text()); q["scm"]["platform"] = "Other"; q["scm"]["required_checks"] = []; write(repo / "config/quality.json", json.dumps(q))
             r = scm.check(repo, "ci", fetch=boom, env=env, origin=origin); self.assertEqual(r["status"], "n/a"); self.assertIn("no adapter", r["reason"])
-            q["scm"]["platform"] = "Gitea"; q["scm"]["required_checks"] = ["governance-check"]; write(repo / "config/quality.json", json.dumps(q))
-            r = scm.check(repo, "ci", fetch=boom, env=env, origin=origin); self.assertEqual(r["status"], "n/a", "EVOL-131: a platform SETUP does not model is the checklist")
+            q["scm"]["platform"] = "Gitea"; q["scm"]["required_checks"] = []; write(repo / "config/quality.json", json.dumps(q))
+            r = scm.check(repo, "ci", fetch=boom, env=env, origin="git@git.example.test:o/r.git"); self.assertEqual(r["status"], "n/a", "EVOL-131: a platform SETUP does not model is the checklist, as Other")
             self.assertIn("no adapter for `Gitea`", r["reason"])
+            q["scm"]["platform"] = "Gitub"; write(repo / "config/quality.json", json.dumps(q))
+            r = scm.check(repo, "ci", fetch=boom, env=env, origin=origin); self.assertEqual(r["status"], "RED", "an unmodelled name on a known host is a typo of it")
+            self.assertIn("did you mean `GitHub`", r["reason"])
+            q["scm"]["platform"] = "AzureDevOps"; write(repo / "config/quality.json", json.dumps(q))
+            r = scm.check(repo, "ci", fetch=boom, env=env, origin="https://org.visualstudio.com/proj/_git/app"); self.assertIn("did you mean `Azure DevOps`", r["reason"])
+            q["scm"]["platform"] = "github"; write(repo / "config/quality.json", json.dumps(q))
+            r = scm.check(repo, "ci", fetch=boom, env=env, origin="git@git.example.test:o/r.git"); self.assertEqual(r["status"], "RED", "a case variant is a fault whatever origin says")
+            self.assertIn("did you mean `GitHub`", r["reason"])
             for block, needle in (({"required": False}, "without a `reason`"),
                                   ({"platform": "github", "required_checks": ["governance-check"]}, "did you mean `GitHub`"),
                                   ({"platform": " "}, "not one of"),
@@ -4991,6 +4999,30 @@ class Discovery(unittest.TestCase):
         r = discovery.resolve(real, {**base, "database.migrations_tool": "micrate", "delivery.migrate": "  "})
         self.assertIn("— declare `delivery.migrate`", r["stop"], "a blank command is no declaration")
         self.assertNotIn("delivery.migrate", r["configures"])
+
+    def test_a_dependent_blank_and_a_case_variant_are_refused(self):
+        real = HERE.parents[1]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        for answers, want in (({"backend.runtime": "Crystal", "backend.framework": ""}, "is blank"),
+                              ({"backend.runtime": "Python", "database.primary.engine": "postgresql"}, "did you mean `PostgreSQL`"),
+                              ({"backend.runtime": "Python", "database.primary.engine": "CockroachDB", "database.migrations_tool": "none"}, "did you mean `None`")):
+            with self.assertRaises(GateFault) as cm:
+                discovery.resolve(real, answers)
+            self.assertIn(want, str(cm.exception), answers)
+
+    def test_a_field_a_shipped_row_leaves_null_is_optional(self):
+        """An adapter owes the fields every shipped row fills; plan / validate / destroy are null in some rows, so a tool without them builds."""
+        real = HERE.parents[1]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        base = {"hosting.provider": "Hetzner", "hosting.type": "container", "hosting.deploy_tool": "Kamal", "surface.runtime_surface": ["src/**"],
+                "delivery.adapter.tool": "Kamal", "delivery.adapter.iac": False, "delivery.adapter.apply": "kamal deploy -d {env}",
+                "delivery.adapter.url_from.kind": "template", "delivery.adapter.url_from.template": "https://{env}.example.test", "delivery.adapter.secrets": []}
+        r = discovery.resolve(real, base)
+        self.assertIn("— declare `delivery.adapter.rollback`", r.get("stop", "")); self.assertNotIn("delivery.adapter.plan", r.get("stop", ""))
+        r = discovery.resolve(real, {**base, "delivery.adapter.rollback": "redeploy-lkg"})
+        self.assertNotIn("delivery.adapter", r.get("stop", "")); self.assertEqual(r["configures"]["delivery.adapter"]["tool"], "Kamal")
 
     def test_templates_owed_are_the_ones_a_listed_literal_lands(self):
         real = HERE.parents[1]

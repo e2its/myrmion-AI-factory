@@ -461,7 +461,7 @@ python3 subproducts/po-package/build_po_package.py                # first packag
 ```
 
 ### Server-side protection — next steps (EVOL-054)
-- **SCM host (Q21.2):** [GitHub | GitLab | Bitbucket | Azure DevOps | Other] — protected branches `[main]`, required checks `[…]`, approvals `[0]` (`config/quality.json → scm`).
+- **SCM host (Q21.2):** [GitHub | GitLab | Bitbucket | Azure DevOps | Other | the platform's own name] — protected branches `[main]`, required checks `[…]`, approvals `[0]` (`config/quality.json → scm`).
 - **Runbook:** `docs/scm/protection.md` — the exact settings for the protected branch; applied by a repository administrator, never by the materialisation.
 - **Token wired in CI:** [yes — the profile step exports the platform token | no — the runbook checklist is the record until it does]. Verified by `python3 scripts/gate.py scm-protection --control-point ci` on the first pull request (RED = apply the runbook; n/a = no token).
 

@@ -17,7 +17,8 @@ reader   ONE reader, ONE control point: `gate.py scm-protection` asks the platfo
          TF_BUILD): that is a wiring finding, RED. At push and at the static round: n/a — a local clone cannot see
          the server; the member runs at `ci`. `scm.platform` must agree with the host `origin` points at. A transient
          API error is retried once and then a fault with an honest reason; a scope error says it is one. Adapters are
-         functions of the platform key here — no platform switch anywhere else; `Other` is the checklist.
+         functions of the platform key here — no platform switch anywhere else; `Other`, or a platform SETUP does not model
+         (EVOL-131), is the checklist — unless origin points at a known host, then the name is a typo of that host: RED.
 """
 from __future__ import annotations
 
@@ -70,7 +71,7 @@ def cfg(repo: Path) -> dict:
         raise GateFault("scm.protected_branches must be a non-empty list of branch names")
     if not isinstance(checks, list) or not all(isinstance(c, str) and c for c in checks):
         raise GateFault("scm.required_checks must be a list of check names")
-    if not checks and platform != "Other":
+    if not checks and platform in ADAPTERS:
         raise GateFault("scm.required_checks is empty — a server that requires no check decides nothing; name the governance check (and the lock-step check where it runs)")
     if not isinstance(approvals, int) or isinstance(approvals, bool) or approvals < 0:
         raise GateFault("scm.approvals must be an integer ≥ 0 (a project decision)")
@@ -466,6 +467,14 @@ def check(repo: Path, control_point: str = "push", fetch=None, env: dict | None 
     book = runbook(repo)
     if control_point != "ci":
         return _na(f"a local clone cannot see the server — the protection of {', '.join(c['branches'])} is verified at the ci control point (runbook: {book})", platform=c["platform"])
+    if c["platform"] != "Other" and c["platform"] not in ADAPTERS:   # EVOL-131: an unmodelled name on a known host is a typo of it
+        try:
+            seen = remote(repo, origin)["host"]
+        except GateFault:
+            seen = ""
+        known_host = KNOWN_HOSTS.get(seen) or ("Azure DevOps" if seen.endswith(("dev.azure.com", ".visualstudio.com")) else None)
+        if known_host:
+            return {"ok": False, "status": "RED", "required": True, "platform": c["platform"], "reason": f"scm.platform says `{c['platform']}` but origin points at {seen} ({known_host}) — did you mean `{known_host}`? Fix the config (SETUP Q21.2)", "findings": [], "branches": {}, "checklist": CHECKLIST}
     if c["platform"] == "Other" or c["platform"] not in ADAPTERS:
         return _na(f"no adapter for `{c['platform']}` — the protection is the checklist in {book}, ticked by a person", platform=c["platform"])
     tok = token(c["platform"], env)

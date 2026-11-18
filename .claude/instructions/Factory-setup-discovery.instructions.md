@@ -287,7 +287,7 @@ Questions are organized in dependency order within tiers; conditions live in the
 - Fly.io → flyctl
 - Other → Other
 - **Derived, never asked:** the four one-tool rows (the registry's `decided_by` on `hosting.provider`). No `None`: a served project always deploys through a tool.
-- **Lands:** the tool's row → `config/quality.json → delivery.adapter`; `Other` → the row the finalisation declares (§ 4.1.3, step 2a).
+- **Lands:** the tool's row → `config/quality.json → delivery.adapter`; `Other` (an installed answer) → the row the finalisation declares (§ 4.1.3, step 2a); a named tool → step 2b.
 - **Persist:** `hosting.deploy_tool`
 
 #### Q20.2: Secrets Manager
@@ -696,7 +696,7 @@ Questions are organized in dependency order within tiers; conditions live in the
    1. Spawn `factory-docs-reader` with the tool's name and what `owes` needs, for example the test command, the deploy command or the server package. It returns each fact with its source.
    2. Declare each owed pointer in `docs/setup.md` under the pointer itself, for example `verification.gates.<gate>.command` or `delivery.execution`. Use a covered sibling's row in the registry as the shape. Vault names only; never a credential.
    3. Run `--resolve` again. `stop` names every pointer still undeclared, out of shape or of another kind, and every gate all covered siblings set (the backend's `tests` and `sca`). The materialisation never runs past it.
-   4. Show the user, in one block, every declared command and server package with its source. They run in CI, at deploy and in the harness. Nothing lands without the user's verbatim yes.
+   4. Show the user, in one block, every declared value with its source: gate commands, `delivery.migrate`, `delivery.execution`, every adapter field, server packages. They run in CI, at deploy and in the harness. Nothing lands without the user's verbatim yes. A no clears those declarations, and `--resolve` stops again. A value changed after the yes is shown again.
    5. A tool that cannot meet the contract (no test runner, no non-interactive deploy) is said in plain words. Its answer goes back to the user as an RDR: a covered tool, another tool that meets it, or `None` where the question offers it.
 2. **Version Verification Protocol (VVP) — § 4.1.3.1:** Resolve and pin latest stable/LTS versions for all selected stack components. See below.
 3. **Cost Estimation Protocol (CEP) — § 4.1.3.2:** Estimate monthly costs for every stack component and agent-runtime line item, persist to `docs/setup.md § costs:`, check against tier limit. See below.

@@ -455,15 +455,19 @@ def _check_answers(reg: dict, ans: dict):
                                 f"`{canon(dec[k])}` — the key is derived, never answered; clear it or answer `{db['key']}` again")
             continue
         offered = _offered_for(spec, ans)
+        known = _known(spec) if spec.get("open") is True else None   # EVOL-131: an open list admits a name it does not know
+        for x in (v if isinstance(v, list) else [v]) if v is not None and known is not None else []:
+            if not canon(x).strip():
+                raise GateFault(f"the answer `{k}` is blank — name the tool you use" + (f", or answer from its list ({' | '.join(offered)})" if offered else ""))
+            near = None if canon(x) in known | {"None"} else next((n for n in sorted(known | {"None"}) if n.lower() == canon(x).strip().lower()), None)
+            if near:
+                raise GateFault(f"the answer `{k}` = `{canon(x)}` — did you mean `{near}`? Answer it with the registry's spelling")
         if v is None or offered is None:
             continue
-        known = _known(spec) if spec.get("open") is True else None   # EVOL-131: an open list admits a name it does not know
         for x in (v if isinstance(v, list) else [v]):
-            if known is not None and not canon(x).strip():
-                raise GateFault(f"the answer `{k}` is blank — name the tool you use, or answer from its list ({' | '.join(offered)})")
             if canon(x) in offered or (known is not None and canon(x) not in known):
                 continue
-            if known is not None:
+            if known is not None and isinstance(spec.get("options_by"), dict):
                 parent = spec["options_by"]["key"]
                 raise GateFault(f"the answer `{k}` = `{canon(x)}` belongs to another `{parent}` — under `{parent}` = `{canon(ans.get(parent))}` "
                                 f"the list is {' | '.join(offered)}; answer it again, or name the tool you use if it is none of them")
@@ -531,7 +535,8 @@ def _built(reg: dict, ans: dict) -> tuple[list[tuple[str, dict]], list[str]]:
             if val is None:
                 owed.append(f"{where} — declare `{ptr}`"); continue
             vals = [r.get(ptr) for r in shipped]
-            common = set.intersection(*(set(v) for v in vals)) if len(vals) > 1 and all(isinstance(v, dict) for v in vals) else set()   # one row names one tool's own
+            common = (set.intersection(*({n for n, x in v.items() if x is not None} for v in vals))   # a name a shipped row leaves null is optional
+                      if len(vals) > 1 and all(isinstance(v, dict) for v in vals) else set())   # one row names one tool's own
             if isinstance(val, dict):
                 owed += [f"{where} — declare `{ptr}.{n}`" for n in sorted(common - set(val))]
             if ptr in seen:

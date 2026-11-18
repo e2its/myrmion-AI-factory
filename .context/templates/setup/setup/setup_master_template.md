@@ -1,5 +1,5 @@
 ---
-version: 3.4.0
+version: 3.4.1
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -36,7 +36,7 @@ security:
 domain:
   monetary_amounts: null              # Q36 — true | false, asked only when project_scope is full-stack, backend-only or integration → rules/monetary-amounts.md on true (EVOL-072)
 scm:
-  platform: null                      # Q21.2 — GitHub | GitLab | Bitbucket | Azure DevOps | Other → config/quality.json scm.platform; the runbook docs/scm/protection.md lands per platform (EVOL-054)
+  platform: null                      # Q21.2 — GitHub | GitLab | Bitbucket | Azure DevOps | Other, or the platform's own name → config/quality.json scm.platform; the runbook docs/scm/protection.md lands per platform (EVOL-054)
   approvals: null                     # Q21.2 — approvals a pull request needs (a project decision; 0 for a single author) → scm.approvals
   required_checks: null               # Q21.2 — the checks the server must require before merge → scm.required_checks
 # answers (EVOL-102) — keys, options, conditions: .context/templates/setup/setup/discovery_registry.json
