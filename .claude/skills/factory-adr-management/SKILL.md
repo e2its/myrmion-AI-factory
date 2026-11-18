@@ -185,7 +185,8 @@ WHEN BLUEPRINT detects a design decision needing formalisation:
   → run RDR with user (factory-rdr/SKILL.md) → user picks decision
   → invoke factory-adr-management Propose Procedure with operational_rule = decision text
   → continue design with new ADR/FDR as feature-relevant context
-  → at BLUEPRINT --approve, invoke Accept Procedure on the proposed record
+  → an ADR that adds or replaces a law gets its design.md § Decision History row — law + the gate that checks it (EVOL-082)
+  → at BLUEPRINT --approve, `gate.py freeze` judges the row, then invoke Accept Procedure on the proposed record
 ```
 
 ### From AUDIT --audit (mitigation that should become law)

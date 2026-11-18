@@ -1017,8 +1017,7 @@
       "In-memory",
       "CDN-only",
       "None"
-     ],
-     "record_only": "recorded for the setup report and the CEP databases cost line; no gate or template reads it"
+     ]
     }
    }
   },
@@ -1747,8 +1746,7 @@
       "New Relic",
       "CloudWatch",
       "None"
-     ],
-     "record_only": "read by no gate; ci-cd.md {{OBSERVABILITY_*}} resolve through the generic placeholder pass (named by phase 2 fills); the setup report records it"
+     ]
     },
     "observability.error_tracking": {
      "options": [

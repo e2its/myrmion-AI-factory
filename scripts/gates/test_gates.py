@@ -6515,6 +6515,129 @@ class Freeze(unittest.TestCase):
             self.assertEqual(r.returncode, 1, out); self.assertIn("install PyYAML", out); self.assertNotIn("Traceback", out)
 
 
+class FreezeDecisions(unittest.TestCase):
+    """EVOL-082: a critical decision names its law and the gate that checks it — clause (d) of the freeze, run at BLUEPRINT --approve."""
+    DESIGN = Freeze.DESIGN
+
+    def _repo(self, tmp, loop=None):
+        repo = Freeze()._repo(tmp)
+        if loop:
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["verification"] = {"gates": {g: {"reads": ["src/**"], "command": "true"} for g in loop}}
+            write(repo / "config/quality.json", json.dumps(q))
+        return repo
+
+    @staticmethod
+    def _adr(repo, n, kind, target):
+        write(repo / f"docs/project_log/adr/{n}-session-cache.md",
+              f"---\nadr_number: {n}\ntitle: t\nstatus: proposed\ntarget_section: \"{target}\"\namendment_kind: {kind}\n---\n# {n}\n\n## Operational Rule\n\nSessions live in the shared cache.\n")
+
+    @staticmethod
+    def _design(rows=(), prose="", rq=""):
+        table = ("| Decision | Law | Gate | Record |\n| :--- | :--- | :--- | :--- |\n" + "".join(f"| {d} | {l} | {g} | {r} |\n" for d, l, g, r in rows)) if rows else ""
+        return (f"# Design\n\n{rq}## Decision History (ADR)\n> Immutable record.\n- **[2026-11-10 - START]** Initial design.\n{prose}\n{table}\n"
+                "## Infrastructure Needs\n\nnone\n")
+
+    def _check(self, repo, text):
+        write(repo / self.DESIGN, text)
+        r = freeze.check(repo, "main")
+        return r, freeze.render(r)
+
+    def test_a_critical_decision_without_a_gate_blocks_approval(self):
+        """The DoD: a blank gate is red, and the call --approve makes (Part 5) exits 1."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); self._adr(repo, "ADR-0007", "ADD", "NEW: Stateless sessions")
+            r, out = self._check(repo, self._design([("Sessions live in the shared cache", "new", "", "ADR-0007")]))
+            self.assertFalse(r["ok"], out); self.assertIn("names no gate", out); self.assertIn("Sessions live in the shared cache", out)
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "freeze", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 1, res.stdout + res.stderr); self.assertIn("names no gate", res.stdout)
+
+    def test_each_unbound_cell_is_red(self):
+        cases = (
+            (("D", "new", "nonsense", "ADR-0007"), "names gate `nonsense`, which the project does not run"),
+            (("D", "new", "discovery", "ADR-0007"), "names gate `discovery`, which the project does not run"),   # framework-only member
+            (("D", "", "contracts", "ADR-0007"), "names no law"),
+            (("D", "PLAW-99", "contracts", ""), "names law `PLAW-99`, which the governance index does not have"),
+            (("D", "new", "contracts", ""), "`new` law needs the record of the ADR that adds it"),
+            (("D", "new", "contracts", "ADR-0042"), "record `ADR-0042` has no file under docs/project_log/adr/"),
+            (("D", "new", "contracts", "ADR-0008"), "record `ADR-0008` does not add a law"),
+            (("D", "PLAW-01", "contracts", "ADR-0008"), "ADR-0008 replaces PLAW-02, not PLAW-01"),
+            (("D", "PLAW-01", "contracts", "NOTE-1"), "record `NOTE-1` is not an ADR id"),
+            (("", "PLAW-01", "contracts", ""), "a critical decision row names no decision"),
+            (("{{decision}}", "{{law}}", "{{gate}}", "{{adr}}"), "names no gate"),
+        )
+        for row, word in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); self._adr(repo, "ADR-0007", "ADD", "NEW: Stateless sessions"); self._adr(repo, "ADR-0008", "REPLACE", "[PLAW-02]")
+                r, out = self._check(repo, self._design([row]))
+                self.assertFalse(r["ok"], (row, out)); self.assertIn(word, out, row)
+
+    def test_bound_rows_are_green(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, loop=["contract-parity"])
+            self._adr(repo, "ADR-0007", "ADD", "NEW: Stateless sessions"); self._adr(repo, "ADR-0008", "REPLACE", "[PLAW-02]")
+            rows = [("Every operation is in its contract before its code", "PLAW-01", "contracts · every operation declared", ""),
+                    ("Sessions live in the shared cache", "`new`", "contract-parity", "ADR-0007"),
+                    ("Instances keep no request state", "PLAW-02", "tests · tests/arch/test_stateless.py", "ADR-0008"),
+                    ("Protected paths stay untouched", "LAW-02", "code-review", "")]
+            r, out = self._check(repo, self._design(rows, prose="- **[2026-11-11 - REFINE]** Change (See docs/project_log/adr/ADR-0007).\n"))
+            self.assertTrue(r["ok"], out); self.assertNotIn("n/a", out.splitlines()[0])
+            self.assertIn("4 critical decisions bound to a law and a gate", out)
+
+    def test_a_law_making_adr_in_prose_only_is_red(self):
+        for kind, target, red in (("ADD", "NEW: Stateless sessions", True), ("REPLACE", "[PLAW-02]", True),
+                                  ("NONE", "none", False), ("REMOVE", "[PLAW-02]", False)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); self._adr(repo, "ADR-0009", kind, target)
+                r, out = self._check(repo, self._design(prose="- **[2026-11-11 - REFINE]** Change (See docs/project_log/adr/ADR-0009).\n"))
+                self.assertEqual(r["ok"], not red, (kind, out))
+                if red:
+                    self.assertIn("ADR-0009", out); self.assertIn("recorded as prose only", out)
+                else:
+                    self.assertTrue(r.get("na"), (kind, r)); self.assertIn("no critical decision", out)
+
+    def test_a_law_making_adr_in_another_table_is_red(self):
+        """An ADR named in a table without the decision columns counts as prose: it still owes its row."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); self._adr(repo, "ADR-0009", "ADD", "NEW: Stateless sessions")
+            r, out = self._check(repo, self._design(prose="| Date | Record |\n| :--- | :--- |\n| 2026-11-11 | ADR-0009 |\n"))
+            self.assertFalse(r["ok"], out); self.assertIn("ADR-0009 adds a law and is recorded as prose only", out)
+
+    def test_a_table_before_the_decisions_does_not_hide_them(self):
+        """A non-table line closes a table: the decision table after another one keeps its own header."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r, out = self._check(repo, self._design([("Every operation is in its contract", "PLAW-01", "contracts", "")],
+                                                    prose="| Date | Note |\n| :--- | :--- |\n| 2026-11-11 | start |\n"))
+            self.assertTrue(r["ok"], out); self.assertIn("1 critical decision bound to a law and a gate", out)
+
+    def test_the_red_member_is_not_a_gate(self):
+        """The loop's built-in red proof checks no decision: naming it is an unknown gate."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["verification"] = {"gates": {"tests": {"reads": ["src/**"], "command": "true", "scoped": "true {files}", "red_reads": ["tests/**"]}}}
+            write(repo / "config/quality.json", json.dumps(q))
+            self.assertIn("red", seal.vcfg(repo)["gates"])   # the loop carries its built-in member
+            r, out = self._check(repo, self._design([("Every operation is in its contract", "PLAW-01", "red", "")]))
+            self.assertFalse(r["ok"], out); self.assertIn("names gate `red`, which the project does not run", out)
+
+    def test_no_table_and_no_law_making_adr_is_na(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r, out = self._check(repo, self._design(prose="- **[2026-11-11 - REFINE]** Change (See docs/project_log/adr/ADR-0404).\n"))
+            self.assertTrue(r["ok"], out); self.assertTrue(r.get("na"), r); self.assertTrue(out.startswith("freeze: n/a — "), out)
+            self.assertIn("no critical decision", out)
+
+    def test_the_note_counts_both_clauses(self):
+        rq = ("## Reliability Questions\n\n| Capability | Weight | RQ-1 |\n| --- | --- | --- |\n| login | security | revoke all · https://datatracker.ietf.org/doc/html/rfc7009 |\n\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r, out = self._check(repo, self._design([("Every operation is in its contract before its code", "PLAW-01", "contracts", "")], rq=rq))
+            self.assertTrue(r["ok"], out)
+            self.assertIn("1 weighted capability answered with a cited source", out); self.assertIn("1 critical decision bound to a law and a gate", out)
+
+
 class Contracts(unittest.TestCase):
     """EVOL-072: one error code per meaning (DC-36), CRUD-First single and batch, kept or declared (DC-37) — the one contract reader."""
     CAT = "contracts/errors.yaml"

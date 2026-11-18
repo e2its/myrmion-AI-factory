@@ -358,6 +358,10 @@ LOG: "DC Gate passed: {blocker_dc_count} BLOCKER DCs explicitly addressed"
 
 See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 for the canonical protocol.
 
+**Part 5: Freeze Gate (BLOCKING — EVOL-082)**
+
+Run `python3 scripts/gate.py freeze` before Freezing. It judges the design and the contracts this branch changes: reliability questions answered with a source, the outage response, bounded sensitive fields, and every critical decision of design.md § Decision History bound to its law and a gate the project runs. Exit 1 BLOCKS — show its ✗ lines as they are and redirect: "Run BLUEPRINT --refine {FEATURE_ID} to fix what the freeze lists." Exit 0 (ok or n/a) passes; never re-judge what it printed.
+
 ### Freezing
 - Set `design.md` frontmatter: `status: APPROVED`
 - Set `test_plan.md` frontmatter: `status: APPROVED`
