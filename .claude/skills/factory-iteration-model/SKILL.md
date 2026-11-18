@@ -88,6 +88,27 @@ ELIF breaking_count > 0 AND delta_count == 0:
   MODE: REVISE → New Feature ID (pure breaking)
 ```
 
+### Change in flight (EVOL-083)
+
+The one home of the lane for a change that arrives mid-build. Other texts cite it and do not restate it. There is no other command and no flag.
+
+- **Entry.** `CODESIGN --refine {ID} "<change>"`, whoever brings the change: the person in the repo, or a PO return through `CODESIGN --sync`. It is classified as above (Levels 1–3).
+- **Record.**
+  - Every change request carries one id: `ERQ-{ID}-{NN}`. A PO return brings its own. In the repo, NN is the next number over the feature's recorded `erq_id`s.
+  - The id is written on the iteration entry (`erq_id`), with its `changes` and `classification`. A Level-3 choice is an RDR, recorded as `source: rdr-ratification`.
+  - No redefinition goes unrecorded.
+- **Effect per increment.** `CASCADE_INCREMENT_INTERNAL` decides, by the increment's state:
+
+  | State | Effect |
+  |---|---|
+  | BUILDING | Kept on its branch: the cascade sets `Pending iteration: N` and a `Pending reason` naming the ERQ id. The increment completes; `IMPLEMENT --refine` then takes the change. |
+  | DRAFT, READY | Becomes INVALIDATED and is re-synced. |
+  | MERGED | Untouched; the change is a follow-up increment. |
+- **REVISE (pure breaking).** The increment in progress still completes first, under the one-active-version rule. Discarding it is only the person's own `--cancel`, never forced.
+- **Mechanical layer.** `gate.py train` checks two things:
+  - **(k) state known.** Every INC and SUB records a state from its vocabulary. A `Pending iteration` is allowed only on a BUILDING or MERGED increment.
+  - **(l) kept in progress.** Against the merge-base, no BUILDING increment is discarded and no MERGED one regresses.
+
 ---
 
 ## Downstream Iteration Detection Protocol (MANDATORY - ALL AGENTS)
@@ -625,7 +646,7 @@ FUNCTION CASCADE_INCREMENT_INTERNAL(FEATURE_ID, target_iteration, affected_scope
       # Mark the increment as needing resync but DO NOT flip status yet — the increment completes
       # first (enforced by immutability_policy); the change then lands through IMPLEMENT --refine.
       UPDATE_INCREMENT_FIELD(plan_path, inc.id, "pending_iteration", target_iteration)
-      UPDATE_INCREMENT_FIELD(plan_path, inc.id, "pending_reason", "Affected by upstream change — complete the increment, then run IMPLEMENT --refine {FEATURE_ID}")
+      UPDATE_INCREMENT_FIELD(plan_path, inc.id, "pending_reason", "{erq_id} — affected by upstream change: complete the increment, then run IMPLEMENT --refine {FEATURE_ID}")   # § Change in flight; the erq_id of the iteration that triggered the cascade
       warnings.push({
         id: inc.id,
         reason: "BUILDING increment carries uncommitted work — complete it, then --refine",
@@ -885,6 +906,7 @@ Capability flag `governance_features.iterations_array_v1` in the governance mani
   iteration: 3                        # N suffix of id
   date: 2026-05-16T10:30:00Z
   source: user-feedback               # user-feedback | cascade | impl-gap-probe | rdr-ratification | mcp-docs-finding
+  erq_id: ERQ-AUTH-001-02             # the change request that opened it, either lane (§ Change in flight); absent otherwise
   classification: DELTA               # DELTA | BREAKING | HYBRID (CODESIGN only)
   scope_summary: "one-line summary"
   changes: [{kind: scenario_added, ref: "User enables MFA"}]

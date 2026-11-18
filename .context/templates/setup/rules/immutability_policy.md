@@ -29,10 +29,10 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 
 | SDLC Phase | Lock Trigger | Immutable Artifact | Blocked Commands | Allowed Command |
 |------------|--------------|--------------------|-----------------|-----------------|
-| **CODESIGN Approved** | `/CODESIGN --start` / `--refine` (auto-approval) | `spec.feature` | `/CODESIGN --refine` (if downstream APPROVED) | `/CODESIGN --revise` |
+| **CODESIGN Approved** | `/CODESIGN --start` / `--refine` (auto-approval) | `spec.feature` | `/CODESIGN --refine` classified REVISE (if downstream APPROVED) | `/CODESIGN --refine` as a classified iteration (factory-iteration-model § Change in flight); `/CODESIGN --revise` for REVISE |
 | **CODESIGN Approved (slice_map)** | `/CODESIGN --start` / `--refine` (auto-approval) | `slice_map.md` plan-level frontmatter + § 0; § 1 scenario membership frozen per-scenario as realizing increments reach MERGED (see Per-Slice Immutability) | `/CODESIGN --refine` re-slice touching a MERGED scenario | `/CODESIGN --revise` or additive follow-up slice |
-| **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` + `increment_plan.md` (plan-level frontmatter; per-increment § 1 sections follow the Per-Increment Immutability table below) | `/CODESIGN --refine`, `/BLUEPRINT --refine` (except on increments in DRAFT/READY/INVALIDATED status) | `/CODESIGN --revise` |
-| **IMPLEMENT Plan Approved** | `/IMPLEMENT --plan` | All previous + `dev_plan.md` | All previous + `/BLUEPRINT --refine` (except per-increment allowance) | `/CODESIGN --revise` or `/BLUEPRINT --refine` (scoped to editable increments) |
+| **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` + `increment_plan.md` (plan-level frontmatter; per-increment § 1 sections follow the Per-Increment Immutability table below) | `/CODESIGN --refine` classified REVISE, `/BLUEPRINT --refine` (except on increments in DRAFT/READY/INVALIDATED status) | `/CODESIGN --refine` as a classified iteration (§ Change in flight — the increment in progress is kept); `/CODESIGN --revise` for REVISE |
+| **IMPLEMENT Plan Approved** | `/IMPLEMENT --plan` | All previous + `dev_plan.md` | All previous + `/BLUEPRINT --refine` (except per-increment allowance) | `/CODESIGN --refine` as a classified iteration (§ Change in flight), `/CODESIGN --revise` for REVISE, or `/BLUEPRINT --refine` (scoped to editable increments) |
 | **IMPLEMENT Approved** | `/IMPLEMENT --build` (the work critics pass — correctness, security, governance, fidelity) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --revise` (new version) |
 | **QA Verify+DAST Approved** | `/QA --verify` (post-staging auto-approval, includes the DAST security pass) | Entire chain | All previous | Only `/CODESIGN --revise` (creates new feature) |
 | **Merged to main** | Git merge | **FULLY IMMUTABLE** | All commands except hotfix | `/IMPLEMENT --fix` (emergencies) |
@@ -46,18 +46,17 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 
 #### Phase 1: PO APPROVED (Soft Lock)
 - **Trigger:** `/CODESIGN --start` or `--refine` auto-approval USR-001
-- **Lock:** `spec.feature` blocked for `/CODESIGN --refine` **IF** downstream work exists (`test_plan.md`, `design.md`, `dev_plan.md`)
-- **Exception:** Typographic corrections via `/CODESIGN --refine` allowed (maximum 3, recorded in history)
-- **Versioning:** Not required if no downstream work
+- **Lock:** with downstream work (`test_plan.md`, `design.md`, `dev_plan.md`), `/CODESIGN --refine` classifies each change (factory-iteration-model Levels 1–3). REVISE → `/CODESIGN --revise`; anything else → an iteration of the same feature (§ Change in flight).
+- **Versioning:** only for REVISE
 
 #### Phase 2: BLUEPRINT APPROVED (Hard Lock - Start)
 - **Trigger:** `/BLUEPRINT --approve USR-001` (mandatory manual checkpoint)
 - **Lock Cascade:**
-  - `spec.feature` → **BLOCKED** for PO (no more `--refine`)
+  - `spec.feature` → `--refine` only as a classified iteration (factory-iteration-model § Change in flight); REVISE → `--revise`
   - `test_plan.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
   - `design.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
   - `increment_plan.md` → **PARTIALLY BLOCKED** — plan-level frontmatter and § 0 Refinement Record frozen; § 1 per-increment sections follow Per-Increment Immutability below
-- **Versioning:** **MANDATORY** for any change (except per-increment allowances)
+- **Versioning:** **MANDATORY** for a REVISE change (a classified iteration and the per-increment allowances need none)
 - **Command:** `/CODESIGN --revise USR-001 "Reason for change"`
 - **Note:** QA verification happens AFTER implementation (Phase 4), not at this phase.
 
@@ -71,7 +70,7 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 |---|---|---|---|---|
 | `DRAFT` | Initial (emitted by `BLUEPRINT --start`) | scope, scenarios_covered, contract_surface, depends_on, deployable, functional_definition, exit criteria, estimated surface | N/A (IMPLEMENT has not started) | None |
 | `READY` | `BLUEPRINT --approve` sets increment_plan.md `status: APPROVED`; no per-increment branch yet | scope/scenarios/contract_surface/depends_on FROZEN. Exit criteria and estimated surface may be refined. | Layer tasks `[INC-N.A.M]`, `[INC-N.B.M]`, `[INC-N.C.M]` editable (task decomposition) | None |
-| `BUILDING` | `IMPLEMENT --plan` opens the increment branch `feature/{ID}-inc-N-{slug}` (first task checked) | **BLOCKED** — complete the increment first | **BLOCKED** — same | None (complete it first) |
+| `BUILDING` | `IMPLEMENT --plan` opens the increment branch `feature/{ID}-inc-N-{slug}` (first task checked) | **BLOCKED** — complete the increment first; an upstream change sets `Pending iteration` and keeps it (§ Change in flight) | **BLOCKED** — same; after the merge `IMPLEMENT --refine` takes the pending change | None (complete it first) |
 | `MERGED` | Increment PR merged to `main` (git merge hook updates `Merged at:` timestamp) | **BLOCKED** — increment is in production. Changes require `CODESIGN --revise` (new feature version) OR a new follow-up increment (see below). | **BLOCKED** — same | MANDATORY if change alters scope of merged increment |
 | `INVALIDATED` | Iteration cascade `CASCADE_INCREMENT_INTERNAL` set by upstream `--refine` (only valid on increments in `DRAFT` or `READY` at cascade time; MERGED increments are NEVER invalidated — they cascade to a new follow-up increment instead) | Full resync — scope/scenarios/contracts/tasks all editable until status returns to DRAFT/READY | Same | Delta iteration bump (spec.feature.iteration + increment_plan.based_on_iteration) |
 
@@ -449,17 +448,13 @@ hotfix_applied_at: 2026-01-22T15:00:00Z
 **Situation:** USR-001 in DEV phase (50% tasks completed), PO needs to add OAuth
 
 **Flow:**
-1. CODESIGN attempts `/CODESIGN --refine USR-001`:
-   ```
-   ❌ BLOCKED: spec.feature is APPROVED with downstream work (DEV in progress).
-   Use `/CODESIGN --revise USR-001 "reason"` to create USR-001-v2.
-   ```
-2. CODESIGN executes `/CODESIGN --revise USR-001 "Add OAuth login"`:
-   - Creates `USR-001-v2/`
-   - Marks `USR-001` as `SUPERSEDED`
-   - Notifies ARCH/QA/DEV
-3. **Decision:** Continue USR-001 as-is, or pause and work on v2?
-4. If paused: IMPLEMENT can `/IMPLEMENT --plan USR-001-v2` with delta mode (only new tasks)
+1. CODESIGN runs `/CODESIGN --refine USR-001 "Add OAuth login"` — the change-request lane (factory-iteration-model § Change in flight). The change is recorded as `ERQ-USR-001-01`.
+2. The change is classified DELTA (a new scenario), so it becomes iteration 2 of USR-001. No new version is created.
+3. The cascade acts on each increment:
+   - INC-1 is BUILDING. It stays on its branch with `Pending iteration: 2`, completes and merges, then `IMPLEMENT --refine USR-001` takes the change.
+   - INC-2 is READY. It becomes INVALIDATED and is re-synced by `BLUEPRINT --refine`.
+4. Nothing is discarded. `gate.py train` is red if the increment in progress is dropped (l) or if any state is outside its vocabulary (k).
+5. Had the change been classified REVISE (pure breaking), INC-1 would still complete first. `/CODESIGN --revise` would then open v2. Discarding the increment is only the person's own `--cancel`.
 
 ---
 
@@ -530,7 +525,7 @@ docs/project_log/workflow_log.json
 | 2026-01-15T10:00 | USR-001 | CODESIGN | --start (auto-approved) | DRAFT | APPROVED | No | All auto-approval checks passed |
 | 2026-01-15T10:05 | USR-001 | BLUEPRINT | --start | - | DRAFT | No | - |
 | 2026-01-15T10:10 | USR-001 | BLUEPRINT | --approve | READY | APPROVED | No | - |
-| 2026-01-20T09:00 | USR-001 | CODESIGN | --refine | APPROVED | APPROVED | Yes | Downstream work exists |
+| 2026-01-20T09:00 | USR-001 | CODESIGN | --refine | APPROVED | APPROVED | Yes | Classified REVISE (pure breaking) with downstream work |
 | 2026-01-20T09:05 | USR-001 | CODESIGN | --revise | APPROVED | APPROVED (SUPERSEDED) | No | Create v2 |
 | 2026-01-20T09:05 | USR-001-v2 | CODESIGN | --revise | - | DRAFT | No | Created from USR-001 |
 ```
@@ -570,6 +565,10 @@ def check_immutability(agent, command, feature_id):
     # Check 3: Immutability lock (agent-specific)
     if frontmatter.get("status") == "APPROVED":
         if command in ["--refine", "--plan"]:
+            # CODESIGN --refine is the change-request lane: it classifies, and only REVISE needs a new version
+            # (factory-iteration-model § Change in flight). Every other agent's --refine/--plan stays locked here.
+            if agent == "CODESIGN" and command == "--refine":
+                return True
             if has_downstream_work(agent, feature_id):
                 raise BlockedError(
                     f"Artifact is APPROVED with downstream work. "
@@ -629,6 +628,8 @@ def check_increment_immutability(agent, command, feature_id, target_increment_id
                 f"Invalid status transition for {inc_id}: {before} → {after}. "
                 f"Allowed: DRAFT → READY → BUILDING → MERGED; {{DRAFT,READY}} → INVALIDATED → DRAFT."
             )
+    # Mechanical layer (EVOL-083): `gate.py train` (k) reads every state against its vocabulary and
+    # (l) refuses, against the merge-base, a BUILDING increment discarded or a MERGED one regressed.
 
     return True
 ```
@@ -696,8 +697,8 @@ log_workflow(
 
 ### Can I edit a spec after approving it?
 
-**If there is no downstream work:** Yes, via `/CODESIGN --refine` (limited to typos)
-**If there is downstream work:** No, you must use `/CODESIGN --revise` to create a new version.
+**If there is no downstream work:** Yes, via `/CODESIGN --refine`.
+**If there is downstream work:** Yes, via `/CODESIGN --refine`, which classifies the change. An iteration keeps the increment in progress (factory-iteration-model § Change in flight). Only a REVISE change needs `/CODESIGN --revise` and a new version.
 
 ### What happens if I need to change the design after implementing?
 

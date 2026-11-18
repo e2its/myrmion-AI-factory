@@ -736,7 +736,7 @@ IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-comman
 # Step 5: Iteration Execution (bump iteration, cascade, changelog)
 # Step 6: Re-run Tripartite Alignment + auto-approval validations
 # Step 7: Status — NEEDS_INFO → DRAFT once no blocking question is left open; else stays NEEDS_INFO.
-#         APPROVED → DRAFT (new iteration, step 5); with downstream work Step 4 classifies each change — a blocked one → --revise.
+#         APPROVED → DRAFT (new iteration, step 5); with downstream work Step 4 classifies each change — REVISE → --revise; the rest is an iteration (iteration-model § Change in flight).
 #         Iteration with only `kind: accepted_change` changes (pre-approved realignment, rules/branching.md § [LAW-17]) → stays APPROVED;
 #         form-only realignment cascades nothing.
 #         Terminal: HARD BLOCK.
@@ -784,6 +784,8 @@ FUNCTION cip_refine_recheck(FEATURE_ID, refine_changes):
 ### Change Classification Protocol (when refining APPROVED specs with downstream work)
 
 Reads `iteration` via `read_iteration_state(artifact_path)` (factory-iteration-model § Dual-format read). Direct `fm.iteration` access is a violation.
+
+**Mid-build change (EVOL-083).** This is the change-request lane: factory-iteration-model § Change in flight. Record its `ERQ-{ID}-{NN}` on the iteration entry (`erq_id`). An increment in progress is kept, never discarded.
 
 **Level 1: Structural Classification (Deterministic)**
 
