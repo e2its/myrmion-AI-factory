@@ -304,7 +304,7 @@ consumes_contract = READ("docs/spec/{ID}/spec.feature").frontmatter.consumes_con
 
 The Part 1-4 checks below are gated by these flags. Checks whose applicability matrix excludes the current scope resolve as **N/A** (not pass, not fail — structurally skipped and logged in the worklog as `skipped: scope`).
 
-### 4-Part Validation (scope-aware)
+### 5-Part Validation (scope-aware; Part 5 is never scope-gated — the freeze answers n/a itself)
 
 **Part 1: ARCH Design Validation (🏗️ ARCH concern)**
 - All design.md sections complete (no TODO/TBD)
@@ -360,7 +360,7 @@ See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 f
 
 **Part 5: Freeze Gate (BLOCKING — EVOL-082)**
 
-Run `python3 scripts/gate.py freeze` before Freezing. It judges the design and the contracts this branch changes: reliability questions answered with a source, the outage response, bounded sensitive fields, and every critical decision of design.md § Decision History bound to its law and a gate the project runs. Exit 1 BLOCKS — show its ✗ lines as they are and redirect: "Run BLUEPRINT --refine {FEATURE_ID} to fix what the freeze lists." Exit 0 (ok or n/a) passes; never re-judge what it printed.
+Run `python3 scripts/gate.py freeze` before Freezing. It judges the design and the contracts this branch changes: reliability questions answered with a source, the outage response, bounded sensitive fields, and every critical decision of design.md § Decision History bound to its law and a gate the project runs. Exit 1 BLOCKS — show its ✗ lines as they are and redirect: "Run BLUEPRINT --refine {FEATURE_ID} to fix what the freeze lists." Exit 2 (the gate could not run) BLOCKS too — say what failed in plain words. Only exit 0 (ok or n/a) passes; never re-judge what it printed.
 
 ### Freezing
 - Set `design.md` frontmatter: `status: APPROVED`

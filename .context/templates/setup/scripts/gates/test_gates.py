@@ -6559,7 +6559,11 @@ class FreezeDecisions(unittest.TestCase):
             (("D", "", "contracts", "ADR-0007"), "names no law"),
             (("D", "PLAW-99", "contracts", ""), "names law `PLAW-99`, which the governance index does not have"),
             (("D", "new", "contracts", ""), "`new` law needs the record of the ADR that adds it"),
-            (("D", "new", "contracts", "ADR-0042"), "record `ADR-0042` has no file under docs/project_log/adr/"),
+            (("D", "new", "contracts", "ADR-0042"), "record `ADR-0042` has no readable file under docs/project_log/adr/"),
+            (("D", "PLAW-01", "contracts", "ADR-0010"), "ADR-0010: its frontmatter does not read"),
+            (("{{the cache engine}} holds the sessions", "PLAW-01", "contracts", ""), "still carries a template placeholder"),
+            (("D", "PLAW-01", "{{tests · what it checks}}", ""), "names no gate"),
+            (("", "", "", ""), "a critical decision row names no decision"),
             (("D", "new", "contracts", "ADR-0008"), "record `ADR-0008` does not add a law"),
             (("D", "PLAW-01", "contracts", "ADR-0008"), "ADR-0008 replaces PLAW-02, not PLAW-01"),
             (("D", "PLAW-01", "contracts", "NOTE-1"), "record `NOTE-1` is not an ADR id"),
@@ -6569,6 +6573,7 @@ class FreezeDecisions(unittest.TestCase):
         for row, word in cases:
             with tempfile.TemporaryDirectory() as tmp:
                 repo = self._repo(tmp); self._adr(repo, "ADR-0007", "ADD", "NEW: Stateless sessions"); self._adr(repo, "ADR-0008", "REPLACE", "[PLAW-02]")
+                write(repo / "docs/project_log/adr/ADR-0010-broken.md", "---\ntitle: Stateless: sessions\n---\n# ADR-0010\n")
                 r, out = self._check(repo, self._design([row]))
                 self.assertFalse(r["ok"], (row, out)); self.assertIn(word, out, row)
 
@@ -6602,6 +6607,21 @@ class FreezeDecisions(unittest.TestCase):
             repo = self._repo(tmp); self._adr(repo, "ADR-0009", "ADD", "NEW: Stateless sessions")
             r, out = self._check(repo, self._design(prose="| Date | Record |\n| :--- | :--- |\n| 2026-11-11 | ADR-0009 |\n"))
             self.assertFalse(r["ok"], out); self.assertIn("ADR-0009 adds a law and is recorded as prose only", out)
+
+    def test_a_law_making_adr_cited_elsewhere_still_owes_its_row(self):
+        """Cited by its file name, or inside another decision's row: a law-making ADR is named, and it owes its own row."""
+        for prose, rows in (("See docs/project_log/adr/ADR-0009-session-cache.md.\n", ()),
+                            ("", [("Shared session cache (ADR-0009)", "PLAW-01", "contracts", "")])):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); self._adr(repo, "ADR-0009", "ADD", "NEW: Stateless sessions")
+                r, out = self._check(repo, self._design(rows, prose=prose))
+                self.assertFalse(r["ok"], out); self.assertIn("ADR-0009 adds a law and is recorded as prose only", out)
+
+    def test_a_near_miss_header_is_red_never_skipped(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r, out = self._check(repo, self._design(prose="| Decision | Law | Gate (what checks it) |\n| :--- | :--- | :--- |\n| D | PLAW-01 | |\n"))
+            self.assertFalse(r["ok"], out); self.assertIn("lacks the column(s) `Gate`, `Record`", out)
 
     def test_a_table_before_the_decisions_does_not_hide_them(self):
         """A non-table line closes a table: the decision table after another one keeps its own header."""

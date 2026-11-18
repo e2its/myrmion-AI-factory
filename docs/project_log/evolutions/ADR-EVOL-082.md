@@ -55,14 +55,14 @@ This ADR implements issue #136 (epic #112, Wave 5, destination G). It was verifi
      - an ADD/REPLACE ADR named in the section that is the Record of no row (prose only).
    - A `{{…}}` placeholder counts as blank.
    - With no table and no law-making ADR, the design reads n/a with its reason.
-4. **`BLUEPRINT --approve` runs `gate.py freeze` (validation Part 5, blocking) before the status flips.** This turns the existing prose checklist into a mechanical one: reliability questions, outage response and sensitive fields, plus clause (d).
-5. **Four generic example rows go in the template.** Each names the answer it is filled from in `docs/setup.md`:
+4. **`BLUEPRINT --approve` runs `gate.py freeze` (validation Part 5, blocking) before the status flips.** The approval step calls the gate, so the checklist is judged by code: reliability questions, outage response and sensitive fields, plus clause (d). Exit 1 or 2 blocks. The gate itself is held mechanically at push and in CI.
+5. **Four generic example rows go in the template.** The first three name the answer they are filled from in `docs/setup.md`, and the fourth needs no answer:
    - stateless session cache (Q17 `database.cache.engine`);
    - data-access routing and privacy (Q18 `auth.strategy`, Q25 `observability.logging`);
    - connection management (gate `data`, Q25 `observability.monitoring`);
    - API-first (gate `contracts`).
 
-   The agent keeps only the decisions the feature makes. An unfilled row is red. Q17 `database.cache.engine` and Q25 `observability.monitoring` lose `record_only`, and the design template is now their reader (V4).
+   The agent keeps only the decisions the feature makes. A row that still carries a `{{…}}` is red. Q17 `database.cache.engine` and Q25 `observability.monitoring` lose `record_only`: the reason «no template reads it» is no longer true. V4 already passed through `scripts/gates/discovery.py`.
 
 ## Consequences
 
@@ -85,6 +85,15 @@ No new law. The control-point line of `CLAUDE.md` and `rules/branching.md` names
 
 Red first, then green.
 - `test_gates.py::FreezeDecisions`: one case per red condition (DoD: a blank gate blocks), the green rows, divergence and removal not judged, n/a, and the combined note.
-- `gate.py discovery` green (V4 satisfied by the template).
+- `gate.py discovery` green.
 - Mutation sweep of clause (d) in a scratch copy: 22 mutants, 22 killed. The first pass left two survivors and they were cured with a test each: an ADR named in another table, and the loop's built-in `red` named as a gate. One more test came from the sweep: a table before the decision table must not hide it.
 - Suites: `test_gates.py` (502 tests), `test-hooks.sh`, `test-check-design-sections.sh` and `test-templates-static.sh`. Synthetic materialisation passed 9/9 with `--answers`. `gate.py profile --run` returned verdict ok.
+
+Critic round 1 (four lenses, sonnet) found these 🟡, and each was cured with a red-first test:
+- A law-making ADR cited by its file name (`ADR-N-slug.md`) or inside another decision's row escaped the prose-only check.
+- A table with a near-miss header was skipped in silence.
+- An ADR whose frontmatter does not parse stopped the whole gate with a fault. It is now red on that ADR.
+- A placeholder inside a cell's text passed.
+- Part 5 did not say that exit 2 blocks.
+- The README gate row did not describe clause (d).
+- The gate hint named framework-only members.

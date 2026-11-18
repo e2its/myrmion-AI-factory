@@ -177,10 +177,10 @@ sequenceDiagram
 
 > **Critical decisions (EVOL-082).** A decision recorded by an ADR that adds or replaces a law (`amendment_kind: ADD | REPLACE`) is critical and has a row below. A row may also bind a decision to a law that already exists.
 > - **Law:** a law `gate.py laws` lists (`LAW-NN` / `PLAW-NN`), or `new` — the law its Record's ADR adds.
-> - **Gate:** the gate that checks it — a profile member (`gate.py profile`) or a `config/quality.json → verification.gates` row — optionally followed by `· what it checks`.
+> - **Gate:** the gate that checks it — a profile member that is not framework-only (`gate.py profile`) or a `config/quality.json → verification.gates` row, never the built-in `red` — optionally followed by `· what it checks`.
 > - **Record:** the ADR (`ADR-N`), required with `new`.
 >
-> `gate.py freeze` is red on a row without its law or a gate the project runs, and on a law-making ADR named here with no row. BLUEPRINT `--approve` runs it. The rows are generic examples: keep the ones this feature decides, fill each from the answer it names in `docs/setup.md`, and drop the rest. An unfilled `{{…}}` cell is red.
+> `gate.py freeze` is red on a row without its law or a gate the project runs, and on a law-making ADR named here with no row. BLUEPRINT `--approve` runs it. The rows are generic examples: keep the ones this feature decides, fill each from the answer it names in `docs/setup.md`, and drop the rest. A row that still carries a `{{…}}` is red.
 
 | Decision | Law | Gate | Record |
 | :--- | :--- | :--- | :--- |

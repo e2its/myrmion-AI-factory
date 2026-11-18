@@ -40,10 +40,12 @@ WEIGHTS = ("security", "availability", "both", "none")   # closed (owner RDR «1
 WEIGHTED = ("security", "availability", "both")
 BLANK = re.compile(r"^(?:|—|-|–|tbd|todo|\?+|\{\{[^}]*\}\})$", re.I)
 DECISION_COLUMNS = ("decision", "law", "gate", "record")
-ADR_ID = re.compile(r"(?<![\w-])ADR-\d+(?![\w-])")
+ADR_ID = re.compile(r"(?<![\w-])ADR-\d{1,12}(?!\w)")   # `ADR-7`, and `ADR-7` in a file name `ADR-7-slug.md`
 LAW_ID = re.compile(r"P?LAW-\d{2}")
 ADR_DIR = "docs/project_log/adr"
 LAW_MAKING = ("ADD", "REPLACE")
+GATE_HINT = ("a gate the project runs: a profile member that is not framework-only (`gate.py profile --json`, any profile) "
+             "or a verification-loop row (`config/quality.json → verification.gates`), never the built-in `red`")
 
 
 def _cells(line: str) -> list[str]:
@@ -122,6 +124,15 @@ def _adr(repo: Path, rid: str) -> dict | None:
     return read_frontmatter(hits[0]) if hits else None
 
 
+def _read_adr(repo: Path, rid: str, problems: list[str]) -> dict | None:
+    """`_adr`, with a frontmatter that does not parse reported red on the ADR it names — never a fault that hides the verdict."""
+    try:
+        return _adr(repo, rid)
+    except GateFault as e:
+        problems.append(f"{rid}: its frontmatter does not read ({str(e).splitlines()[0][:160]}) — fix the ADR file")
+        return {}
+
+
 def _kind(fm: dict | None) -> str:
     return str((fm or {}).get("amendment_kind") or "").strip().upper()
 
@@ -129,7 +140,7 @@ def _kind(fm: dict | None) -> str:
 def decisions(repo: Path, text: str) -> tuple[list[str], int, str]:
     """Clause (d) on one design: (problems, decisions judged, why nothing was judged)."""
     sect = _section(text, "Decision History (ADR)") or _section(text, "Decision History")
-    rows, header, named = [], None, set()
+    rows, header, named, near = [], None, set(), set()
     for line in sect.splitlines():
         if not line.strip().startswith("|"):
             header = None
@@ -139,31 +150,39 @@ def decisions(repo: Path, text: str) -> tuple[list[str], int, str]:
         if header is None:
             header = [_plain(c).lower() for c in cells]
             continue
-        if all(set(c) <= set(":- ") for c in cells):
+        if all(c and set(c) <= set(":- ") and "-" in c for c in cells):
             continue
-        if not all(h in header for h in DECISION_COLUMNS):
+        cols = [h for h in DECISION_COLUMNS if h in header]
+        if len(cols) < len(DECISION_COLUMNS):
             named |= set(ADR_ID.findall(line))   # another table: its ADR names count as prose for this clause
+            if len(cols) >= 2:
+                near.add(", ".join(f"`{h.capitalize()}`" for h in DECISION_COLUMNS if h not in cols))
             continue
-        rows.append(dict(zip(header, cells)))
-    problems, recorded = [], set()
+        row = dict(zip(header, cells))
+        named |= set(ADR_ID.findall(" ".join(v for k, v in row.items() if k != "record")))   # an ADR cited in the row's text
+        rows.append(row)
+    problems, recorded = [f"a decision table lacks the column(s) {m} — the header is exactly `Decision | Law | Gate | Record`"
+                          for m in sorted(near)], set()
     laws = {law["id"] for part in corpus.laws(repo).values() for law in part} if rows else set()
     gates = _gates(repo) if rows else set()
     for row in rows:
         dec, law, rec = row.get("decision", ""), _plain(row.get("law", "")), _plain(row.get("record", ""))
-        gate = _plain(row.get("gate", "").partition("·")[0])
+        gate = "" if _blank(row.get("gate", "")) else _plain(row.get("gate", "").partition("·")[0])
         name = f"critical decision `{_plain(dec)}`"
         if _blank(dec):
             problems.append("a critical decision row names no decision — say what was decided")
             name = "a critical decision row"
+        elif any("{{" in v for v in row.values()):
+            problems.append(f"{name} still carries a template placeholder (`{{{{…}}}}`) — fill it from docs/setup.md or drop the row")
         fm = None
         if not _blank(rec):
             if not ADR_ID.fullmatch(rec):
                 problems.append(f"{name}: record `{rec}` is not an ADR id — name the ADR (`ADR-N`) that records it")
             else:
                 recorded.add(rec)
-                fm = _adr(repo, rec)
+                fm = _read_adr(repo, rec, problems)
                 if fm is None:
-                    problems.append(f"{name}: record `{rec}` has no file under {ADR_DIR}/ — write the ADR or name the right one")
+                    problems.append(f"{name}: record `{rec}` has no readable file under {ADR_DIR}/ — write the ADR or name the right one")
         if _blank(law):
             problems.append(f"{name} names no law — name the law it applies (`LAW-NN` / `PLAW-NN`) or `new` with the ADR that adds it")
         elif law.lower() == "new":
@@ -178,13 +197,11 @@ def decisions(repo: Path, text: str) -> tuple[list[str], int, str]:
             if target and target.group(0) != law:
                 problems.append(f"{name}: {rec} replaces {target.group(0)}, not {law} — name the law the record replaces")
         if _blank(gate):
-            problems.append(f"{name} names no gate — name the gate that checks it: a profile member (`gate.py profile`) or a "
-                            f"verification-loop member (`config/quality.json → verification.gates`)")
+            problems.append(f"{name} names no gate — name the gate that checks it: {GATE_HINT}")
         elif gate not in gates:
-            problems.append(f"{name} names gate `{gate}`, which the project does not run — name a profile member (`gate.py profile`) "
-                            f"or a verification-loop member (`config/quality.json → verification.gates`)")
+            problems.append(f"{name} names gate `{gate}`, which the project does not run — name {GATE_HINT}")
     for rid in sorted(named - recorded):
-        kind = _kind(_adr(repo, rid))
+        kind = _kind(_read_adr(repo, rid, problems))
         if kind in LAW_MAKING:
             problems.append(f"{rid} {'adds' if kind == 'ADD' else 'replaces'} a law and is recorded as prose only — "
                             f"give it a `Decision | Law | Gate | Record` row with its law and the gate that checks it")
