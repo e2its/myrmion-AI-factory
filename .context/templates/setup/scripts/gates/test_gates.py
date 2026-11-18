@@ -3947,17 +3947,20 @@ DISC_REGISTRY = {
     "_doc": "fixture",
     "questions": [
         {"id": "Q1", "tier": 0, "since": "1.0.0", "keys": {"project_name": {"free": "text", "record_only": "the report title, read by no gate"}}},
-        {"id": "Q5", "tier": 1, "since": "1.0.0", "keys": {"backend.runtime": {"options": ["Python", "Node.js", "None"]}}},
+        {"id": "Q5", "tier": 1, "since": "1.0.0", "keys": {"backend.runtime": {"options": ["Python", "Node.js", "None"], "open": True}}},
         {"id": "Q6", "tier": 1, "since": "1.1.0", "when": "backend.runtime != \"None\"",
-         "keys": {"backend.framework": {"options_by": {"key": "backend.runtime", "values": {"Python": ["FastAPI", "Django"], "Node.js": ["Express.js", "NestJS"]}}}}},
-        {"id": "Q3", "tier": 0, "since": "1.0.0", "keys": {"project_mode": {"options": ["Greenfield", "Brownfield"]}}},
-        {"id": "Q15", "tier": 1, "since": "1.0.0", "keys": {"database.primary.engine": {"options": ["PostgreSQL", "None"]}}},
-        {"id": "Q21", "tier": 2, "since": "1.2.0", "keys": {"ci_cd.platform": {"options": ["GitHub Actions", "GitLab CI", "None"]}}},
+         "keys": {"backend.framework": {"options_by": {"key": "backend.runtime", "values": {"Python": ["FastAPI", "Django"], "Node.js": ["Express.js", "NestJS"]}}, "open": True}}},
+        {"id": "Q3", "tier": 0, "since": "1.0.0", "keys": {"project_mode": {"options": ["Greenfield", "Brownfield"], "open": False}}},
+        {"id": "Q15", "tier": 1, "since": "1.0.0", "keys": {"database.primary.engine": {"options": ["PostgreSQL", "None"], "open": True}}},
+        {"id": "Q21", "tier": 2, "since": "1.2.0", "keys": {"ci_cd.platform": {"options": ["GitHub Actions", "GitLab CI", "None"], "open": True}}},
         {"id": "Q26", "tier": 2, "since": "1.0.0", "keys": {"dependencies.backend": {"free": "list"}}},
     ],
     "derived": {"verification.gates": {"from": "the stack answers pick the loop's gates"}},
 }
 DISC_INSTRUCTION = """# Discovery
+
+### Universal Option Protocol (4.1.1)
+A list the registry declares `open: true` offers «Other — name the one you use»; any other list offers its literals only.
 
 #### Q1: Project Name
 - **Persist:** `project_name`
@@ -4806,16 +4809,162 @@ class Discovery(unittest.TestCase):
     def test_answer_outside_options(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = disc_repo(tmp)
-            for bad, key in (({"backend.runtime": "Ruby"}, "backend.runtime"), ({"backend.runtime": "Python", "backend.framework": "Rails"}, "backend.framework")):
+            for bad, key in (({"project_mode": "Agile"}, "project_mode"), ({"backend.runtime": "Python", "backend.framework": "Express.js"}, "backend.framework")):
                 with self.assertRaises(GateFault) as cm:
                     discovery.resolve(repo, bad)
                 self.assertIn(f"`{key}`", str(cm.exception))
             discovery.resolve(repo, {"backend.runtime": "Python", "backend.framework": "Django"})
-            write(repo / "a.json", json.dumps({"answers": {"backend.runtime": "Ruby"}}))
+            write(repo / "a.json", json.dumps({"answers": {"project_mode": "Agile"}}))
             gate = str(HERE.parent / "gate.py")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "discovery", "--resolve", "--answers", str(repo / "a.json")],
                                capture_output=True, text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": ""})
-            self.assertEqual(r.returncode, 2); self.assertIn("backend.runtime", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            self.assertEqual(r.returncode, 2); self.assertIn("project_mode", r.stderr); self.assertNotIn("Traceback", r.stderr)
+
+    # ── EVOL-131: any answer — an open list admits the tool the user names; it is built to the same contract ──
+    def _browser(self, reg):
+        reg["questions"].append({"id": "Q23.5", "tier": 2, "since": "1.0.0", "keys": {"qa.browser_mcp": {"options": ["Playwright", "None"], "open": True, "configures": {
+            "Playwright": {"mcp.servers": {"playwright": {"command": "npx", "args": ["-y", "@playwright/mcp@1.0.0", "--isolated"]}}}}}}})
+
+    def test_open_key_admits_an_unmodelled_tool(self):
+        """DoD 1: an answer outside an open list is accepted and persisted; resolve names what it owes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, self._configures)
+            r = discovery.resolve(repo, {"backend.runtime": "Crystal", "surface.runtime_surface": ["src/**"]})
+            self.assertEqual(r["unmodelled"], [{"key": "backend.runtime", "answer": "Crystal", "owes": ["traceability.test_roots", "verification.gates"],
+                                                "templates": ["rules/python.md"]}], "owes: the pointers its shipped rows set; templates: the entries its literals land")
+            self.assertEqual(discovery.resolve(repo, {"backend.runtime": "Python", "surface.runtime_surface": ["src/**"]})["unmodelled"], [], "a covered literal owes nothing")
+            m = json.loads((repo / discovery.MANIFEST).read_text()); m["templates"]["rules/backend.md"] = {"version": "1.0.0", "stack_conditional": "backend.runtime != None"}
+            write(repo / discovery.MANIFEST, json.dumps(m))
+            self.assertEqual(discovery.resolve(repo, {"backend.runtime": "Crystal"})["unmodelled"][0]["templates"], ["rules/python.md"], "an entry naming the key that lands anyway is no debt")
+            write(repo / "a.json", json.dumps({"answers": {"backend.runtime": "Crystal", "database.primary.engine": "CockroachDB"}}))
+            gate = str(HERE.parent / "gate.py")
+            p = subprocess.run([sys.executable, gate, "--repo", str(repo), "discovery", "--resolve", "--answers", str(repo / "a.json"), "--json"],
+                               capture_output=True, text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": ""})
+            self.assertEqual(p.returncode, 0, p.stderr); out = json.loads(p.stdout)
+            self.assertEqual([u["answer"] for u in out["unmodelled"]], ["Crystal", "CockroachDB"], "registry order; the name is kept as given")
+            self.assertEqual(out["unmodelled"][1]["owes"], [], "a list with no rows owes no pointer — its templates are the build")
+            self.assertEqual(out["unmodelled"][1]["templates"], [], "`database exists` names no engine and lands anyway: nothing owed")
+            txt = subprocess.run([sys.executable, gate, "--repo", str(repo), "discovery", "--resolve", "--answers", str(repo / "a.json")],
+                                 capture_output=True, text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": ""}).stdout
+            self.assertIn("unmodelled", txt); self.assertIn("Crystal", txt)
+
+    def test_open_key_still_holds_a_known_literal_to_its_parent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            with self.assertRaises(GateFault) as cm:
+                discovery.resolve(repo, {"backend.runtime": "Node.js", "backend.framework": "Django"})
+            self.assertIn("`backend.framework`", str(cm.exception)); self.assertIn("belongs to another `backend.runtime`", str(cm.exception))
+            r = discovery.resolve(repo, {"backend.runtime": "Node.js", "backend.framework": "Fastify"})
+            self.assertEqual([(u["key"], u["answer"]) for u in r["unmodelled"]], [("backend.framework", "Fastify")], "a name the registry does not know is admitted")
+
+    def test_vocabulary_key_stays_closed(self):
+        """DoD 3: a vocabulary list refuses a literal of the user's own; the validator holds the kind of every list."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            with self.assertRaises(GateFault) as cm:
+                discovery.resolve(repo, {"project_mode": "Agile"})
+            self.assertIn("`project_mode`", str(cm.exception))
+            self.assertEqual(self._rule(self._green(repo), "V1"), [])
+            for n, (mut, want) in enumerate(((lambda reg: self._q(reg, "Q3")["keys"]["project_mode"].pop("open"), "`project_mode`: open is true"),
+                              (lambda reg: self._q(reg, "Q6")["keys"]["backend.framework"].__setitem__("open", "yes"), "`backend.framework`: open is true"),
+                              (lambda reg: self._q(reg, "Q26")["keys"]["dependencies.backend"].__setitem__("open", True), "`dependencies.backend`: open is true"),
+                              (lambda reg: self._q(reg, "Q3")["keys"]["project_mode"]["options"].append("Other"), "`project_mode`: `Other` on a vocabulary list"))):
+                (Path(tmp) / str(n)).mkdir()
+                repo2 = disc_repo(Path(tmp) / str(n))
+                self._reg(repo2, mut)
+                self.assertTrue(any(want in f for f in self._rule(self._green(repo2), "V1")), want)
+
+    def test_v6_the_option_protocol_reads_the_registry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self.assertEqual(self._rule(self._green(repo), "V6"), [])
+            write(repo / discovery.INSTRUCTION, DISC_INSTRUCTION.replace("A list the registry declares `open: true` offers", "Every question offers"))
+            self.assertTrue(any("Universal Option Protocol" in f for f in self._rule(self._green(repo), "V6")))
+
+    def test_free_text_dependents(self):
+        """DoD 2: a dependent list whose parent's answer has no row is asked as free text."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self.assertEqual(discovery.resolve(repo, {"backend.runtime": "Crystal"})["free_text"], ["backend.framework"], "an unlisted parent")
+            self.assertEqual(discovery.resolve(repo, {"backend.runtime": "Python"})["free_text"], [])
+            self.assertEqual(discovery.resolve(repo, {})["free_text"], [], "an unanswered parent: the question is not owed yet")
+            self.assertEqual(discovery.resolve(repo, {"backend.runtime": "None"})["free_text"], [], "a question whose when fails is not owed")
+            self._reg(repo, lambda reg: self._q(reg, "Q5")["keys"]["backend.runtime"]["options"].append("Ruby"))
+            r = discovery.resolve(repo, {"backend.runtime": "Ruby", "backend.framework": "Rails"})
+            self.assertEqual(r["free_text"], ["backend.framework"], "a listed parent without a row")
+            self.assertIn("free text", discovery.render_resolve(r))
+            def closed_and_decided(reg):
+                self._q(reg, "Q6")["keys"]["backend.framework"]["open"] = False
+                reg["questions"].append({"id": "Q15.1", "tier": 1, "since": "1.0.0", "keys": {"database.migrations_tool": {
+                    "options_by": {"key": "backend.runtime", "values": {"Python": ["Alembic", "Django migrations"]}}, "open": True,
+                    "decided_by": {"key": "backend.framework", "values": {"Django": "Django migrations"}}}}})
+            self._reg(repo, closed_and_decided)
+            r = discovery.resolve(repo, {"backend.runtime": "Ruby", "backend.framework": "Rails"})
+            self.assertEqual(r["unmodelled"], [], "a vocabulary list with a hole admits free text but names no tool to build")
+            r = discovery.resolve(repo, {"backend.runtime": "Ruby", "backend.framework": "Django"})
+            self.assertEqual(r["free_text"], ["backend.framework"], "a key an earlier answer decides is never asked, free or not")
+
+    def test_unmodelled_owes_stop_until_declared(self):
+        """DoD 4: nothing half-built — an owed pointer undeclared or not in a row's shape stops; declared, it lands as the row would."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, self._configures)
+            self._reg(repo, self._browser)
+            base = {"backend.runtime": "Crystal", "surface.runtime_surface": ["src/**"]}
+            r = discovery.resolve(repo, base)
+            self.assertIn("`backend.runtime` = `Crystal` — declare `verification.gates`", r["stop"]); self.assertIn("— declare `traceability.test_roots`", r["stop"])
+            built = {**base, "verification.gates.tests.command": "crystal spec", "verification.gates.tests.scoped": "crystal spec {paths}",
+                     "verification.gates.tests.report": None, "traceability.test_roots": ["spec/**"]}
+            r = discovery.resolve(repo, built)
+            self.assertNotIn("stop", r)
+            self.assertEqual(r["configures"]["verification.gates"]["tests"], {"command": "crystal spec", "scoped": "crystal spec {paths}", "reads": ["src/**", "spec/**"]},
+                             "the declared row lands as an option's row would: reads completed")
+            self.assertEqual(r["configures"]["traceability.test_roots"], ["spec/**"])
+            r = discovery.resolve(repo, {**base, "verification.gates.tests.scoped": "crystal spec {paths}", "traceability.test_roots": ["spec/**"]})
+            self.assertIn("has no `command`", r["stop"], "a declared row out of shape stops")
+            self.assertNotIn("tests", r["configures"]["verification.gates"], "a row out of shape never lands")
+            r = discovery.resolve(repo, {**built, "traceability.test_roots": "spec/**"})
+            self.assertIn("`traceability.test_roots` is a str, a shipped row's is a list", r["stop"], "a declared value of another kind than the shipped rows' stops")
+            r = discovery.resolve(repo, {**built, "qa.browser_mcp": "puppeteer"})
+            self.assertIn("`qa.browser_mcp` = `puppeteer`", r["stop"]); self.assertIn("`mcp.servers`", r["stop"])
+            r = discovery.resolve(repo, {**built, "qa.browser_mcp": "puppeteer", "mcp.servers.puppeteer.command": "bash", "mcp.servers.puppeteer.args": ["-c", "curl x"]})
+            self.assertIn("command `bash`", r["stop"], "a declared server holds to the pinned, isolated shape")
+            ok = {**built, "qa.browser_mcp": "puppeteer", "mcp.servers.puppeteer.command": "npx", "mcp.servers.puppeteer.args": ["-y", "puppeteer-mcp-server@0.7.2", "--isolated"]}
+            r = discovery.resolve(repo, ok)
+            self.assertNotIn("stop", r); self.assertEqual(r["configures"]["mcp.servers"], {"puppeteer": {"command": "npx", "args": ["-y", "puppeteer-mcp-server@0.7.2", "--isolated"]}})
+            self.assertNotIn("stop", discovery.resolve(repo, {**base, "backend.runtime": "Python"}), "a covered literal is unchanged")
+            write(repo / "a.json", json.dumps({"answers": ok}))
+            self.assertEqual(discovery.answers(repo, repo / "a.json")["mcp.servers.puppeteer.command"], "npx", "an owed pointer is a key a fixture may declare")
+
+    def test_a_condition_an_unmodelled_answer_cannot_judge_is_asked(self):
+        """A question whose `when` holds for some listed literal of an open key, answered with a name the registry does not know,
+        is owed: the answer cannot say whether it applies, so it is asked — `None` is an answer."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda reg: reg["questions"].append({"id": "Q15.1", "tier": 1, "since": "1.0.0", "when": "database.primary.engine IN [PostgreSQL] AND backend.runtime exists",
+                                                                 "keys": {"database.migrations_tool": {"free": "text", "record_only": "fixture"}}}))
+            pend = lambda a: discovery.resolve(repo, a)["pending"]
+            self.assertIn("Q15.1", pend({"backend.runtime": "Python", "database.primary.engine": "PostgreSQL"}))
+            self.assertNotIn("Q15.1", pend({"backend.runtime": "Python", "database.primary.engine": "None"}), "a listed literal judges it")
+            self.assertIn("Q15.1", pend({"backend.runtime": "Python", "database.primary.engine": "CockroachDB"}), "an unmodelled engine cannot: asked")
+            self.assertNotIn("Q15.1", pend({"database.primary.engine": "CockroachDB"}), "the clause it does not read still decides")
+            self.assertNotIn("Q15.1", pend({"backend.runtime": "Python", "database.primary.engine": "CockroachDB", "database.migrations_tool": "None"}), "answered")
+
+    def test_one_declared_pointer_owed_twice_lands_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            def two(reg):
+                self._configures(reg)
+                reg["questions"].append({"id": "Q9", "tier": 1, "since": "1.0.0", "keys": {"frontend.framework": {"options": ["React", "None"], "open": True, "configures": {
+                    "React": {"verification.gates": {"frontend-tests": {"command": "vitest run"}}, "traceability.test_roots": ["web/**"]}}}}})
+            self._reg(repo, two)
+            r = discovery.resolve(repo, {"backend.runtime": "Crystal", "frontend.framework": "Lit", "surface.runtime_surface": ["src/**"],
+                                         "verification.gates.tests.command": "crystal spec", "verification.gates.frontend-tests.command": "wtr",
+                                         "traceability.test_roots": ["spec/**", "test/**"]})
+            self.assertNotIn("stop", r)
+            self.assertEqual(sorted(r["configures"]["verification.gates"]), ["frontend-tests", "secrets", "tests"], "the declared rows land once, beside the derived ones")
+            self.assertEqual(r["configures"]["traceability.test_roots"], ["spec/**", "test/**"])
 
     # ── EVOL-067: the loop's members come from the registry's `configures` ─────────
     def _configures(self, reg):

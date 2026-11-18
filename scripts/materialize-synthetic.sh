@@ -69,8 +69,13 @@ if sel.returncode != 0:
     sys.exit(f"the evaluator cannot select for this fixture: {(sel.stdout + sel.stderr).strip()[-400:]}")
 RES = json.loads(sel.stdout)
 LANDING = set(RES["landing"])
+WANT_STOP = FX.get("expect", {}).get("stop")   # EVOL-131: a fixture may expect the stop — an unmodelled tool not yet built
 if RES.get("stop"):   # the materialisation's stop rule (EVOL-067): no tests and no sca gate for the stack
+    if WANT_STOP and all(w in RES["stop"] for w in WANT_STOP):
+        print(json.dumps({"stopped": RES["stop"]})); sys.exit(0)
     sys.exit(f"materialisation stops: {RES['stop']}")
+if WANT_STOP:
+    sys.exit(f"the fixture expects a stop naming {WANT_STOP}; --resolve printed none")
 GATES = RES["configures"].get("verification.gates", {})   # the loop's members, from the registry rows of the answers
 landed, skipped = [], []
 for key, e in m["templates"].items():
@@ -189,10 +194,14 @@ if CASES.is_file():
         text = re.sub(r"(?ms)^### " + re.escape(i) + r" — .*?(?=^### |\Z)", "", text)
     CASES.write_text(text.rstrip("\n") + "\n\n### PDC-1 — sample\n\n**Origin:** sample.\n\n**Story:** sample.\n\n**Detection:** sample.\n", encoding="utf-8")
 exp = FX.get("expect", {})
+got_u = [f"{u['key']} = {u['answer']}" for u in RES.get("unmodelled", [])]   # EVOL-131: exactly the tools the fixture names outside the lists
+missing = [f"unmodelled: expected {exp.get('unmodelled', [])}, got {got_u}"] if got_u != exp.get("unmodelled", []) else []
+if RES.get("free_text", []) != exp.get("free_text", []):
+    missing.append(f"free_text: expected {exp.get('free_text', [])}, got {RES.get('free_text')}")
 from gates import corpus
 have = {d["id"] for d in corpus.catalog(P, CAT)["dcs"]} & set(corpus.cases(CASES))   # the stricter parser reads the seed
 want_dc = exp.get("defect_classes", {})
-missing = [f"defect class {i}: row and case expected" for i in want_dc.get("present", []) if i not in have]
+missing += [f"defect class {i}: row and case expected" for i in want_dc.get("present", []) if i not in have]
 missing += [f"defect class {i}: landed, the answers drop it" for i in want_dc.get("absent", []) if i in corpus.cases(CASES) or i in {d["id"] for d in corpus.catalog(P, CAT)["dcs"]}]
 missing += [f"{x} did not land" for x in exp.get("landed", []) if x not in landed]
 missing += [f"{x} landed, the answers do not select it" for x in exp.get("absent", []) if x in landed]
@@ -234,6 +243,10 @@ print(json.dumps({"landed": len(landed), "skipped": len(skipped), "unresolved_js
 PY
 ) || { echo "materialize-synthetic: materialisation step failed" >&2; exit 2; }
 echo "  $REPORT"
+if printf '%s' "$REPORT" | python3 -c 'import json,sys; sys.exit(0 if "stopped" in json.load(sys.stdin) else 1)'; then
+  ok "materialisation stops before anything lands, naming what is owed — as $(basename "$ANSWERS") expects (EVOL-131)"
+  echo; echo "materialize-synthetic: $PASS passed, $FAIL failed"; exit 0
+fi
 LANDED=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["landed"])')
 [ "$LANDED" -ge 60 ] && ok "manifest targets landed ($LANDED)" || bad "too few targets landed ($LANDED)"
 MISS=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print("\n".join(json.load(sys.stdin)["expect_missing"]))')
@@ -337,8 +350,10 @@ printf '{"mcpServers": {"own": {"command": "own-server", "args": []}}}\n' > "$Q/
 ABS=$(realpath "$ANSWERS"); OUT=$(cd "$Q" && bash "$H/mig.sh" "$ABS" 2>&1); RC1=$?; SUM1=$(sha256sum < "$Q/.mcp.json")
 (cd "$Q" && bash "$H/mig.sh" "$ABS") >/dev/null 2>&1; RC2=$?; SUM2=$(sha256sum < "$Q/.mcp.json")
 WANT=$(python3 -c 'import json,sys; a=json.load(open(sys.argv[1]))["answers"]; print((a.get("qa.browser_mcp") or "") if a.get("frontend.framework") not in (None, "None") else "")' "$ANSWERS")
+# an unmodelled browser (EVOL-131): the server the discovery declared under mcp.servers lands the same way
+DECL=$(python3 -c 'import json,sys; a=json.load(open(sys.argv[1]))["answers"]; print(",".join(sorted({k.split(".")[2] for k in a if k.startswith("mcp.servers.")})))' "$ANSWERS")
 GOT=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["mcpServers"]; print(",".join(sorted(k for k in d if k != "own")) + ("|" + ("ok" if "own" in d and all("--isolated" in v["args"] and any(__import__("re").search(r"@\d+\.\d+\.\d+$", x) for x in v["args"]) for k, v in d.items() if k != "own") else "bad")))' "$Q/.mcp.json")
-case "$WANT" in chrome-devtools|playwright) EXP="$WANT|ok" ;; *) EXP="|ok" ;; esac
+case "$WANT" in chrome-devtools|playwright) EXP="$WANT|ok" ;; *) EXP="$DECL|ok" ;; esac
 [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "$EXP" ] \
   && ok "the browser-mcp anchor lands Q23.5's server (${WANT:-none}) pinned and --isolated, keeps the project's own server, and a second run changes nothing (EVOL-077)" \
   || bad "the browser-mcp anchor (rc=$RC1/$RC2, got=$GOT, want=$EXP)" "$OUT"

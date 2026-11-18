@@ -1042,6 +1042,13 @@ Rationale: `.claude/settings.json` was previously untouched by `factory-sync.sh`
 
 **Client bounds (EVOL-106).** `hosting.type == function` → the pack for `backend.runtime` lands from `security/bounds/` by its manifest `stack_conditional`, and the `bounds` row lands in `verification.gates` (`--resolve`). Another runtime → build its pack against the same contract: rules named `<pack>-<client>-unbounded | -extract-…`, metadata `{bounds: unbounded | extract, client}`, extract messages in `gate.py bounds`' grammar (`bound <total|retries> <C> <unit> <R> <unit> <N>` or `deadline <D> <unit>`), a fixture proving each rule both ways; the client forms come from the docs reader at Beat 0. **Invariant:** `semgrep --test` over the built pack and its fixture passes every rule, else BLOCK. `docs/setup.md → quality.bounds` records the pack that landed (`[]` when none).
 
+**Unmodelled answers (EVOL-131).** Every `--resolve → unmodelled` entry is a tool the registry does not list, for example a runtime, a CI or a browser server. The materialisation builds it against the contract a covered tool meets:
+- **Pointers.** The pointers in `owes` were declared at discovery (Factory-setup-discovery § Discovery Finalization, step 2b). `--resolve` merges them into `configures` as an option's row would be. Each lands where a covered tool's row lands, for example `verification.gates`, `delivery.execution` or `.mcp.json`. A `stop` blocks before anything lands.
+- **Templates.** Each `templates` entry is a slot a covered literal fills and this answer leaves empty. Build its equivalent in the tool's idiom, for example the governance workflow on the named CI or the rules file of the named runtime. Use the shipped sibling as the shape, with the tool's facts from the docs reader at Beat 0.
+- **Derived packs.** A derived pack keyed on a listed stack (`quality.sast`, the migration pack) behaves as it does for a listed stack without a pack: the report says so.
+- **Report.** `MATERIALIZATION_REPORT.md → ### Unmodelled answers` names each tool, each pointer and each built file, with the source of every fact.
+- **Invariant:** `gate.py discovery --resolve` prints no `stop`, and the gates that read each landed pointer are green on the materialised tree. Otherwise BLOCK.
+
 ### 4.2.7 Budget Calculation and Cost Placeholder Resolution
 
 **Input.** `docs/setup.md § costs:` — populated by the Cost Estimation Protocol (CEP) during Discovery Finalization. See `Factory-setup-discovery.instructions.md` § 4.1.3.2 for the producer logic.

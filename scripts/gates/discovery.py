@@ -3,6 +3,8 @@
 
 registry    `.context/templates/setup/setup/discovery_registry.json` — `questions[{id, tier, since, when?, keys}]`, a key
             spec is exactly one of `options` | `options_by {key, values}` | `free` (a closed kind), plus `record_only`
+            and, on every options / options_by key, `open: true | false` (EVOL-131): an open list names market tools
+            (a runtime, a database, a CI) and admits a name it does not list; a vocabulary list (`open: false`) refuses one
             (a reason) and, on `free: text` only, `suggestions` (the literals a condition may compare it to); top-level `derived {key: {from}}` — values earlier answers decide, never asked.
             A derived entry may carry `matches {key, values: {<substring>: value}, else, warn}` (EVOL-079): the value is computed
             from a free answer — case-insensitive, the first substring the answer contains wins, else `else` and the `warn`
@@ -45,6 +47,11 @@ validate    V1 schema · V2 a single option not derived (a one-literal row its d
             headers, no env — no credential in the entry (EVOL-079) · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
             configured id a row, a row no option configures names no STACK_LABEL_KEYS label.
             V14 (EVOL-080) the asked deliverable homes (`deliverables.<category>.home`) are the documents reader's asked categories.
+any answer  EVOL-131 — an open key's answer that is none of its literals is `unmodelled`: {key, answer, owes, templates} —
+            owes = the config pointers the key's shipped rows set, templates = the manifest entries naming the key that this
+            answer skips. Each owed pointer is declared in docs/setup.md under the pointer itself, in a shipped row's shape
+            (V12), and merged into `configures` as the option's row would be; undeclared or out of shape → `stop`. A known
+            literal still holds to its parent's row. `free_text`: the owed options_by keys whose parent's answer has no row.
 configures  EVOL-067 — a key spec's `configures {<option literal>: {<config pointer>: value}}` and a derived entry's
             `configures {<config pointer>: value}` (unconditional, or only when its `when` condition holds — EVOL-074; V5 checks
             it): `--resolve` merges the answered rows into
@@ -99,6 +106,9 @@ GATE_ROW_FIELDS = ("command", "scoped", "red_link", "report", "red", "red_reads"
 LOOP_PARTS = {"backend.runtime": ("tests", "sca"), "frontend.framework": ("frontend-tests",)}   # each answered part needs one of its gates
 STOP = ("the project has no declared way to verify {parts} — declare its gate rows (SETUP discovery § verification coverage, "
         "docs/setup.md → verification.gates) and run --generate again")
+STOP_BUILD = ("the answers name tools the registry does not model and their build is owed: {owed} — build each from the tool's "
+              "documentation in a shipped row's shape (SETUP discovery § Discovery Finalization, step 2b), declare it in docs/setup.md under its "
+              "pointer and run --resolve again")
 # a stack command named in the verification loop's skill (EVOL-067: the loop reads verification.gates, never a stack)
 STACK_COMMAND = re.compile(r"\b(?:pytest|npm |npx |yarn |pnpm |dotnet |mvn |gradle|go test|ruff|eslint|tsc |cargo|jest|vitest)")
 FREE_KINDS = ("text", "number", "list", "path", "command", "vault_name")
@@ -388,7 +398,8 @@ def answers(repo: Path, file: Path | None = None) -> dict:
             raise GateFault(f"the answers file {file} carries no `answers` object ({{\"answers\": {{\"<dotted key>\": value}}}})")
         ans = flatten(doc["answers"])
         reg = load_registry(repo)
-        known = set(_specs(reg)) | set(_derived(reg))
+        known = set(_specs(reg)) | set(_derived(reg)) | {p for s in _specs(reg).values() if isinstance(s.get("configures"), dict)
+                                                         for r in s["configures"].values() if isinstance(r, dict) for p in r}
         unknown = [k for k in ans if not any(k == r or k.startswith(r + ".") for r in known)]
         if unknown:
             raise GateFault(f"the answers file {file} answers {', '.join(f'`{k}`' for k in unknown)} — not a registry or derived key "
@@ -439,10 +450,107 @@ def _check_answers(reg: dict, ans: dict):
         offered = _offered_for(spec, ans)
         if v is None or offered is None:
             continue
+        known = set(_offered(spec) or []) if spec.get("open") is True else None   # EVOL-131: an open list admits a name it does not know
         for x in (v if isinstance(v, list) else [v]):
-            if canon(x) not in offered:
-                raise GateFault(f"the answer `{k}` = `{canon(x)}` is not one of its options ({' | '.join(offered)}) — "
-                                f"answer it again from {REGISTRY}, never a literal of your own")
+            if canon(x) in offered or (known is not None and canon(x) not in known):
+                continue
+            if known is not None:
+                parent = spec["options_by"]["key"]
+                raise GateFault(f"the answer `{k}` = `{canon(x)}` belongs to another `{parent}` — under `{parent}` = `{canon(ans.get(parent))}` "
+                                f"the list is {' | '.join(offered)}; answer it again, or name the tool you use if it is none of them")
+            raise GateFault(f"the answer `{k}` = `{canon(x)}` is not one of its options ({' | '.join(offered)}) — "
+                            f"answer it again from {REGISTRY}, never a literal of your own")
+
+
+def _owed(reg: dict, q: dict, ans: dict) -> bool:
+    """A question is owed when its `when` holds — or when it reads an unmodelled answer (EVOL-131) and some listed literal of
+    that key would make it hold: the answer cannot say whether the question applies, so it is asked (`None` is an answer)."""
+    w = q.get("when")
+    if not isinstance(w, str) or evaluate(parse(w), ans):
+        return True
+    specs = _specs(reg)
+    for u in {x["key"] for x in _unmodelled(reg, ans)}:
+        if any(evaluate(parse(w), {**ans, u: lit}) for lit in _offered(specs[u]) or []):
+            return True
+    return False
+
+
+def _names_key(cond: str, key: str) -> bool:
+    return any(c.get("key") == key for conj in parse(cond) for c in conj)
+
+
+def _unmodelled(reg: dict, ans: dict) -> list[dict]:
+    """EVOL-131 — every answered open key whose answer is none of its literals: {key, answer, owes} in registry order;
+    owes = the config pointers the key's shipped rows set (the contract a covered literal fills)."""
+    out = []
+    for k, spec in _specs(reg).items():
+        v = ans.get(k)
+        if spec.get("open") is not True or v is None:
+            continue
+        known = set(_offered(spec) or [])
+        rows = spec.get("configures") if isinstance(spec.get("configures"), dict) else {}
+        owes = sorted({p for r in rows.values() if isinstance(r, dict) for p in r})
+        out += [{"key": k, "answer": canon(x), "owes": owes} for x in (v if isinstance(v, list) else [v]) if canon(x) not in known]
+    return out
+
+
+def _declared(ans: dict, ptr: str):
+    """The value declared in the answers under a config pointer: the key itself, or its flattened children rebuilt; None when absent."""
+    if ans.get(ptr) is not None:
+        return ans[ptr]
+    tree: dict = {}
+    for k, v in sorted(ans.items()):
+        if v is None or not k.startswith(ptr + "."):
+            continue
+        *parts, leaf = k[len(ptr) + 1:].split(".")
+        node = tree
+        for part in parts:
+            node = node.setdefault(part, {})
+            if not isinstance(node, dict):
+                break
+        else:
+            node[leaf] = v
+    return tree or None
+
+
+def _built(reg: dict, ans: dict) -> tuple[list[tuple[str, dict]], list[str]]:
+    """EVOL-131 — the declared rows of the unmodelled answers ([(where, {pointer: value})], merged like an option's row) and
+    what is still owed: an owed pointer undeclared, or declared out of a shipped row's shape (V12)."""
+    rows, owed, specs, seen = [], [], _specs(reg), set()
+    for u in _unmodelled(reg, ans):
+        where = f"`{u['key']}` = `{u['answer']}`"
+        shipped = [r for r in specs[u["key"]]["configures"].values() if isinstance(r, dict)] if u["owes"] else []
+        for ptr in u["owes"]:
+            if ptr in seen:
+                continue   # one declaration answers every entry that owes the pointer: it lands once
+            seen.add(ptr)
+            val = _declared(ans, ptr)
+            if val is None:
+                owed.append(f"{where} — declare `{ptr}`"); continue
+            bad = [f.split(" · ", 1)[-1] for f in _gate_rows(f"{where} (declared)", {ptr: val})]
+            kinds = {type(r[ptr]).__name__ for r in shipped if r.get(ptr) is not None}
+            if not bad and kinds and type(val).__name__ not in kinds:
+                bad = [f"{where} (declared): `{ptr}` is a {type(val).__name__}, a shipped row's is a {' or '.join(sorted(kinds))}"]
+            if bad:
+                owed += bad
+            else:
+                rows.append((f"{u['key']} = {u['answer']} (declared)", {ptr: val}))
+    return rows, owed
+
+
+def _free_text(reg: dict, ans: dict) -> list[str]:
+    """EVOL-131 — the owed options_by keys whose parent's answer has no row: asked as free text, never from another row."""
+    dec, out = decided(reg, ans), []
+    for q in _questions(reg):
+        if not _owed(reg, q, ans):
+            continue
+        for k, s in ((q.get("keys") or {}) if isinstance(q.get("keys"), dict) else {}).items():
+            ob = s.get("options_by") if isinstance(s, dict) else None
+            if not isinstance(ob, dict) or not isinstance(ob.get("values"), dict) or k in dec or ans.get(ob.get("key")) is None:
+                continue
+            if not isinstance(ob["values"].get(canon(ans[ob["key"]])), list):
+                out.append(k)
+    return out
 
 
 def _pointer(doc, ptr: str) -> bool:
@@ -500,7 +608,7 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
     qs = sorted(enumerate(_questions(reg)), key=lambda iq: (iq[1].get("tier") if isinstance(iq[1].get("tier"), int) else 99, iq[0]))
     pending = []
     for _, q in qs:
-        if q.get("when") and not evaluate(parse(q["when"]), ans):
+        if not _owed(reg, q, ans):
             continue
         if not any(_answered(k, ans) for k in (q.get("keys") or {})):   # asked = some key holds an answer (null = not yet asked);
             pending.append(q.get("id"))                                 # a sibling left null on purpose (Q14 path, Q29.1 dir) is part of it
@@ -517,9 +625,13 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
     out = {"pending": pending, "pending_since": {q: since.get(q) for q in pending}, "landing": landing, "skipped": skipped,
            "placeholders": fills, "derived_answers": derived_answers, "configures": configures(reg, ans), "warnings": matched(reg, ans)[1]}
     out["defect_classes"] = defect_classes(repo, reg, out["configures"], ans, pending, project)
-    lacking = _unverified_parts(reg, ans)
-    if lacking:
-        out["stop"] = STOP.format(parts="; ".join(lacking))
+    out["unmodelled"] = [{**u, "templates": [t for t in skipped if isinstance(templates[t].get("stack_conditional"), str)
+                                             and _names_key(templates[t]["stack_conditional"], u["key"])]} for u in _unmodelled(reg, ans)]
+    out["free_text"] = _free_text(reg, ans)
+    lacking, owed = _unverified_parts(reg, ans), _built(reg, ans)[1]
+    stops = ([STOP.format(parts="; ".join(lacking))] if lacking else []) + ([STOP_BUILD.format(owed="; ".join(owed))] if owed else [])
+    if stops:
+        out["stop"] = " · ".join(stops)
     if project:
         ver = project_version(repo)
         target = lambda k: templates[k].get("target") if isinstance(templates[k].get("target"), str) else None
@@ -650,6 +762,8 @@ def configures(reg: dict, ans: dict) -> dict:
         v = ans.get(k)
         if v is not None and isinstance(rows.get(canon(v)), dict):
             _merge(out, rows[canon(v)], f"{k} = {canon(v)}")
+    for where, row in _built(reg, ans)[0]:   # EVOL-131: an unmodelled answer's declared rows, merged as its option's row would be
+        _merge(out, row, where)
     for k, s in _derived(reg).items():
         if isinstance(s, dict) and isinstance(s.get("configures"), dict):
             if isinstance(s.get("when"), str) and not evaluate(parse(s["when"]), ans):
@@ -708,6 +822,12 @@ def render_resolve(r: dict) -> str:
     lines = [f"discovery: {len(r['pending'])} pending question(s)" + (f": {pend}" if r["pending"] else " — every question that applies is answered")]
     if r.get("stop"):
         lines.append(f"  stop: {r['stop']}")
+    for u in r.get("unmodelled") or []:
+        lines.append(f"  unmodelled — `{u['key']}` = `{u['answer']}`: build it to the same contract; owes "
+                     + (", ".join(f"`{p}`" for p in u["owes"]) or "no config pointer")
+                     + (f"; templates to mirror in its idiom: {', '.join(u['templates'])}" if u["templates"] else ""))
+    if r.get("free_text"):
+        lines.append("  free text — the parent's answer has no list, ask it as free text: " + ", ".join(r["free_text"]))
     lines += [f"  WARN: {w}" for w in r.get("warnings") or []]
     if r.get("derived_answers"):
         lines.append("  derived — an earlier answer decides them, never asked: " + ", ".join(f"{k} = {canon(v)}" for k, v in r["derived_answers"].items()))
@@ -783,8 +903,14 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
             if len(kinds) != 1:
                 out.append(f"V1 · `{k}`: a spec carries exactly one of options | options_by | free (it carries {', '.join(kinds) or 'none'})")
             for f in s:
-                if f not in SPEC_KINDS + ("record_only", "suggestions", "fills", "configures", "decided_by"):
-                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions, fills, configures, decided_by)")
+                if f not in SPEC_KINDS + ("record_only", "suggestions", "fills", "configures", "decided_by", "open"):
+                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions, fills, configures, decided_by, open)")
+            listed = "options" in s or "options_by" in s
+            if listed != isinstance(s.get("open"), bool):
+                out.append(f"V1 · `{k}`: open is true | false on every options / options_by key, and on no other — "
+                           f"true for a market list (a tool the user may already use), false for framework vocabulary (EVOL-131)")
+            if s.get("open") is False and "Other" in (_offered(s) or []):
+                out.append(f"V1 · `{k}`: `Other` on a vocabulary list — only an open list (open: true) offers another answer")
             if "suggestions" in s and (s.get("free") != "text" or not isinstance(s["suggestions"], list) or not s["suggestions"]
                                        or len({canon(x) for x in s["suggestions"]}) != len(s["suggestions"])):
                 out.append(f"V1 · `{k}`: suggestions is a non-empty list of distinct literals on a `free: text` key only")
@@ -1021,6 +1147,10 @@ def _v6(repo: Path, reg: dict) -> list[str]:
             out.append(f"V6 · {qid}: the instruction offers {' | '.join(have)}; the registry `{okeys[0]}` offers {' | '.join(reg_opts)}")
     ids = {q.get("id") for q in _questions(reg)}
     out += [f"V6 · the instruction's `#### {h}` has no registry question" for h in inst if h not in ids]
+    uop = re.search(r"^### Universal Option Protocol[^\n]*\n(.*?)(?=^#{1,3} |\Z)", (repo / INSTRUCTION).read_text(encoding="utf-8"), re.M | re.S)
+    if not uop or "`open: true`" not in uop.group(1):
+        out.append("V6 · the instruction's Universal Option Protocol does not read the registry's `open: true` — it offers "
+                   "«Other» on an open list and nowhere else (EVOL-131)")
     return out
 
 
