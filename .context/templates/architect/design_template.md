@@ -171,9 +171,23 @@ sequenceDiagram
 
 ## Decision History (ADR)
 > Immutable record of architecture changes (Evolutionary).
-> Each decision must have its corresponding file in `docs/adr/`.
+> Each decision must have its corresponding file in `docs/project_log/adr/`.
 - **[DATE - START]** Initial design generated based on Spec v1.
-- **[DATE - REFINE]** Change: [DESCRIPTION] due to Feedback: [REASON]. (See docs/adr/ADR-001)
+- **[DATE - REFINE]** Change: [DESCRIPTION] due to Feedback: [REASON]. (See docs/project_log/adr/ADR-{{N}})
+
+> **Critical decisions (EVOL-082).** A decision recorded by an ADR that adds or replaces a law (`amendment_kind: ADD | REPLACE`) is critical and has a row below. A row may also bind a decision to a law that already exists.
+> - **Law:** a law `gate.py laws` lists (`LAW-NN` / `PLAW-NN`), or `new` — the law its Record's ADR adds.
+> - **Gate:** the gate that checks it — a profile member that is not framework-only (`gate.py profile`) or a `config/quality.json → verification.gates` row, never the built-in `red` — optionally followed by `· what it checks`.
+> - **Record:** the ADR (`ADR-N`), required with `new`.
+>
+> `gate.py freeze` is red on a row without its law or a gate the project runs, and on a law-making ADR named here with no row. BLUEPRINT `--approve` runs it. The rows are generic examples: keep the ones this feature decides, fill each from the answer it names in `docs/setup.md`, and drop the rest. A row that still carries a `{{…}}` is red.
+
+| Decision | Law | Gate | Record |
+| :--- | :--- | :--- | :--- |
+| Stateless session cache — session state lives in {{the cache engine: `docs/setup.md → database.cache.engine`}}, never in an instance's memory | {{new / PLAW-NN}} | {{tests · the test proving no instance keeps session state}} | {{ADR-N}} |
+| Data-access routing and privacy — personal data is read only through the data-access layer behind {{`docs/setup.md → auth.strategy`}}, each access logged through {{`docs/setup.md → observability.logging`}} | {{new / PLAW-NN}} | {{sast · the rule forbidding a direct query}} | {{ADR-N}} |
+| Connection management — one connection factory per store; pool health reported to {{`docs/setup.md → observability.monitoring`}} | {{PLAW-NN}} | data · one connection factory | |
+| API-first — every operation is in its contract before its code | {{PLAW-NN}} | contracts · every operation declared | |
 
 ## Infrastructure Needs
 > Structured declaration of infrastructure resources required by this feature.
