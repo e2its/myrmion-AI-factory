@@ -6561,6 +6561,8 @@ class FreezeDecisions(unittest.TestCase):
             (("D", "new", "contracts", ""), "`new` law needs the record of the ADR that adds it"),
             (("D", "new", "contracts", "ADR-0042"), "record `ADR-0042` has no readable file under docs/project_log/adr/"),
             (("D", "PLAW-01", "contracts", "ADR-0010"), "ADR-0010: its frontmatter does not read"),
+            (("D", "new", "contracts", "ADR-0010"), "ADR-0010: its frontmatter does not read"),
+            (("-", "-", "-", "-"), "a critical decision row names no decision"),
             (("{{the cache engine}} holds the sessions", "PLAW-01", "contracts", ""), "still carries a template placeholder"),
             (("D", "PLAW-01", "{{tests · what it checks}}", ""), "names no gate"),
             (("", "", "", ""), "a critical decision row names no decision"),
@@ -6573,7 +6575,7 @@ class FreezeDecisions(unittest.TestCase):
         for row, word in cases:
             with tempfile.TemporaryDirectory() as tmp:
                 repo = self._repo(tmp); self._adr(repo, "ADR-0007", "ADD", "NEW: Stateless sessions"); self._adr(repo, "ADR-0008", "REPLACE", "[PLAW-02]")
-                write(repo / "docs/project_log/adr/ADR-0010-broken.md", "---\ntitle: Stateless: sessions\n---\n# ADR-0010\n")
+                write(repo / "docs/project_log/adr/ADR-0010-broken.md", "---\nadr_number: 10\nnot a mapping line\n---\n# ADR-0010\n")
                 r, out = self._check(repo, self._design([row]))
                 self.assertFalse(r["ok"], (row, out)); self.assertIn(word, out, row)
 
@@ -6622,6 +6624,19 @@ class FreezeDecisions(unittest.TestCase):
             repo = self._repo(tmp)
             r, out = self._check(repo, self._design(prose="| Decision | Law | Gate (what checks it) |\n| :--- | :--- | :--- |\n| D | PLAW-01 | |\n"))
             self.assertFalse(r["ok"], out); self.assertIn("lacks the column(s) `Gate`, `Record`", out)
+            r, out = self._check(repo, self._design([("Every operation is in its contract", "PLAW-01", "contracts", "")],
+                                                    prose="| Date | Decision | Record |\n| :--- | :--- | :--- |\n| 2026-11-11 | start | none |\n"))
+            self.assertTrue(r["ok"], out)   # a decision log without Law or Gate is another table, never a near miss
+            r, out = self._check(repo, self._design([("Every operation is in its contract", "PLAW-01", "contracts", "")]).replace(":--- |\n", ":--- | |\n", 1))
+            self.assertTrue(r["ok"], out)   # a separator with a trailing empty cell is still the separator
+
+    def test_a_faulted_record_says_what_failed_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "docs/project_log/adr/ADR-0010-broken.md", "---\nadr_number: 10\nnot a mapping line\n---\n# ADR-0010\n")
+            r, out = self._check(repo, self._design([("Sessions live in the shared cache", "new", "contracts", "ADR-0010")]))
+            self.assertFalse(r["ok"], out); self.assertIn("ADR-0010: its frontmatter does not read", out)
+            self.assertNotIn("does not add a law", out)
 
     def test_a_table_before_the_decisions_does_not_hide_them(self):
         """A non-table line closes a table: the decision table after another one keeps its own header."""

@@ -130,7 +130,7 @@ def _read_adr(repo: Path, rid: str, problems: list[str]) -> dict | None:
         return _adr(repo, rid)
     except GateFault as e:
         problems.append(f"{rid}: its frontmatter does not read ({str(e).splitlines()[0][:160]}) — fix the ADR file")
-        return {}
+        return None
 
 
 def _kind(fm: dict | None) -> str:
@@ -140,7 +140,7 @@ def _kind(fm: dict | None) -> str:
 def decisions(repo: Path, text: str) -> tuple[list[str], int, str]:
     """Clause (d) on one design: (problems, decisions judged, why nothing was judged)."""
     sect = _section(text, "Decision History (ADR)") or _section(text, "Decision History")
-    rows, header, named, near = [], None, set(), set()
+    rows, header, named, near, sep = [], None, set(), set(), False
     for line in sect.splitlines():
         if not line.strip().startswith("|"):
             header = None
@@ -148,20 +148,22 @@ def decisions(repo: Path, text: str) -> tuple[list[str], int, str]:
             continue
         cells = _cells(line)
         if header is None:
-            header = [_plain(c).lower() for c in cells]
+            header, sep = [_plain(c).lower() for c in cells], True
             continue
-        if all(c and set(c) <= set(":- ") and "-" in c for c in cells):
+        if sep and all(set(c) <= set(":- ") for c in cells) and any("-" in c for c in cells):
+            sep = False   # the separator is the line right after the header; any later line is a row
             continue
+        sep = False
         cols = [h for h in DECISION_COLUMNS if h in header]
         if len(cols) < len(DECISION_COLUMNS):
             named |= set(ADR_ID.findall(line))   # another table: its ADR names count as prose for this clause
-            if len(cols) >= 2:
+            if "decision" in cols and len(cols) >= 2 and ({"law", "gate"} & set(cols)):
                 near.add(", ".join(f"`{h.capitalize()}`" for h in DECISION_COLUMNS if h not in cols))
             continue
         row = dict(zip(header, cells))
         named |= set(ADR_ID.findall(" ".join(v for k, v in row.items() if k != "record")))   # an ADR cited in the row's text
         rows.append(row)
-    problems, recorded = [f"a decision table lacks the column(s) {m} — the header is exactly `Decision | Law | Gate | Record`"
+    problems, recorded = [f"a decision table lacks the column(s) {m} — a decision table carries `Decision | Law | Gate | Record`"
                           for m in sorted(near)], set()
     laws = {law["id"] for part in corpus.laws(repo).values() for law in part} if rows else set()
     gates = _gates(repo) if rows else set()

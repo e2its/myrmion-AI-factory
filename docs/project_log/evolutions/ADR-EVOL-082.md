@@ -52,8 +52,10 @@ This ADR implements issue #136 (epic #112, Wave 5, destination G). It was verifi
      - `new` whose Record adds no law;
      - a Record without its file;
      - a REPLACE record that targets another law;
-     - an ADD/REPLACE ADR named in the section that is the Record of no row (prose only).
-   - A `{{…}}` placeholder counts as blank.
+     - an ADD/REPLACE ADR named in the section that is the Record of no row (prose only), cited by id or by file name (`ADR-N-slug.md`), in prose, in another table or in another row's text;
+     - a row that still carries a `{{…}}`;
+     - a table under the section with `Decision` and `Law` or `Gate` but not all four columns;
+     - an ADR whose frontmatter does not parse (red on that ADR, never a fault that hides the verdict).
    - With no table and no law-making ADR, the design reads n/a with its reason.
 4. **`BLUEPRINT --approve` runs `gate.py freeze` (validation Part 5, blocking) before the status flips.** The approval step calls the gate, so the checklist is judged by code: reliability questions, outage response and sensitive fields, plus clause (d). Exit 1 or 2 blocks. The gate itself is held mechanically at push and in CI.
 5. **Four generic example rows go in the template.** The first three name the answer they are filled from in `docs/setup.md`, and the fourth needs no answer:
@@ -86,10 +88,10 @@ No new law. The control-point line of `CLAUDE.md` and `rules/branching.md` names
 Red first, then green.
 - `test_gates.py::FreezeDecisions`: one case per red condition (DoD: a blank gate blocks), the green rows, divergence and removal not judged, n/a, and the combined note.
 - `gate.py discovery` green.
-- Mutation sweep of clause (d) in a scratch copy: 22 mutants, 22 killed. The first pass left two survivors and they were cured with a test each: an ADR named in another table, and the loop's built-in `red` named as a gate. One more test came from the sweep: a table before the decision table must not hide it.
-- Suites: `test_gates.py` (502 tests), `test-hooks.sh`, `test-check-design-sections.sh` and `test-templates-static.sh`. Synthetic materialisation passed 9/9 with `--answers`. `gate.py profile --run` returned verdict ok.
+- Mutation sweep of clause (d) in a scratch copy, re-run after each critic round. The final count is in the PR. The first pass left two survivors, and each was cured with a test: an ADR named in another table, and the loop's built-in `red` named as a gate. The sweep added one more test: a table before the decision table must not hide it.
+- Suites: `test_gates.py`, `test-hooks.sh`, `test-check-design-sections.sh` and `test-templates-static.sh`. Synthetic materialisation passed 9/9 with `--answers`, and `gate.py profile --run` returned verdict ok.
 
-Critic round 1 (four lenses, sonnet) found these 🟡, and each was cured with a red-first test:
+Critic round 1 (four lenses, sonnet) found the 🟡 below. The first four are gate behaviours, cured red-first. The last three are text cures.
 - A law-making ADR cited by its file name (`ADR-N-slug.md`) or inside another decision's row escaped the prose-only check.
 - A table with a near-miss header was skipped in silence.
 - An ADR whose frontmatter does not parse stopped the whole gate with a fault. It is now red on that ADR.
@@ -97,3 +99,10 @@ Critic round 1 (four lenses, sonnet) found these 🟡, and each was cured with a
 - Part 5 did not say that exit 2 blocks.
 - The README gate row did not describe clause (d).
 - The gate hint named framework-only members.
+
+Critic round 2 ran on the cure only and found no 🔴. Its leftovers were cured, the gate behaviours red-first:
+- the ADR text above;
+- a faulted ADR now reads as no file, with no second message about its kind;
+- the separator is only the line right after the header, so a dash-only row is a row and a trailing empty cell keeps the separator;
+- a near miss needs `Decision` with `Law` or `Gate`, so a `Date | Decision | Record` log is another table;
+- the broken-frontmatter fixture is rejected by both YAML parsers.

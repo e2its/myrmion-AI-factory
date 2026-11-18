@@ -304,7 +304,7 @@ consumes_contract = READ("docs/spec/{ID}/spec.feature").frontmatter.consumes_con
 
 The Part 1-4 checks below are gated by these flags. Checks whose applicability matrix excludes the current scope resolve as **N/A** (not pass, not fail — structurally skipped and logged in the worklog as `skipped: scope`).
 
-### 5-Part Validation (scope-aware; Part 5 is never scope-gated — the freeze answers n/a itself)
+### 5-Part Validation (Parts 1-4 scope-aware)
 
 **Part 1: ARCH Design Validation (🏗️ ARCH concern)**
 - All design.md sections complete (no TODO/TBD)
