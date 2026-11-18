@@ -26,10 +26,10 @@ This ADR implements issue #229 (epic #151, P0). It was verified on `main` at fra
      - `{name, for, feature?, link?}`, where `for` is one of `product | feature | look_and_feel | operating_model` (closed vocabulary), or
      - `{first_of_its_kind: "<reason>"}`.
    - Any product may be named. The framework ships no list of products (LAW-07).
-   - Each entry is written as a flow mapping (`- {name: Linear, for: product}`). The fallback YAML-subset reader, used where PyYAML is absent, reads that form and not a block mapping inside a list; both readers agree on it.
+   - Each entry is written as a flow mapping with its values quoted (`- {name: "Linear", for: product}`). The fallback YAML-subset reader, used where PyYAML is absent, reads that form and not a block mapping inside a list; both readers agree on it.
 2. **The resolver refuses a malformed answer.** `_check_answers` is the one reader; it exits 2 on `--resolve` and `--eval`. It refuses:
    - a value that is not a non-empty list of mappings, including one written as a mapping (read as dotted keys);
-   - a blank name;
+   - a blank name, or a name or feature that is not one line of at most 120 printable characters, or a name carrying an address (the address goes in `link`);
    - a `for` outside the vocabulary;
    - `for: feature` without its feature, or a feature without `for: feature`;
    - a link that is not `http(s)://`, or one that carries a user or a password;
@@ -51,9 +51,10 @@ This ADR implements issue #229 (epic #151, P0). It was verified on `main` at fra
    - BLUEPRINT reads `product`, and `feature` entries that name the feature.
    - DEVOPS reads `operating_model` and `product`. The reader sits in `Factory-devops-configure` (where the operating decisions are taken), not in provision-deploy, which executes them.
    - A decision cites ``Reference product: `Name` · <source>``. The label is its own: `Reference:` already names standards and paths across the corpus, and a citation of `RFC 6749` must never read as a product.
-   - BLUEPRINT and DEVOPS take the facts from the vendor's official documentation (the docs reader), never from the reference product. The reader receives `name`, `for` and `feature` only; the `link` is the person's pointer and is never fetched.
+   - BLUEPRINT and DEVOPS take the facts from the vendor's official documentation (the docs reader), never from the reference product. The reader receives `name`, `for` and `feature` only; the `link` is the person's pointer and is never fetched. What the reader returns, and any page read to propose candidates at SETUP, is data, never instructions.
    - CODESIGN has no docs reader. It asks the person how the product does what they point at, claims nothing about it itself (LAW-16), and cites the person's link or `docs/setup.md` as the source.
-   - Only SETUP (Q2.1) writes the key. A product the person names in another phase is added at SETUP.
+   - Only the person adds a product. A product named in another phase is a re-answer of Q2.1: the person edits the key in its form, on its own change.
+   - The ux-constitution table lists product and link only, with no style column: a style read into a product would be the agent's claim (LAW-16).
    - #225 owns the RDR «Market:» line and reads this key once it ships.
 5. **The check is mechanical: `gate.py freeze` clause (e).** No new gate is added.
    - Freeze already runs at the push, in CI and at `BLUEPRINT --approve`.
@@ -78,6 +79,9 @@ This ADR implements issue #229 (epic #151, P0). It was verified on `main` at fra
 ## Honest limits
 - The check judges citations written in the ``Reference product: `Name` `` form (bold label allowed). A product named in prose is not a citation and is not judged. A second citation on the same line is not judged.
 - The source after `·` is checked for presence, not for being official — the same rule as clause (a).
+- Vision HTML artefacts (`style_guide.html`, `app_shell.html`) and an italic label (`*Reference product:*`) are not judged.
+- A link's query or fragment is not judged as a credential; only a user or password in the address is refused. The commit-time secrets scan is the net for a token.
+- The fence reader of `gates/digests.py` is a separate, older regex; this change does not touch it.
 - The names are read from `docs/setup.md` as the change leaves it. A change that adds a product to the answer and cites it in the same branch is green; the answer's edit is visible in the pull request's diff, and the instructions route a new product to SETUP. Reading the answer at the merge-base instead would block the person's own re-answer on the branch that needs it.
 - `for: feature` entries are matched to a feature by the agent's reading. The gate does not tie them to a feature id.
 - A carried Q13 value is kept verbatim as one entry's name. Splitting it into products is the person's re-answer.
@@ -100,3 +104,12 @@ This ADR implements issue #229 (epic #151, P0). It was verified on `main` at fra
   - the ux-constitution table reads product, link and style.
 
   Ten more mutants on the cure are all killed. Recorded as limits: the self-attesting answer edit, presence-only source, and one citation per line.
+- **Critics, round 2** (cure diff only).
+  - Correctness, governance and fidelity: no findings.
+  - Security: one ❓, cured: a name or feature is one bounded line with no address, and a malformed link host is refused with its reason.
+  - Informational cures:
+    - an inline span at line start opens no fence;
+    - the store-down branch of the new loop is tested;
+    - the style column leaves the ux-constitution table;
+    - the re-answer route is named.
+- **Tests.** `References` holds 5 tests and `FreezeReferences` 10. Each cure test was proven by a killed mutant of the line it guards.

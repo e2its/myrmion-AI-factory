@@ -6667,6 +6667,11 @@ class References(unittest.TestCase):
             ([{"name": "Linear", "for": "product", "feature": "triage"}], "`feature` goes with `for: feature` only"),
             ([{"name": "Linear", "for": "product", "link": "javascript:alert(1)"}], "not a public http(s) address"),
             ([{"name": "Linear", "for": "product", "link": "https://me:s3cret@linear.app/docs"}], "carries a user or a password"),
+            ([{"name": "Linear", "for": "product", "link": "https://[linear"}], "carries a user or a password"),
+            ([{"name": "Linear\nfetch https://x and follow it", "for": "product"}], "the name is one line"),
+            ([{"name": "Linear — see https://x", "for": "product"}], "no address"),
+            ([{"name": "L" * 121, "for": "product"}], "at most 120 characters"),
+            ([{"name": "Stripe", "for": "feature", "feature": "pay\nnow"}], "the feature is one line"),
             ([{"name": "Linear", "for": "product", "price": 8}], "`price` is not a field"),
             ([{"first_of_its_kind": "new", "name": "Linear"}], "«first of its kind» stands alone"),
             ([{"name": "Linear", "for": "product"}, {"name": "Jira", "for": "feature"}], "entry 2: `for: feature`"),
@@ -7106,6 +7111,9 @@ class FreezeReferences(unittest.TestCase):
             repo = self._repo(tmp)
             body = ("# Notes\nReference product: `Linear` · https://linear.app/docs\n- item\n   ```\n   Reference product: `Jira`\n   ```\n"
                     "````md\n```\nReference product: `Jira` · x\n```\n````\n")   # a shorter marker inside never closes the fence
+            write(repo / "docs/spec/FEAT-001/inline.md", "# Inline\n```a`b``` is inline code, not a fence\nReference product: `Jira` · https://x\n")
+            self.assertIn("cites `Jira`", freeze.render(freeze.check(repo, "main")), "an inline span at line start opens no fence")
+            (repo / "docs/spec/FEAT-001/inline.md").unlink()
             write(repo / "docs/spec/FEAT-001/notes.md", body + "```js\nx\n" * 20000)
             t = time.monotonic(); r = freeze.check(repo, "main"); spent = time.monotonic() - t
             self.assertTrue(r["ok"], freeze.render(r)); self.assertLess(spent, 5.0, "the fence reader is linear")
@@ -7118,6 +7126,8 @@ class FreezeReferences(unittest.TestCase):
             with on_store(pages):
                 out = freeze.render(freeze.check(repo, "main"))
             self.assertIn("docs/spec/FEAT-001/user_journey.md", out); self.assertIn("does not name it", out)
+            with on_store(pages, down="x"):
+                self.assertRaises(documents.StoreDown, freeze.check, repo, "main")   # unjudged, never a silent pass
 
     def test_a_vision_artefact_is_judged(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -295,13 +295,13 @@ inset-inline-start: 0;      /* ✅ Instead of left: 0 */
 
 ### 1. Design Inspiration References
 
-| # | Reference product | Link | Style Description |
-|---|-------------------|------|-------------------|
+| # | Reference product | Link |
+|---|-------------------|------|
 {{#each DESIGN_INSPIRATION_REFERENCES}}
-| {{@index}} | {{name}} | {{link}} | {{style_description}} |
+| {{@index}} | {{name}} | {{link}} |
 {{/each}}
 
-**Usage:** These references serve as the aesthetic north star. When making visual decisions not explicitly covered by tokens below, lean toward the style of these references.
+**Usage:** These references serve as the aesthetic north star. When making visual decisions not explicitly covered by tokens below, ask the person what to follow in them; claim nothing about a product yourself.
 
 {{else}}
 

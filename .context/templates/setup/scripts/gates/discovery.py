@@ -121,6 +121,7 @@ STACK_COMMAND = re.compile(r"\b(?:pytest|npm |npx |yarn |pnpm |dotnet |mvn |grad
 FREE_KINDS = ("text", "number", "list", "path", "command", "vault_name", "references")
 REFERENCE_FOR = ("product", "feature", "look_and_feel", "operating_model")   # EVOL-132: what a reference product is a reference for (closed)
 REFERENCE_FIELDS = ("name", "for", "feature", "link", "carried_from")
+REFERENCE_TEXT_MAX = 120   # a product's name or a feature: one line, read by phases and handed to the reader
 SPEC_KINDS = ("options", "options_by", "free")
 NON_ANSWER_SLOTS = ("version", "date", "changelog", "phase", "status", "retry_count", "last_update")
 CREDENTIAL_WORDS = {"password", "passwd", "secret", "token", "credential", "credentials", "apikey"}
@@ -453,6 +454,17 @@ def _carried_only(v) -> bool:
     return isinstance(v, list) and bool(v) and all(isinstance(e, dict) and e.get("carried_from") for e in v)
 
 
+def _one_line(s: str) -> bool:
+    return len(s) <= REFERENCE_TEXT_MAX and s.isprintable()
+
+
+def _netloc(link: str) -> str:
+    try:
+        return urlsplit(link.strip()).netloc
+    except ValueError:   # a malformed host (`https://[x`): no netloc to trust — read as one carrying a credential
+        return "@"
+
+
 def _reference_problems(v) -> list[str]:
     """EVOL-132 — what a `free: references` answer may not be (None: unanswered)."""
     if v is None:
@@ -475,17 +487,21 @@ def _reference_problems(v) -> list[str]:
             out.append(f"entry {n}: {', '.join(f'`{clean(x, 60)}`' for x in extra)} is not a field ({', '.join(REFERENCE_FIELDS[:4])})")
         if not isinstance(e.get("name"), str) or not e["name"].strip():
             out.append(f"entry {n}: the product's name is blank — name the product on the market")
+        elif not _one_line(e["name"]) or re.search(r"https?://", e["name"], re.I):
+            out.append(f"entry {n}: the name is one line of at most {REFERENCE_TEXT_MAX} characters, no address — the address goes in `link`")
         if e.get("for") not in REFERENCE_FOR:
             out.append(f"entry {n}: `for` = `{clean(canon(e.get('for')), 60)}` is not one of {' | '.join(REFERENCE_FOR)}")
         feat = e.get("feature")
         if e.get("for") == "feature" and (not isinstance(feat, str) or not feat.strip()):
             out.append(f"entry {n}: `for: feature` names the feature it is a reference for — `feature: <the feature>`")
+        elif e.get("for") == "feature" and not _one_line(feat):
+            out.append(f"entry {n}: the feature is one line of at most {REFERENCE_TEXT_MAX} characters")
         if e.get("for") != "feature" and "feature" in e:
             out.append(f"entry {n}: `feature` goes with `for: feature` only")
         link = e.get("link")
         if link is not None and not (isinstance(link, str) and re.fullmatch(r"https?://[^\s<>\"'`]+", link.strip())):
             out.append(f"entry {n}: the link is not a public http(s) address")
-        elif link is not None and "@" in urlsplit(link.strip()).netloc:
+        elif link is not None and "@" in _netloc(link):
             out.append(f"entry {n}: the link carries a user or a password — point at the product's public page, never with a credential")
     return out
 

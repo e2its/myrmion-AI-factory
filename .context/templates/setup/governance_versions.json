@@ -1219,7 +1219,7 @@
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/discovery.py",
-      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
+      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V14 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132)."
     },
     "setup/discovery_registry.json": {
       "version": "2.7.0",
@@ -2616,7 +2616,7 @@
       "version": "2.4.0",
       "type": "script",
       "path": "scripts/gates/discovery.py",
-      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
+      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V14 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132)."
     },
     "scripts/gates/writes.py": {
       "version": "2.0.0",

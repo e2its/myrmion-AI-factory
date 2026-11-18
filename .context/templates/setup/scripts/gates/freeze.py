@@ -119,13 +119,13 @@ def _fold(s: str) -> str:
 def _unfenced(text: str) -> str:
     """The text without its fenced code blocks, read line by line — linear (a regex spanning fences backtracks
     quadratically on many unclosed openers). A fence closes on a line of its own marker, at least as long; an unclosed
-    fence runs to the end (CommonMark)."""
+    fence runs to the end; a backtick opener whose info string holds a backtick is inline code (CommonMark)."""
     out, fence = [], None
     for ln in (text or "").splitlines():
         s = ln.strip()
         if fence is None:
             m = FENCE_OPEN.match(s)
-            if m:
+            if m and not (m.group(1)[0] == "`" and "`" in s[len(m.group(1)):]):
                 fence = m.group(1)
             else:
                 out.append(ln)
