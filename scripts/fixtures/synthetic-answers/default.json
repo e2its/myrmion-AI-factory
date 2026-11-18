@@ -13,6 +13,7 @@
     "frontend.framework": "React",
     "frontend.meta_framework": "None",
     "frontend.pattern": "F2",
+    "reference_products": [{"name": "Linear", "for": "product", "link": "https://linear.app"}, {"name": "Stripe Checkout", "for": "feature", "feature": "checkout"}, {"name": "Notion", "for": "look_and_feel"}],
     "database.primary.engine": "None",
     "hosting.provider": "AWS",
     "hosting.type": "container",

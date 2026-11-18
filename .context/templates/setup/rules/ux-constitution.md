@@ -8,7 +8,7 @@ applicable_when:
     - "**/*.jsx"
     - "**/*.tsx"
     - "**/*.vue"
-version: 1.8.1
+version: 1.9.0
 date: 2026-01-26
 ---
 
@@ -289,25 +289,25 @@ inset-inline-start: 0;      /* ✅ Instead of left: 0 */
 ## 🧬 I-bis. Visual DNA & Design Language
 
 > **Purpose:** Define the aesthetic identity and visual personality that guides ALL design decisions. This section ensures visual consistency beyond mere color/font compliance — it governs the "feel" of the product: spacing rhythm, depth, roundness, animation, and decorative intent.
-> **Source:** Extracted during `/SETUP --init` (Q10b: Design Inspiration) from reference websites analysis.
+> **Source:** `docs/setup.md → reference_products`, the entries `for: look_and_feel` (SETUP Q2.1), and the visual DNA answers (Q13).
 
 {{#if DESIGN_INSPIRATION_EXISTS}}
 
 ### 1. Design Inspiration References
 
-| # | Reference URL | Style Description |
-|---|---------------|-------------------|
-{{#each DESIGN_INSPIRATION_URLS}}
-| {{@index}} | `{{url}}` | {{style_description}} |
+| # | Reference product | Link |
+|---|-------------------|------|
+{{#each DESIGN_INSPIRATION_REFERENCES}}
+| {{@index}} | {{name}} | {{link}} |
 {{/each}}
 
-**Usage:** These references serve as the aesthetic north star. When making visual decisions not explicitly covered by tokens below, lean toward the style of these references.
+**Usage:** These references serve as the aesthetic north star. When making visual decisions not explicitly covered by tokens below, ask the person what to follow in them; claim nothing about a product yourself.
 
 {{else}}
 
 ### 1. Design Inspiration References
 
-> No design inspiration was configured during setup. Visual DNA defaults are applied based on project sector. Run `/SETUP --init` with Q10b to configure design inspiration for a more tailored aesthetic.
+> No design inspiration was configured during setup. Visual DNA defaults are applied based on project sector. Answer SETUP Q2.1 with a `for: look_and_feel` entry for a more tailored aesthetic.
 
 {{/if}}
 

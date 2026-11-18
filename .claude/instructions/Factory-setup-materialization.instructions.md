@@ -1128,7 +1128,7 @@ Any future template that adopts a `{{*_COST}}` or `{{BUDGET_*}}` placeholder is 
 
 **Special Integration — UX Constitution (scope-aware):**
 IF `python3 scripts/gate.py discovery --eval 'project_scope IN [full-stack, frontend-only] AND frontend.framework != None'` exits 0, populate `.claude/rules/ux-constitution.md` with:
-- Brand identity ← `frontend.visual_dna.references`, `frontend.visual_dna.personality`, `frontend.visual_dna.colors`, `frontend.visual_dna.typography`, `frontend.visual_dna.brand_assets` (Q13)
+- Brand identity ← `reference_products` entries `for: look_and_feel` (Q2.1), `frontend.visual_dna.personality`, `frontend.visual_dna.colors`, `frontend.visual_dna.typography`, `frontend.visual_dna.brand_assets` (Q13)
 - Layout ← `frontend.visual_dna.border_radius`, `frontend.visual_dna.shadow_depth`, `frontend.visual_dna.animation`
 - Pixel-level mapping of Visual DNA to CSS variables
 
