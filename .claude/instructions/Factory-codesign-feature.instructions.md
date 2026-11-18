@@ -864,7 +864,8 @@ rdr_rounds = round
 id: {new_id}
 iteration: {N+1}
 date: {ISO_8601}
-source: user-feedback | cascade
+source: user-feedback | cascade | po-return | rdr-ratification
+erq_id: ERQ-{FEAT_ID}-{NN}   # the change request (iteration-model § Change in flight)
 classification: {DELTA|BREAKING|HYBRID}
 scope_summary: "one-line"
 changes: [{kind: scenario_added|scenario_modified|nfr_added|accepted_change|..., ref: "..." (accepted_change: "AC-{FEAT}-{N}")}, ...]
@@ -953,6 +954,7 @@ This changelog serves as:
 ## Command: `--revise {{FEATURE_ID}}`
 
 Creates a new Feature ID from an existing one (for pure BREAKING changes):
+- **Blocked while an increment is in progress** (`Status: BUILDING`, or its `feature/{ID}-inc-N-…` branch not merged): it completes first; discarding it is only the person's own `--cancel` (iteration-model § Change in flight)
 - Copies existing artifacts as starting point
 - Marks original scenarios as `@superseded_by(NEW_ID)`
 - New feature has `iteration: 1` (fresh start)

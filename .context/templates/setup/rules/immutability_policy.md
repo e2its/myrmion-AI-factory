@@ -33,7 +33,7 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 | **CODESIGN Approved (slice_map)** | `/CODESIGN --start` / `--refine` (auto-approval) | `slice_map.md` plan-level frontmatter + § 0; § 1 scenario membership frozen per-scenario as realizing increments reach MERGED (see Per-Slice Immutability) | `/CODESIGN --refine` re-slice touching a MERGED scenario | `/CODESIGN --revise` or additive follow-up slice |
 | **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` + `increment_plan.md` (plan-level frontmatter; per-increment § 1 sections follow the Per-Increment Immutability table below) | `/CODESIGN --refine` classified REVISE, `/BLUEPRINT --refine` (except on increments in DRAFT/READY/INVALIDATED status) | `/CODESIGN --refine` as a classified iteration (§ Change in flight — the increment in progress is kept); `/CODESIGN --revise` for REVISE |
 | **IMPLEMENT Plan Approved** | `/IMPLEMENT --plan` | All previous + `dev_plan.md` | All previous + `/BLUEPRINT --refine` (except per-increment allowance) | `/CODESIGN --refine` as a classified iteration (§ Change in flight), `/CODESIGN --revise` for REVISE, or `/BLUEPRINT --refine` (scoped to editable increments) |
-| **IMPLEMENT Approved** | `/IMPLEMENT --build` (the work critics pass — correctness, security, governance, fidelity) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --revise` (new version) |
+| **IMPLEMENT Approved** | `/IMPLEMENT --build` (the work critics pass — correctness, security, governance, fidelity) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --refine` as a classified iteration (a merged increment gets a follow-up increment until QA certifies — § Change in flight); `/CODESIGN --revise` for REVISE |
 | **QA Verify+DAST Approved** | `/QA --verify` (post-staging auto-approval, includes the DAST security pass) | Entire chain | All previous | Only `/CODESIGN --revise` (creates new feature) |
 | **Merged to main** | Git merge | **FULLY IMMUTABLE** | All commands except hotfix | `/IMPLEMENT --fix` (emergencies) |
 
@@ -53,8 +53,8 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 - **Trigger:** `/BLUEPRINT --approve USR-001` (mandatory manual checkpoint)
 - **Lock Cascade:**
   - `spec.feature` → `--refine` only as a classified iteration (factory-iteration-model § Change in flight); REVISE → `--revise`
-  - `test_plan.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
-  - `design.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
+  - `test_plan.md` → **BLOCKED** for BLUEPRINT, except a `--refine` that syncs the iteration the cascade left pending (`pending_iteration`)
+  - `design.md` → **BLOCKED** for BLUEPRINT, same exception
   - `increment_plan.md` → **PARTIALLY BLOCKED** — plan-level frontmatter and § 0 Refinement Record frozen; § 1 per-increment sections follow Per-Increment Immutability below
 - **Versioning:** **MANDATORY** for a REVISE change (a classified iteration and the per-increment allowances need none)
 - **Command:** `/CODESIGN --revise USR-001 "Reason for change"`
@@ -151,10 +151,10 @@ def check_slice_immutability(feature_id, proposed_slice_map):
 - **Trigger:** `/IMPLEMENT --build USR-001` completes all phases (workers → work critics → security lens per phase)
 - **Lock Cascade:**
   - All previous + `dev_plan.md` + source code → **BLOCKED**
-  - BLUEPRINT cannot `/BLUEPRINT --refine` without creating `USR-001-v2`
+  - BLUEPRINT cannot `/BLUEPRINT --refine` without creating `USR-001-v2`, except to sync a pending iteration
   - Generates `peer_review_{timestamp}.md` + `sec_audit.md` inline
 - **Risk:** Implemented and certified code. Architectural changes require a new version.
-- **Versioning:** **MANDATORY** for any upstream or downstream change
+- **Versioning:** **MANDATORY** for a REVISE change; a classified iteration adds a follow-up increment (Follow-up Increment Rule)
 - **Next Phase:** DEVOPS deploy to staging → QA verification → SEC DAST
 
 #### Fase 3.5: ~~REVIEW APPROVED~~ (retired — absorbed into IMPLEMENT --build)
@@ -347,9 +347,10 @@ USR-001-v3: ❌ BLOCKED - Max 1 active version reached
 **Prerequisites:**
 - `spec.feature` exists with `status: APPROVED`
 - Downstream work exists (test_plan.md, design.md, or dev_plan.md with `status: APPROVED`)
+- No increment is in progress (`Status: BUILDING`, or a `feature/{ID}-inc-N-…` branch not merged): it completes first; discarding it is only the person's own `--cancel` (factory-iteration-model § Change in flight)
 
 **Workflow:**
-1. **Validation:** Verifies that no more than 1 active version exists
+1. **Validation:** Verifies that no more than 1 active version exists and that no increment is in progress
 2. **Version Calculation:** Increments number (`USR-001` → `USR-001-v2`)
 3. **Directory Creation:** `docs/spec/USR-001-v2/`
 4. **Artifact Copy:**
@@ -568,6 +569,10 @@ def check_immutability(agent, command, feature_id):
             # CODESIGN --refine is the change-request lane: it classifies, and only REVISE needs a new version
             # (factory-iteration-model § Change in flight). Every other agent's --refine/--plan stays locked here.
             if agent == "CODESIGN" and command == "--refine":
+                return True
+            # A downstream --refine that syncs the iteration the cascade left pending is the lane's own step.
+            pending, based = frontmatter.get("pending_iteration"), frontmatter.get("based_on_iteration") or 0
+            if command == "--refine" and pending is not None and pending > based:
                 return True
             if has_downstream_work(agent, feature_id):
                 raise BlockedError(

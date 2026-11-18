@@ -1146,9 +1146,9 @@ See `.claude/skills/factory-memory-cache/SKILL.md` for the complete protocol (th
 
 ## Immutability and Versioning
 
-Once an artifact is **APPROVED** with downstream work APPROVED, it becomes **immutable**.
+Once an artifact is **APPROVED** with downstream work APPROVED, it becomes **immutable**. A change that arrives mid-build goes through `/codesign --refine`: it is classified, and anything but a pure breaking change is an iteration of the same feature — the increment in progress is kept on its branch and completes first (`factory-iteration-model` § Change in flight; `gate.py train` (k)/(l)).
 
-### Solution: Automatic Versioning
+### Pure breaking change: versioning
 
 ```
 Original:     USR-001
@@ -1167,6 +1167,7 @@ Hotfix:       USR-001-v2.1 (security emergencies only)
 - Marks `USR-001` as `APPROVED (SUPERSEDED)`.
 - Downstream artifact inheritance (test_plan, design) available.
 - Maximum one active version (forced linearity).
+- Blocked while an increment is in progress: it completes first; discarding it is only the person's own `--cancel`.
 
 See `.claude/rules/immutability_policy.md` for the full rules.
 

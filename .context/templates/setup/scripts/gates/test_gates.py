@@ -6655,6 +6655,50 @@ class Train(unittest.TestCase):
                 if msg:
                     self.assertIn(msg, out, (was, kw))
                     self.assertIn("Change in flight", out)
+                    res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "train", "--base", "main"], capture_output=True, text=True)
+                    self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
+
+    def test_a_legacy_base_without_states_is_not_judged_by_the_plan_clause(self):
+        """EVOL-083 (l): a base plan written before states were recorded holds nothing in progress to compare."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, plan=self._states(s1=None, s2=None, sub=""))
+            write(repo / self.PLAN, self._states(s1="READY", sub="READY", s2="INVALIDATED"))
+            r = train.check(repo, "main"); out = train.render(r)
+            self.assertTrue(r["ok"], out)
+
+    def test_an_open_increment_branch_is_in_progress_whatever_the_plan_records(self):
+        """EVOL-083 (l): BUILDING lives on the increment's branch; a change cut from main sees READY and must not discard it."""
+        def ref(repo, name, merged=False):
+            git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, text=True).stdout.strip()
+            sha = git("rev-parse", "main") if merged else git("-c", "user.name=t", "-c", "user.email=t@t", "commit-tree",
+                                                              git("rev-parse", "main^{tree}"), "-p", "main", "-m", "work")
+            git("update-ref", name, sha)
+        cases = (
+            ("refs/heads/feature/FEAT-001-inc-1-login", False, {"s1": "INVALIDATED"}, False, "(l) INC-1 has an open branch `feature/FEAT-001-inc-1-login`"),
+            ("refs/heads/feature/FEAT-001-inc-1-login", False, {"inc1": False}, False, "this change drops it from the plan"),
+            ("refs/heads/feature/FEAT-001-inc-1-login-sub-2", False, {"s1": "INVALIDATED"}, False, "marks it INVALIDATED"),
+            ("refs/remotes/origin/feature/FEAT-001-inc-1-login", False, {"s1": "INVALIDATED"}, False, "has an open branch"),
+            ("refs/heads/feature/FEAT-001-inc-1-login", True, {"s1": "INVALIDATED"}, True, None),
+            ("refs/heads/feature/FEAT-002-inc-1-login", False, {"s1": "INVALIDATED"}, True, None),
+            ("refs/heads/feature/FEAT-001-inc-2-other", False, {"s1": "INVALIDATED"}, True, None),
+            ("refs/heads/feature/FEAT-001-inc-1-login", False, {"s1": "BUILDING", "sub": "BUILDING", "p1": "2", "s2": "INVALIDATED"}, True, None),
+        )
+        for name, merged, kw, ok, msg in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, plan=self._states(s1="READY", sub="READY"))
+                ref(repo, name, merged)
+                write(repo / self.PLAN, self._states(**{"sub": "READY", **kw}))
+                r = train.check(repo, "main"); out = train.render(r)
+                self.assertEqual(r["ok"], ok, (name, kw, out))
+                if msg:
+                    self.assertIn(msg, out, (name, kw))
+                    self.assertIn("Change in flight", out)
+        with tempfile.TemporaryDirectory() as tmp:   # already INVALIDATED at the base: an earlier change spoke, this one is not judged
+            repo = self._repo(tmp, plan=self._states(s1="INVALIDATED", sub="READY"))
+            ref(repo, "refs/heads/feature/FEAT-001-inc-1-login")
+            write(repo / self.PLAN, self._states(s1="INVALIDATED", sub="READY", s2="DRAFT"))
+            r = train.check(repo, "main")
+            self.assertTrue(r["ok"], train.render(r))
 
     def test_an_unknown_increment_state_is_red(self):
         """EVOL-083 (k): the state the plan records is read by the one reader, and a state outside the vocabulary is red."""
@@ -6671,6 +6715,10 @@ class Train(unittest.TestCase):
             ({"p1": "0"}, False, "is no iteration"),
             ({"p2": "3"}, False, "(k) INC-2: Pending iteration 3 on a READY increment"),
             ({"s2": "INVALIDATED", "p2": "3"}, False, "on a INVALIDATED increment"),
+            ({"s1": "BUILDING_PAUSED"}, False, "status «BUILDING_PAUSED» is no increment state"),
+            ({"sub": "`building`"}, True, None),
+            ({"sub": "MERGED-ish"}, False, "status «MERGED-ISH» is no sub-increment state"),
+            ({"p1": "٣"}, False, "is no iteration"),
         )
         for kw, ok, msg in cases:
             with tempfile.TemporaryDirectory() as tmp:
@@ -6685,7 +6733,9 @@ class Train(unittest.TestCase):
     def test_the_shipped_template_records_a_known_state(self):
         tmpl = (HERE.parent.parent / ".context/templates/architect/increment_plan_template.md").read_text(encoding="utf-8")
         self.assertEqual(train.judge_states(tmpl), [])
-        self.assertEqual([i["status"] for i in train.increments(tmpl)], ["DRAFT", "DRAFT"])
+        incs = train.increments(tmpl)
+        self.assertTrue(incs)
+        self.assertTrue(all(i["status"] in train.INC_STATES for i in incs), [i["status"] for i in incs])
 
     def test_dangling_after_and_after_cycle_red(self):
         for rows, word in ((("SUB-1-1: a · paths [src/a.py] · after [SUB-1-9] · status: READY",), "SUB-1-9"),

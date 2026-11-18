@@ -43,7 +43,9 @@ factory-iteration-model § Change in flight):
                           started is INVALIDATED by the cascade, never kept pending).
   (l) kept in progress    against the plan at the merge-base with the diff base: an INC or SUB that was BUILDING is gone or
                           neither BUILDING nor MERGED; one that was MERGED is gone or not MERGED. A plan with no base is not
-                          judged by (l).
+                          judged by (l). And on the branches this clone knows: an INC this change marks INVALIDATED or drops
+                          (DRAFT or READY at the base) while a `feature/{ID}-inc-N-…` branch of it (its own or a sub's) is
+                          not merged into HEAD — BUILDING lives on that branch, never on the main branch.
 
 A seam table is one whose header carries `use case` and `sub`; the template's placeholder row in a plan that declares
 no sub is nothing to judge. Nothing to judge → `train: n/a`. `--figures` counts per INC: subs, unique paths, path-touches, re-touch, train total.
@@ -51,16 +53,17 @@ no sub is nothing to judge. Nothing to judge → `train: n/a`. `--figures` count
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 from . import branch as branch_mod
 from .common import GateFault, any_glob, clean as _clean, key
 from .digests import changed_paths
 from .frontmatter import _at
-from .seal import DEFAULT_SEAL_DIR, _norm_path, _reference, vcfg
+from .seal import DEFAULT_SEAL_DIR, _git, _norm_path, _reference, vcfg
 
 PLAN_RE = re.compile(r"docs/spec/([^/]+)/increment_plan\.md")
-ROW_RE = re.compile(r"(?m)^\s*-\s*\**SUB-(\d+)-(\d+)\**\s*(?::|—)(.*)$")   # the row shape of branch.declares_sub_increments
+ROW_RE = re.compile(r"(?m)^[ \t]*-[ \t]*\**SUB-(\d+)-(\d+)\**\s*(?::|—)(.*)$")   # the row shape of branch.declares_sub_increments
 LISTS = ("paths", "after", "concerns", "enables", "tasks", "measured")
 INC_RE = re.compile(r"(?m)^#{2,}\s*INC-(\d+)\b")
 RATIFIED_RE = re.compile(r"\*\*Ratified sub-increments:\*\*\s*(\d+)")
@@ -73,11 +76,12 @@ ITEM_RE = re.compile(r"^\s+-\s*\[[ xX]\]\s*(?P<text>\S.*)$")
 SPAN_RE = re.compile(r"`([^`]+)`")
 UPGRADE_RE = re.compile(r"\*\*Upgrade over data:\*\*[ \t]*([^\n]*)")
 ESTIMATE = (re.compile(r"~\s*\d+\s*files?\b"), re.compile(r"~\s*\d+\s*lines?\b"))
-STATUS_RE = re.compile(r"\*\*Status:\*\*\s*`?([A-Za-z]+)")
+STATUS_RE = re.compile(r"\*\*Status:\*\*[ \t]*`?([A-Za-z][A-Za-z0-9_-]*)")   # the whole token: BUILDING_X is no state
 FROZEN = ("BUILDING", "MERGED")   # immutability policy: a frozen increment is never edited, so (h) and (i) skip it (owner RDR «1»)
 INC_STATES = ("DRAFT", "READY", "BUILDING", "MERGED", "INVALIDATED")
 SUB_STATES = ("READY", "BUILDING", "MERGED")
 KEEPS = {"BUILDING": ("BUILDING", "MERGED"), "MERGED": ("MERGED",)}   # (l): what a frozen state may become
+SUB_STATUS_RE = re.compile(r"(?i)\bstatus:[ \t]*[*`]*[ \t]*([A-Za-z][A-Za-z0-9_-]*)")
 PENDING_RE = re.compile(r"\*\*Pending iteration:\*\*[ \t]*([^\n]*)")
 NO_PENDING = ("", "null", "none", "~")
 LANE = "factory-iteration-model § Change in flight"
@@ -123,8 +127,8 @@ def parse(text: str) -> dict[str, list[dict]]:
         for k in LISTS:
             row[k] = list(dict.fromkeys(_norm_path(p) for p in _list(rest, k))) if k == "paths" else _list(rest, k)
         row["after"] = [_sid(x) for x in row["after"]]
-        st = re.search(r"status:\s*\**\s*([A-Za-z]+)", rest)
-        row["status"] = st.group(1).upper() if st else ""
+        st = SUB_STATUS_RE.findall(rest)   # the row's last `status:` is its field; the scope may say the word earlier
+        row["status"] = st[-1].upper() if st else ""
         incs.setdefault(f"INC-{n}", []).append(row)
     return incs
 
@@ -328,11 +332,11 @@ def judge_states(text: str) -> list[str]:
             problems.append(f"(k) {inc['id']}: status «{_clean(st, 40)}» is no increment state — {' | '.join(INC_STATES)}")
         if p is None or p.lower() in NO_PENDING:
             continue
-        if not re.fullmatch(r"[1-9]\d*", p):
+        if not re.fullmatch(r"[1-9][0-9]*", p):   # ASCII digits only
             problems.append(f"(k) {inc['id']}: Pending iteration «{_clean(p, 40)}» is no iteration — `null`, or the number "
                             f"of the iteration the change opened ({LANE})")
         elif st not in KEEPS:
-            problems.append(f"(k) {inc['id']}: Pending iteration {p} on a {st or 'stateless'} increment — only an increment "
+            problems.append(f"(k) {inc['id']}: Pending iteration {_clean(p, 40)} on a {st or 'stateless'} increment — only an increment "
                             f"in progress (BUILDING) or merged keeps a pending iteration; one not started is INVALIDATED by "
                             f"the cascade ({LANE})")
     for subs in parse(text).values():
@@ -366,6 +370,43 @@ def judge_kept(before: str, after: str) -> list[str]:
                "completes, then `IMPLEMENT --refine` takes the change") if was == "BUILDING" else \
               "a merged increment is production history: a change to it is a follow-up increment"
         problems.append(f"(l) {iid} was {was} and {where} — {why} ({LANE})")
+    return problems
+
+
+def in_progress(repo: Path, feat: str) -> dict[str, str] | None:
+    """INC-N → a branch of it (its own or a sub's) this clone knows and HEAD has not merged: work in progress, whatever
+    the plan on this branch records — BUILDING lives on the increment's branch, never on the main branch. None when git
+    cannot answer (the open-branch read is skipped and the note says so)."""
+    try:
+        out = _git(repo, "for-each-ref", "--no-merged=HEAD", "--format=%(refname)", "refs/heads", "refs/remotes")
+    except GateFault:
+        return None
+    found: dict[str, str] = {}
+    for ref in out.splitlines():
+        if ref.startswith("refs/heads/"):
+            name = ref[len("refs/heads/"):]
+        elif ref.startswith("refs/remotes/") and ref.count("/") >= 3:
+            name = ref.split("/", 3)[3]
+        else:
+            continue
+        m = branch_mod.INC_RE.match(name)
+        if m and m.group("id") == feat:
+            found.setdefault(f"INC-{m.group('n')}", name)
+    return found
+
+
+def judge_open(before: str | None, after: str, open_: dict[str, str]) -> list[str]:
+    """Clause (l) on the branches: an increment this change invalidates or drops while its branch is open is discarded
+    work. One already INVALIDATED at the base, or BUILDING / MERGED there (the plan clause speaks), is not judged here."""
+    was_all, now, problems = _states(before or ""), _states(after), []
+    for iid, ref in sorted(open_.items()):
+        was, cur = was_all.get(iid), now.get(iid)
+        if was is None or was in ("INVALIDATED", *KEEPS) or cur not in (None, "INVALIDATED"):
+            continue
+        what = "drops it from the plan" if cur is None else "marks it INVALIDATED"
+        problems.append(f"(l) {iid} has an open branch `{_clean(ref, 80)}` this branch has not merged, and this change {what} — "
+                        f"an increment with work on its branch is in progress whatever the plan here records "
+                        f"({was or 'no state'}): record it BUILDING with `Pending iteration: N` and let it complete ({LANE})")
     return problems
 
 
@@ -507,10 +548,18 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
                 rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} exits", "ok": not problems, "problems": problems,
                              "note": f"{len(increments(text))} increment(s): exit criteria and estimates judged, BUILDING and MERGED skipped"})
             if increments(text) or parse(text):
-                before = _at(repo, ref, plan)
-                problems = judge_states(text) + (judge_kept(before, text) if before is not None else [])
-                rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} states", "ok": not problems, "problems": problems,
-                             "note": "every state in its vocabulary; none in progress discarded" + ("" if before is not None else " (no base plan to compare)")})
+                feat = PLAN_RE.fullmatch(plan).group(1)
+                try:
+                    before = _at(repo, ref, plan)
+                except (OSError, subprocess.TimeoutExpired):
+                    before = None
+                open_ = in_progress(repo, feat)
+                problems = (judge_states(text) + (judge_kept(before, text) if before is not None else [])
+                            + judge_open(before, text, open_ or {}))
+                rows.append({"id": f"{feat} states", "ok": not problems, "problems": problems,
+                             "note": "every state in its vocabulary; none in progress discarded"
+                                     + ("" if before is not None else " (no base plan to compare)")
+                                     + ("" if open_ is not None else " (open branches unreadable)")})
             if live_seams(text) or ratified(text) or any(s["tasks"] or s["measured"] for ss in parse(text).values() for s in ss):
                 problems = judge_seams(text)
                 rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} seams", "ok": not problems, "problems": problems,

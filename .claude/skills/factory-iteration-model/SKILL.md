@@ -101,13 +101,13 @@ The one home of the lane for a change that arrives mid-build. Other texts cite i
 
   | State | Effect |
   |---|---|
-  | BUILDING | Kept on its branch: the cascade sets `Pending iteration: N` and a `Pending reason` naming the ERQ id. The increment completes; `IMPLEMENT --refine` then takes the change. |
+  | BUILDING, or its branch open (BUILDING lives on the branch) | Kept: the cascade records it BUILDING with `Pending iteration: N` and a `Pending reason` naming the ERQ id. The increment completes; `IMPLEMENT --refine` then takes the change and clears `Pending iteration`. |
   | DRAFT, READY | Becomes INVALIDATED and is re-synced. |
-  | MERGED | Untouched; the change is a follow-up increment. |
+  | MERGED | Untouched; the change is a follow-up increment. One merged with its `Pending iteration` still set is taken by `IMPLEMENT --refine`. |
 - **REVISE (pure breaking).** The increment in progress still completes first, under the one-active-version rule. Discarding it is only the person's own `--cancel`, never forced.
 - **Mechanical layer.** `gate.py train` checks two things:
   - **(k) state known.** Every INC and SUB records a state from its vocabulary. A `Pending iteration` is allowed only on a BUILDING or MERGED increment.
-  - **(l) kept in progress.** Against the merge-base, no BUILDING increment is discarded and no MERGED one regresses.
+  - **(l) kept in progress.** Against the merge-base, no BUILDING increment is discarded and no MERGED one regresses. No increment with an open branch is invalidated or dropped.
 
 ---
 
@@ -614,6 +614,10 @@ FUNCTION CASCADE_INCREMENT_INTERNAL(FEATURE_ID, target_iteration, affected_scope
     RETURN   # monolithic plans cascade through the plan-level pending_iteration path only
 
   increments = PARSE_INCREMENTS(plan_path)   # § 1 entries with id, status, scenarios_covered, contract_surface
+  erq_id = read_iteration_state("docs/spec/{FEATURE_ID}/spec.feature").history[-1].erq_id   # the change request (§ Change in flight)
+  FOR EACH inc IN increments:   # BUILDING lives on the increment's branch, never on the main branch
+    IF inc.status IN (DRAFT, READY) AND UNMERGED_BRANCH_EXISTS("feature/{FEATURE_ID}-inc-{inc.n}-*"):
+      inc.status = "BUILDING"; UPDATE_INCREMENT_FIELD(plan_path, inc.id, "status", "BUILDING")   # the read gate.py train (l) makes
   invalidated = []
   warnings = []
 
