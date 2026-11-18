@@ -360,7 +360,7 @@ See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 f
 
 **Part 5: Freeze Gate (BLOCKING — EVOL-082)**
 
-Run `python3 scripts/gate.py freeze` before Freezing. It judges the design and the contracts this branch changes: reliability questions answered with a source, the outage response, bounded sensitive fields, and every critical decision of design.md § Decision History bound to its law and a gate the project runs. Exit 1 BLOCKS — show its ✗ lines as they are and redirect: "Run BLUEPRINT --refine {FEATURE_ID} to fix what the freeze lists." Exit 2 (the gate could not run) BLOCKS too — say what failed in plain words. Only exit 0 (ok or n/a) passes; never re-judge what it printed.
+Run `python3 scripts/gate.py freeze` before Freezing. It judges the design and the contracts this branch changes: reliability questions answered with a source, the outage response, bounded sensitive fields, every critical decision of design.md § Decision History bound to its law and a gate the project runs, and every ``Reference product:`` citation in a changed decision artefact named in `docs/setup.md → reference_products`, with its source. Exit 1 BLOCKS — show its ✗ lines as they are and redirect: "Run BLUEPRINT --refine {FEATURE_ID} to fix what the freeze lists." Exit 2 (the gate could not run) BLOCKS too — say what failed in plain words. Only exit 0 (ok or n/a) passes; never re-judge what it printed.
 
 ### Freezing
 - Set `design.md` frontmatter: `status: APPROVED`

@@ -18,11 +18,12 @@ the merge-base with the diff base) is read. Red when:
                            Record with no file under docs/project_log/adr/, a REPLACE record aimed at another law; or an ADR
                            named there that adds or replaces a law and is the Record of no row (prose only). A `{{…}}` cell is
                            blank. No row and no law-making ADR → `n/a` with its reason.
-  (e) unnamed reference    (EVOL-132) a changed decision artefact — `docs/spec/<ID>/**.md|.feature`, `docs/project_log/adr/*.md`
-                           — cites ``Reference: `Name` · <source>`` (outside code fences) naming a product the answer
-                           `docs/setup.md → reference_products` does not name (case-insensitive; a carried Q13 answer counts;
-                           «first of its kind» names none), or with no official source after `·`; an unreadable answer home is
-                           red. A file with no citation is not judged by this clause.
+  (e) unnamed reference    (EVOL-132) a changed decision artefact — `docs/spec/<ID>/**.md|.feature`, `docs/project_log/adr/*.md`,
+                           `docs/ux/vision/*.md`, in the repo or in its External home (a pin) — cites
+                           ``Reference product: `Name` · <source>`` (bold label allowed; outside code fences) naming a product
+                           the answer `docs/setup.md → reference_products` does not name (case-insensitive; a carried Q13
+                           answer counts; «first of its kind» names none), or with no source after `·`; an unreadable answer
+                           home is red. A file with no citation is not judged by this clause.
 An unparseable, empty or malformed contract is red with its reason (LAW-08). Nothing to judge → `freeze: n/a`.
 Raised ⊆ declared belongs to the one contract reader, gates/contracts.py (`--parity`, the loop member contract-parity, EVOL-070) — not this one.
 """
@@ -38,9 +39,9 @@ from .digests import changed_paths
 from .seal import DEFAULT_SEAL_DIR, RED, _norm_path, vcfg
 
 DESIGN_RE = re.compile(r"docs/spec/[^/]+/design\.md")
-DECISION_RE = re.compile(r"docs/spec/[^/]+/.+\.(?:md|feature)|docs/project_log/adr/[^/]+\.md")   # EVOL-132: where a decision cites
-CITE = re.compile(r"(?<![\w`])Reference:[ \t]+((?:`[^`\n]+`[ \t]*,?[ \t]*)+)([^\n]*)")
-FENCE = re.compile(r"^(```|~~~).*?^\1[ \t]*$", re.M | re.S)
+DECISION_RE = re.compile(r"docs/spec/[^/]+/.+\.(?:md|feature)|docs/project_log/adr/[^/]+\.md|docs/ux/vision/[^/]+\.md")   # EVOL-132: where a decision cites
+CITE = re.compile(r"(?<![\w`-])(?:\*\*)?Reference product:(?:\*\*)?[ \t]+((?:`[^`\n]+`[ \t]*,?[ \t]*)+)([^\n]*)")
+FENCE_OPEN = re.compile(r"(`{3,}|~{3,})")
 CONTRACT_RE = re.compile(r"contracts/openapi/.+\.(?:ya?ml|json)")
 METHODS = ("get", "put", "post", "delete", "patch", "head", "options")
 CONSTRAINTS = ("maxLength", "pattern", "enum", "format", "minimum", "maximum")
@@ -115,11 +116,29 @@ def _fold(s: str) -> str:
     return " ".join(str(s).split()).lower()
 
 
+def _unfenced(text: str) -> str:
+    """The text without its fenced code blocks, read line by line — linear (a regex spanning fences backtracks
+    quadratically on many unclosed openers). A fence closes on a line of its own marker, at least as long; an unclosed
+    fence runs to the end (CommonMark)."""
+    out, fence = [], None
+    for ln in (text or "").splitlines():
+        s = ln.strip()
+        if fence is None:
+            m = FENCE_OPEN.match(s)
+            if m:
+                fence = m.group(1)
+            else:
+                out.append(ln)
+        elif s and set(s) == {fence[0]} and len(s) >= len(fence):
+            fence = None
+    return "\n".join(out)
+
+
 def citations(text: str, named) -> tuple[list[str], int]:
     """Clause (e) on one decision artefact: (problems, citations judged). `named` — the answer's product names (a set,
     folded), or a str: why the answer home cannot be read (every citation is then red with it)."""
     problems, n = [], 0
-    for m in CITE.finditer(FENCE.sub("", text or "")):
+    for m in CITE.finditer(_unfenced(text)):
         rest = m.group(2)
         source = rest.split("·", 1)[1] if "·" in rest else ""
         for name in re.findall(r"`([^`\n]+)`", m.group(1)):
@@ -130,7 +149,7 @@ def citations(text: str, named) -> tuple[list[str], int]:
                 problems.append(f"cites `{name}` as a reference product — the answer (`docs/setup.md → reference_products`) does not name it; "
                                 f"cite one it names, or the person adds it at SETUP (Q2.1)")
         if _blank(source):
-            problems.append(f"cites {m.group(1).strip()} with no official source — write ``Reference: `Name` · <the vendor's official documentation>``")
+            problems.append(f"cites {m.group(1).strip()} with no official source — write ``Reference product: `Name` · <its source>``")
     return problems, n
 
 
@@ -364,7 +383,7 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
     named = None   # read once, only when a citation needs it
     def cite(text: str):
         nonlocal named
-        if not CITE.search(FENCE.sub("", text or "")):
+        if not CITE.search(text or "") or not CITE.search(_unfenced(text)):
             return [], 0
         if named is None:
             named = _named(repo)
@@ -386,8 +405,16 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
         problems += d_problems + c_problems
         note = "; ".join(parts) if parts else f"n/a — {'; '.join(w for w in (why, d_why) if w)}"
         rows.append({"id": d, "ok": not problems, "problems": problems, "note": note, "na": not parts and not problems})
-    for f in (c for c in changed if DECISION_RE.fullmatch(c) and not DESIGN_RE.fullmatch(c)):
-        c_problems, c_judged = cite((repo / f).read_text(encoding="utf-8", errors="replace"))
+    # every other decision artefact, in the repo or in its External home (EVOL-080): read through the one reader
+    for f in (a for a in documents.artefacts(sorted(moved)) if DECISION_RE.fullmatch(a) and not DESIGN_RE.fullmatch(a) and documents.exists(repo, a)):
+        disk = repo / f
+        try:
+            text = disk.read_text(encoding="utf-8", errors="replace") if disk.is_file() else documents.text(repo, f)
+        except documents.StoreDown as e:
+            unread.note(e); continue
+        except GateFault as e:
+            rows.append({"id": f, "ok": False, "problems": [str(e)], "note": "the pinned artefact could not be read"}); continue
+        c_problems, c_judged = cite(text or "")
         if c_judged:
             rows.append({"id": f, "ok": not c_problems, "problems": c_problems,
                          "note": f"{c_judged} reference citation{'' if c_judged == 1 else 's'} named in the answer"})

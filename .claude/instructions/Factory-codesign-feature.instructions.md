@@ -55,7 +55,7 @@ Additional per-artifact fields:
 
 > **BIP Mode:** Instead of asking phase-by-phase questions, the agent generates a COMPLETE Event Storming proposal based on the feature description, user context, and CIP inventory. All 7 phases are proposed at once (batch between agents). Factory presents key decision points to the user via RDR (one at a time).
 
-**Reference products (EVOL-132).** For scope and journeys, `READ docs/setup.md → reference_products` and keep only the entries `for: product`, `for: operating_model` and `for: feature` naming this feature — never the whole answer. Weigh each proposal against them; a business choice that follows one cites cite ``Reference: `Name` · <official source>`` — the facts from the vendor's official documentation (the docs reader), never from the product; `gate.py freeze` is red on a name the answer does not hold (EVOL-132). None, or «first of its kind»: no citation.
+**Reference products (EVOL-132).** For scope and journeys, `READ docs/setup.md → reference_products` and keep only the entries `for: product`, `for: operating_model` and `for: feature` naming this feature — never the whole answer. Weigh each proposal against them with the person: ask how the product does what they point at, and claim nothing about it yourself (CODESIGN has no docs reader; LAW-16). A business choice that follows one cites ``Reference product: `Name` · <the person's link, else docs/setup.md>``; `gate.py freeze` is red on a name the answer does not hold (EVOL-132). None, or «first of its kind»: no citation. Only SETUP (Q2.1) writes the answer: a product the person names here is added at SETUP, never written to `docs/setup.md` by this phase.
 
 ### Phase 0.5: CIP Domain Concept Check (MANDATORY — BLOCKING GATE before Event Storming)
 

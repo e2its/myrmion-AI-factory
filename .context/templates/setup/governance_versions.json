@@ -138,7 +138,7 @@
       "target": ".claude/rules/stateless.md"
     },
     "rules/ux-constitution.md": {
-      "version": "1.8.1",
+      "version": "1.9.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/ux-constitution.md"
     },
@@ -1573,7 +1573,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.32.1",
+      "version": "2.32.2",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -1625,7 +1625,7 @@
       "path": ".claude/instructions/Factory-blueprint-refine.instructions.md"
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.14.0",
+      "version": "2.14.1",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md"
     },
     "instructions/Factory-codesign-feature.instructions.md": {

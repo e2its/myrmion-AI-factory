@@ -6666,6 +6666,7 @@ class References(unittest.TestCase):
             ([{"name": "Linear", "for": "feature"}], "`for: feature` names the feature"),
             ([{"name": "Linear", "for": "product", "feature": "triage"}], "`feature` goes with `for: feature` only"),
             ([{"name": "Linear", "for": "product", "link": "javascript:alert(1)"}], "not a public http(s) address"),
+            ([{"name": "Linear", "for": "product", "link": "https://me:s3cret@linear.app/docs"}], "carries a user or a password"),
             ([{"name": "Linear", "for": "product", "price": 8}], "`price` is not a field"),
             ([{"first_of_its_kind": "new", "name": "Linear"}], "«first of its kind» stands alone"),
             ([{"name": "Linear", "for": "product"}, {"name": "Jira", "for": "feature"}], "entry 2: `for: feature`"),
@@ -6680,6 +6681,11 @@ class References(unittest.TestCase):
                     {"name": "Notion", "for": "look_and_feel"}, {"name": "Shopify", "for": "operating_model"}, {"first_of_its_kind": "no tide scheduler"}]
             self.assertNotIn("Q2.1", discovery.resolve(repo, {"reference_products": good})["pending"])
             self.assertIn("Q2.1", discovery.resolve(repo, {})["pending"], "always asked: no condition")
+            self.assertNotIn("Q2.1", discovery.resolve(repo, {"reference_products": [{"name": "Linear", "for": "product", "link": "https://medium.com/@linear/x"}]})["pending"],
+                             "an @ in the path is no credential")
+            with self.assertRaises(GateFault) as e:   # written as a mapping: flattened into dotted keys, never an answer
+                discovery.resolve(repo, {"reference_products.name": "Linear", "reference_products.for": "product"})
+            self.assertIn("is a mapping, not a list", str(e.exception))
 
     def test_an_installed_q13_answer_is_carried_into_the_one_home(self):
         """DoD 2: an upgraded project's Q13 answer is kept verbatim under reference_products; the question is still asked."""
@@ -6701,6 +6707,12 @@ class References(unittest.TestCase):
             self.assertEqual(discovery.answers(repo)["reference_products"], mine, "the person's answer wins; nothing is carried over it")
             r = discovery.resolve(repo, discovery.answers(repo))
             self.assertEqual(r["carried"], []); self.assertNotIn("Q2.1", r["pending"])
+            write(repo / discovery.SETUP_MD, "---\nreference_products:\n  - {name: Notion, for: look_and_feel, carried_from: frontend.visual_dna.references}\n---\n")
+            r = discovery.resolve(repo, discovery.answers(repo))
+            self.assertIn("Q2.1", r["pending"], "written at upgrade, not yet confirmed: still asked")
+            write(repo / discovery.SETUP_MD, "---\nreference_products:\n  - {name: Notion, for: look_and_feel}\n---\n")
+            r = discovery.resolve(repo, discovery.answers(repo))
+            self.assertNotIn("Q2.1", r["pending"], "confirmed — `carried_from` dropped — ends the question"); self.assertEqual(r["carried"], [])
 
     def test_v1_holds_carries_and_the_kind(self):
         reg = json.loads(json.dumps(DISC_REGISTRY)); reg["questions"].insert(0, json.loads(json.dumps(self.Q)))
@@ -7046,7 +7058,7 @@ class FreezeReferences(unittest.TestCase):
         """DoD 1."""
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
-            write(repo / "docs/spec/FEAT-001/user_journey.md", "# Journey\n\nTriage as in the board. Reference: `Jira` · https://support.atlassian.com/jira\n")
+            write(repo / "docs/spec/FEAT-001/user_journey.md", "# Journey\n\nTriage as in the board. Reference product: `Jira` · https://support.atlassian.com/jira\n")
             r = freeze.check(repo, "main"); out = freeze.render(r)
             self.assertFalse(r["ok"], out); self.assertIn("cites `Jira` as a reference product — the answer", out)
             res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "freeze", "--base", "main"], capture_output=True, text=True)
@@ -7055,8 +7067,8 @@ class FreezeReferences(unittest.TestCase):
     def test_a_named_product_with_its_source_is_green(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
-            write(repo / "docs/spec/FEAT-001/spec.feature", "Feature: pay\n  # Reference: `stripe checkout` · https://docs.stripe.com/payments/checkout\n")
-            write(repo / "docs/project_log/adr/ADR-0003-x.md", "# ADR\nReference: `Linear`, `Stripe Checkout` · https://linear.app/docs\n")
+            write(repo / "docs/spec/FEAT-001/spec.feature", "Feature: pay\n  # Reference product: `stripe checkout` · https://docs.stripe.com/payments/checkout\n")
+            write(repo / "docs/project_log/adr/ADR-0003-x.md", "# ADR\nReference product: `Linear`, `Stripe Checkout` · https://linear.app/docs\n")
             r = freeze.check(repo, "main"); out = freeze.render(r)
             self.assertTrue(r["ok"], out); self.assertFalse(r.get("na"), out)
             self.assertIn("2 reference citations named in the answer", out); self.assertIn("1 reference citation named in the answer", out)
@@ -7065,34 +7077,68 @@ class FreezeReferences(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             for tail in ("", " ·", " · —", " · {{source}}"):
-                write(repo / "docs/spec/FEAT-001/design.md", f"# Design\nCache as Linear does. Reference: `Linear`{tail}\n")
+                write(repo / "docs/spec/FEAT-001/design.md", f"# Design\nCache as Linear does. Reference product: `Linear`{tail}\n")
                 out = freeze.render(freeze.check(repo, "main"))
                 self.assertIn("with no official source", out, tail)
 
     def test_a_fenced_example_and_a_file_without_citations_are_not_judged(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
-            write(repo / "docs/spec/FEAT-001/notes.md", "# Notes\n```\nReference: `Jira` · x\n```\nA `Reference:` line cites a product.\n")
+            write(repo / "docs/spec/FEAT-001/notes.md", "# Notes\n```\nReference product: `Jira` · x\n```\nA `Reference:` line cites a product.\n")
             r = freeze.check(repo, "main"); self.assertTrue(r["ok"], freeze.render(r)); self.assertEqual(r["entries"], [])
             self.assertIn("no reference citation", r["reason"])
-            write(repo / "docs/spec/FEAT-001/notes.md", "# Notes\nReference: `Linear` · https://linear.app/docs\n```\nReference: `Jira`\n```\n")
+            write(repo / "docs/spec/FEAT-001/notes.md", "# Notes\nReference product: `Linear` · https://linear.app/docs\n```\nReference product: `Jira`\n```\n")
             r = freeze.check(repo, "main"); self.assertTrue(r["ok"], freeze.render(r))
             self.assertIn("1 reference citation named", freeze.render(r), "the fenced example beside a real citation is not judged")
+
+    def test_only_the_reference_product_label_is_a_citation(self):
+        """A `Reference:` naming a standard or a path is not a product citation; the bold label is."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "docs/project_log/adr/ADR-0004-x.md", "# ADR\nReference: `RFC 6749` · https://www.rfc-editor.org/rfc/rfc6749\nReference: `.claude/rules/x.md`\n")
+            r = freeze.check(repo, "main"); self.assertTrue(r["ok"], freeze.render(r)); self.assertEqual(r["entries"], [])
+            write(repo / "docs/project_log/adr/ADR-0004-x.md", "# ADR\n**Reference product:** `Jira` · https://support.atlassian.com/jira\n")
+            self.assertIn("cites `Jira` as a reference product", freeze.render(freeze.check(repo, "main")))
+
+    def test_many_unclosed_fences_are_read_in_linear_time(self):
+        """A file of unclosed fence openers is read in one pass, and an indented fence hides its example."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            body = ("# Notes\nReference product: `Linear` · https://linear.app/docs\n- item\n   ```\n   Reference product: `Jira`\n   ```\n"
+                    "````md\n```\nReference product: `Jira` · x\n```\n````\n")   # a shorter marker inside never closes the fence
+            write(repo / "docs/spec/FEAT-001/notes.md", body + "```js\nx\n" * 20000)
+            t = time.monotonic(); r = freeze.check(repo, "main"); spent = time.monotonic() - t
+            self.assertTrue(r["ok"], freeze.render(r)); self.assertLess(spent, 5.0, "the fence reader is linear")
+            self.assertIn("1 reference citation named", freeze.render(r))
+
+    def test_a_decision_artefact_in_its_external_home_is_judged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); pinned_docs(repo)
+            pages = pin_moved(repo, "docs/spec/FEAT-001/user_journey.md", "# Journey\nReference product: `Jira` · https://support.atlassian.com/jira\n")
+            with on_store(pages):
+                out = freeze.render(freeze.check(repo, "main"))
+            self.assertIn("docs/spec/FEAT-001/user_journey.md", out); self.assertIn("does not name it", out)
+
+    def test_a_vision_artefact_is_judged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "docs/ux/vision/vision.md", "# Vision\nCalm density. Reference product: `Jira` · https://atlassian.design\n")
+            self.assertIn("does not name it", freeze.render(freeze.check(repo, "main")))
 
     def test_first_of_its_kind_or_no_answer_home_names_none(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp, "---\nreference_products:\n  - {first_of_its_kind: \"no tide scheduler\"}\n---\n")
-            write(repo / "docs/spec/FEAT-001/design.md", "# Design\nReference: `Linear` · https://linear.app/docs\n")
+            write(repo / "docs/spec/FEAT-001/design.md", "# Design\nReference product: `Linear` · https://linear.app/docs\n")
             self.assertIn("does not name it", freeze.render(freeze.check(repo, "main")))
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp, None); (repo / "docs/setup.md").unlink(missing_ok=True)
-            write(repo / "docs/spec/FEAT-001/design.md", "# Design\nReference: `Linear` · https://linear.app/docs\n")
+            write(repo / "docs/spec/FEAT-001/design.md", "# Design\nReference product: `Linear` · https://linear.app/docs\n")
             out = freeze.render(freeze.check(repo, "main")); self.assertIn("the answer home docs/setup.md is absent", out)
 
     def test_a_carried_q13_answer_counts_where_the_registry_is(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp, "---\nfrontend:\n  visual_dna:\n    references: Notion\n---\n")
-            write(repo / "docs/spec/FEAT-001/design.md", "# Design\nReference: `notion` · https://www.notion.com/help\n")
+            write(repo / "docs/spec/FEAT-001/design.md", "# Design\nReference product: `notion` · https://www.notion.com/help\n")
             self.assertIn("does not name it", freeze.render(freeze.check(repo, "main")), "no registry on the runner: nothing carried")
             reg = json.loads(json.dumps(DISC_REGISTRY)); reg["questions"].insert(0, json.loads(json.dumps(References.Q)))
             write(repo / discovery.REGISTRY, json.dumps(reg))
