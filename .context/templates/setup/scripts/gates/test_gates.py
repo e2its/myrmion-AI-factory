@@ -3731,8 +3731,12 @@ class Scm(unittest.TestCase):
                 scm.check(repo, "ci", fetch=boom, env=env, origin=origin)
             q = json.loads((repo / "config/quality.json").read_text()); q["scm"]["platform"] = "Other"; q["scm"]["required_checks"] = []; write(repo / "config/quality.json", json.dumps(q))
             r = scm.check(repo, "ci", fetch=boom, env=env, origin=origin); self.assertEqual(r["status"], "n/a"); self.assertIn("no adapter", r["reason"])
+            q["scm"]["platform"] = "Gitea"; q["scm"]["required_checks"] = ["governance-check"]; write(repo / "config/quality.json", json.dumps(q))
+            r = scm.check(repo, "ci", fetch=boom, env=env, origin=origin); self.assertEqual(r["status"], "n/a", "EVOL-131: a platform SETUP does not model is the checklist")
+            self.assertIn("no adapter for `Gitea`", r["reason"])
             for block, needle in (({"required": False}, "without a `reason`"),
-                                  ({"platform": "Gitea"}, "not one of"),
+                                  ({"platform": "github", "required_checks": ["governance-check"]}, "did you mean `GitHub`"),
+                                  ({"platform": " "}, "not one of"),
                                   ({"platform": "GitHub", "required_checks": []}, "required_checks is empty"),
                                   ({"platform": "GitHub", "required_checks": ["governance-check"], "approvals": True}, "must be an integer"),
                                   ({"platform": "GitHub", "required_checks": ["governance-check"], "protected_branches": "main"}, "non-empty list of branch names")):
@@ -3960,7 +3964,7 @@ DISC_REGISTRY = {
 DISC_INSTRUCTION = """# Discovery
 
 ### Universal Option Protocol (4.1.1)
-A list the registry declares `open: true` offers «Other — name the one you use»; any other list offers its literals only.
+A list the registry declares `open: true` offers «Other — name the one you use»; an `open: false` list offers its literals only.
 
 #### Q1: Project Name
 - **Persist:** `project_name`
@@ -4869,7 +4873,8 @@ class Discovery(unittest.TestCase):
             for n, (mut, want) in enumerate(((lambda reg: self._q(reg, "Q3")["keys"]["project_mode"].pop("open"), "`project_mode`: open is true"),
                               (lambda reg: self._q(reg, "Q6")["keys"]["backend.framework"].__setitem__("open", "yes"), "`backend.framework`: open is true"),
                               (lambda reg: self._q(reg, "Q26")["keys"]["dependencies.backend"].__setitem__("open", True), "`dependencies.backend`: open is true"),
-                              (lambda reg: self._q(reg, "Q3")["keys"]["project_mode"]["options"].append("Other"), "`project_mode`: `Other` on a vocabulary list"))):
+                              (lambda reg: self._q(reg, "Q3")["keys"]["project_mode"]["options"].append("Other"), "`project_mode`: `Other` on a vocabulary list"),
+                              (lambda reg: self._q(reg, "Q3")["keys"]["project_mode"]["options"].append("other (describe)"), "`project_mode`: `Other` on a vocabulary list"))):
                 (Path(tmp) / str(n)).mkdir()
                 repo2 = disc_repo(Path(tmp) / str(n))
                 self._reg(repo2, mut)
@@ -4881,6 +4886,8 @@ class Discovery(unittest.TestCase):
             self.assertEqual(self._rule(self._green(repo), "V6"), [])
             write(repo / discovery.INSTRUCTION, DISC_INSTRUCTION.replace("A list the registry declares `open: true` offers", "Every question offers"))
             self.assertTrue(any("Universal Option Protocol" in f for f in self._rule(self._green(repo), "V6")))
+            write(repo / discovery.INSTRUCTION, DISC_INSTRUCTION.replace("an `open: false` list offers its literals only", "every list offers Other too"))
+            self.assertTrue(any("Universal Option Protocol" in f for f in self._rule(self._green(repo), "V6")), "the vocabulary clause is read too")
 
     def test_free_text_dependents(self):
         """DoD 2: a dependent list whose parent's answer has no row is asked as free text."""
@@ -4936,6 +4943,77 @@ class Discovery(unittest.TestCase):
             self.assertNotIn("stop", discovery.resolve(repo, {**base, "backend.runtime": "Python"}), "a covered literal is unchanged")
             write(repo / "a.json", json.dumps({"answers": ok}))
             self.assertEqual(discovery.answers(repo, repo / "a.json")["mcp.servers.puppeteer.command"], "npx", "an owed pointer is a key a fixture may declare")
+
+    def test_every_modelled_literal_owes_nothing(self):
+        """A literal the shipped registry models — listed, decided by an earlier answer, or a configures row — is never an
+        unmodelled tool: Django decides `Django migrations`, which no options_by row lists."""
+        real = HERE.parents[1]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        reg = discovery.load_registry(real)
+        for k, spec in discovery._specs(reg).items():
+            if spec.get("open") is True:
+                for lit in sorted(discovery._known(spec)):
+                    self.assertEqual(discovery._unmodelled(reg, {k: lit}), [], f"{k} = {lit}")
+        base = {"backend.runtime": "Python", "backend.framework": "Django", "database.primary.engine": "PostgreSQL", "surface.runtime_surface": ["src/**"]}
+        r = discovery.resolve(real, base)
+        self.assertEqual(r["derived_answers"].get("database.migrations_tool"), "Django migrations")
+        self.assertEqual(r["unmodelled"], []); self.assertNotIn("delivery.migrate", r.get("stop", ""))
+        r = discovery.resolve(real, {**base, "database.primary.engine": "CockroachDB"})
+        self.assertEqual(r["derived_answers"].get("database.migrations_tool"), "Django migrations", "an earlier answer still decides where the question is owed")
+        self.assertNotIn("Q15.1", r["pending"])
+
+    def test_known_is_listed_decided_or_configured(self):
+        """Each source of a modelled literal counts on its own: decided only, configured only."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda reg: reg["questions"].append({"id": "Q15.1", "tier": 1, "since": "1.0.0", "keys": {"database.migrations_tool": {
+                "options_by": {"key": "backend.runtime", "values": {"Python": ["Alembic"]}}, "open": True,
+                "decided_by": {"key": "backend.framework", "values": {"Django": "Django migrations"}},
+                "configures": {"Alembic": {"delivery.migrate": "alembic upgrade head"}, "Flyway": {"delivery.migrate": "flyway migrate"}}}}}))
+            reg = discovery.load_registry(repo)
+            for lit in ("Django migrations", "Flyway", "Alembic"):
+                self.assertEqual(discovery._unmodelled(reg, {"database.migrations_tool": lit}), [], lit)
+            self.assertEqual([u["answer"] for u in discovery._unmodelled(reg, {"database.migrations_tool": "micrate"})], ["micrate"])
+
+    def test_none_and_blank_name_no_tool(self):
+        """`None` on an open key names no tool and owes nothing; a blank name is refused; a blank declaration is undeclared."""
+        real = HERE.parents[1]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        base = {"backend.runtime": "Python", "backend.framework": "FastAPI", "database.primary.engine": "CockroachDB", "surface.runtime_surface": ["src/**"]}
+        r = discovery.resolve(real, {**base, "database.migrations_tool": "None"})
+        self.assertNotIn("database.migrations_tool", [u["key"] for u in r["unmodelled"]]); self.assertNotIn("delivery.migrate", r.get("stop", ""))
+        for blank in ("", "  "):
+            with self.assertRaises(GateFault) as cm:
+                discovery.resolve(real, {**base, "database.migrations_tool": blank})
+            self.assertIn("is blank", str(cm.exception))
+        r = discovery.resolve(real, {**base, "database.migrations_tool": "micrate", "delivery.migrate": "  "})
+        self.assertIn("— declare `delivery.migrate`", r["stop"], "a blank command is no declaration")
+        self.assertNotIn("delivery.migrate", r["configures"])
+
+    def test_templates_owed_are_the_ones_a_listed_literal_lands(self):
+        real = HERE.parents[1]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        t = lambda typ: next(u for u in discovery.resolve(real, {"backend.runtime": "Crystal", "hosting.type": typ})["unmodelled"]
+                             if u["key"] == "backend.runtime")["templates"]
+        self.assertNotIn("security/bounds/rust.yml", t("container"), "a bounds pack a listed runtime would skip too is no debt")
+        self.assertIn("security/bounds/rust.yml", t("function"))
+
+    def test_a_gate_every_shipped_row_sets_is_owed(self):
+        """Same contract at gate level: a name every shipped row of the key sets (two rows or more) is owed by name."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            def both_audit(reg):
+                self._configures(reg)
+                self._q(reg, "Q5")["keys"]["backend.runtime"]["configures"]["Node.js"]["verification.gates"]["sca"] = {"command": "npm audit"}
+            self._reg(repo, both_audit)
+            built = {"backend.runtime": "Crystal", "surface.runtime_surface": ["src/**"], "traceability.test_roots": ["spec/**"],
+                     "verification.gates.tests.command": "crystal spec"}
+            r = discovery.resolve(repo, built)
+            self.assertIn("`backend.runtime` = `Crystal` — declare `verification.gates.sca`", r["stop"])
+            self.assertNotIn("stop", discovery.resolve(repo, {**built, "verification.gates.sca.command": "osv-scanner scan source -r ."}))
 
     def test_a_condition_an_unmodelled_answer_cannot_judge_is_asked(self):
         """A question whose `when` holds for some listed literal of an open key, answered with a name the registry does not know,

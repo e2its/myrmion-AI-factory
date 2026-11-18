@@ -71,7 +71,9 @@ RES = json.loads(sel.stdout)
 LANDING = set(RES["landing"])
 WANT_STOP = FX.get("expect", {}).get("stop")   # EVOL-131: a fixture may expect the stop — an unmodelled tool not yet built
 if RES.get("stop"):   # the materialisation's stop rule (EVOL-067): no tests and no sca gate for the stack
-    if WANT_STOP and all(w in RES["stop"] for w in WANT_STOP):
+    import re as _re
+    items = _re.split(r" · |; ", RES["stop"])   # every owed item matches one expectation and every expectation one item
+    if WANT_STOP and all(any(w in i for w in WANT_STOP) for i in items) and all(any(w in i for i in items) for w in WANT_STOP):
         print(json.dumps({"stopped": RES["stop"]})); sys.exit(0)
     sys.exit(f"materialisation stops: {RES['stop']}")
 if WANT_STOP:

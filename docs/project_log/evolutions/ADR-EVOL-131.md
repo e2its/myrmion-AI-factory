@@ -44,24 +44,30 @@ This ADR implements issue #228 (epic #151, P0). It was verified on `main` at fra
 2. **An open key admits a tool the registry does not know.**
    - `_check_answers` refuses a name only on a vocabulary key.
    - On an open key it refuses a literal the registry knows but pairs with another parent (Django under Node.js), so a mis-paired answer is still caught.
-   - A name the registry does not know is accepted and persisted.
+   - A name the registry does not know is accepted and persisted. A literal the registry models counts as known: a listed one, one an earlier answer decides (Django decides `Django migrations`), or one with a `configures` row.
+   - `None` names no tool and owes nothing. A blank name is refused.
+   - `decided_by` reads the same owed set as `--resolve`, so Django still decides its migrations tool on an unmodelled engine.
+   - The `scm` gate reads a platform SETUP does not model as it reads `Other`: no adapter, the checklist. A case-only variant of a known platform (`github`) stays a fault.
 3. **`--resolve` reports what the answer owes, with no new flag:**
-   - `unmodelled: [{key, answer, owes, templates}]`. An entry is listed for every answered open key whose value is no literal of the key. **owes** is the union of config pointers the key's shipped rows set. **templates** is the manifest entries whose `stack_conditional` names the key.
+   - `unmodelled: [{key, answer, owes, templates}]`. An entry is listed for every answered open key whose value is no literal of the key. **owes** is the union of config pointers the key's shipped rows set. **templates** is the skipped manifest entries that some listed literal of the key would land.
    - `free_text: [key]`: every owed `options_by` question whose parent's answer has no row. The agent asks it as free text. A key an earlier answer decides (`decided_by`) is never listed.
    - **A condition the unmodelled answer cannot judge is asked.** A question whose `when` names an unmodelled key is owed when some listed literal of that key would make it hold. Example: Q15.1 (migrations tool) is asked for CockroachDB, because its `when` lists the SQL engines.
 4. **Same contract, same gate, nothing half-built.** This generalises the `verification.gates` precedent.
    - Each owed pointer is declared in `docs/setup.md` under the pointer itself, in a shipped row's shape.
    - `--resolve` stops while an owed pointer is undeclared or does not hold to the row shape V12 checks: gate rows, `mcp.servers` pinned and isolated, `defect_prevention.classes` ids. The materialisation does not run past a stop.
-   - A declared value must also be of the kind the shipped rows carry: a list where they carry a list.
+   - A declared value must also be of the kind the shipped rows carry: a list where they carry a list. A blank string is no declaration.
+   - A dict pointer owes, by name, every entry that all shipped rows of the key set, when there are two rows or more. The backend owes `tests` and `sca`; the frontend owes `frontend-tests`; a deploy tool owes every adapter field. One shipped row names one tool's own entries, so it owes none.
    - A declared pointer is merged into `configures` as the option's row would be. The same config keys are filled, and the same gates read them.
    - A pointer owed by two unmodelled answers (a runtime and a frontend both owe `verification.gates`) is declared once and merged once.
    - Covered literals are unchanged.
+   - Step 2b shows the user every declared command and server package with its source. Nothing lands without the user's verbatim yes: those strings run in CI, at deploy and in the harness.
 5. **Templates are owed by the materialisation, not judged by the resolver.** For each `templates` slot the agent builds the tool's equivalent in its idiom, from docs-reader facts, and records each built item with its source in `MATERIALIZATION_REPORT.md`.
    - The resolver cannot judge a CI pipeline for a platform it has never seen. The pointers carry the contract the gates read, and those are held mechanically.
    - A derived pack keyed on a listed stack (SAST, client bounds) behaves as it does for a listed stack without a pack today: the setup report says so.
 6. **The UOP text and the registry agree, mechanically.**
    - 4.1.1 reads the registry's `open` field: an open list offers «Other — name the one you use», and a vocabulary list offers its literals only.
-   - V6 is red when the instruction offers `Other` on a vocabulary key.
+   - V6 is red when 4.1.1 does not read both `open: true` and `open: false`. V1 is red on any `Other` literal, in any case, in a vocabulary list.
+   - Where a list keeps the literal `Other` (Q20, Q21.2), the agent asks the name and persists the name. The literal stays only for installed answers.
    - «Help me decide» stays on every question.
 
 ## Consequences
@@ -75,7 +81,7 @@ This ADR implements issue #228 (epic #151, P0). It was verified on `main` at fra
 - **One home per concern.**
   - Admissibility lives in the registry `open` field.
   - #144 owns recommendations.
-  - #219, #222 and #210 keep their families, whose keys are already `free` + `suggestions`.
+  - The families that are already free text (`free` + `suggestions`) are untouched.
 
 ## Alternatives considered
 
@@ -90,7 +96,7 @@ No new law. The discovery and materialisation instructions name the open lists a
 
 ## Verification record
 
-Red first, then green. `test_gates.py::Discovery`, 80 tests:
+Red first, then green. `test_gates.py::Discovery`, 85 tests:
 - `test_open_key_admits_an_unmodelled_tool`: an outside answer on an open key is accepted and reported as unmodelled, with what it owes and the templates it skips. A manifest entry that names the key but lands anyway is no debt.
 - `test_open_key_still_holds_a_known_literal_to_its_parent`: a mis-paired known literal still exits 2, with "belongs to another".
 - `test_vocabulary_key_stays_closed`: a vocabulary key still exits 2. V1 is red on a missing, a non-boolean and a misplaced `open`, and on `Other` in a vocabulary list.
@@ -99,12 +105,21 @@ Red first, then green. `test_gates.py::Discovery`, 80 tests:
 - `test_unmodelled_owes_stop_until_declared`: an undeclared, a malformed and a wrong-kind pointer each stop, and a malformed row never lands. A declared pointer clears the stop and lands in `configures`.
 - `test_a_condition_an_unmodelled_answer_cannot_judge_is_asked`: Q15.1 is pending for an unmodelled SQL engine.
 - `test_one_declared_pointer_owed_twice_lands_once`.
+- `test_every_modelled_literal_owes_nothing`: over the shipped registry, every listed, decided and configured literal of an open key owes nothing. Python + Django + PostgreSQL resolves with no stop, and on CockroachDB Django still decides its migrations tool.
+- `test_known_is_listed_decided_or_configured`: each source of a modelled literal counts on its own.
+- `test_none_and_blank_name_no_tool`: `None` owes nothing, a blank name exits 2, and a blank declaration stops.
+- `test_templates_owed_are_the_ones_a_listed_literal_lands`: Crystal on a container owes no function bounds pack.
+- `test_a_gate_every_shipped_row_sets_is_owed`: an undeclared `sca` stops when every shipped row sets it.
+- `Scm`: `Gitea` is the checklist, and `github` is a fault naming `GitHub`.
 
 Other checks:
 - `gate.py discovery` is green on the shipped registry.
 - Synthetic materialisation is green on 11 of 11 fixtures. `unmodelled.json` carries one unmodelled tool per family, built, and is green. `unmodelled-unbuilt.json` stops as expected.
-- Mutation sweep of the new branches in a scratch copy: 28 of 28 mutants killed.
+- Mutation sweep of the new branches in a scratch copy: 37 of 37 mutants killed.
 
 Honest limits:
 - The templates an unmodelled tool owes are listed for the agent and recorded in the report. They are not judged mechanically.
-- A pointer a shipped row sets to `null` cannot be told apart from one left unanswered.
+- A pointer a shipped row sets to `null` cannot be told apart from one left unanswered. A tool with no such step answers `None` or another tool.
+- Shape is held where V12 has a rule: gate rows, `mcp.servers`, defect classes. `delivery.migrate`, `delivery.execution` and the adapter fields are held by kind and by name. The `delivery` gate judges their values downstream.
+- The SAST and client-bounds packs are keyed on listed runtimes. An unmodelled runtime gets no SAST lane, and the materialisation report says so. `sca` is owed by name.
+- A `when` that needs two unmodelled keys to match listed literals at once is not substituted. No shipped condition has that form.

@@ -296,12 +296,19 @@ def _offered(spec: dict) -> list[str] | None:
     return None
 
 
+def _known(spec: dict) -> set[str]:
+    """Every literal the registry models for a key (EVOL-131): its options, the values an earlier answer decides, its configures rows."""
+    db = spec.get("decided_by") if isinstance(spec.get("decided_by"), dict) else {}
+    dec = db.get("values") if isinstance(db.get("values"), dict) else {}
+    rows = spec.get("configures") if isinstance(spec.get("configures"), dict) else {}
+    return set(_offered(spec) or []) | {canon(v) for v in dec.values()} | {canon(r) for r in rows}
+
+
 def decided(reg: dict, ans: dict) -> dict:
     """{key: value} — the asked keys an earlier answer decides (`decided_by`), for an answer set that leaves them null;
     only where the key's question is owed (its `when` holds) — an engine the pack does not cover decides nothing."""
     out = {}
-    owed = {k for q in _questions(reg) if not (isinstance(q.get("when"), str) and not evaluate(parse(q["when"]), ans))
-            for k in ((q.get("keys") or {}) if isinstance(q.get("keys"), dict) else {})}
+    owed = {k for q in _questions(reg) if _owed(reg, q, ans) for k in ((q.get("keys") or {}) if isinstance(q.get("keys"), dict) else {})}
     for k, s in _specs(reg).items():
         db = s.get("decided_by")
         if k not in owed or not isinstance(db, dict) or not isinstance(db.get("values"), dict) or ans.get(db.get("key")) is None:
@@ -450,8 +457,10 @@ def _check_answers(reg: dict, ans: dict):
         offered = _offered_for(spec, ans)
         if v is None or offered is None:
             continue
-        known = set(_offered(spec) or []) if spec.get("open") is True else None   # EVOL-131: an open list admits a name it does not know
+        known = _known(spec) if spec.get("open") is True else None   # EVOL-131: an open list admits a name it does not know
         for x in (v if isinstance(v, list) else [v]):
+            if known is not None and not canon(x).strip():
+                raise GateFault(f"the answer `{k}` is blank — name the tool you use, or answer from its list ({' | '.join(offered)})")
             if canon(x) in offered or (known is not None and canon(x) not in known):
                 continue
             if known is not None:
@@ -475,29 +484,25 @@ def _owed(reg: dict, q: dict, ans: dict) -> bool:
     return False
 
 
-def _names_key(cond: str, key: str) -> bool:
-    return any(c.get("key") == key for conj in parse(cond) for c in conj)
-
-
 def _unmodelled(reg: dict, ans: dict) -> list[dict]:
     """EVOL-131 — every answered open key whose answer is none of its literals: {key, answer, owes} in registry order;
-    owes = the config pointers the key's shipped rows set (the contract a covered literal fills)."""
+    owes = the config pointers the key's shipped rows set (the contract a covered literal fills). `None` names no tool."""
     out = []
     for k, spec in _specs(reg).items():
         v = ans.get(k)
         if spec.get("open") is not True or v is None:
             continue
-        known = set(_offered(spec) or [])
+        known = _known(spec)
         rows = spec.get("configures") if isinstance(spec.get("configures"), dict) else {}
         owes = sorted({p for r in rows.values() if isinstance(r, dict) for p in r})
-        out += [{"key": k, "answer": canon(x), "owes": owes} for x in (v if isinstance(v, list) else [v]) if canon(x) not in known]
+        out += [{"key": k, "answer": canon(x), "owes": owes} for x in (v if isinstance(v, list) else [v]) if _has_value(canon(x)) and canon(x) not in known]
     return out
 
 
 def _declared(ans: dict, ptr: str):
     """The value declared in the answers under a config pointer: the key itself, or its flattened children rebuilt; None when absent."""
     if ans.get(ptr) is not None:
-        return ans[ptr]
+        return ans[ptr] if _has_value(ans[ptr]) and (not isinstance(ans[ptr], str) or ans[ptr].strip()) else None
     tree: dict = {}
     for k, v in sorted(ans.items()):
         if v is None or not k.startswith(ptr + "."):
@@ -515,18 +520,23 @@ def _declared(ans: dict, ptr: str):
 
 def _built(reg: dict, ans: dict) -> tuple[list[tuple[str, dict]], list[str]]:
     """EVOL-131 — the declared rows of the unmodelled answers ([(where, {pointer: value})], merged like an option's row) and
-    what is still owed: an owed pointer undeclared, or declared out of a shipped row's shape (V12)."""
+    what is still owed: an owed pointer undeclared, declared out of a shipped row's shape (V12) or of another kind, or a
+    dict pointer missing a name every shipped row sets, two rows or more (the backend's `tests` and `sca` gates, an adapter's `rollback`)."""
     rows, owed, specs, seen = [], [], _specs(reg), set()
     for u in _unmodelled(reg, ans):
         where = f"`{u['key']}` = `{u['answer']}`"
         shipped = [r for r in specs[u["key"]]["configures"].values() if isinstance(r, dict)] if u["owes"] else []
         for ptr in u["owes"]:
-            if ptr in seen:
-                continue   # one declaration answers every entry that owes the pointer: it lands once
-            seen.add(ptr)
             val = _declared(ans, ptr)
             if val is None:
                 owed.append(f"{where} — declare `{ptr}`"); continue
+            vals = [r.get(ptr) for r in shipped]
+            common = set.intersection(*(set(v) for v in vals)) if len(vals) > 1 and all(isinstance(v, dict) for v in vals) else set()   # one row names one tool's own
+            if isinstance(val, dict):
+                owed += [f"{where} — declare `{ptr}.{n}`" for n in sorted(common - set(val))]
+            if ptr in seen:
+                continue   # one declaration answers every entry that owes the pointer: it lands once
+            seen.add(ptr)
             bad = [f.split(" · ", 1)[-1] for f in _gate_rows(f"{where} (declared)", {ptr: val})]
             kinds = {type(r[ptr]).__name__ for r in shipped if r.get(ptr) is not None}
             if not bad and kinds and type(val).__name__ not in kinds:
@@ -625,8 +635,10 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
     out = {"pending": pending, "pending_since": {q: since.get(q) for q in pending}, "landing": landing, "skipped": skipped,
            "placeholders": fills, "derived_answers": derived_answers, "configures": configures(reg, ans), "warnings": matched(reg, ans)[1]}
     out["defect_classes"] = defect_classes(repo, reg, out["configures"], ans, pending, project)
-    out["unmodelled"] = [{**u, "templates": [t for t in skipped if isinstance(templates[t].get("stack_conditional"), str)
-                                             and _names_key(templates[t]["stack_conditional"], u["key"])]} for u in _unmodelled(reg, ans)]
+    specs = _specs(reg)
+    out["unmodelled"] = [{**u, "templates": [t for t in skipped if isinstance(templates[t].get("stack_conditional"), str)   # a slot a listed literal would fill
+                                             and any(evaluate(parse(templates[t]["stack_conditional"]), {**ans, u["key"]: lit}) for lit in _offered(specs[u["key"]]) or [])]}
+                         for u in _unmodelled(reg, ans)]
     out["free_text"] = _free_text(reg, ans)
     lacking, owed = _unverified_parts(reg, ans), _built(reg, ans)[1]
     stops = ([STOP.format(parts="; ".join(lacking))] if lacking else []) + ([STOP_BUILD.format(owed="; ".join(owed))] if owed else [])
@@ -823,7 +835,7 @@ def render_resolve(r: dict) -> str:
     if r.get("stop"):
         lines.append(f"  stop: {r['stop']}")
     for u in r.get("unmodelled") or []:
-        lines.append(f"  unmodelled — `{u['key']}` = `{u['answer']}`: build it to the same contract; owes "
+        lines.append(f"  unmodelled — `{u['key']}` = `{clean(u['answer'], 200)}`: build it to the same contract; owes "
                      + (", ".join(f"`{p}`" for p in u["owes"]) or "no config pointer")
                      + (f"; templates to mirror in its idiom: {', '.join(u['templates'])}" if u["templates"] else ""))
     if r.get("free_text"):
@@ -909,7 +921,7 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
             if listed != isinstance(s.get("open"), bool):
                 out.append(f"V1 · `{k}`: open is true | false on every options / options_by key, and on no other — "
                            f"true for a market list (a tool the user may already use), false for framework vocabulary (EVOL-131)")
-            if s.get("open") is False and "Other" in (_offered(s) or []):
+            if s.get("open") is False and any(o.lower().startswith("other") for o in _offered(s) or []):
                 out.append(f"V1 · `{k}`: `Other` on a vocabulary list — only an open list (open: true) offers another answer")
             if "suggestions" in s and (s.get("free") != "text" or not isinstance(s["suggestions"], list) or not s["suggestions"]
                                        or len({canon(x) for x in s["suggestions"]}) != len(s["suggestions"])):
@@ -1148,9 +1160,9 @@ def _v6(repo: Path, reg: dict) -> list[str]:
     ids = {q.get("id") for q in _questions(reg)}
     out += [f"V6 · the instruction's `#### {h}` has no registry question" for h in inst if h not in ids]
     uop = re.search(r"^### Universal Option Protocol[^\n]*\n(.*?)(?=^#{1,3} |\Z)", (repo / INSTRUCTION).read_text(encoding="utf-8"), re.M | re.S)
-    if not uop or "`open: true`" not in uop.group(1):
-        out.append("V6 · the instruction's Universal Option Protocol does not read the registry's `open: true` — it offers "
-                   "«Other» on an open list and nowhere else (EVOL-131)")
+    if not uop or "`open: true`" not in uop.group(1) or "`open: false`" not in uop.group(1):
+        out.append("V6 · the instruction's Universal Option Protocol does not read the registry's `open` — it offers «Other» on an "
+                   "`open: true` list and the literals only on an `open: false` one (EVOL-131)")
     return out
 
 

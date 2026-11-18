@@ -46,6 +46,7 @@
     "performance.web": "standard",
     "verification.gates.tests.command": "crystal spec",
     "verification.gates.tests.scoped": "crystal spec {paths}",
+    "verification.gates.sca.command": "osv-scanner scan source -r .",
     "verification.gates.frontend-tests.command": "npx web-test-runner",
     "verification.gates.frontend-tests.scoped": "npx web-test-runner {paths}",
     "traceability.test_roots": [

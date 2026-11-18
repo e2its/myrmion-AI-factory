@@ -898,7 +898,7 @@
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**)."
     },
     "scripts/gate.py": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
@@ -1131,7 +1131,7 @@
       "role": "The Python home of the case → test link at collection (EVOL-053): registers the `case` marker and refuses collection on a malformed or unknown FEATURE/CASE id, reading the declared set through gate.py traceability --declared --json. Wired once: pytest_plugins = [\"conftest_traceability\"] in tests/conftest.py."
     },
     "scripts/gates/scm.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "scripts/gates/scm.py",
       "delivery": "both",
@@ -1605,7 +1605,7 @@
       "path": ".claude/commands/qa.md"
     },
     "commands/setup.md": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "path": ".claude/commands/setup.md"
     },
     "instructions/Factory-audit-checklist.instructions.md": {
@@ -1681,7 +1681,7 @@
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md"
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "3.3.0",
+      "version": "3.3.1",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md"
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
@@ -2316,7 +2316,7 @@
       "path": ".claude/hooks/deliver-governance.sh"
     },
     "scripts/gate.py": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
@@ -2538,7 +2538,7 @@
       "path": "scripts/gates/traceability.py"
     },
     "scripts/gates/scm.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "type": "script",
       "role": "gates: server-side branch protection per SCM platform (EVOL-054) — one reader at the ci control point: with a read-only token it asks the platform's API (GitHub rulesets + legacy protection, GitLab protected branches / approvals / pipeline rule, Bitbucket branch restrictions, Azure DevOps policies) per protected branch, normalises pull-request-required / required checks / force-push / deletion / approvals and judges them against config → scm (RED on a missing setting, the runbook docs/scm/protection.md as the cure); no token, Other, push or static → n/a with the checklist; an API error is a fault. Meta copy (lock-step pair scripts/gates/*.py).",
       "path": "scripts/gates/scm.py"
