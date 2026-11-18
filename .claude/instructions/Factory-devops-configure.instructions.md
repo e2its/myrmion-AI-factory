@@ -101,6 +101,8 @@ spawn-policy: reader
 
 Before devops_plan.md is written, the **main session** spawns the read-only `factory-docs-reader` by name — `rules/agents.md` § Beat 0: the services and IaC resources in scope with their pinned versions and the questions the work rests on; the model from `python3 scripts/gate.py agents --resolve --class reader`; the return held to its contract (`python3 scripts/gate.py agents --check-return --class reader < return.md`) and handed to `factory-devops` in its spawn prompt. Every external claim in devops_plan.md cites its source index; a premise without a source is written `known-cold`; the sources land under `## External sources` at the end of devops_plan.md. No documentation MCP and no web: the unknowns are named, nothing is guessed. The reader's spawn prompt opens with `effort:`, `turn budget:`, `probe budget:` from the resolver; a partial return (its ceiling, `maxTurns`), or one the return check refuses, gets ONE hand-back request and a resume; a reader that still does not deliver returns every question as an unknown and the artefact proceeds `known-cold` (`rules/agents.md § The bounded loop`, EVOL-058).
 
+**Reference products (EVOL-132).** `READ docs/setup.md → reference_products`, the entries `for: operating_model` and `for: product` only. An operating choice weighed against one cites cite ``Reference: `Name` · <official source>`` — the facts from the vendor's official documentation (the docs reader), never from the product; `gate.py freeze` is red on a name the answer does not hold (EVOL-132).
+
 ## Guardrail 1: Stack Coherence
 
 ```yaml

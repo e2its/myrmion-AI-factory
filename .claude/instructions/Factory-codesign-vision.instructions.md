@@ -109,6 +109,7 @@ All vision artifacts MUST comply with these directives. They define the differen
 ### D0: Visual DNA Loading
 - Load `.claude/rules/ux-constitution.md` for project-level UX rules
 - Load External Design System from `docs/ux/design-system/` if it exists
+- `READ docs/setup.md → reference_products`, the entries `for: look_and_feel` only (EVOL-132); a visual choice that follows one cites cite ``Reference: `Name` · <official source>`` — the facts from the vendor's official documentation (the docs reader), never from the product; `gate.py freeze` is red on a name the answer does not hold (EVOL-132).
 - Extract color palette, typography scale, spacing rhythm, border-radius tokens, shadow tokens
 - If no DS exists, derive from `ux-constitution.md` or propose defaults with RDR
 

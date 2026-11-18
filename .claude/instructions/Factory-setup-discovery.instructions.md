@@ -101,6 +101,12 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Persist:** `business_goal`
 - **After:** Extract keywords for dynamic question activation later (AI, payment, real-time, etc.)
 
+#### Q2.1: Reference Products
+- **Ask:** which products on the market does the project resemble — the whole product, a feature, the look and feel, the operating model? Any product, known to the framework or not. You may propose candidates, each with its public source; the answer is the person's (LAW-16).
+- **Type:** list; one flow mapping per entry: `- {name: <product>, for: product | feature | look_and_feel | operating_model, feature: <the feature> (with `for: feature` only), link: "<https://…>" (optional)}`; or `- {first_of_its_kind: "<why no product compares>"}` — never without its reason.
+- **Persist:** `reference_products`
+- **After:** read only where a decision is made, filtered to the entries it concerns (CODESIGN, BLUEPRINT, DEVOPS); a decision cites ``Reference: `Name` · <official source>`` and `gate.py freeze` is red on a name this answer does not hold. Facts come from the vendor's official documentation, never from the reference product.
+
 #### Q3: Project Mode
 - **Options:** Greenfield (new project) | Brownfield (existing codebase)
 - **Persist:** `project_mode`
@@ -218,7 +224,7 @@ Questions are organized in dependency order within tiers; conditions live in the
 
 #### Q13: Design Inspiration & Visual DNA (conditional: frontend exists)
 - **Sub-questions:**
-  - Q13a: Visual references (URLs or descriptions of apps/sites they admire)
+  - Q13a: Visual references → Q2.1 entries `for: look_and_feel` (one home; an installed `frontend.visual_dna.references` answer is carried there verbatim)
   - Q13b: Design personality keywords (e.g., "minimalist", "corporate", "playful")
   - Q13c: Color preferences (primary, secondary, accent — or "auto" for AI suggestion)
   - Q13d: Typography preference (serif | sans-serif | monospace | mixed | "auto")

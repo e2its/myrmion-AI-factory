@@ -1,5 +1,5 @@
 ---
-version: 3.4.1
+version: 3.5.0
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -42,6 +42,7 @@ scm:
 # answers (EVOL-102) — keys, options, conditions: .context/templates/setup/setup/discovery_registry.json
 project_name: null
 business_goal: null
+reference_products: null              # Q2.1 — the market products the project resembles: a list of `- {name, for, feature?, link?}` or `- {first_of_its_kind: <reason>}`
 extension:
   strategy: null
   coexistence_months: null
@@ -61,7 +62,6 @@ frontend:
   pattern: null
   state_management: null
   visual_dna:
-    references: null
     personality: null
     colors: null
     typography: null
@@ -195,6 +195,7 @@ last_update: [TIMESTAMP]
 
 ## 1. Context & Business Goal
 - **Goal:** frontmatter `business_goal`
+- **Reference products:** frontmatter `reference_products`
 - **Language:** frontmatter `language`
 - **Deployment:** frontmatter `hosting.provider`
 

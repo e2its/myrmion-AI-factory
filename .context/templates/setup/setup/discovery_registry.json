@@ -29,6 +29,20 @@
    }
   },
   {
+   "id": "Q2.1",
+   "tier": 0,
+   "since": "10.7.0",
+   "keys": {
+    "reference_products": {
+     "free": "references",
+     "carries": {
+      "from": "frontend.visual_dna.references",
+      "for": "look_and_feel"
+     }
+    }
+   }
+  },
+  {
    "id": "Q3",
    "tier": 0,
    "since": "1.0.0",
@@ -767,9 +781,6 @@
    "since": "1.0.0",
    "when": "project_scope NOT IN [backend-only, integration] AND frontend.framework != None",
    "keys": {
-    "frontend.visual_dna.references": {
-     "free": "text"
-    },
     "frontend.visual_dna.personality": {
      "free": "list"
     },

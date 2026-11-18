@@ -52,6 +52,12 @@ any answer  EVOL-131 — an open key's answer that is none of its literals is `u
             answer skips. Each owed pointer is declared in docs/setup.md under the pointer itself, in a shipped row's shape
             (V12), and merged into `configures` as the option's row would be; undeclared or out of shape → `stop`. A known
             literal still holds to its parent's row. `free_text`: the owed options_by keys whose parent's answer has no row.
+references  EVOL-132 — `free: references` (Q2.1 `reference_products`): a list of flow mappings, each
+            `{name, for, feature?, link?}` (`for` one of REFERENCE_FOR; `feature` only and always with `for: feature`; `link`
+            http(s)) or `{first_of_its_kind: <reason>}`; anything else exits 2. A condition tests it with `exists` only.
+            `carries {from, for}` (on a references key only): an answered `from` — a key the registry no longer asks — is
+            read as the new key's entries `{name: <verbatim>, for, carried_from}` while the new key is unanswered; resolve
+            reports `carried` and keeps the question pending until the person answers it (one home, nothing reworded).
 configures  EVOL-067 — a key spec's `configures {<option literal>: {<config pointer>: value}}` and a derived entry's
             `configures {<config pointer>: value}` (unconditional, or only when its `when` condition holds — EVOL-074; V5 checks
             it): `--resolve` merges the answered rows into
@@ -111,7 +117,9 @@ STOP_BUILD = ("the answers name tools the registry does not model and their buil
               "pointer and run --resolve again")
 # a stack command named in the verification loop's skill (EVOL-067: the loop reads verification.gates, never a stack)
 STACK_COMMAND = re.compile(r"\b(?:pytest|npm |npx |yarn |pnpm |dotnet |mvn |gradle|go test|ruff|eslint|tsc |cargo|jest|vitest)")
-FREE_KINDS = ("text", "number", "list", "path", "command", "vault_name")
+FREE_KINDS = ("text", "number", "list", "path", "command", "vault_name", "references")
+REFERENCE_FOR = ("product", "feature", "look_and_feel", "operating_model")   # EVOL-132: what a reference product is a reference for (closed)
+REFERENCE_FIELDS = ("name", "for", "feature", "link", "carried_from")
 SPEC_KINDS = ("options", "options_by", "free")
 NON_ANSWER_SLOTS = ("version", "date", "changelog", "phase", "status", "retry_count", "last_update")
 CREDENTIAL_WORDS = {"password", "passwd", "secret", "token", "credential", "credentials", "apikey"}
@@ -371,7 +379,7 @@ def check(ast: list[list[dict]], reg: dict) -> list[str]:
             spec = specs.get(k, {})
             if c["op"] == "exists":
                 continue
-            if spec.get("free") == "list":
+            if spec.get("free") in ("list", "references"):
                 out.append(f"`{k}` is a list answer — it may only be tested with `exists`")
                 continue
             m = derived.get(k, {}).get("matches") if isinstance(derived.get(k), dict) else None
@@ -406,12 +414,13 @@ def answers(repo: Path, file: Path | None = None) -> dict:
         ans = flatten(doc["answers"])
         reg = load_registry(repo)
         known = set(_specs(reg)) | set(_derived(reg)) | {p for s in _specs(reg).values() if isinstance(s.get("configures"), dict)
-                                                         for r in s["configures"].values() if isinstance(r, dict) for p in r}
+                                                         for r in s["configures"].values() if isinstance(r, dict) for p in r} \
+            | {s["carries"]["from"] for s in _specs(reg).values() if isinstance(s.get("carries"), dict) and isinstance(s["carries"].get("from"), str)}
         unknown = [k for k in ans if not any(k == r or k.startswith(r + ".") for r in known)]
         if unknown:
             raise GateFault(f"the answers file {file} answers {', '.join(f'`{k}`' for k in unknown)} — not a registry or derived key "
                             f"(a typo, or a question the registry {REGISTRY} does not ask)")
-        return ans
+        return _carry(reg, ans)
     p = repo / SETUP_MD
     if not p.is_file():
         raise GateFault(f"the answer home {SETUP_MD} is absent — SETUP creates it at the start of discovery; run SETUP, or pass --answers FILE")
@@ -422,7 +431,60 @@ def answers(repo: Path, file: Path | None = None) -> dict:
     data = parse_yaml(m.group(1))
     if not isinstance(data, dict):
         raise GateFault(f"the answer home {SETUP_MD} frontmatter is not a mapping — the answers live there as `key: value` lines")
-    return flatten(data)
+    return _carry(load_registry(repo), flatten(data))
+
+
+def _carry(reg: dict, ans: dict) -> dict:
+    """EVOL-132 — a retired key's answer read under the key that carries it, verbatim, while that key is unanswered: one home."""
+    out = dict(ans)
+    for k, s in _specs(reg).items():
+        c = s.get("carries")
+        if not isinstance(c, dict) or not isinstance(c.get("from"), str) or _has_value(out.get(k)):
+            continue
+        old = out.pop(c["from"], None)
+        vals = [x for x in (old if isinstance(old, list) else [old]) if x is not None and str(x).strip() and str(x) != "None"]
+        if vals:
+            out[k] = [{"name": str(x).strip(), "for": c.get("for"), "carried_from": c["from"]} for x in vals]
+    return out
+
+
+def _carried_only(v) -> bool:
+    return isinstance(v, list) and bool(v) and all(isinstance(e, dict) and e.get("carried_from") for e in v)
+
+
+def _reference_problems(v) -> list[str]:
+    """EVOL-132 — what a `free: references` answer may not be (None: unanswered)."""
+    if v is None:
+        return []
+    if not isinstance(v, list) or not v:
+        return ["is not a list of reference products — name at least one, each `{name, for}`, or answer `{first_of_its_kind: <reason>}`"]
+    out = []
+    for n, e in enumerate(v, 1):
+        if not isinstance(e, dict):
+            out.append(f"entry {n} is not a mapping — write it `{{name: <product>, for: {' | '.join(REFERENCE_FOR)}}}`"); continue
+        if "first_of_its_kind" in e:
+            r = e["first_of_its_kind"]
+            if set(e) != {"first_of_its_kind"}:
+                out.append(f"entry {n}: «first of its kind» stands alone — `{{first_of_its_kind: <reason>}}`, no other field")
+            elif not isinstance(r, str) or not r.strip():
+                out.append(f"entry {n}: «first of its kind» needs its reason — say why no product on the market compares")
+            continue
+        extra = sorted(set(map(str, e)) - set(REFERENCE_FIELDS))
+        if extra:
+            out.append(f"entry {n}: {', '.join(f'`{x}`' for x in extra)} is not a field ({', '.join(REFERENCE_FIELDS[:4])})")
+        if not isinstance(e.get("name"), str) or not e["name"].strip():
+            out.append(f"entry {n}: the product's name is blank — name the product on the market")
+        if e.get("for") not in REFERENCE_FOR:
+            out.append(f"entry {n}: `for` = `{canon(e.get('for'))}` is not one of {' | '.join(REFERENCE_FOR)}")
+        feat = e.get("feature")
+        if e.get("for") == "feature" and (not isinstance(feat, str) or not feat.strip()):
+            out.append(f"entry {n}: `for: feature` names the feature it is a reference for — `feature: <the feature>`")
+        if e.get("for") != "feature" and "feature" in e:
+            out.append(f"entry {n}: `feature` goes with `for: feature` only")
+        link = e.get("link")
+        if link is not None and not (isinstance(link, str) and re.fullmatch(r"https?://[^\s<>\"'`]+", link.strip())):
+            out.append(f"entry {n}: the link is not a public http(s) address")
+    return out
 
 
 def _answered(key: str, ans: dict) -> bool:
@@ -448,6 +510,11 @@ def _check_answers(reg: dict, ans: dict):
             raise GateFault(f"the answer `{k}` = `{canon(ans[k])}` contradicts `{_derived(reg)[k]['matches']['key']}`, which selects `{canon(v)}` — the key is derived, never answered")
     for k, spec in _specs(reg).items():
         v = ans.get(k)
+        if spec.get("free") == "references":
+            problems = _reference_problems(v)
+            if problems:
+                raise GateFault(f"the answer `{k}` — " + "; ".join(problems))
+            continue
         if k in dec:
             if v is not None and canon(v) != canon(dec[k]):
                 db = spec["decided_by"]
@@ -625,7 +692,7 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
     for _, q in qs:
         if not _owed(reg, q, ans):
             continue
-        if not any(_answered(k, ans) for k in (q.get("keys") or {})):   # asked = some key holds an answer (null = not yet asked);
+        if not any(_answered(k, ans) and not _carried_only(ans.get(k)) for k in (q.get("keys") or {})):   # asked = some key holds an answer (null = not yet asked; a carried answer is shown, then asked);
             pending.append(q.get("id"))                                 # a sibling left null on purpose (Q14 path, Q29.1 dir) is part of it
     landing, skipped = [], []
     for k, e in templates.items():
@@ -645,6 +712,8 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
                                              and any(evaluate(parse(templates[t]["stack_conditional"]), {**ans, u["key"]: lit}) for lit in _offered(specs[u["key"]]) or [])]}
                          for u in _unmodelled(reg, ans)]
     out["free_text"] = _free_text(reg, ans)
+    out["carried"] = [{"key": k, "from": s["carries"]["from"], "entries": ans[k]} for k, s in specs.items()
+                      if isinstance(s.get("carries"), dict) and isinstance(ans.get(k), list) and any(isinstance(e, dict) and e.get("carried_from") for e in ans[k])]
     lacking, owed = _unverified_parts(reg, ans), _built(reg, ans)[1]
     stops = ([STOP.format(parts="; ".join(lacking))] if lacking else []) + ([STOP_BUILD.format(owed="; ".join(owed))] if owed else [])
     if stops:
@@ -843,6 +912,8 @@ def render_resolve(r: dict) -> str:
         lines.append(f"  unmodelled — `{u['key']}` = `{clean(u['answer'], 200)}`: build it to the same contract; owes "
                      + (", ".join(f"`{p}`" for p in u["owes"]) or "no config pointer")
                      + (f"; templates to mirror in its idiom: {', '.join(u['templates'])}" if u["templates"] else ""))
+    for c in r.get("carried") or []:
+        lines.append(f"  carried — `{c['from']}` is now read under `{c['key']}`, verbatim: write it there, remove `{c['from']}`, then ask the question with it shown")
     if r.get("free_text"):
         lines.append("  free text — the parent's answer has no list, ask it as free text: " + ", ".join(r["free_text"]))
     lines += [f"  WARN: {w}" for w in r.get("warnings") or []]
@@ -920,8 +991,14 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
             if len(kinds) != 1:
                 out.append(f"V1 · `{k}`: a spec carries exactly one of options | options_by | free (it carries {', '.join(kinds) or 'none'})")
             for f in s:
-                if f not in SPEC_KINDS + ("record_only", "suggestions", "fills", "configures", "decided_by", "open"):
-                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions, fills, configures, decided_by, open)")
+                if f not in SPEC_KINDS + ("record_only", "suggestions", "fills", "configures", "decided_by", "open", "carries"):
+                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions, fills, configures, decided_by, open, carries)")
+            if "carries" in s:
+                c = s["carries"]
+                if s.get("free") != "references" or not isinstance(c, dict) or set(c) != {"from", "for"} \
+                        or not isinstance(c.get("from"), str) or not re.fullmatch(r"[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*", c["from"]) \
+                        or c.get("for") not in REFERENCE_FOR:
+                    out.append(f"V1 · `{k}`: carries is {{from: <the retired dotted key>, for: {' | '.join(REFERENCE_FOR)}}}, on a `free: references` key only (EVOL-132)")
             listed = "options" in s or "options_by" in s
             if listed != isinstance(s.get("open"), bool):
                 out.append(f"V1 · `{k}`: open is true | false on every options / options_by key, and on no other — "
@@ -938,6 +1015,10 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
             if "free" in s and s["free"] not in FREE_KINDS:
                 out.append(f"V1 · `{k}`: free kind `{s['free']}` is not one of {', '.join(FREE_KINDS)}")
     specs = _specs(reg)
+    for k, s in specs.items():
+        c = s.get("carries")
+        if isinstance(c, dict) and isinstance(c.get("from"), str) and (c["from"] in specs or c["from"] in (reg.get("derived") or {})):
+            out.append(f"V1 · `{k}`: carries `{c['from']}`, which the registry still asks or derives — two homes for one answer; retire the old key")
     for k, s in specs.items():
         ob = s.get("options_by")
         if "options_by" not in s:
