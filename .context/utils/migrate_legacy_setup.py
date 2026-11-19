@@ -11,6 +11,9 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from gates.common import load_yaml  # noqa: E402 — the one safe YAML loader (#236)
+
 
 # Migration mappings
 BACKEND_TOPOLOGY_MAPPING = {
@@ -36,7 +39,7 @@ def load_setup_md(filepath: Path) -> tuple:
     if content.startswith('---'):
         parts = content.split('---', 2)
         if len(parts) >= 3:
-            frontmatter = yaml.safe_load(parts[1])
+            frontmatter = load_yaml(parts[1])
             markdown_content = parts[2].strip()
             return frontmatter, markdown_content
     

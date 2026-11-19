@@ -11,6 +11,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+from gates.common import load_yaml  # noqa: E402 — the one safe YAML loader (#236)
+
 
 def load_setup_md(setup_path: Path) -> Dict[str, Any]:
     """Load and parse setup.md YAML frontmatter and content."""
@@ -21,7 +24,7 @@ def load_setup_md(setup_path: Path) -> Dict[str, Any]:
     if content.startswith('---'):
         parts = content.split('---', 2)
         if len(parts) >= 3:
-            frontmatter = yaml.safe_load(parts[1])
+            frontmatter = load_yaml(parts[1])
             body = parts[2]
             return {**frontmatter, '_body': body}
     

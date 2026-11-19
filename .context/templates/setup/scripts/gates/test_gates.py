@@ -33,6 +33,7 @@ os.environ.update({"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", 
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
 from gates import agents, aligned, bounds, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, documents, freeze, frontmatter, manifest, performance, planning, profile, proof, qa, rest, retired, runtime, scm, seal, traceability, tracker, train  # noqa: E402
+from gates import common  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -128,6 +129,72 @@ def fixture_repo(root: Path, context_: str = "downstream") -> Path:
 
 
 class Common(unittest.TestCase):
+    YAML_CALL = re.compile(r"\byaml\s*\.\s*(?:safe_load|load|full_load|unsafe_load|load_all|safe_load_all)\s*\(")
+
+    @unittest.skipUnless(common.context(HERE.parent.parent) == "meta", "the framework repo only: a materialised project's own scripts and data are its own")
+    def test_one_yaml_entry_point(self):
+        """#236: every governance script parses YAML through `gates.common.load_yaml` — no second entry point."""
+        root, scripts = HERE.parent.parent, HERE.parent
+        files = [f for f in list(scripts.rglob("*.py")) + list(scripts.glob("*.sh")) + list((root / ".context/utils").glob("*"))
+                 if f.is_file() and "fixtures" not in f.relative_to(root).parts and f.name != "test_gates.py"]
+        hits = [f"{f.relative_to(root)}:{n}" for f in files for n, line in enumerate(f.read_text(encoding="utf-8", errors="replace").splitlines(), 1)
+                if self.YAML_CALL.search(line) and f != scripts / "gates" / "common.py"]
+        self.assertEqual(hits, [], "parse YAML through gates.common.load_yaml (the one safe loader, C build when present)")
+        self.assertEqual(len([l for l in (scripts / "gates" / "common.py").read_text().splitlines() if self.YAML_CALL.search(l)]), 1,
+                         "the helper holds the one loader call")
+
+    def test_load_yaml_picks_the_c_loader_when_present(self):
+        try:
+            import yaml
+        except ImportError:
+            self.skipTest("PyYAML absent: parse_yaml falls back to the subset parser")
+        from gates.common import load_yaml
+        seen = []
+        real = yaml.load
+        with unittest.mock.patch.object(yaml, "load", side_effect=lambda t, Loader: seen.append(Loader) or real(t, Loader=Loader)):
+            self.assertEqual(load_yaml("a: [1, 2]"), {"a": [1, 2]})
+            with unittest.mock.patch.object(yaml, "__with_libyaml__", False):
+                load_yaml("a: 1")
+        self.assertEqual(seen[1], yaml.SafeLoader, "without libyaml the pure safe loader runs")
+        self.assertEqual(seen[0], yaml.CSafeLoader if yaml.__with_libyaml__ else yaml.SafeLoader)
+        for unsafe in ("!!python/object/apply:os.system ['true']", "!!python/name:os.system"):
+            with self.subTest(unsafe=unsafe), self.assertRaises(yaml.YAMLError):
+                load_yaml(unsafe)
+
+    @unittest.skipUnless(common.context(HERE.parent.parent) == "meta", "the framework repo only: a materialised project's own scripts and data are its own")
+    def test_c_and_pure_loaders_agree(self):
+        """#236: the C and the pure safe loader give the same result and the same refusal class on the corpus."""
+        try:
+            import yaml
+        except ImportError:
+            self.skipTest("PyYAML absent: no loader to compare")
+        if not getattr(yaml, "__with_libyaml__", False):
+            self.skipTest("libyaml absent: only the pure loader runs, nothing to compare")
+        from gates.common import FM_RE
+        root = HERE.parent.parent
+        corpus = ["a: &x [1, 2]\nb: *x\n", "t: |\n  one\n  two\nd: 2026-11-19\nn: ~\nb: yes\n", "k: 'it''s'\nf: 1.5e3\n",
+                  "!!python/object/apply:os.system ['true']", "!!python/name:os.system", "a: [1, 2\n", "a: b: c\n", "- a\nb: c\n",
+                  "x: \"\\uZZZZ\"\n", "a:\n\t- b\n", ""]
+        inline = len(corpus)
+        tracked = subprocess.run(["git", "-C", str(root), "ls-files", "-z"], capture_output=True, text=True, check=True).stdout
+        for f in (root / rel for rel in tracked.split("\0") if rel):
+            if not f.is_file() or f.stat().st_size > 2_000_000:
+                continue
+            if f.suffix in (".yml", ".yaml"):
+                corpus.append(f.read_text(encoding="utf-8", errors="replace"))
+            elif f.suffix == ".md" and (m := FM_RE.match(f.read_text(encoding="utf-8", errors="replace"))):
+                corpus.append(m.group(1))
+
+        def run(text, loader):
+            try:
+                return ("ok", repr(yaml.load(text, Loader=loader)))
+            except Exception as e:  # any refusal class: a class only one loader raises is a disagreement
+                return ("refused", type(e).__name__)
+        self.assertGreater(len(corpus), inline, "the corpus reads the tracked tree, beyond the inline cases")
+        diff = [t[:60] for t in corpus if run(t, yaml.SafeLoader) != run(t, yaml.CSafeLoader)]
+        self.assertEqual(diff, [], "the C and the pure safe loader disagree")
+        self.assertEqual(run(corpus[3], yaml.CSafeLoader), ("refused", "ConstructorError"), "an unsafe tag is refused by both")
+
     def test_one_fence_reader(self):
         """#233: one fence reader for every gate — a closer is its own marker, at least as long; an unclosed fence runs to the end."""
         from gates import common
@@ -3597,8 +3664,9 @@ class MiniYaml(unittest.TestCase):
         self.assertEqual(got["agents"]["resolve"][1], {"class": "plan-critic", "round": 2, "effort": "max"})
         self.assertEqual(_mini_yaml('x: [1, "a, b", {k: [true, null]}]')["x"], [1, "a, b", {"k": [True, None]}])
         try:
-            import yaml
-            self.assertEqual(got, yaml.safe_load(text), "the subset parser and PyYAML read the same structure")
+            import yaml  # noqa: F401
+            from gates.common import load_yaml
+            self.assertEqual(got, load_yaml(text), "the subset parser and PyYAML read the same structure")
         except ImportError:
             pass
         with self.assertRaisesRegex(GateFault, "unterminated"):

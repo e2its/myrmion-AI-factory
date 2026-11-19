@@ -269,13 +269,14 @@ echo
 YAML_RC=$(python3 - <<'PY'
 import glob, sys
 try:
-    import yaml
+    import yaml  # noqa: F401
 except ImportError:
     print("skip"); sys.exit(0)
+sys.path.insert(0, "scripts"); from gates.common import load_yaml   # the one safe YAML entry point (#236)
 bad = []
 for f in glob.glob(".github/workflows/*.yml") + glob.glob(".context/templates/setup/workflows/*.yml") + glob.glob(".context/templates/setup/workflows/*.yaml"):
     try:
-        yaml.safe_load(open(f, encoding="utf-8"))
+        load_yaml(open(f, encoding="utf-8"))
     except Exception as e:
         bad.append(f"{f}: {str(e).splitlines()[0][:100]}")
 print("\n".join(bad) if bad else "ok")
@@ -295,10 +296,11 @@ for wf in .github/workflows/governance-check.yml .context/templates/setup/workfl
   if python3 - "$wf" <<'PYEOF'
 import sys
 try:
-    import yaml
+    import yaml  # noqa: F401
 except ImportError:
     sys.exit(0)
-d = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))
+sys.path.insert(0, "scripts"); from gates.common import load_yaml   # the one safe YAML entry point (#236)
+d = load_yaml(open(sys.argv[1], encoding="utf-8"))
 steps = d["jobs"]["governance-check"]["steps"]
 ok = any("profile --run" in (s.get("run") or "") and (s.get("env") or {}).get("GH_TOKEN") == "${{ github.token }}" for s in steps)
 sys.exit(0 if ok else 1)
