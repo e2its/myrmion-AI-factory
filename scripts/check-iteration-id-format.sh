@@ -14,13 +14,16 @@
 set -euo pipefail
 
 ROOT="${1:-$(pwd)}"
+GATES="$(cd "$(dirname "$0")" && pwd)"   # scripts/: gates.common is the one YAML loader
 RC=0
 
 scan_iterations_block() {
   local file="$1"
-  python3 - "$file" <<'PY'
+  python3 - "$file" "$GATES" <<'PY'
 import re, sys, yaml
 fp = sys.argv[1]
+sys.path.insert(0, sys.argv[2])
+from gates.common import load_yaml   # the one safe YAML entry point (#236)
 text = open(fp, encoding='utf-8', errors='replace').read()
 
 # For .md / .feature: real YAML frontmatter between --- markers.
@@ -43,7 +46,7 @@ if not iter_m:
     sys.exit(0)
 iters_yaml = 'iterations: ' + (iter_m.group(1) or '') + (iter_m.group(2) or '')
 try:
-    iters = (yaml.safe_load(iters_yaml) or {}).get('iterations') or []
+    iters = (load_yaml(iters_yaml) or {}).get('iterations') or []
 except yaml.YAMLError as e:
     print(f"FAIL {fp}: iterations block parse error: {e}")
     sys.exit(2)

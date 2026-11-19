@@ -17,9 +17,11 @@ ROOT="${ROOT:-$(pwd)}"
 APPLY=0
 [[ "${1:-}" == "--apply" ]] && APPLY=1
 
-python3 - "$ROOT" "$APPLY" <<'PY'
+python3 - "$ROOT" "$APPLY" "$(cd "$(dirname "$0")" && pwd)" <<'PY'
 import os, re, sys, yaml, subprocess
 root, apply_mode = sys.argv[1], sys.argv[2] == '1'
+sys.path.insert(0, sys.argv[3])
+from gates.common import load_yaml   # the one safe YAML entry point (#236)
 spec_dir = os.path.join(root, 'docs', 'spec')
 if not os.path.isdir(spec_dir):
     print(f"skip: no {spec_dir}")
@@ -29,7 +31,7 @@ def split_frontmatter(text):
     m = re.match(r'^---\n(.*?)\n---\n?(.*)$', text, re.S)
     if not m: return None, text
     try:
-        return yaml.safe_load(m.group(1)) or {}, m.group(2)
+        return load_yaml(m.group(1)) or {}, m.group(2)
     except yaml.YAMLError:
         return None, text
 

@@ -92,6 +92,7 @@ for key, e in m["templates"].items():
     dst = P / tgt; dst.parent.mkdir(parents=True, exist_ok=True)
     if e.get("target_mode") == "merge" and dst.is_file():   # Factory-setup-materialization § target_mode: merge
         import yaml
+        sys.path.insert(0, str(R / "scripts")); from gates.common import load_yaml   # the one safe YAML entry point (#236)
         def merge(a, b):   # mapping by mapping; a list under the same key concatenates — before the target's first manual
             # step, which holds every step after it (EVOL-084); a scalar keeps the target's
             if isinstance(a, dict) and isinstance(b, dict):
@@ -100,7 +101,7 @@ for key, e in m["templates"].items():
                 cut = next((i for i, x in enumerate(a) if isinstance(x, dict) and (x.get("step") or {}).get("trigger") == "manual"), len(a))
                 return a[:cut] + b + a[cut:]
             return a
-        dst.write_text(yaml.safe_dump(merge(yaml.safe_load(dst.read_text()), yaml.safe_load(src.read_text())), sort_keys=False, allow_unicode=True))
+        dst.write_text(yaml.safe_dump(merge(load_yaml(dst.read_text()), load_yaml(src.read_text())), sort_keys=False, allow_unicode=True))
     else:
         shutil.copy2(src, dst)
     landed.append(tgt)
@@ -418,7 +419,7 @@ if [ -f "$P/bitbucket-pipelines.yml" ]; then
   # EVOL-084 — the design-system rebuild step merged in: before the manual production step, and the parity gate green with
   # Bitbucket's deploying file and the declared read the materialisation adds (read from the instruction, its one home)
   if grep -q 'design-system-rebuild:' "$BB"; then
-    ORDER=$(python3 -c 'import sys, yaml; m = yaml.safe_load(open(sys.argv[1]))["pipelines"]["branches"]["main"]; n = [s["step"].get("name", "") for s in m]; r = n.index("Design system rebuild (advisory)"); t = [i for i, s in enumerate(m) if s["step"].get("trigger") == "manual"]; print("ok" if all(r < i for i in t) else "after-manual")' "$BB" 2>&1)
+    ORDER=$(PYTHONPATH="$ROOT/scripts" python3 -c 'import sys; from gates.common import load_yaml; m = load_yaml(open(sys.argv[1]))["pipelines"]["branches"]["main"]; n = [s["step"].get("name", "") for s in m]; r = n.index("Design system rebuild (advisory)"); t = [i for i, s in enumerate(m) if s["step"].get("trigger") == "manual"]; print("ok" if all(r < i for i in t) else "after-manual")' "$BB" 2>&1)
     cp "$P/config/quality.json" "$SCRATCH/q084.json"
     python3 - "$ROOT/.claude/instructions/Factory-setup-materialization.instructions.md" "$P/config/quality.json" <<'PY'
 import json, re, sys
@@ -831,9 +832,10 @@ rm -rf "$P/docs/spec/FEAT-001/test_plan.md" "$P/tests/test_trace.py" "$P/docs/pr
 # server-side branch protection (EVOL-054): the runbook lands per platform; the reader is n/a where it cannot see the server and says so
 [ -f "$P/docs/scm/protection.md" ] && grep -q 'Rulesets' "$P/docs/scm/protection.md" && grep -q 'checks: \*\*\["governance-check"\]\*\*' "$P/docs/scm/protection.md" && grep -q 'approvals: \*\*0\*\*' "$P/docs/scm/protection.md" && ! grep -q '{{' "$P/docs/scm/protection.md" && ok "the GitHub protection runbook landed (docs/scm/protection.md) with the resolved checks and approvals, no placeholder left" || bad "protection runbook missing or unresolved" "$(grep -n 'checks:\|approvals:\|{{' "$P/docs/scm/protection.md" 2>&1 | head -5)"
 WF=$(ls "$P"/.github/workflows/governance-check*.yml 2>/dev/null | head -1)
-[ -n "$WF" ] && python3 -c '
-import sys, yaml
-d = yaml.safe_load(open(sys.argv[1]))
+[ -n "$WF" ] && PYTHONPATH="$ROOT/scripts" python3 -c '
+import sys
+from gates.common import load_yaml
+d = load_yaml(open(sys.argv[1]))
 steps = d["jobs"]["governance-check"]["steps"]
 sys.exit(0 if any("profile --run" in (s.get("run") or "") and (s.get("env") or {}).get("GH_TOKEN") == "${{ github.token }}" for s in steps) else 1)' "$WF" 2>/dev/null && ok "the landed governance workflow exports GH_TOKEN on the profile step (scm-protection can see the server at ci)" || bad "landed workflow does not export GH_TOKEN on the profile step" "$WF"
 OUT=$(cd "$P" && python3 scripts/gate.py scm-protection 2>&1); RC=$?

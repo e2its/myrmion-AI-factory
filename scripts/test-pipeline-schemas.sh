@@ -35,14 +35,16 @@ check() {   # $1 label, $2 url, $3 files
     return 0
   fi
   # shellcheck disable=SC2086
-  OUT=$(python3 -I - "$schema" $3 <<'PY'
+  OUT=$(python3 -I - "$ROOT/scripts" "$schema" $3 <<'PY'
 import json, sys
-import yaml, jsonschema
+import jsonschema
+sys.path.insert(0, sys.argv.pop(1))   # -I drops PYTHONPATH: scripts/ comes by argument
+from gates.common import load_yaml   # the one safe YAML entry point (#236)
 schema = json.load(open(sys.argv[1]))
 cls = jsonschema.validators.validator_for(schema)
 bad = 0
 for f in sys.argv[2:]:
-    doc = yaml.safe_load(open(f))
+    doc = load_yaml(open(f))
     if isinstance(doc, dict) and True in doc:   # YAML 1.1 reads the `on:` key as a boolean; the schema names it `on`
         doc["on"] = doc.pop(True)
     errs = sorted(cls(schema).iter_errors(doc), key=lambda e: list(e.path))

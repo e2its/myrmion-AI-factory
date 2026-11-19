@@ -288,10 +288,18 @@ def _mini_yaml(text: str):
     return data
 
 
+def load_yaml(text):
+    """The one YAML entry point of every governance script: the safe loader, on libyaml's C build when the runtime
+    has it (same result, same refusal class — the parity test pins it), the pure-Python one otherwise. Raises what
+    `yaml.safe_load` raises (ImportError without PyYAML, yaml.YAMLError on bad or unsafe input)."""
+    import yaml  # type: ignore
+    loader = getattr(yaml, "CSafeLoader", None) if getattr(yaml, "__with_libyaml__", False) else None
+    return yaml.load(text, Loader=loader or yaml.SafeLoader)
+
+
 def parse_yaml(text: str):
     try:
-        import yaml  # type: ignore
-        return yaml.safe_load(text) or {}
+        return load_yaml(text) or {}
     except ImportError:
         return _mini_yaml(text)
     except Exception as e:  # yaml.YAMLError

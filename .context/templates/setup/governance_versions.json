@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.9.0",
+  "framework_version": "10.9.1",
   "delivery_mode": "development",
   "last_updated": "2026-11-19",
   "governance_features": {
@@ -920,7 +920,7 @@
       "delivery": "both"
     },
     "scripts/gates/common.py": {
-      "version": "1.5.1",
+      "version": "1.5.2",
       "content_type": "universal",
       "target": "scripts/gates/common.py",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files.",
@@ -948,7 +948,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.46.0",
+      "version": "1.46.1",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -2066,7 +2066,7 @@
       "delivery": "both"
     },
     "scripts/test-templates-static.sh": {
-      "version": "1.7.1",
+      "version": "1.7.2",
       "path": "scripts/test-templates-static.sh"
     },
     "scripts/test-snapshot-extraction.sh": {
@@ -2154,14 +2154,14 @@
       "delivery": "both"
     },
     "scripts/check-iteration-id-format.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "type": "script",
       "path": "scripts/check-iteration-id-format.sh",
       "delivery": "sync",
       "role": ". Meta-sourced, ships via factory-sync only; not part of the SETUP materialization surface."
     },
     "scripts/migrate-iteration-frontmatter.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "type": "script",
       "path": "scripts/migrate-iteration-frontmatter.sh",
       "delivery": "sync",
@@ -2302,7 +2302,7 @@
       "path": "scripts/test-check-journey-grammar.sh"
     },
     "scripts/test-po-package.sh": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "type": "script",
       "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project — in the three design-system cases a project can be materialised in. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-po-package.sh"
@@ -2342,7 +2342,7 @@
       "path": "scripts/gates/__init__.py"
     },
     "scripts/gates/common.py": {
-      "version": "1.5.1",
+      "version": "1.5.2",
       "type": "script",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/common.py"
@@ -2366,13 +2366,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.46.0",
+      "version": "1.46.1",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.42.0",
+      "version": "1.42.1",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2922,7 +2922,7 @@
       "path": "scripts/gates/delivery.py"
     },
     "scripts/test-pipeline-schemas.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/test-pipeline-schemas.sh"

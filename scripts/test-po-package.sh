@@ -774,13 +774,13 @@ run_build o6c --no-zip --mode ds-only --rebuild
 rm -f "$PROJ/.github/workflows/design-system-rebuild.yml"
 run_build o6d --no-zip --mode ds-only --rebuild
 [ "$RC" -eq 0 ] && has 'RUNBOOK.md says section 6C applies' && ok "stale runbook is called out when the project changes case" || bad "stale runbook went unnoticed" "$OUT"
-python3 -c 'import sys, yaml; yaml.safe_dump(yaml.safe_load(open(sys.argv[1])), open(sys.argv[2], "w"), sort_keys=False)' \
+PYTHONPATH="$ROOT/scripts" python3 -c 'import sys, yaml; from gates.common import load_yaml; yaml.safe_dump(load_yaml(open(sys.argv[1])), open(sys.argv[2], "w"), sort_keys=False)' \
   "$ROOT/.context/templates/setup/workflows/design-system-rebuild.bitbucket.yml" "$PROJ/bitbucket-pipelines.yml"   # as the merge writes it: long lines folded
 run_build o6bb --no-zip --mode ds-only --rebuild
 [ "$RC" -eq 0 ] && ! has 'RUNBOOK.md says' && ok "6C: the Bitbucket job merged into bitbucket-pipelines.yml counts as the CI workflow (EVOL-084)" || bad "6C: the Bitbucket job was not detected (exit $RC)" "$OUT"
 # the template's own script lines, run as the step runs them (one shell, cwd = the clone): exit 0, the bundle copied in;
 # a canary where the project's toolchain line goes (before the builder) sees none of the framework's credentials
-python3 -c 'import sys, yaml; s = yaml.safe_load(open(sys.argv[1]))["pipelines"]["branches"]["main"][0]["step"]["script"]; i = next(n for n, l in enumerate(s) if "build_po_package.py" in l); print("\n".join(s[:i] + ["echo \"canary:${BITBUCKET_TOKEN-unset}:${CONFLUENCE_API_TOKEN-unset}:${CONFLUENCE_USER_EMAIL-unset}\""] + s[i:]))' \
+PYTHONPATH="$ROOT/scripts" python3 -c 'import sys; from gates.common import load_yaml; s = load_yaml(open(sys.argv[1]))["pipelines"]["branches"]["main"][0]["step"]["script"]; i = next(n for n, l in enumerate(s) if "build_po_package.py" in l); print("\n".join(s[:i] + ["echo \"canary:${BITBUCKET_TOKEN-unset}:${CONFLUENCE_API_TOKEN-unset}:${CONFLUENCE_USER_EMAIL-unset}\""] + s[i:]))' \
   "$ROOT/.context/templates/setup/workflows/design-system-rebuild.bitbucket.yml" | sed "s#/tmp/ds-bundle#$SANDBOX/bb-stage#g" > "$SANDBOX/bb-step.sh"
 OUT=$(cd "$PROJ" && BITBUCKET_TOKEN=x CONFLUENCE_API_TOKEN=y CONFLUENCE_USER_EMAIL=z bash "$SANDBOX/bb-step.sh" 2>&1); RC=$?
 [ "$RC" -eq 0 ] && has 'Design-system bundle rebuilt' && [ -n "$(find "$PROJ/ds-bundle" -name '*.html' 2>/dev/null | head -1)" ] \
