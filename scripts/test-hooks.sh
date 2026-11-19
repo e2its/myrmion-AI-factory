@@ -251,7 +251,7 @@ for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/s
   python3 - "$sj" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))["hooks"]
-loose = [h["command"] for ev in d.values() for g in ev for h in g["hooks"] if not h["command"].startswith('cd "${CLAUDE_PROJECT_DIR:-.}" && bash ')]
+loose = [h["command"] for ev in d.values() for g in ev for h in g["hooks"] if not h["command"].startswith(('cd "${CLAUDE_PROJECT_DIR:-.}" && bash ', 'cd "${CLAUDE_PROJECT_DIR:-.}" && python3 scripts/'))]
 assert not loose, f"hook commands not anchored to the project root: {loose}"
 PY
   [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json: every hook command anchors to the project root" || bad "unanchored hook commands in $sj"
@@ -714,6 +714,28 @@ d = json.load(open(sys.argv[1]))["hooks"]
 assert [h["command"] for g in d.get("Stop", []) for h in g["hooks"]] == ['cd "${CLAUDE_PROJECT_DIR:-.}" && bash .claude/hooks/session-handoff.sh'], "session-handoff not wired on Stop"
 PY
   [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json wires session-handoff on Stop" || bad "Stop hook not wired in $sj"
+done
+
+echo "── session notebook: the compaction hook never blocks, the prompt entry is wired once (EVOL-133) ──"
+NBC="$SANDBOX/nbc"; mkdir -p "$NBC/scripts"; cp "$ROOT/scripts/governance-oncompact.sh" "$NBC/scripts/"
+NBP='{"session_id":"s1","hook_event_name":"PreCompact","trigger":"auto","transcript_path":"/nonexistent"}'
+nbc() { printf '%s' "$NBP" | (cd "$NBC" && CLAUDE_PROJECT_DIR="$NBC" bash scripts/governance-oncompact.sh) >/dev/null 2>&1; echo $?; }
+[ "$(nbc)" = 0 ] && ok "governance-oncompact.sh exits 0 when scripts/gate.py is absent" || bad "oncompact blocks without gate.py"
+printf 'raise RuntimeError("boom")\n' > "$NBC/scripts/gate.py"
+[ "$(nbc)" = 0 ] && ok "governance-oncompact.sh exits 0 when the notebook reader raises" || bad "oncompact blocks when the reader raises"
+rm -f "$NBC/scripts/gate.py"; mkdir -p "$NBC/.claude"; rm -rf "$NBC/.claude/state"; : > "$NBC/.claude/state"
+cp "$ROOT/scripts/gate.py" "$NBC/scripts/"; cp -R "$ROOT/scripts/gates" "$NBC/scripts/"
+[ "$(nbc)" = 0 ] && ok "governance-oncompact.sh exits 0 when .claude/state is a file" || bad "oncompact blocks when .claude/state is a file"
+for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/settings.json"; do
+  python3 - "$sj" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))["hooks"]
+c = [h["command"] for g in d.get("UserPromptSubmit", []) for h in g["hooks"] if "gate.py notebook" in h["command"]]
+assert c == ['cd "${CLAUDE_PROJECT_DIR:-.}" && python3 scripts/gate.py notebook --hook-json || true'], c
+m = [g.get("matcher") for g in d.get("PostToolUse", []) if any("governance-onedit.sh" in h["command"] for h in g["hooks"])]
+assert m == ["Edit|Write|Bash"], m
+PY
+  [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json wires the notebook once, anchored, fail-open; the claim on Edit|Write|Bash" || bad "notebook wiring wrong in $sj"
 done
 
 echo "── channel audit over every shipped hook ──"

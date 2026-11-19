@@ -15,8 +15,16 @@
 # stays reliable even in minimal environments that lack python3. When all
 # three parsers fail, the script emits a warning to stderr and falls back to
 # an unscoped marker (best-effort Tier-3) rather than failing the hook.
+#
+# Session notebook (EVOL-133): last, the payload goes to the one notebook
+# reader (gate.py notebook --hook-json). For a claimed notebook it marks the
+# reload and prints, on stdout, the advisory the harness hands to the
+# compaction summary (count and authors of the words newer than the
+# notebook — never the words). The EXIT trap makes every path exit 0: a
+# PreCompact exit 2 would block the compaction.
 # ============================================================================
 set -euo pipefail
+trap 'exit 0' EXIT
 
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
   cd "$CLAUDE_PROJECT_DIR"
@@ -91,4 +99,6 @@ else
 fi
 
 date -u +%FT%TZ > "$MARKER"
+
+printf '%s' "$PAYLOAD" | python3 scripts/gate.py notebook --hook-json 2>/dev/null || true
 exit 0

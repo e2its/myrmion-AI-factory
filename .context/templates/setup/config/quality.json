@@ -82,7 +82,7 @@
     "sca_threshold": "{{SCA_THRESHOLD}}"
   },
   "budgets": {
-    "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the pull request. hook_output_cap (#240) is the harness cap on one hook's text (https://code.claude.com/docs/en/hooks, output limits: 10,000 characters; bytes ≥ characters, so a byte key at or under it is safe): over it the harness swaps the text for a file path the model never reads, so every injection key above it is red. prompt_submit holds the reload with the other blocks (the worst case forces the reload and the stale warning); a snapshot that does not fit goes out as a pointer telling the model to Read it in full. claude_md_advisory (EVOL-064) is optional and advisory: the CLAUDE.md re-read every turn (the template in the framework repo, a project's own file elsewhere) — over it warns, never blocks.",
+    "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the pull request. hook_output_cap (#240) is the harness cap on one hook's text (https://code.claude.com/docs/en/hooks, output limits: 10,000 characters; bytes ≥ characters, so a byte key at or under it is safe): over it the harness swaps the text for a file path the model never reads, so every injection key above it is red. prompt_submit holds the reload with the other blocks (the worst case forces the reload and the stale warning); a snapshot that does not fit goes out as a pointer telling the model to Read it in full. notebook_reinject and notebook_precompact (EVOL-133) bound the session notebook's own hook text — the block re-injected once after a compaction and the advisory to the summary — and are never counted in prompt_submit. claude_md_advisory (EVOL-064) is optional and advisory: the CLAUDE.md re-read every turn (the template in the framework repo, a project's own file elsewhere) — over it warns, never blocks.",
     "session_start": 2000,
     "prompt_submit": 10000,
     "pre_edit": 6000,
@@ -90,6 +90,8 @@
     "law_sentence_max_chars": 240,
     "dc_invariant_max_chars": 160,
     "hook_output_cap": 10000,
+    "notebook_reinject": 9000,
+    "notebook_precompact": 1000,
     "claude_md_advisory": 28000
   },
   "agents": {

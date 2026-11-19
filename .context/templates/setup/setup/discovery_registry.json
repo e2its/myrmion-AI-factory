@@ -3146,6 +3146,12 @@
    "since": "10.9.2",
    "detect": "config/quality.json#/budgets/hook_output_cap",
    "apply": "budgets.hook_output_cap (#240)"
+  },
+  {
+   "id": "session-notebook (EVOL-133)",
+   "since": "10.10.0",
+   "detect": "config/quality.json#/budgets/notebook_reinject",
+   "apply": "session-notebook (EVOL-133)"
   }
  ]
 }

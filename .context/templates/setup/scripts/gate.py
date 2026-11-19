@@ -31,6 +31,7 @@
   gate.py runtime-surface [--json]                 parity: every path a deploying job or its scripts read is on surface.runtime_surface, a hard exclusion or a declared read; exit 1 on a finding
   gate.py runtime-surface --changed [--base B]     did base...HEAD touch the runtime surface (or a hard exclusion)? exit 0 touched · 1 untouched (the machinery may skip) · 2 could not judge
   gate.py plan --path P [--branch B]               may this write happen? governed path × branch class × approved plan; exit 0 pass · 1 blocked (reason + resolution) · 2 fault
+  gate.py notebook --hook-json                     EVOL-133: the session notebook's one reader — PostToolUse claims, PreCompact marks the reload and counts unsaved words, UserPromptSubmit re-injects it once within budgets.notebook_reinject; exit 0 always
   gate.py write-target --hook-json                 where a PreToolUse write lands (EVOL-065: Edit/Write + the shell's recognised writers); exit 0 the in-project targets one per line · 4 nothing to judge · 1 guarded or unresolved (reason) · 5 a deploy command in a pipeline-delivered project (EVOL-081, reason) · 2 fault (3 is the import guard)
   gate.py plan --status [--branch B]               one advisory line for the prompt hook (exit 0 always)
   gate.py plan --enter [--branch B]                may this session enter plan mode? exit 1 on a class a framework phase already plans (one stage, never two)
@@ -92,6 +93,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
+    from gates import notebook as notebook_mod
     from gates import agents as agents_mod, aligned as aligned_mod, bounds as bounds_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, catalog as catalog_mod, delivery as delivery_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, proof as proof_mod, qa as qa_mod, tracker as tracker_mod, documents as documents_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
     from gates.common import GateFault, clean, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
@@ -179,6 +181,17 @@ def cmd_deliver(repo, a):
         except OSError as e:
             note = f"\n(dedupe marker not writable: {e.__class__.__name__} — full payload will repeat)"
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": text + note}}))
+    return 0
+
+
+def cmd_notebook(repo, a):
+    """EVOL-133: the hook's own payload on stdin; every fault prints nothing and exits 0 — a notebook never blocks."""
+    try:
+        text = notebook_mod.run(repo, json.load(sys.stdin))
+    except Exception:   # noqa: BLE001 — fail open by contract (#235: a hook fault never blocks a compaction)
+        return 0
+    if text:
+        print(text)
     return 0
 
 
@@ -860,6 +873,7 @@ def build_parser():
     p.add_argument("--format", choices=("json", "rollcall"), default="rollcall"); p.set_defaults(fn=cmd_applicable)
     p = sub.add_parser("digest"); p.add_argument("--paths", nargs="+", required=True); p.add_argument("--budget", type=int, default=None); p.set_defaults(fn=cmd_digest)
     p = sub.add_parser("deliver"); p.add_argument("--path", default=""); p.add_argument("--session", default=""); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_deliver)
+    p = sub.add_parser("notebook"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_notebook)
     p = sub.add_parser("snapshot-sections"); p.add_argument("--profile", choices=("lite", "full"), default="lite"); p.set_defaults(fn=cmd_snapshot_sections)
     p = sub.add_parser("budget"); p.set_defaults(fn=cmd_budget)
     p = sub.add_parser("retired-terms"); p.set_defaults(fn=cmd_retired)
