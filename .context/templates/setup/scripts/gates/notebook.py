@@ -49,7 +49,7 @@ LOG_HEAD = re.compile(r"(?m)^## Log[ \t]*$")
 ENTRY = re.compile(r"^- ")
 PEER = "<cross-session-message"
 COMPACT_CMD = "<command-name>/compact</command-name>"
-SKIP_PREFIX = "This session is being continued from a previous conversation"
+SKIP_PREFIX = ("This session is being continued from a previous conversation", "[Request interrupted by user")
 
 
 class Refused(Exception):
@@ -58,8 +58,9 @@ class Refused(Exception):
 
 def open_single(path: Path, parent: Path | None = None, limit: int = READ_MAX) -> bytes:
     """The file's bytes — only a regular file with one link, opened without following a symlink, and (with
-    `parent`) whose directory's realpath is `parent`'s. Anything else is Refused."""
-    if parent is not None and os.path.realpath(path.parent) != os.path.realpath(parent):
+    `parent`, built by `_dir`) whose directory resolves to `parent` itself: a symlink anywhere between the
+    repository and the file moves the realpath and is Refused, as is anything else."""
+    if parent is not None and os.path.realpath(path.parent) != os.path.abspath(parent):
         raise Refused(f"{path} is not directly under {parent}")
     try:
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -83,6 +84,11 @@ def open_single(path: Path, parent: Path | None = None, limit: int = READ_MAX) -
         os.close(fd)
 
 
+def _dir(repo: Path, rel: Path) -> Path:
+    """The directory a guarded file must sit in: the repository's realpath joined with `rel`, never resolved."""
+    return Path(os.path.realpath(repo)) / rel
+
+
 def _sid(payload: dict) -> str | None:
     sid = payload.get("session_id")
     return sid if isinstance(sid, str) and SID.fullmatch(sid) else None
@@ -96,12 +102,17 @@ def _read_state(repo: Path, sid: str) -> dict | None:
     p = _state_path(repo, sid)
     if not p.exists() and not p.is_symlink():
         return None
-    st = json.loads(open_single(p, repo / STATE_DIR).decode("utf-8"))
+    st = json.loads(open_single(p, _dir(repo, STATE_DIR)).decode("utf-8"))
     if not isinstance(st, dict) or not isinstance(st.get("path"), str):
         raise Refused("state file malformed")
     rel = Path(st["path"])
     if rel.parent != NB_DIR or not NAME.fullmatch(rel.name):
         raise Refused(f"state path {st['path']} is outside {NB_DIR}")
+    n = st.get("unsaved")                       # what reaches the model from the state is a count and known kinds only
+    st["unsaved"] = n if type(n) is int and 0 <= n <= 10**9 else 0
+    a = st.get("authors")
+    st["authors"] = [x for x in AUTHORS if isinstance(a, list) and x in a]
+    st["lower_bound"] = st.get("lower_bound") is True
     return st
 
 
@@ -136,7 +147,7 @@ def _written(repo: Path, payload: dict) -> list[str]:
             return []
         p = Path(fp) if Path(fp).is_absolute() else repo / fp
         try:
-            return [str(Path(os.path.abspath(p)).relative_to(repo))]
+            return [str(Path(os.path.realpath(p)).relative_to(os.path.realpath(repo)))]
         except ValueError:
             return []
     if tool == "Bash":
@@ -152,7 +163,7 @@ def claim(repo: Path, payload: dict) -> str:
         r = Path(rel)
         if r.parent != NB_DIR or not NAME.fullmatch(r.name):
             continue
-        open_single(repo / r, repo / NB_DIR)          # only a regular, single-link file under the directory is claimed
+        open_single(repo / r, _dir(repo, NB_DIR))     # only a regular, single-link file under the directory is claimed
         try:
             old = _read_state(repo, sid) or {}
         except (Refused, ValueError):
@@ -160,7 +171,8 @@ def claim(repo: Path, payload: dict) -> str:
         same = old.get("path") == str(r)
         _write_state(repo, sid, {"path": str(r), "claimed_at": _now(), "reload": bool(old.get("reload")) and same,
                                  "unsaved": old.get("unsaved", 0) if same else 0,
-                                 "authors": old.get("authors", []) if same else []})
+                                 "authors": old.get("authors", []) if same else [],
+                                 "lower_bound": bool(old.get("lower_bound")) and same})
         return ""
     return ""
 
@@ -222,7 +234,7 @@ def author(entry: dict) -> str | None:
     s = text.lstrip()
     if s.startswith("<command-name>"):
         return "user"
-    if s.startswith("<") or s.startswith(SKIP_PREFIX):
+    if s.startswith("<") or s.startswith(SKIP_PREFIX):     # tags, the compaction summary, an interruption marker
         return None
     if not s and not isinstance((entry.get("message") or {}).get("content"), list):
         return "other"
@@ -260,15 +272,23 @@ def _backwards(path: Path):
 
 
 def unsaved(transcript: Path, since: float, manual: bool) -> tuple[int, list[str], bool]:
-    """(count, authors, lower_bound): someone's words delivered after `since`. With a manual trigger the newest
-    such entry that is the /compact invocation itself is not counted."""
-    count, seen, capped, first = 0, [], False, True
+    """(count, authors, lower_bound): someone's words delivered after `since`. A queued entry's own timestamp is
+    its enqueue time; it is delivered where it sits in the file, so it is judged by the next newer entry's time
+    (its own when none follows). With a manual trigger the newest such entry that is the /compact invocation
+    itself is not counted."""
+    count, seen, capped, first, newer = 0, [], False, True, None
     for e, cap in _backwards(transcript):
         if cap:
             capped = True
             break
         ts = _ts(e)
+        if e.get("type") == "attachment":
+            ts = newer if newer is not None else ts
+        elif ts is not None:
+            newer = ts
         if ts is not None and ts <= since:
+            if e.get("type") == "attachment":
+                continue
             break
         who = author(e)
         if who is None:
@@ -300,7 +320,7 @@ def precompact(repo: Path, payload: dict) -> str:
     if st is None:
         return ""
     nb = repo / st["path"]
-    open_single(nb, repo / NB_DIR)
+    open_single(nb, _dir(repo, NB_DIR))
     since = os.stat(nb, follow_symlinks=False).st_mtime
     n, authors, capped = 0, [], False
     tp = payload.get("transcript_path")
@@ -322,16 +342,17 @@ def precompact(repo: Path, payload: dict) -> str:
 
 def split(text: str) -> tuple[str, list[str]]:
     """(standing, log entries): everything above `## Log` is standing; below it, each entry starts at `- `."""
+    text = text.replace("\r\n", "\n")
     m = LOG_HEAD.search(text)
     if not m:
         return text.rstrip("\n"), []
-    standing, entries = text[:m.start()].rstrip("\n"), []
+    standing, parts = text[:m.start()].rstrip("\n"), []
     for line in text[m.end():].split("\n"):
         if ENTRY.match(line):
-            entries.append(line)
-        elif entries and line.strip():
-            entries[-1] += "\n" + line
-    return standing, entries
+            parts.append([line])
+        elif parts and line.strip():
+            parts[-1].append(line)                # joined once: linear in the notebook's size
+    return standing, ["\n".join(e) for e in parts]
 
 
 def _esc(s: str) -> str:
@@ -375,7 +396,7 @@ def reinject(repo: Path, payload: dict) -> str:
     st["reload"] = False
     _write_state(repo, sid, st)                    # consumed once, before anything that could fail
     nb = repo / st["path"]
-    text = open_single(nb, repo / NB_DIR).decode("utf-8", errors="replace")
+    text = open_single(nb, _dir(repo, NB_DIR)).decode("utf-8", errors="replace")
     updated = datetime.datetime.fromtimestamp(os.stat(nb, follow_symlinks=False).st_mtime,
                                               datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     budget = int(key(repo, "budgets.notebook_reinject", required=True))

@@ -538,6 +538,8 @@ printf '%s' "$OUT" | grep -q '| notebook_reinject |' && printf '%s' "$OUT" | gre
   && ok "both notebook budget rows measured green on the materialised tree (EVOL-133 b)" || bad "notebook budget rows missing" "$OUT"
 # (c) end to end through the shipped hooks: a Write claims, a compaction counts without leaking, the next prompt reloads once
 NB="$P/.context/state/notebook/smoke.md"; NT="$SCRATCH/nb-transcript.jsonl"; mkdir -p "$(dirname "$NB")"
+git -C "$P" checkout -q -b fix/notebook-smoke   # RDR-1's premise: on a working branch, the guards let a notebook write through
+NBG=$(cd "$P" && for h in check-branch-protection.sh check-plan-approval.sh; do printf '{"session_id":"nbsmoke","tool_name":"Write","tool_input":{"file_path":"%s"}}' "$NB" | bash ".claude/hooks/$h" >/dev/null 2>&1; printf '%s ' "$?"; done)
 printf '# Notebook\n\nDecision: keep the queue.\n\n## Log\n- 10:00 started\n- 10:05 queued the review\n' > "$NB"; touch -d '2000-01-01' "$NB"
 printf '{"type":"user","timestamp":"2026-01-01T00:00:00Z","message":{"role":"user","content":"ZEBRA-SENTINEL do the thing"}}\n' > "$NT"
 OUT=$(cd "$P" && printf '{"session_id":"nbsmoke","hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"%s"}}' "$NB" | bash scripts/governance-onedit.sh 2>&1)
@@ -545,18 +547,19 @@ PC=$(cd "$P" && printf '{"session_id":"nbsmoke","hook_event_name":"PreCompact","
 R1=$(cd "$P" && printf '%s' '{"session_id":"nbsmoke","hook_event_name":"UserPromptSubmit","prompt":"x"}' | python3 scripts/gate.py notebook --hook-json 2>/dev/null)
 R2=$(cd "$P" && printf '%s' '{"session_id":"nbsmoke","hook_event_name":"UserPromptSubmit","prompt":"x"}' | python3 scripts/gate.py notebook --hook-json 2>/dev/null)
 NBP=$(cd "$P" && python3 scripts/gate.py key budgets.notebook_precompact --required 2>/dev/null); NBR=$(cd "$P" && python3 scripts/gate.py key budgets.notebook_reinject --required 2>/dev/null)
-printf '%s' "$PC" | grep -q '<session-notebook-advisory>' && printf '%s' "$PC" | grep -q 'user' && ! printf '%s%s' "$PC" "$R1" | grep -q 'ZEBRA-SENTINEL' \
+[ "$NBG" = "0 0 " ] && printf '%s' "$PC" | grep -q '^1 message(s) from user arrived' && ! printf '%s%s' "$PC" "$R1" | grep -q 'ZEBRA-SENTINEL' \
   && [ "$(printf '%s' "$PC" | wc -c)" -le "${NBP:-0}" ] && [ "$(printf '%s' "$R1" | wc -c)" -le "${NBR:-0}" ] \
   && printf '%s' "$R1" | grep -q 'Decision: keep the queue.' && printf '%s' "$R1" | grep -q '10:05 queued the review' && [ -z "$R2" ] \
-  && ok "a Write claims the notebook, the compaction counts the unsaved user message without its words (≤ $NBP B), the next prompt reloads it whole (≤ $NBR B), once (EVOL-133 c)" \
-  || bad "notebook end to end" "claim: $OUT
+  && ok "on a fix branch the guards let the notebook write through, a Write claims it, the compaction counts the unsaved user message without its words (≤ $NBP B), the next prompt reloads it whole (≤ $NBR B), once (EVOL-133 c)" \
+  || bad "notebook end to end" "guards: $NBG
+claim: $OUT
 precompact: $PC
 reload: $R1
 second: $R2"
-rm -rf "$P/.context/state/notebook" "$P/.claude/state/notebook-nbsmoke.json" "$NT"
+rm -rf "$P/.context/state/notebook" "$P/.claude/state/notebook-nbsmoke.json" "$NT"; git -C "$P" checkout -q -; git -C "$P" branch -q -D fix/notebook-smoke
 # (d) the notebook directory is outside every governed path: a notebook write needs no plan
 OUT=$(cd "$P" && python3 scripts/gate.py plan --path .context/state/notebook/x.md 2>&1); RC=$?
-[ "$RC" -eq 0 ] && ok "a notebook write is not governed — no plan owed (EVOL-133 d)" || bad "the notebook path is governed (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^plan: ok' && ok "a notebook write is not governed — no plan owed (EVOL-133 d)" || bad "the notebook path is governed (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '%s' '{"tool_input":{"file_path":"src/app/models.py"},"session_id":"smoke"}' | bash .claude/hooks/deliver-governance.sh 2>&1)
 printf '%s' "$OUT" | grep -q '"additionalContext"' && printf '%s' "$OUT" | grep -q 'DC-' && ok "a real edit payload gets its defect classes delivered through the envelope" || bad "delivery hook delivered nothing for src/app/models.py" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py retired-terms 2>&1); RC=$?

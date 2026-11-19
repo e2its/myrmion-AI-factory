@@ -465,7 +465,7 @@ for k, old in lowered:
 PY
 ```
 
-**session-notebook (EVOL-133).** The session notebook's two budget keys and its two hook wirings. Run it as written (idempotent): it adds `budgets.notebook_reinject` and `budgets.notebook_precompact` when absent or invalid, adds the `UserPromptSubmit` entry that runs `scripts/gate.py notebook --hook-json` when no entry runs it, and widens the `PostToolUse` entry that runs `scripts/governance-onedit.sh` to `Edit|Write|Bash`; a project's own entries and values are kept. Name each line it prints in the upgrade report:
+**session-notebook (EVOL-133).** The session notebook's two budget keys and its two hook wirings. Run it as written (idempotent): it adds `budgets.notebook_reinject` and `budgets.notebook_precompact` when absent or invalid (at the template's value, or the project's `budgets.hook_output_cap` when lower; a valid value is never touched), adds the `UserPromptSubmit` entry that runs `scripts/gate.py notebook --hook-json` when the event exists and no entry runs it (an absent event is added whole by the merge rule of Step 3), and widens the `PostToolUse` entry that runs `scripts/governance-onedit.sh` to `Edit|Write|Bash`; a project's own entries and values are kept. Name each line it prints in the upgrade report:
 
 ```bash
 python3 - <<'PY'
@@ -476,18 +476,21 @@ q_path, s_path = pathlib.Path("config/quality.json"), pathlib.Path(".claude/sett
 q = load(q_path)
 b = q.setdefault("budgets", {})
 changed_q = False
+cap = b.get("hook_output_cap")
 for k, v in (("notebook_reinject", 9000), ("notebook_precompact", 1000)):   # the template's values at 10.10.0
+    if type(cap) is int and cap > 0:
+        v = min(v, cap)
     if type(b.get(k)) is not int or b[k] < 1:
         print(f"budgets.{k}: {b.get(k)!r} -> {v}")
         b[k] = v
         changed_q = True
 if changed_q:
     q_path.write_text(json.dumps(q, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-s = load(s_path)
-h = s.setdefault("hooks", {})
+s = load(s_path) if s_path.exists() else {}
+h = s.get("hooks") if isinstance(s.get("hooks"), dict) else {}
 changed_s = False
-ups = h.setdefault("UserPromptSubmit", [])
-if not any("scripts/gate.py notebook --hook-json" in (x.get("command") or "") for e in ups for x in e.get("hooks", [])):
+ups = h.get("UserPromptSubmit")
+if isinstance(ups, list) and not any("scripts/gate.py notebook --hook-json" in (x.get("command") or "") for e in ups for x in e.get("hooks", [])):
     ups.append({"hooks": [{"type": "command", "command": 'cd "${CLAUDE_PROJECT_DIR:-.}" && python3 scripts/gate.py notebook --hook-json || true'}]})
     print("hooks.UserPromptSubmit: + scripts/gate.py notebook --hook-json")
     changed_s = True

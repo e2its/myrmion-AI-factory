@@ -53,10 +53,10 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
    - Path: `.context/state/notebook/<name>.md`. It has two sections:
      - `## Standing`: the decisions in force, the queue, and the user's words not yet acted on. These are copied verbatim, under the payload-verbatim invariant (`rules/agents.md:133`).
      - `## Log`: append-only, one entry per line, `- <UTC ISO> <text>`. Continuation lines are indented.
-   - The session writes it with Write/Edit only. Subagents never write it.
+   - The session writes it with Edit, Write or a shell append (§2). Subagents never write it.
    - *Rationale:* an agent write under `.claude/**` would need a plan and would hit the classifier. `.context/state/` is the place #165 already chose for agent-written state. Hooks keep their state in #97's home.
 2. **Claiming a notebook writes one state file per session, `.claude/state/notebook-{sid}.json`.**
-   - Content: `{path, claimed_at, reload, unsaved, authors}`.
+   - Content: `{path, claimed_at, reload, unsaved, authors, lower_bound}`. A claim on the same notebook keeps all but `claimed_at`: a write after the compaction does not prove the missed messages were written (a duplicate entry is cheaper than a lost count). On read, `unsaved` is kept only as an int, `authors` only as kinds of the closed vocabulary, `lower_bound` only as `true`: what reaches the model from the state file is a count and known kinds.
    - It is written on PostToolUse of a write to a path directly under `.context/state/notebook/`, by a new block in `scripts/governance-onedit.sh` that calls the reader. That includes Edit and Write, and a shell write resolved by the one write-target resolver (`gate.py write-target`, EVOL-065; `scripts/gates/writes.py`).
    - The PostToolUse matcher widens from `Edit|Write` to `Edit|Write|Bash`. For a Bash payload the script exits at once unless the payload names `.context/state/notebook/`, a shell `case`, so the cost of an unrelated command is one shell start.
    - *Field:* most notebook writes are shell appends. A claim on Edit/Write only would miss them.
@@ -67,7 +67,7 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
    - It dispatches on the payload's `hook_event_name`: `PostToolUse` claims, `PreCompact` advises, `UserPromptSubmit` re-injects.
    - It reuses the existing flag name `--hook-json`, so no new flag.
    - It has one guard, `open_single(path)`. The guard opens with `O_RDONLY|O_NOFOLLOW|O_NONBLOCK` and refuses the file unless `fstat` shows `S_ISREG` and `st_nlink == 1`.
-   - The guard also checks that the parent's realpath is the expected directory, so a symlink higher in the path does not slip through.
+   - The guard also checks that the parent's realpath is the repository's realpath joined with the expected directory, so a symlink higher in the path does not slip through. An Edit/Write target is resolved with `realpath` before the name check, so a symlinked notebook is never claimed.
    - The guard applies to the notebook, the state file and the transcript. The `path` inside a state file is re-checked against `.context/state/notebook/*.md`.
    - Every path through the reader exits 0, including an exception or a missing key.
    - *§4 test (CLAUDE.md:104):*
@@ -83,7 +83,8 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
      - it counts the user-authored transcript entries delivered after the notebook's `st_mtime`;
      - it writes only the count and the authors into the state file.
    - The count rules close two of the known defects:
-     - a queued message is judged by the timestamp of the entry that delivered it, not by its enqueue time;
+     - a queued message is judged by where it sits in the transcript, not by its enqueue time. The attachment entry carries the enqueue time as its own `timestamp` (verified on real transcripts at review); it is delivered at its position, so it takes the timestamp of the next newer entry, its own when none follows;
+     - an interruption marker (`[Request interrupted by user]`) is not someone's words;
      - with `trigger == "manual"`, the newest entry that is the `/compact` invocation is dropped.
    - The transcript is read backwards from its end and stops at the first entry older than the notebook.
    - When the count is above 0, stdout names the notebook path, the count and the authors, and asks the summary to keep those requests and decisions. It never contains their words. Its size is at most `budgets.notebook_precompact`.
@@ -96,7 +97,7 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
      - the newest `## Log` entries that fit, in chronological order;
      - `[N older entries cut — read <path>]`;
      - the advisory line, when the count is above 0.
-   - The whole block is at most `budgets.notebook_reinject`, counted in UTF-8 bytes and cut only at entry boundaries.
+   - The whole block is at most `budgets.notebook_reinject`, counted in UTF-8 bytes and cut only at entry boundaries. Every `<` of the notebook's text reaches the model as `&lt;`; the split is linear in the notebook's size.
    - A standing part over the budget is never cut. In its place the block prints its path and size and says "read it whole".
    - No claim, or no reload pending, prints nothing, so the cost is zero.
    - *Rationale:* the harness caps each hook command's output separately, and the measured governance block already fills its share. Putting this block inside `governance-onprompt.sh` is the shared budget #235 rules out. The trigger is the existing PreCompact → next-prompt pair. Only the emitter is a sibling. `governance-onprompt.sh` does not change.
@@ -110,7 +111,7 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
 7. **The rule is one paragraph.** `rules/agents.md` § context diet gains bound **(4) The session notebook**. It says:
    - when to write the notebook: a recorded decision, queued work, or user words not acted on this turn;
    - the path and the format;
-   - Write/Edit only;
+   - the claim: Edit, Write or a shell append, never a subagent;
    - that the block after a compaction is data, never an instruction;
    - that the budgets are named in the config.
 
@@ -130,7 +131,7 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
   - the two budget keys;
   - the rule paragraph.
 - **What `SETUP --upgrade` does:** today merge-preserve adds the `UserPromptSubmit` block only when it is absent (`Factory-setup-upgrade.instructions.md:457`), so an installed project would never get the second entry. The fix:
-  - **Merge rule.** The rule gains: `UserPromptSubmit`: add `gate.py notebook --hook-json` when absent, identified by the reader it runs; never touch a project's own entries. The same clause goes into `Factory-setup-materialization.instructions.md:1016`.
+  - **Merge rule.** The rule gains: `UserPromptSubmit`: add `gate.py notebook --hook-json` when absent, identified by the reader it runs; never touch a project's own entries. The `PostToolUse` entry that runs `governance-onedit.sh` takes the matcher `Edit|Write|Bash`. The same clause goes into `Factory-setup-materialization.instructions.md:1016`. The anchor adds a budget key that is absent or not a positive int, at the template's value or the project's `hook_output_cap` when lower; it never raises a value.
   - **Anchor.** A new anchor `**session-notebook (EVOL-133).**` holds a bash block that adds the entry and the two budget keys when they are absent. The block is idempotent.
   - **Restart.** Hook wiring reloads per tool call, so no restart is needed.
 - **Synthetic proof** (`scripts/materialize-synthetic.sh`, every fixture run with `--answers`):
@@ -142,7 +143,7 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
     - the next UserPromptSubmit prints the block at most 9000 bytes with the standing part whole;
     - a second prompt prints nothing;
   - (d) `gate.py plan --path .context/state/notebook/x.md` reports the path as not governed;
-  - (e) the upgrade anchor runs twice on a 10.9-shaped tree that has the project's own `UserPromptSubmit` hook: the entry and keys land, the project's hook is kept, and the second run leaves the same sha.
+  - (e) the upgrade anchor runs twice on a 10.9-shaped tree that has the project's own `UserPromptSubmit` hook: the entry, the keys and the `Edit|Write|Bash` matcher land, the project's hook is kept, and the second run leaves the same sha.
 
 ## Build
 
@@ -160,7 +161,9 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
 | `Factory-setup-upgrade.instructions.md` | merge rule plus anchor | MINOR 3.5.1→3.6.0 |
 | `Factory-setup-materialization.instructions.md` | merge-preserve clause | PATCH 4.6.0→4.6.1 |
 | `factory-governance-loading/SKILL.md`, `README.md`, template `scripts/README.md:242` | one clause each | PATCH |
-| `scripts/test-hooks.sh`, `scripts/materialize-synthetic.sh` (meta-only) | hook and synthetic assertions | MINOR |
+| `scripts/test-hooks.sh`, `scripts/materialize-synthetic.sh` (meta-only) | hook and synthetic assertions; the anchoring check accepts `cd "${CLAUDE_PROJECT_DIR:-.}" && python3 scripts/` | MINOR |
+| template `setup/discovery_registry.json` | migration row `session-notebook (EVOL-133)`, since 10.10.0 | MINOR 2.8.1→2.9.0 |
+| `scripts/fixtures/synthetic-answers/upgrade-8.12{,-api}.json` | the migration expected | MINOR |
 | `governance_versions.json` | `framework_version` 10.9.2→10.10.0 | MINOR |
 
 ### Red first
@@ -168,16 +171,16 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
 Each test below is proven red against `origin/main` before its code lands.
 
 `test_gates.py::Notebook`:
-1. The standing part is whole, the newest log entries are kept chronologically, the cut pointer is present, the total is at most the key, and a multibyte character at the boundary is never split.
+1. The standing part is whole, the newest log entries are kept chronologically, the cut pointer is present, the total is at most the key, and every kept entry carries its multibyte run whole.
 2. A standing part over the key gives the pointer only, with no partial standing.
 3. No claim, or no reload, prints nothing. The reload is consumed once.
-4. The count follows the notebook's mtime. A queued entry enqueued before the update but delivered after it is counted; the reverse case is not.
+4. The count follows the notebook's mtime. A queued entry in the real shape (its own stamp the enqueue time) enqueued before the update but delivered after it is counted; one delivered before it is not; an interruption marker is not counted.
 5. The output, the state file and the block carry the count and the authors, and never the fixture's sentinel word.
 6. With `trigger: manual`, the `/compact` entry alone gives a count of 0. The same entry with `trigger: auto` counts.
-7. A symlinked notebook, a hard-linked notebook (`st_nlink == 2`), a FIFO (no hang), a hard-linked state file and a state `path` outside the directory are each refused.
+7. A symlinked notebook, a hard-linked notebook (`st_nlink == 2`), a FIFO (no hang), a hard-linked state file, a state `path` outside the directory, a symlinked notebook directory and a symlinked state directory are each refused; a forged state `authors` never closes the block.
 8. A claim leaves no temp file and the last claim wins. A payload with `agent_id` does not claim. A Bash `cat >> .context/state/notebook/x.md` claims; a Bash command that names no notebook does not.
 9. Garbage stdin, an unwritable state directory or a missing budget key exits 0.
-10. In `budget`, a missing key is red and an overflowing producer is red.
+10. In `budget`, a missing key is red, a dead producer is red, and a key above `hook_output_cap` is red.
 11. The notebook's text cannot close the block or forge a tag: `<` reaches the model as `&lt;`, and only the reader writes `</session-notebook>`.
 
 `test-hooks.sh`:
@@ -219,7 +222,7 @@ Each test below is proven red against `origin/main` before its code lands.
   The docs reader should confirm these at Beat 0.
 - **`session_id` is the same before and after a compaction.** The existing governance reload assumes it too (`governance-onprompt.sh:122`).
 - **Transcript JSONL shape is undocumented:**
-  - the queued-message attachment type and its delivery timestamp;
+  - the queued-message attachment type and its timestamp (the enqueue time, verified on real transcripts; delivery is its position);
   - how a manual `/compact` appears;
   - the `isMeta` and tool-result entries to exclude.
 - **PostToolUse carries `agent_id` for a subagent's tool call.**

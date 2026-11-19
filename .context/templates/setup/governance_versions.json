@@ -909,7 +909,7 @@
       "version": "2.9.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
-      "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
+      "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language.",
       "delivery": "both"
     },
     "scripts/gates/__init__.py": {
@@ -1985,7 +1985,7 @@
       "version": "1.3.0",
       "path": "scripts/governance-onedit.sh",
       "type": "utility",
-      "role": "PostToolUse Edit|Write hook — two independent blocks: (1) governance source watcher (constitution / setup / defect-prevention) drops `governance-source-edited` marker; (2) IPP Pillar 2 detector — parses governance artefacts (docs/spec/*/*.{md,html,feature}, docs/setup.md, plus basename matches for qa_report*.md and technical_due*.md) and drops `ipp-pillar2` marker when filled H2 sections outpace `_progress.completed_sections`. Both consumed by governance-onprompt.sh. Observational, always exits 0.",
+      "role": "PostToolUse Edit|Write|Bash hook — three independent blocks (a Bash payload runs only the third): (3) the session notebook claim (EVOL-133, `gate.py notebook --hook-json`); (1) governance source watcher (constitution / setup / defect-prevention) drops `governance-source-edited` marker; (2) IPP Pillar 2 detector — parses governance artefacts (docs/spec/*/*.{md,html,feature}, docs/setup.md, plus basename matches for qa_report*.md and technical_due*.md) and drops `ipp-pillar2` marker when filled H2 sections outpace `_progress.completed_sections`. Both consumed by governance-onprompt.sh. Observational, always exits 0.",
       "delivery": "both"
     },
     "scripts/governance-onprompt.sh": {
@@ -2338,7 +2338,7 @@
     "scripts/gate.py": {
       "version": "2.9.0",
       "type": "script",
-      "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
+      "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
     },
     "scripts/gates/__init__.py": {
