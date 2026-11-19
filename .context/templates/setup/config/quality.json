@@ -272,5 +272,17 @@
     "warmup": 5,
     "samples": 30,
     "timeout_s": 120
+  },
+  "catalog": {
+    "_doc": "The design-system catalog (EVOL-084), read by python3 scripts/gate.py catalog — a light member, n/a without a frontend or before the component registry exists. The UI files a change touches (sources minus exclude) are built from the catalog: a component imported from a package outside packages, or a design-system export the registry does not hold, is red (a); a catalog component (cip_name) defined outside its home — its config/codebase_inventory.json path, else a home glob — is red (b); a mock_vocabulary entry (substring, any case) in shipped UI is red (c); the registry's design_system_version moves with its catalog — a new component MINOR, a removed or renamed one MAJOR (d). packages names the design system's npm packages; prefixes the custom-element prefixes it registers; local the import prefixes the project resolves to its own tree (a baseUrl path); allow the framework built-ins never judged. Rules: rules/ux-constitution.md § 3, DC-45.",
+    "registry": "docs/ux/component-registry.json",
+    "sources": ["**/*.{tsx,jsx,vue,svelte}", "**/*.component.html"],
+    "exclude": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/*.test.*", "**/*.spec.*", "**/*.stories.*", "**/__tests__/**", "**/__mocks__/**", "tests/**", "e2e/**", "docs/**"],
+    "home": ["src/components/ui/**"],
+    "packages": [],
+    "prefixes": [],
+    "local": [],
+    "allow": ["Fragment", "Suspense", "StrictMode", "Profiler", "ErrorBoundary", "Link", "NavLink", "Outlet", "Route", "Routes", "Navigate", "Head", "Script", "Image", "Transition", "TransitionGroup", "KeepAlive", "Teleport", "Component", "RouterView", "RouterLink", "Show", "For", "Index", "Switch", "Match", "Portal", "Dynamic", "router-outlet", "ng-container", "ng-template", "ng-content"],
+    "mock_vocabulary": ["data-component=", "lorem ipsum"]
   }
 }

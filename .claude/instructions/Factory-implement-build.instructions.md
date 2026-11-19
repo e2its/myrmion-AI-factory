@@ -443,6 +443,8 @@ IF frontend.framework != "None":
       - navigation_map.md (feature placement)
   
   # ux_context (or raw HTML content) is available to Phase B (the frontend worker + the fidelity lens)
+  # Catalog (EVOL-084, DC-45): the frontend worker builds from docs/ux/component-registry.json's components, imported
+  # from their home, and runs `python3 scripts/gate.py catalog` in its scoped red-first run — red names file, line, clause.
 ```
 
 #### Step 0c.1: CSS Foundation Gate (BLOCKING for Phase B)

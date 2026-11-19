@@ -774,6 +774,11 @@ run_build o6c --no-zip --mode ds-only --rebuild
 rm -f "$PROJ/.github/workflows/design-system-rebuild.yml"
 run_build o6d --no-zip --mode ds-only --rebuild
 [ "$RC" -eq 0 ] && has 'RUNBOOK.md says section 6C applies' && ok "stale runbook is called out when the project changes case" || bad "stale runbook went unnoticed" "$OUT"
+python3 -c 'import sys, yaml; yaml.safe_dump(yaml.safe_load(open(sys.argv[1])), open(sys.argv[2], "w"), sort_keys=False)' \
+  "$ROOT/.context/templates/setup/workflows/design-system-rebuild.bitbucket.yml" "$PROJ/bitbucket-pipelines.yml"   # as the merge writes it: long lines folded
+run_build o6bb --no-zip --mode ds-only --rebuild
+[ "$RC" -eq 0 ] && ! has 'RUNBOOK.md says' && ok "6C: the Bitbucket job merged into bitbucket-pipelines.yml counts as the CI workflow (EVOL-084)" || bad "6C: the Bitbucket job was not detected (exit $RC)" "$OUT"
+rm -f "$PROJ/bitbucket-pipelines.yml"
 sed -i.bak 's/^Active design-system section:.*$/Section in use: see above/' "$PROJ/subproducts/po-package/RUNBOOK.md"
 run_build o6h --no-zip --mode ds-only --rebuild
 has 'no longer states its active design-system section' && ok "a runbook whose header was reworded is said out loud, not skipped" || bad "a reworded runbook header disabled the freshness check silently" "$OUT"

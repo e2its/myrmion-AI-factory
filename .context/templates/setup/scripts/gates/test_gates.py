@@ -8163,6 +8163,216 @@ class _Slow:
         self.srv.shutdown(); self.srv.server_close()
 
 
+class Catalog(unittest.TestCase):
+    """EVOL-084, the design-system catalog: the registry carries its design-system version, and one gate rejects shipped UI
+    built outside it — a component from another package, a local copy, the mock's vocabulary, a registry edit without its bump."""
+    REG = "docs/ux/component-registry.json"
+    BLOCK = {"registry": "docs/ux/component-registry.json",
+             "sources": ["src/**/*.tsx", "src/**/*.jsx", "src/**/*.vue", "src/**/*.svelte", "src/**/*.component.html"],
+             "exclude": ["**/*.test.*", "**/*.spec.*", "**/*.stories.*"], "home": ["src/components/ui/**"],
+             "packages": ["@acme/ds"], "prefixes": ["mat-"], "local": ["components/"],
+             "allow": ["Fragment", "Suspense", "router-outlet"], "mock_vocabulary": ["data-component=", "lorem ipsum"]}
+
+    def _git(self, repo, *c):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)
+
+    def _reg(self, version="1.0.0", comps=(("button", "Button", "1.0.0"), ("card", "Card", "1.0.0"))):
+        return json.dumps({"$schema": "component_registry_v1", "version": "1.0.0", "design_system_version": version,
+                           "components": [{"id": i, "name": n, "cip_name": n, "since": s, "status": "IMPLEMENTED"} for i, n, s in comps]})
+
+    def _repo(self, tmp, block=True, frontend=True, registry=True, context_="downstream"):
+        from gates import catalog  # noqa: F401  — red until the gate exists
+        repo = fixture_repo(Path(tmp), context_)
+        write(repo / "docs/setup.md", "---\nproject_scope: full-stack\nbackend:\n  runtime: Go\n" + ("frontend:\n  framework: React\n" if frontend else "") + "---\n")
+        q = json.loads((repo / "config/quality.json").read_text())
+        if block:
+            q["catalog"] = json.loads(json.dumps(self.BLOCK))
+        write(repo / "config/quality.json", json.dumps(q))
+        if registry:
+            write(repo / self.REG, self._reg())
+        write(repo / "src/components/ui/Button.tsx", "export function Button(p) { return <button {...p} /> }\n")
+        write(repo / "src/legacy/Old.tsx", "import { Slider } from 'other-ui'\nexport const Old = () => <Slider data-component=\"slider\" />\n")
+        self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base"); self._git(repo, "branch", "-M", "main")
+        self._git(repo, "checkout", "-qb", "feature/X-1")
+        return repo
+
+    def _check(self, repo):
+        from gates import catalog
+        return catalog.check(repo, "main")
+
+    def _problems(self, r):
+        return [p for row in r["rows"] for p in row["problems"]]
+
+    def test_not_applicable_without_its_inputs(self):
+        from gates import catalog
+        for kw, why in (({"context_": "meta"}, "framework repo"), ({"block": False}, "no `catalog` block"),
+                        ({"frontend": False}, "no frontend"), ({"registry": False}, "no component registry")):
+            with self.subTest(kw=kw), tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, **kw)
+                write(repo / "src/features/a/A.tsx", "import { Carousel } from 'other-ui'\nexport const A = () => <Carousel />\n")
+                r = catalog.check(repo, "main")
+                self.assertTrue(r["ok"]); self.assertIn(why, r["na"]); self.assertIn("n/a", catalog.render(r))
+
+    def test_a_component_outside_the_catalog_fails_the_gate(self):
+        """The DoD: a component outside the catalog fails the gate — another package's, or the design system's own export the catalog does not hold."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "src/features/a/A.tsx", "import { Carousel } from 'other-ui'\nimport { Chip as C } from '@acme/ds/chip'\n"
+                  "import * as DS from '@acme/ds'\nexport const A = () => (\n  <>\n    <Carousel />\n    <C />\n    <DS.Button />\n    <DS.Tabs />\n  </>\n)\n")
+            r = self._check(repo); probs = self._problems(r)
+            self.assertFalse(r["ok"])
+            self.assertTrue(any("src/features/a/A.tsx:6 (a)" in p and "`Carousel` comes from `other-ui`" in p for p in probs), probs)
+            self.assertTrue(any(":7 (a)" in p and "`C` from the design system is not in the catalog" in p for p in probs), probs)
+            self.assertTrue(any(":9 (a)" in p and "`DS.Tabs`" in p for p in probs), probs)
+            self.assertFalse(any("DS.Button" in p for p in probs), "a catalog component through a namespace import is the catalog's")
+            self.assertEqual({f["clause"] for f in r["findings"]}, {"a"})
+            write(repo / "src/features/a/A.tsx", "import { Button } from '@acme/ds'\nimport { Card } from '@acme/ds/card'\nimport { Row } from './Row'\n"
+                  "import { Grid } from '@/layout/Grid'\nimport { Panel } from 'components/Panel'\nimport { Suspense, Fragment } from 'react'\n"
+                  "export const A = () => <Suspense><Fragment><Button /><Card /><Row /><Grid /><Panel /></Fragment></Suspense>\n")
+            r = self._check(repo)
+            self.assertTrue(r["ok"], catalog_render(r))
+            self.assertIn("1 changed UI file judged", catalog_render(r))
+
+    def test_custom_elements_and_vue_tags(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "src/features/v/V.vue", "<template>\n  <other-widget />\n  <x-chart />\n  <mat-button />\n</template>\n"
+                  "<script setup>\nimport OtherWidget from 'other-ui/widget'\n</script>\n")
+            write(repo / "src/app/home.component.html", "<app-header></app-header>\n<x-map></x-map>\n<router-outlet></router-outlet>\n")
+            write(repo / "src/app/header.component.ts", "@Component({ selector: 'app-header', template: '' })\nexport class HeaderComponent {}\n")
+            probs = self._problems(self._check(repo))
+            self.assertTrue(any("V.vue:2 (a)" in p and "`other-widget` comes from `other-ui/widget`" in p for p in probs), probs)
+            self.assertTrue(any("V.vue:3 (a)" in p and "`x-chart` is a custom element" in p for p in probs), probs)
+            self.assertTrue(any("home.component.html:2 (a)" in p and "`x-map`" in p for p in probs), probs)
+            self.assertFalse(any(t in p for p in probs for t in ("mat-button", "app-header", "router-outlet")),
+                             "a design-system prefix, a declared selector and an allowed built-in are never judged")
+
+    def test_a_local_copy_of_a_catalog_component(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "src/features/a/Button.tsx", "export function Button() { return <button /> }\n")
+            write(repo / "src/features/a/Card.vue", "<template><div /></template>\n")
+            write(repo / "src/features/a/Cards.tsx", "export const Card = styled.div``\n")
+            probs = self._problems(self._check(repo))
+            self.assertTrue(any("features/a/Button.tsx:1 (b)" in p and "`Button` is a catalog component redefined here" in p for p in probs), probs)
+            self.assertTrue(any("features/a/Card.vue:1 (b)" in p for p in probs), probs)
+            self.assertTrue(any("features/a/Cards.tsx:1 (b)" in p and "`Card`" in p for p in probs), probs)
+            write(repo / "src/components/ui/Button.tsx", "export function Button(p) { return <button className='b' {...p} /> }\n")
+            self.assertFalse(any("components/ui/Button.tsx" in p for p in self._problems(self._check(repo))), "the home is the canonical definition")
+            write(repo / "config/codebase_inventory.json", json.dumps({"artifacts": [{"name": "Card", "type": "ui_component", "path": "src/features/a/Card.vue"}]}))
+            probs = self._problems(self._check(repo))
+            self.assertFalse(any("features/a/Card.vue:1" in p for p in probs), "the inventory names the canonical home")
+            self.assertTrue(any("Cards.tsx:1 (b)" in p and "import it from src/features/a/Card.vue" in p for p in probs), probs)
+
+    def test_the_mock_vocabulary_never_ships(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "src/features/a/A.tsx", "export const A = () => (\n  <div data-component=\"hero\">\n    <p>Lorem Ipsum dolor</p>\n  </div>\n)\n")
+            write(repo / "src/features/a/A.test.tsx", "it('x', () => render(<div data-component='hero' />))\n")
+            r = self._check(repo); probs = self._problems(r)
+            self.assertTrue(any("A.tsx:2 (c)" in p and "data-component=" in p for p in probs), probs)
+            self.assertTrue(any("A.tsx:3 (c)" in p and "lorem ipsum" in p for p in probs), probs)
+            self.assertFalse(any("A.test.tsx" in p for p in probs), "an excluded file is never judged")
+
+    def test_only_the_changed_files_are_judged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = self._check(repo)
+            self.assertTrue(r["ok"], catalog_render(r))
+            self.assertIn("0 changed UI files judged", catalog_render(r))
+            write(repo / "src/legacy/Old.tsx", (repo / "src/legacy/Old.tsx").read_text() + "// touched\n")
+            probs = self._problems(self._check(repo))
+            self.assertTrue(any("Old.tsx:1" not in p and "Old.tsx:2 (a)" in p for p in probs), probs)
+            self.assertTrue(any("Old.tsx:2 (c)" in p for p in probs), "a touched file is read whole")
+
+    def test_the_registry_version_moves_with_its_catalog(self):
+        from gates import catalog
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            base = (("button", "Button", "1.0.0"), ("card", "Card", "1.0.0"))
+            cases = (
+                (self._reg("1.0.0", base + (("chip", "Chip", "1.0.0"),)), "owes at least a MINOR bump"),
+                (self._reg("1.1.0", base + (("chip", "Chip", "1.0.0"),)), "its `since` is the new version 1.1.0"),
+                (self._reg("1.1.0", base[:1]), "owes a MAJOR bump"),
+                (self._reg("1.0.1", (("button", "Button", "1.0.0"), ("card", "Tile", "1.0.0"))), "owes a MAJOR bump"),
+                (self._reg("0.9.0", base), "went down"),
+                (self._reg("1.0", base), "must be semver"),
+                (self._reg("1.0.0", (("button", "Button", "1.2.0"), ("card", "Card", "1.0.0"))), "above the design system's 1.0.0"),
+                (json.dumps({"design_system_version": "1.0.0", "components": [{"id": "button", "cip_name": "Button"}]}), "owes a MAJOR bump"),
+                ("{not json", "is not JSON"),
+            )
+            for text, needle in cases:
+                with self.subTest(needle=needle):
+                    write(repo / self.REG, text)
+                    try:
+                        r = catalog.check(repo, "main")
+                        out = catalog_render(r)
+                    except GateFault as e:
+                        out = str(e)
+                    self.assertIn(needle, out)
+            for text in (self._reg("1.1.0", base + (("chip", "Chip", "1.1.0"),)), self._reg("2.0.0", base[:1]), self._reg("1.0.0", base)):
+                write(repo / self.REG, text)
+                r = catalog.check(repo, "main")
+                self.assertTrue(r["ok"], catalog_render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            reg = json.loads(self._reg("1.0.0", base)); reg["components"][1]["cip_name"] = None
+            write(repo / self.REG, json.dumps(reg)); self._git(repo, "commit", "-qam", "unbound")
+            self._git(repo, "checkout", "-q", "main"); self._git(repo, "merge", "-q", "--ff-only", "feature/X-1"); self._git(repo, "checkout", "-q", "feature/X-1")
+            write(repo / self.REG, self._reg("1.0.0", base))
+            r = catalog.check(repo, "main")
+            self.assertTrue(r["ok"], "binding a built component (cip_name null → name) is no catalog change: " + catalog_render(r))
+
+    def test_imports_are_read_in_linear_time(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "src/features/a/A.tsx", "import " + "a" * 200000 + "\n" + "import x\n" * 20000 + "<" + "A" * 50000 + "\n")
+            t = time.monotonic(); self._check(repo); spent = time.monotonic() - t
+            self.assertLess(spent, 5.0, "the import and tag readers are bounded")
+
+    def test_cli_and_profile_member(self):
+        self.assertIn(("catalog", False, False, "gate.py", ["gate", "catalog", "--base", "{base}", "--branch", "{branch}"], False), profile.MEMBERS)
+        self.assertIn("catalog", {m["member"] for m in profile.owed("light")})
+        gate = str(HERE.parent / "gate.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            env = {**os.environ, "CLAUDE_PROJECT_DIR": ""}
+            p = subprocess.run([sys.executable, gate, "--repo", str(repo), "catalog", "--base", "main"], capture_output=True, text=True, env=env)
+            self.assertEqual(p.returncode, 0, p.stderr + p.stdout)
+            write(repo / "src/features/a/A.tsx", "import { Carousel } from 'other-ui'\nexport const A = () => <Carousel />\n")
+            p = subprocess.run([sys.executable, gate, "--repo", str(repo), "catalog", "--base", "main", "--json"], capture_output=True, text=True, env=env)
+            self.assertEqual(p.returncode, 1, p.stderr)
+            self.assertEqual(json.loads(p.stdout)["findings"][0]["tag"], "Carousel", "QA reads the findings from --json")
+
+    def test_the_template_ships_the_block_and_the_class(self):
+        root = HERE.parents[1]
+        q = (root / ".context/templates/setup/config/quality.json") if (root / ".context/templates/setup/config/quality.json").is_file() else None
+        if q is None:
+            self.skipTest("a project carries its materialised block; the template is the framework's")
+        block = json.loads(re.search(r'"catalog": (\{.*?\n  \})', q.read_text(), re.S).group(1))
+        for k in ("registry", "sources", "exclude", "home", "packages", "prefixes", "local", "allow", "mock_vocabulary"):
+            self.assertIn(k, block)
+        dp = (root / ".context/templates/setup/rules/defect-prevention.md").read_text()
+        self.assertRegex(dp, r"\| DC-45 \| `ui` \|.*profile member `catalog`")
+        self.assertIn("### DC-45", (root / ".context/templates/setup/rules/defect-prevention-cases.md").read_text())
+        # the rebuild lands on both platforms, only where a frontend exists; Q29.1 is asked only there
+        man = json.loads((root / ".context/templates/setup/governance_versions.json").read_text())["templates"]
+        for wf, plat in (("github-actions", "GitHub Actions"), ("bitbucket", "Bitbucket Pipelines")):
+            cond = man[f"workflows/design-system-rebuild.{wf}.yml"]["stack_conditional"]
+            self.assertIn(f'ci_cd.platform == "{plat}"', cond)
+            self.assertIn("frontend.framework != None", cond)
+        self.assertEqual(man["workflows/design-system-rebuild.bitbucket.yml"].get("target_mode"), "merge")
+        reg = json.loads((root / ".context/templates/setup/setup/discovery_registry.json").read_text())
+        q291 = next(q for q in reg["questions"] if q["id"] == "Q29.1")
+        self.assertIn("frontend.framework != None", q291["when"])
+        self.assertIn("catalog (EVOL-084)", [r["id"] for r in reg["migrations"]])
+
+
+def catalog_render(r):
+    from gates import catalog
+    return catalog.render(r)
+
+
 class Performance(unittest.TestCase):
     """EVOL-073, performance as law: one home for the thresholds, a dated append-only baseline per site that moves one
     way, the bundle per route in the loop, the deployed measurement (p95, web vitals, warm p50, start / cold)."""

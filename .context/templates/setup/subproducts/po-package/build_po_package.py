@@ -63,6 +63,8 @@ HERE = Path(__file__).resolve().parent
 LANGUAGE_NAMES = {"en": "English", "es": "Spanish"}
 CARD_MARKER_RE = re.compile(r'\A\s*<!--\s*@dsCard\b([^>]*)-->')
 WORKFLOW_PATH = ".github/workflows/design-system-rebuild.yml"
+BITBUCKET_PIPELINES = "bitbucket-pipelines.yml"   # the Bitbucket job is merged into it (EVOL-084)
+REBUILD_STEP = "build_po_package.py --mode ds-only --rebuild"
 CODESIGN_TEMPLATES = (
     "gherkin_master_template.feature", "mock-template.html",
     "mock-feature-content-template.html", "app-shell-template.html",
@@ -532,7 +534,21 @@ def expected_runbook_section(build: Build) -> str:
     cards = build.cfg["design_system"]["code_cards"]
     if not cards.get("dir"):
         return "6A"
-    return "6C" if cards.get("rebuild_command") and (build.repo / WORKFLOW_PATH).exists() else "6B"
+    return "6C" if cards.get("rebuild_command") and ci_workflow(build.repo) else "6B"
+
+
+def ci_workflow(repo: Path) -> str | None:
+    """The installed rebuild job's home: the GitHub workflow, or a bitbucket-pipelines.yml carrying the step (EVOL-084)."""
+    if (repo / WORKFLOW_PATH).exists():
+        return WORKFLOW_PATH
+    try:
+        bb = repo / BITBUCKET_PIPELINES
+        # whitespace collapsed: a YAML writer may fold the long script line where the merge rewrote the file
+        if bb.is_file() and REBUILD_STEP in " ".join(bb.read_text(encoding="utf-8", errors="replace").split()):
+            return BITBUCKET_PIPELINES
+    except OSError:
+        pass
+    return None
 
 
 def check_runbook(build: Build) -> None:

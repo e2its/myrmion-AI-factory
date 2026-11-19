@@ -122,7 +122,7 @@ Per component, a card rendered from code wins over the vision card, so the PO se
 
 ### 6C — cards rebuilt in CI (workflow installed)
 
-Same as 6B with a rebuild command — a tool you can only run by asking Claude cannot run in CI — and `.github/workflows/design-system-rebuild.yml` runs the rebuild and the drift check on every push to the main branch and on demand. It is advisory: it never fails the pipeline. Download the bundle from the run's artefacts, or run the 6B commands locally. Before building a package, still pass `--rebuild` so the package matches the code of the day.
+Same as 6B with a rebuild command — a tool you can only run by asking Claude cannot run in CI — and the CI job — `.github/workflows/design-system-rebuild.yml` on GitHub Actions, or the step merged into `bitbucket-pipelines.yml` on Bitbucket Pipelines — runs the rebuild and the drift check on every push to the main branch and on demand. It is advisory: it never fails the pipeline. Download the bundle from the run's artefacts, or run the 6B commands locally. Before building a package, still pass `--rebuild` so the package matches the code of the day.
 
 ### Reading the drift report
 
@@ -146,7 +146,7 @@ Rebuild the package so the PO works on the new state, not on the one sent last t
 ## 8. Changing case later
 
 - **Turning cards from code on after `vision` or `defer`:** set `design_system.code_cards.dir` in `subproducts/po-package/po-package.config.json`, and `rebuild_command` only if your tool has a terminal command. You are now in 6B.
-- **Adding the CI workflow** (needs a rebuild command): copy `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` to `.github/workflows/design-system-rebuild.yml`. You are now in 6C.
+- **Adding the CI workflow** (needs a rebuild command): copy `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` to `.github/workflows/design-system-rebuild.yml` (GitHub Actions), or merge `design-system-rebuild.bitbucket.yml` into `bitbucket-pipelines.yml` (Bitbucket Pipelines). You are now in 6C.
 - **Then update the "This project" block above.** The builder compares that block with the configuration and the workflow's presence on every run and warns when they disagree.
 
 ## 9. What breaks and how it shows

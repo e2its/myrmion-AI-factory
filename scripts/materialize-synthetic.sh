@@ -291,7 +291,7 @@ rows = {m.group(1): m.group(0) for m in re.finditer(r"(?m)^\| (DC-\d+) \|.*$", (
 case = lambda text, i: re.search(r"(?ms)^### " + i + r" — .*?(?=^### |\Z)", text)
 tcases = (tpl / "defect-prevention-cases.md").read_text(encoding="utf-8")
 cat, cases = (proj / "defect-prevention.md").read_text(encoding="utf-8"), (proj / "defect-prevention-cases.md").read_text(encoding="utf-8")
-for i in ("DC-32", "DC-33", "DC-34", "DC-35", "DC-36", "DC-37", "DC-38", "DC-39", "DC-43", "DC-44"):   # rows after 8.12 (DC-36..38: EVOL-072; DC-39: EVOL-070; DC-43: EVOL-073; DC-44: EVOL-081)
+for i in ("DC-32", "DC-33", "DC-34", "DC-35", "DC-36", "DC-37", "DC-38", "DC-39", "DC-43", "DC-44", "DC-45"):   # rows after 8.12 (DC-36..38: EVOL-072; DC-39: EVOL-070; DC-43: EVOL-073; DC-44: EVOL-081; DC-45: EVOL-084)
     cat = cat.replace(rows[i] + "\n", "")
     cases = cases.replace(case(cases, i).group(0), "")
 cat = cat.replace(rows["DC-31"], "| DC-31 | `process` | Every login of the project names its tenant. | `—` | `src/**` | IMPLEMENT, REVIEW | WARNING |")
@@ -301,8 +301,8 @@ if "| DC-18 |" not in cat:
     cases = cases.rstrip("\n") + "\n\n" + case(tcases, "DC-18").group(0)
 (proj / "defect-prevention.md").write_text(cat, encoding="utf-8"); (proj / "defect-prevention-cases.md").write_text(cases, encoding="utf-8")
 PY
-  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance`, no `delivery`, no `proof`, no `tracker` and no `documents` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081, EVOL-106, EVOL-079, EVOL-080) — their migrations are owed
-  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery", "proof", "tracker", "documents")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+  # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance`, no `delivery`, no `proof`, no `tracker`, no `documents` and no `catalog` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081, EVOL-106, EVOL-079, EVOL-080, EVOL-084) — their migrations are owed
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery", "proof", "tracker", "documents", "catalog")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped (a `was` value — replaced), a
   # tests command the project edited (kept), no red_reads (added); no `sast` row (EVOL-074 — added), no `contract-parity` row (EVOL-070 — added where Q4.5 selects it), no `performance` row (EVOL-073 — added with a frontend)
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]

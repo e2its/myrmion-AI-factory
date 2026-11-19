@@ -122,7 +122,7 @@ Por componente, una tarjeta renderizada desde el código gana a la de la visión
 
 ### 6C — tarjetas reconstruidas en CI (workflow instalado)
 
-Igual que 6B con comando de reconstrucción —una herramienta que sólo se lanza pidiéndoselo a Claude no puede ejecutarse en CI—, y además `.github/workflows/design-system-rebuild.yml` ejecuta la reconstrucción y la comprobación de deriva en cada push a la rama principal y bajo demanda. Es informativo: nunca hace fallar el pipeline. Descarga el bundle de los artefactos de la ejecución, o lanza los comandos de 6B en local. Antes de generar un paquete, pasa igualmente `--rebuild` para que el paquete case con el código del día.
+Igual que 6B con comando de reconstrucción —una herramienta que sólo se lanza pidiéndoselo a Claude no puede ejecutarse en CI—, y además el job de CI —`.github/workflows/design-system-rebuild.yml` en GitHub Actions, o el paso fusionado en `bitbucket-pipelines.yml` en Bitbucket Pipelines— ejecuta la reconstrucción y la comprobación de deriva en cada push a la rama principal y bajo demanda. Es informativo: nunca hace fallar el pipeline. Descarga el bundle de los artefactos de la ejecución, o lanza los comandos de 6B en local. Antes de generar un paquete, pasa igualmente `--rebuild` para que el paquete case con el código del día.
 
 ### Cómo leer el informe de deriva
 
@@ -146,7 +146,7 @@ Regenera el paquete para que el PO trabaje sobre el estado nuevo, no sobre el qu
 ## 8. Cambiar de caso más tarde
 
 - **Activar tarjetas desde código tras `vision` o `defer`:** rellena `design_system.code_cards.dir` en `subproducts/po-package/po-package.config.json`, y `rebuild_command` sólo si tu herramienta tiene comando de terminal. Pasas a 6B.
-- **Añadir el workflow de CI** (necesita comando de reconstrucción): copia `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` a `.github/workflows/design-system-rebuild.yml`. Pasas a 6C.
+- **Añadir el workflow de CI** (necesita comando de reconstrucción): copia `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` a `.github/workflows/design-system-rebuild.yml` (GitHub Actions), o fusiona `design-system-rebuild.bitbucket.yml` en `bitbucket-pipelines.yml` (Bitbucket Pipelines). Pasas a 6C.
 - **Después actualiza el bloque "Este proyecto" de arriba**, y el de `RUNBOOK.md`. El generador compara ese bloque con la configuración y la presencia del workflow en cada ejecución y avisa cuando no coinciden.
 
 ## 9. Qué se rompe y cómo se nota

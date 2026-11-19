@@ -361,7 +361,7 @@ Role: Phase agent `factory-codesign` — one context, both concerns (🎩 PO ↔
 
 Per-feature artifacts: `docs/spec/{ID}/spec.feature`, `mock.html`, `user_journey.md`.
 Global vision artifacts: `docs/ux/vision/vision.md`, `app_shell.html`, `style_guide.html`, `page_templates.html`, `component_library.html`, `navigation_map.md`.
-Design-system ↔ build alignment: `docs/ux/component-registry.json` (one entry per `data-component` anchor of the component library).
+Design-system ↔ build alignment: `docs/ux/component-registry.json` (one entry per `data-component` anchor of the component library), versioned as a catalog — `design_system_version` semver, each entry's `since`; BLUEPRINT, IMPLEMENT and QA read it, and `gate.py catalog` (DC-45, EVOL-084) rejects shipped UI built outside it.
 
 **Authoring surface (SETUP Q29, `docs/setup.md` `codesign.authoring`).** `internal` — co-created in the CLI with the commands above. `external` — authored by the PO in a Claude Desktop project; `--start`, `--refine` (and `--vision`, `--vision-refine` when the package covers the design system) are **guarded** and point to `--sync`. State commands (`--vision-approve`, `--vision-propagate`, `--revise`, `--cancel`) behave the same in both. An absent key means `internal`.
 
@@ -494,7 +494,7 @@ CODESIGN is the phase whose signing actor is not an engineer. When a project cho
 |---|---|---|
 | 6A | The vision only | Nothing extra |
 | 6B | Code, per component; the vision for components not built yet | Ask Claude to run your tool, then build — or `build_po_package.py --rebuild` when a command is configured |
-| 6C | Same as 6B, with a rebuild command | Also an **optional, advisory** GitHub Actions job (`design-system-rebuild.yml`) on push to main and on demand |
+| 6C | Same as 6B, with a rebuild command | Also an **optional, advisory** CI job on push to main and on demand — GitHub Actions (`design-system-rebuild.yml`) or Bitbucket Pipelines (merged into `bitbucket-pipelines.yml`) |
 
 The rebuild command runs without a shell and with a timeout; a tool that is not installed, fails or times out falls back to vision cards with a loud warning and never blocks. `--check-drift` reports `code-card-unregistered`, `implemented-without-code-card` and `candidate-implemented` — the mechanical signal that the design system and what is built are still the same thing. Claude Design is a one-way mirror published by the user-started `/design-sync`; no gate depends on it.
 

@@ -73,6 +73,7 @@ Conditional Scripts:
   - gate.py data: the data pack — migrations, destructive steps, the connection factory, seeds (IF database.migrations_tool is answered; n/a otherwise)
   - validate-iac.sh --strict: IaC governance (IF infra/ exists)
   - ux-validation.sh: WCAG compliance (IF has_ui)
+  - gate.py catalog --json: shipped UI built from the catalog — every finding with file, line, clause (DC-45, EVOL-084; n/a without a frontend or a registry)
 ```
 
 ---
@@ -471,6 +472,8 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   IF INFRA_EXISTS:
     checklist.push("- [ ] [QA-PRE-3]: IaC governance validation")
     checklist.push("- [ ] [QA-PRE-SCM]: server-side branch protection — `python3 scripts/gate.py scm-protection --control-point ci` green in CI, or the checklist of docs/scm/protection.md ticked by a repository administrator (EVOL-054)")
+  IF HAS_UI:
+    checklist.push("- [ ] [QA-PRE-UI]: Catalog — `gate.py catalog --json` green or n/a (DC-45)")
   IF HAS_UI AND STAGING_DEPLOYED:
     # Read from governance snapshot (survives summarization) — see INVARIANT 5
     synthetic_enabled = READ .context/governance_snapshot.md → Setup Configuration → synthetic_data.enabled
@@ -640,6 +643,9 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
 
 0b. **Data pack:** `python3 scripts/gate.py data` (EVOL-071; a light profile member, so CI ran it on the PR)
     - Exit 0: Continue (green or n/a) | Exit 1: REJECT — each line names the migration, the step or the file and its resolution
+
+0b2. **Catalog:** `python3 scripts/gate.py catalog --json` (EVOL-084; a light profile member, so CI ran it on the PR). QA certifies against its findings; it does not re-judge the UI by reading it.
+    - Exit 0: Continue (green or n/a) | Exit 1: REJECT — each finding names the file, the line and the clause (a foreign component, a local copy, mock vocabulary, the registry's version)
 
 0c. **IaC Governance:** `scripts/validate-iac.sh --strict` (if infra/ exists)
     - Exit 1,4: REJECT (secrets/state files) | Exit 2,3: WARN (naming/tags, continue)

@@ -99,7 +99,8 @@
         "DC-38",
         "DC-39",
         "DC-43",
-        "DC-44"
+        "DC-44",
+        "DC-45"
       ],
       "collisions": [
         "DC-31"
@@ -127,7 +128,7 @@
       "delivery-execution (EVOL-081)",
       "deploy-records (EVOL-081)",
       "proof-at-the-close (EVOL-106)",
-      "tracker (EVOL-079)", "documents (EVOL-080)"
+      "tracker (EVOL-079)", "documents (EVOL-080)", "catalog (EVOL-084)"
     ],
     "templates_to_add": [
       "workflows/deploy.github-actions.yml",

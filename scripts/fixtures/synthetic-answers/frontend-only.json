@@ -1,5 +1,5 @@
 {
-  "_doc": "Synthetic SETUP answers (EVOL-116): None backend, Angular frontend. The per-file scoped rows land without `red: false` and without `was`; the red member proves through frontend-tests. META-ONLY.",
+  "_doc": "Synthetic SETUP answers (EVOL-116): None backend, Angular frontend, Bitbucket with a design-system rebuild command (EVOL-084: the rebuild step merges into bitbucket-pipelines.yml). The per-file scoped rows land without `red: false` and without `was`; the red member proves through frontend-tests. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
     "project_scope": "frontend-only",
@@ -13,13 +13,13 @@
     "hosting.provider": "AWS",
     "hosting.type": "container",
     "hosting.deploy_tool": "Terraform",
-    "ci_cd.platform": "GitHub Actions",
-    "scm.platform": "GitHub",
+    "ci_cd.platform": "Bitbucket Pipelines",
+    "scm.platform": "Bitbucket",
     "project_tracking.tool": "None",
     "project_tracking.flow": ["Backlog", "Ready", "In Progress", "Done"],
     "documents.source": "None",
     "po_package.mode": "full",
-    "po_package.ds_rebuild_command": null,
+    "po_package.ds_rebuild_command": "npx ng run app:cards",
     "surface.runtime_surface": [
       "src/**",
       "scripts/**"
@@ -52,10 +52,16 @@
         "DC-39"
       ]
     },
-    "contains": {"config/quality.json": ["\"blocking_severity\": \"high\""], 
+    "contains": {
       ".claude/rules/ux-constitution.md": [
-        "### 3. Canonical Components"
-      ]
+        "### 3. Canonical Components",
+        "`gate.py catalog` (DC-45"
+      ],
+      "bitbucket-pipelines.yml": [
+        "Design system rebuild (advisory)",
+        "design-system-rebuild:"
+      ],
+      "config/quality.json": ["\"blocking_severity\": \"high\"", "\"mock_vocabulary\""]
     },
     "pending_absent": [
       "Q15.1",

@@ -310,18 +310,19 @@ reviewed_no_change: []
 REGISTRY = {
     "$schema": "component_registry_v1",
     "version": "1.0.0",
+    "design_system_version": "1.0.0",
     "last_updated": "2026-01-01T00:00:00Z",
     "catalog_feature": None,
     "components": [
         {"id": "button", "name": "Button", "group": "Components",
          "ds_anchor": "component_library.html#button", "origin": "vision", "cip_name": "Button",
-         "status": "IMPLEMENTED", "backlog_ref": None, "introduced_by": "UX-VISION"},
+         "status": "IMPLEMENTED", "backlog_ref": None, "introduced_by": "UX-VISION", "since": "1.0.0"},
         {"id": "card", "name": "Card", "group": "Components",
          "ds_anchor": "component_library.html#card", "origin": "vision", "cip_name": None,
-         "status": "DESIGNED", "backlog_ref": None, "introduced_by": "UX-VISION"},
+         "status": "DESIGNED", "backlog_ref": None, "introduced_by": "UX-VISION", "since": "1.0.0"},
         {"id": "input", "name": "Input", "group": "Components",
          "ds_anchor": "component_library.html#input", "origin": "vision", "cip_name": None,
-         "status": "DESIGNED", "backlog_ref": None, "introduced_by": "UX-VISION"},
+         "status": "DESIGNED", "backlog_ref": None, "introduced_by": "UX-VISION", "since": "1.0.0"},
     ],
 }
 

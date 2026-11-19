@@ -194,6 +194,7 @@ IF has_gap:
 1. **Mock Visual Baseline**: Extract component tree, interaction points, data bindings from mock.html
 2. **Global UX Vision**: Load app_shell.html, style_guide.html, page_templates.html, component_library.html, navigation_map.md
 3. **External Design System**: Load DS tokens from `docs/ux/design-system/`
+4. **Component catalog** (EVOL-084): Load `docs/ux/component-registry.json` (entries + `design_system_version`). Design UI with catalog components only. A component the catalog lacks is a design-system change: RDR → CODESIGN `--vision-refine`; BLUEPRINT never adds one (LAW-16). `gate.py catalog` (DC-45) rejects the build otherwise.
 5. **Cross-Feature UX Decisions**: Load `ux_decisions_log.md` for precedent
 
 ---

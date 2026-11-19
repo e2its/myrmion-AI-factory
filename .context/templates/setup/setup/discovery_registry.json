@@ -2072,7 +2072,7 @@
    "id": "Q29.1",
    "tier": 2,
    "since": "6.1.0",
-   "when": "codesign.authoring == external AND project_scope IN [full-stack, frontend-only]",
+   "when": "codesign.authoring == external AND project_scope IN [full-stack, frontend-only] AND frontend.framework != None",
    "keys": {
     "po_package.ds_cards_source": {
      "options": [
@@ -3114,6 +3114,12 @@
    "since": "10.4.0",
    "detect": "config/quality.json#/documents",
    "apply": "documents (EVOL-080)"
+  },
+  {
+   "id": "catalog (EVOL-084)",
+   "since": "10.9.0",
+   "detect": "config/quality.json#/catalog",
+   "apply": "catalog (EVOL-084)"
   }
  ]
 }
