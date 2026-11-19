@@ -27,12 +27,11 @@ from pathlib import Path
 
 from . import corpus, documents
 from .coherence import FEATURE_IN_BRANCH
-from .common import GateFault, context, frontmatter_of, read_frontmatter
+from .common import GateFault, context, frontmatter_of, read_frontmatter, unfenced
 from .seal import _base_of, _delta, _reference, current_branch, tree_entries, vcfg
 
 SNAPSHOT = ".context/governance_snapshot.md"
 DIGEST_KEY = "governance_digest_version"
-FENCE = re.compile(r"^(```|~~~).*?^\1[ \t]*$", re.M | re.S)
 FM = re.compile(r"^---\n.*?\n---\n", re.S)
 
 
@@ -81,7 +80,7 @@ def bound_rules(repo: Path, base: str, cfg: dict | None = None) -> list[str]:
 def references(text: str) -> set[str]:
     """The rule stems the artefact references: `rules/<stem>.md` or `<stem>.md` in the body, outside code fences."""
     body = FM.sub("", text, count=1)
-    body = FENCE.sub("", body)
+    body = unfenced(body)
     return {m.group(1) for m in re.finditer(r"(?<![\w/.-])(?:rules/)?([\w.-]+?)\.md(?![\w-])", body)}
 
 

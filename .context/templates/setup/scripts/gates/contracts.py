@@ -77,7 +77,7 @@ from pathlib import Path
 import unicodedata
 
 from . import documents
-from .common import GateFault, clean as _clean, key, parse_yaml, tracked_files
+from .common import GateFault, clean as _clean, fence_mask, key, parse_yaml, tracked_files
 from .freeze import CONTRACT_RE, _load, _parse, _walk
 from .frontmatter import _at   # lenient: a base blob that is not UTF-8 reads, never faults
 from .seal import _git, _reference, _state_dir, scoped as _scoped, tree_entries, vcfg
@@ -508,10 +508,9 @@ def _cells(line: str) -> list[str]:
 
 def _tables(text: str):
     """(header cells, [row cells]) of every markdown table outside code fences."""
-    head, rows, fence = None, [], False
-    for line in text.splitlines() + [""]:
-        if line.lstrip().startswith(("```", "~~~")):
-            fence = not fence
+    head, rows = None, []
+    lines = text.splitlines() + [""]
+    for line, fence in zip(lines, fence_mask(lines)):
         is_row = not fence and line.lstrip().startswith("|")
         if is_row and head is None:
             head = _cells(line)

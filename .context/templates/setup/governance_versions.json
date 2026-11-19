@@ -1,9 +1,9 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.8.0",
+  "framework_version": "10.8.1",
   "delivery_mode": "development",
-  "last_updated": "2026-11-18",
+  "last_updated": "2026-11-19",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -912,7 +912,7 @@
       "delivery": "both"
     },
     "scripts/gates/common.py": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "content_type": "universal",
       "target": "scripts/gates/common.py",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files.",
@@ -940,7 +940,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.45.0",
+      "version": "1.45.1",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -1110,14 +1110,14 @@
       "role": "gates: one full verification loop per change (EVOL-051) — the documentation class (one definition: config → documentation), the path-to-gate map (verification.gates), the seal per branch (untracked; read-set hashes over the tree the commit carries: `plan` the gates owed now, `write` a run, `check` at the push — moved read-set owed, unmapped path owes the full loop, documentation owes nothing unless a gate declares it), `validate` the map."
     },
     "scripts/gates/digests.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "scripts/gates/digests.py",
       "delivery": "both",
       "role": "gates: governance digest currency of the feature's planning artefacts (EVOL-051) — for docs/spec/{ID}/ (verification.digest_artefacts): frontmatter governance_digest_version equals the snapshot's constitution_hash[:8] and the artefact names every rule the corpus binds to the branch's change (applicable — the one resolver); red in the static round and at the push, one predicate."
     },
     "scripts/gates/traceability.py": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "content_type": "universal",
       "target": "scripts/gates/traceability.py",
       "delivery": "both",
@@ -1259,7 +1259,7 @@
       "target": "scripts/gates/train.py"
     },
     "scripts/gates/freeze.py": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/freeze.py"
@@ -1356,7 +1356,7 @@
       "role": "Client-bounds pack (EVOL-106) for Rust: our own Semgrep rules naming each external client's bound, read by `gate.py bounds`; lands only for a function-hosted backend in the language."
     },
     "scripts/gates/contracts.py": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/contracts.py"
@@ -2328,7 +2328,7 @@
       "path": "scripts/gates/__init__.py"
     },
     "scripts/gates/common.py": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "type": "script",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/common.py"
@@ -2352,7 +2352,7 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.45.0",
+      "version": "1.45.1",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
@@ -2526,13 +2526,13 @@
       "path": "scripts/gates/seal.py"
     },
     "scripts/gates/digests.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "type": "script",
       "role": "gates: governance digest currency of the feature's planning artefacts (EVOL-051) — for docs/spec/{ID}/ (verification.digest_artefacts): frontmatter governance_digest_version equals the snapshot's constitution_hash[:8] and the artefact names every rule the corpus binds to the branch's change (applicable — the one resolver); red in the static round and at the push, one predicate. Meta copy (lock-step pair scripts/gates/*.py).",
       "path": "scripts/gates/digests.py"
     },
     "scripts/gates/traceability.py": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "type": "script",
       "role": "gates: test-case traceability (EVOL-053) — the ONE home of the case → test link (config → traceability.home: pytest-marker | title-tag | custom pattern), strict FEATURE/CASE ids, `declared` from docs/spec/*/test_plan.md, `links` from the test roots, `check` (case → test, never test → case; unknown or malformed links red; the baseline only shrinks), `baseline --init|--refresh`; a light profile member; QA consumes --json. Meta copy (lock-step pair scripts/gates/*.py).",
       "path": "scripts/gates/traceability.py"
@@ -2651,7 +2651,7 @@
       "path": "scripts/gates/train.py"
     },
     "scripts/gates/freeze.py": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "type": "script",
       "path": "scripts/gates/freeze.py"
     },
@@ -2871,7 +2871,7 @@
       "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
     },
     "scripts/gates/contracts.py": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "type": "script",
       "path": "scripts/gates/contracts.py"
     },
