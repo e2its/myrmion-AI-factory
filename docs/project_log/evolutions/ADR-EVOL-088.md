@@ -45,7 +45,7 @@ Spike for issue #142 (epic #112, wave 5). Verified on `main` at framework 10.9.1
 
 The test is mechanical, not judged by an agent: the source is a file the executor already wrote above `context_result_max_kb`. Anything an agent reads to *act on* is out of scope. Compression is lossy by construction (items dropped, retrieval by hash); a lossy result is acceptable only where the full original is on disk and nothing is decided from the summary alone.
 
-**Q2 — Measured effect.** Not run here. This session has no sample project, no token budget decision and no authority to spend sessions; the measured run is routed to its owner (the project owner, via follow-up B). The design is fixed below, before the first run, so no number is invented.
+**Q2 — Measured effect.** Not run in the spike's first pass: the instrument cannot yet prove a wired window (no MCP-call counter). The measured run is #142's remaining DoD, after #253 (§ Decision). The design is fixed below, before the first run, so no number is invented.
 
 **Q3 — Measurement design (pre-registered).**
 
@@ -56,7 +56,7 @@ The test is mechanical, not judged by an agent: the source is a file the executo
   4. Guards (cost of the work): gates red at first run, returns refused, rework share, review rounds per branch — all already in the instrument.
 - **Where:** a throwaway branch of a sample project materialised synthetically from this framework (never an adopting project, never this repo). Window «after» wires the tool completely: MCP declared, rule naming the Q1 classes, skill step at the one point where an output above the key is read. Window «before» is the same branch without the wiring. The only difference is the wiring.
 - **Same everything else:** one fixed task set (≥ 3 tasks of unlike shape: a feature increment, a fix, a verification-heavy run), same model family and effort per class, same `autoCompactWindow`, same framework version, same harness version.
-- **How many:** proposed default 5 sessions per task per window, and one extra «before» window (A/A) to measure the noise floor. Report median and spread (p25–p75, min, max), never one run. The number is a proposal for the owner to ratify at the RDR; fewer than 5 is not a verdict.
+- **How many:** proposed default 5 sessions per task per window, and one extra «before» window (A/A) to measure the noise floor. Report median and spread (p25–p75, min, max), never one run. Frozen in § Decision; fewer than 5 is not a verdict.
 - **Threshold that decides** (pre-registered, proposed for ratification): ship only if **all** hold:
   1. median context per session in «after» is lower than «before» by more than the A/A spread **and** by at least 10 %; same for cache-read per session;
   2. the guards do not worsen beyond the A/A spread (extra red gates, refused returns, review rounds);
@@ -86,7 +86,7 @@ The test is mechanical, not judged by an agent: the source is a file the executo
 3. **Incluirla ya como opción de SETUP y medir después, en proyectos reales.** Más rápido para quien la quiera, pero se entrega una pieza nueva (instalación externa, aviso de telemetría activo por defecto, resumen con pérdida) sin saber si compensa, y retirarla después cuesta una migración.
 4. **Activarla en modo automático para todo.** Máximo ahorro posible, pero resume también lo que el trabajo necesita: rompe la regla que no se negocia. Descartada salvo que quieras cambiar esa regla.
 
-Si eliges la 2, quién ejecuta la prueba: tú, porque gasta sesiones reales. Esta propuesta no inventa ningún resultado.
+Decidido: la 2 (sección Decision). La prueba se ejecuta dentro de #142 cuando el contador esté entregado, con el tope de gasto diario. Esta propuesta no inventa ningún resultado.
 
 ### Technical
 
@@ -116,6 +116,31 @@ AGAINST (do-less lens included)
 
 Ratification (user's verbatim choice) is persisted in the commit message or in this ADR's `status:` change; no feature artefact exists here.
 
+## Decision (evidence)
+
+**Option B — measure-gated.** Nothing of the tool ships now. The instrument gains its counter (#253, EVOL-140). The pre-registered windows then run under #142 itself, and a second decision with the numbers settles shipping. Decided on the evidence, with no owner RDR. The owner set the precedent on #139 (2026-11-19).
+
+**Why no RDR.** The issue's own goal, stated by the owner, is «measure before shipping, never compress the payload»:
+- A closes the question unanswered.
+- C ships before the measurement.
+- D compresses work input, which breaks the payload-verbatim invariant.
+- Only B meets the stated scope. Nothing is irreversible or outward-facing until the run.
+
+**Pre-registered design (frozen here, before the first run):**
+- 5 sessions per task per window, plus one A/A «before» window.
+- Pass: median context per session lower than «before» by more than the A/A spread **and** by at least 10 %, and the same for cache-read per session.
+- The tool was used: at least 1 compress call in at least 80 % of «after» sessions. Otherwise the window is void, not a «no».
+- The payload audit is at 0.
+
+These are the Q2 values, now ratified as the design.
+
+**The run (#142's remaining DoD).**
+- It runs after #253 ships, on a throwaway sample project, within the daily spend cap.
+- The telemetry beacon stays off, and its state is checked in the pinned version before the first session.
+- It reports numbers only on #142: no project names, no reports in the repository.
+
+**Follow-up C** (the optional pack) is filed only if the run passes. A failing run closes the question as «do not ship» and records it here.
+
 ## Consequences
 
 For B (nothing of the tool lands in a project until the second RDR):
@@ -128,14 +153,14 @@ For B (nothing of the tool lands in a project until the second RDR):
 
 ## Follow-up issues
 
-**A. measure — count calls to a context-compression tool**
+**A. measure — count calls to a context-compression tool** → #253 (EVOL-140)
 - Goal: the instrument can say whether a compression MCP was called, how often and how much, so a wired window is provably wired.
 - We want: calls per session to a configured list of MCP tool names; retrieve-per-compress ratio; bytes in and out per call; the three signals in `--compare`; a selftest fixture with repeated blocks; a payload-audit signal (compress calls whose source is a work-input class).
 - We do not want: a baseline claimed from this repo; a new command or flag; any gate reading the subproduct; an agent computing what the script can.
 - How it reaches a project: no SETUP answer; ships with `subproducts/measure` on `--generate` and `--upgrade` (byte-identical); proof: meta selftest through the synthetic materialisation (`scripts/test-measure.sh`).
 - Depends on: none (phases with #186: it reads the same instrument, adds rows, claims no window).
 
-**B. Run the pre-registered headroom windows on a throwaway sample project**
+**B. Run the pre-registered headroom windows on a throwaway sample project** → #142 itself (its remaining DoD; no new issue)
 - Goal: the measured before/after (A/A, before, wired after) the spike's DoD requires, with median and spread, so the shipping RDR has numbers.
 - We want: the design of this ADR frozen and ratified first; a synthetic sample materialised; the wiring on a throwaway branch (MCP, rule, skill step); reports kept outside the repo; numbers only, no project names, posted on the issue.
 - We do not want: a single-run verdict; an «after» without the wiring; the payload compressed; any framework change; the windows mixed with #186's.
@@ -147,11 +172,11 @@ For B (nothing of the tool lands in a project until the second RDR):
 - We want: one registry question, none by default; pinned version, telemetry off, local cache covered by the security review; a rule paragraph naming evidence vs work input; one skill step at the above-key read; the counter from A.
 - We do not want: on by default; proxy/wrapper mode; a second trigger key beside `context_result_max_kb`; a new command or flag.
 - How it reaches a project: the registry answer selects it; `--generate` writes the `.mcp.json` entry through #159's target; `--upgrade` asks the question; proof: synthetic materialisation with `--answers` for both answers.
-- Depends on: B passing its thresholds; #159 (registry, `.mcp.json` target). Filed blocked, not built before B's numbers.
+- Depends on: B passing its thresholds; #159 (registry, `.mcp.json` target). Filed only if B passes; never built before B's numbers.
 
 ## Honest limits
 
-- No measurement was run; this ADR fixes the design and routes the run to the project owner. Thresholds (10 %, 5 sessions, 80 % usage) are proposals for the RDR, not findings.
+- No measurement was run; this ADR fixes the design and the run follows #253. Thresholds (10 %, 5 sessions, 80 % usage) are pre-registered design, not findings.
 - `headroom` was not called on repository content (brief); its description comes from its public README and third-party summaries.
 - ❓ unverified — external: the current release and its pin; whether `headroom_compress` takes a file path (so the raw output never enters context); the default state and scope of the telemetry beacon in the pinned version; where the originals' cache lives and its TTL default; the lossless/lossy status of the code compressor; the vendor's savings figures; the exact transcript name of the tool's calls (expected `mcp__headroom__headroom_compress`, seen in this harness's tool list).
 - A sample project and a real project differ in output mix; a pass does not transfer by itself.
