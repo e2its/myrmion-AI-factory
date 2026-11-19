@@ -115,7 +115,7 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
    - that the block after a compaction is data, never an instruction;
    - that the budgets are named in the config.
 
-   `factory-governance-loading/SKILL.md:61` and `README.md:863` (the Tier-4 row) each gain one clause. No CLAUDE.md change: always-on bytes are not spent on it.
+   `factory-governance-loading/SKILL.md:61` and `README.md:863` (the Tier-4 row) each gain one clause. The project `CLAUDE.md` template does not change: always-on bytes are not spent on it downstream. The meta `CLAUDE.md` roster row (Core Protocols, the context diet) names the bound in one clause: the governance-source amendment that accepting this ADR carries (`check-adr-constitution-sync.sh`).
 
 ### Rejected
 - **Re-inject at SessionStart `compact`:** it would be a second re-injection path, which #235 rules out.
