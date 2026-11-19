@@ -140,10 +140,17 @@ class Common(unittest.TestCase):
             ("a\n```\nx", [False, True, True]),                                # unclosed: to the end
             ("```a`b``` inline\nc", [False, False]),                             # a backtick in the info string: inline code
             ("  ```\n  x\n  ```\nb", [True, True, True, False]),              # an indented fence
+            ("```\nx\n````  \nb", [True, True, True, False]),                # a longer closer, trailing blanks
+            ("```\r\nx\r\n```\r\nb", [True, True, True, False]),            # CRLF
+            ("~~~ a`b\nx\n~~~\nb", [True, True, True, False]),               # a backtick in a ~~~ info string: still a fence
         )
         for text, mask in cases:
             self.assertEqual(common.fence_mask(text.splitlines()), mask, text)
         self.assertEqual(common.unfenced("a\n```\nx\n```\nb"), "a\nb")
+        self.assertEqual(common.unfenced(""), ""); self.assertEqual(common.unfenced(None), "")
+        inner = "```\n~~~\n| C | D |\n|---|---|\n| 3 | 4 |\n```js\n| E | F |\n|---|---|\n| 5 | 6 |\n```\n"
+        self.assertEqual(list(contracts._tables(inner)), [], "another marker or an info-string line never closes the fence")
+        self.assertEqual(list(traceability._rows(inner)), [])
         doc = "| A | B |\n|---|---|\n| 1 | 2 |\n\n~~~\n| C | D |\n|---|---|\n| 3 | 4 |\n~~~\n"
         self.assertEqual([h for h, _ in contracts._tables(doc)], [["A", "B"]], "a table inside a ~~~ fence is an example")
         self.assertEqual([c for _, _, c in traceability._rows(doc)], [["1", "2"]])
@@ -3321,6 +3328,9 @@ class Digests(unittest.TestCase):
         t = time.monotonic(); refs = digests.references(body); spent = time.monotonic() - t
         self.assertLess(spent, 5.0, "the fence reader is linear")
         self.assertEqual(refs, {"testing"})
+        well = ("# Design\n- item\n   ```\n   `rules/listed.md`\n   ```\n````md\n```\n`rules/inner.md`\n```\n````\n"
+                "See `rules/ci-cd.md`.\n")
+        self.assertEqual(digests.references(well), {"ci-cd"}, "an indented fence and a longer fence hide their examples (CommonMark)")
 
     def _repo(self, tmp):
         repo = fixture_repo(Path(tmp))

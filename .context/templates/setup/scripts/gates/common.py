@@ -32,11 +32,12 @@ def clean(s, cap: int | None = None) -> str:
 FENCE_OPEN = re.compile(r"(`{3,}|~{3,})")
 
 
-def fence_mask(lines) -> list[bool]:
+def fence_mask(lines: list[str]) -> list[bool]:
     """The one fence reader (#233): per line, True inside a fenced code block, its opener and closer included. Line by
     line — linear (a regex spanning fences backtracks quadratically on many unclosed openers). A fence closes on a line
     of its own marker only, at least as long; an unclosed fence runs to the end; a backtick opener whose info string
-    holds a backtick is inline code (CommonMark)."""
+    holds a backtick is inline code (CommonMark). An opener is read at any indentation, so a fence nested in a list
+    item counts; CommonMark would read a line indented four spaces or more as indented code, never as a fence."""
     mask, fence = [], None
     for ln in lines:
         s = ln.strip()
