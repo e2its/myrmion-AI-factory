@@ -407,7 +407,7 @@ if p.is_file():
     r = json.loads(p.read_text(encoding="utf-8"))
     if "design_system_version" not in r:
         r["design_system_version"] = "1.0.0"
-        for c in r.get("components", []):
+        for c in r.get("components") or []:
             if isinstance(c, dict):
                 c.setdefault("since", "1.0.0")
         p.write_text(json.dumps(r, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

@@ -43,9 +43,9 @@ SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 # ES imports — the clause bounded, so a crafted file is read in linear time
 # (the clause starts on a non-space and every blank run is bounded, so no run is shared — no polynomial back-off)
 IMPORT = re.compile(r"\bimport\s{1,64}(?!type\b)([^\s;'\"][^;'\"]{0,999}?)\s{0,64}\bfrom\s{0,64}(['\"])([^'\"\n]{1,300})\2")
-GLUED = r"(?<![\w$)\].])"   # `useState<T>`, `FC<P>`, `a[i]<B>`: a type argument or a comparison, never a tag
-TAG = re.compile(GLUED + r"<([A-Z][\w$]{0,200})(?:\.([A-Z][\w$]{0,200}))?(?=[\s/>])")
-KEBAB = re.compile(GLUED + r"<([a-z][a-z0-9]{0,100}(?:-[a-z0-9]{1,100}){1,20})(?=[\s/>])")
+GLUE = re.compile(r"[\w$)\].]")   # `useState<T>`, `FC<P>`, `a[i]<B>`: glued to a name and closed at once — a type argument
+TAG = re.compile(r"<([A-Z][\w$]{0,200})(?:\.([A-Z][\w$]{0,200}))?(?=[\s/>])")
+KEBAB = re.compile(r"<([a-z][a-z0-9]{0,100}(?:-[a-z0-9]{1,100}){1,20})(?=[\s/>])")
 LISTS = ("sources", "exclude", "home", "packages", "frameworks", "prefixes", "local", "allow", "mock_vocabulary")
 DEFINE = re.compile(r"(?:\bfunction\s+|\bclass\s+|\b(?:const|let|var)\s+)([A-Z][\w$]{0,200})\s*(?:[(<{:=]|extends\b)")
 SELECTOR = re.compile(r"""\bselector\s*:\s*['"]([a-z][\w-]{0,200})['"]""")
@@ -185,6 +185,12 @@ def _pascal(kebab: str) -> str:
     return "".join(p[:1].upper() + p[1:] for p in kebab.split("-"))
 
 
+def _type_arg(text: str, m: re.Match) -> bool:
+    """`useState<T>`, `FC<P>`: glued to the name before it and closed by `>` at once. Text glued to an element
+    (`Hi<Icon />`, `Save<Icon/>`) stays a tag — a missed tag is a silent pass, a misread type argument is red with its cure."""
+    return m.start() > 0 and bool(GLUE.match(text[m.start() - 1])) and text[m.end():m.end() + 1] == ">"
+
+
 def _lineno(text: str, pos: int) -> int:
     return text.count("\n", 0, pos) + 1
 
@@ -199,9 +205,11 @@ def scan(rel: str, text: str, cfg: dict, catalog: set[str], selectors: set[str],
 
     def judge(tag: str, name: str, imp: tuple[str, str], pos: int):
         src, imported = imp
-        if _own(src, local) or _in_pkg(src, frameworks):
+        if _own(src, local):
             return
-        if not _in_pkg(src, pkgs):
+        if not _in_pkg(src, pkgs):   # the design system first: `@angular/material` is judged though `@angular` is a framework
+            if _in_pkg(src, frameworks):
+                return
             why = (f"`{tag}` comes from `{_clean(src, 80)}`, not from the design system — build it from the catalog, or name the"
                    " package in `catalog.packages` (the design system's), `catalog.local` (the project's own) or `catalog.frameworks`")
         elif (name if imported in ("*", "default") else imported) not in catalog:
@@ -212,10 +220,12 @@ def scan(rel: str, text: str, cfg: dict, catalog: set[str], selectors: set[str],
 
     for m in TAG.finditer(text):
         head, tail = m.group(1), m.group(2)
-        if head in binds:
+        if head in binds and not _type_arg(text, m):
             judge(f"{head}.{tail}" if tail else head, tail or head, binds[head], m.start())
     for m in KEBAB.finditer(text):
         tag, pas = m.group(1), _pascal(m.group(1))
+        if _type_arg(text, m):
+            continue
         if rel.endswith(".vue") and pas in binds:
             judge(tag, pas, binds[pas], m.start())
             continue
@@ -308,7 +318,7 @@ def check(repo: Path, base: str) -> dict:
             findings.append({"file": rel, "line": 0, "clause": "read", "tag": "", "problem": f"unreadable as UTF-8 text ({e.__class__.__name__}) — save it as UTF-8, or list it in `catalog.exclude` if it is no UI source"})
             continue
         findings += scan(rel, text, cfg, catalog, selectors, copies)
-    problems = [f"{_clean(f['file'], 120)}:{f['line']} ({f['clause']}) {f['problem']}" for f in findings]
+    problems = [f"{_clean(f['file'], 120)}:{f['line']} ({f['clause']}) {_clean(f['problem'], 600)}" for f in findings]
     rows.append(_row("catalog.usage", problems, f"{len(changed)} changed UI file{'s' if len(changed) != 1 else ''} judged against the catalog"))
     return {"ok": all(r["ok"] for r in rows), "na": None, "rows": rows, "findings": findings}
 

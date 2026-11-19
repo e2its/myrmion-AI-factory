@@ -86,6 +86,11 @@ This ADR implements issue #138 (epic #112, Wave 5, destination T). It was verifi
 - **Raw HTML is not judged.** A hand-written `<button>` beside a catalog `Button` is not detected. Mapping each catalog entry to the HTML it replaces is design-system data no registry holds today.
 - **Mock vocabulary is pattern-matched.** The template ships two patterns; mock-only class names are the project's to add.
 - **The UI framework's packages are trusted wholesale.** `catalog.frameworks` ships the union of the supported frameworks; a framework the list lacks (an "Other" answer) is the project's to add.
+- **A type argument is told from a tag by its shape.** A name glued to the word before it and closed by `>` at once (`useState<T>`, `FC<P>`) is a type argument. Text glued to an element (`Hi<Icon />`) stays a tag; `Save<Icon>` closed at once is read as a type argument and missed. `Promise<Card | null>` with a value-imported `Card` is read as a tag and is red; `import type` cures it. A missed tag passes silently, a misread one is red with its cure, so the rule leans red.
+- **Bare specifiers are packages.** `Components/Button` (no `./`, `@/`, `~/`, `#` or `$` prefix and not in `catalog.local`) is judged as a foreign package. Name a bare project alias in `catalog.local`.
+- **The design system wins over a framework's scope.** `@angular/material` in `catalog.packages` is judged against the registry, though `@angular` is in `catalog.frameworks`.
+- **The rebuild artifact reaches later steps.** Bitbucket hands `ds-bundle/**` to the later steps of the `main` pipeline, the production deploy included. The bundle is built on `main` by the project's own command, and the deploy executor ships what its stage commands build, so it carries no trust the deploy lacks.
+- **Only the framework's credentials are unset.** The rebuild step unsets the three it injects, above the project's toolchain line. A built document store's credential names, or any other repository variable, are the project's to keep as secured Deployment variables.
 - **Version bumps are judged against the base.** Two branches that each add a component and bump MINOR from the same base both pass; the second to merge re-bumps when it rebases, like the governance manifest.
 
 ## Verification
@@ -97,4 +102,5 @@ This ADR implements issue #138 (epic #112, Wave 5, destination T). It was verifi
 - Upgrade: the migration's executable block versions an 8.x registry and a second run changes nothing (harness); the 8.12 fixtures owe the migration and DC-45.
 - Bitbucket: the frontend fixture's merged `main` pipeline runs the rebuild before the manual production step, and `gate.py runtime-surface` is green with Bitbucket's deploying file and the declared read; the PO selftest runs the template's own script lines (exit 0, bundle copied in) and a pipeline without the job is not 6C.
 - Linear time: a 40 000-blank run after `import` is read in under 2 s.
+- Round 2: text glued to an element is judged, a design-system package under a framework's scope is judged against the registry (both red on the round-1 cure), and a canary where the project's toolchain line goes sees none of the framework's credentials (PO selftest).
 - Profile membership, lock-step, manifest-parity, ADR sync.

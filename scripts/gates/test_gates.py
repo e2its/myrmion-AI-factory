@@ -8411,6 +8411,20 @@ class Catalog(unittest.TestCase):
             write(repo / "src/features/v/App.vue", "<template>\n  <router-view />\n  <keep-alive><x-chart /></keep-alive>\n</template>\n")
             vue = [(f["line"], f["tag"]) for f in self._check(repo)["findings"] if f["file"].endswith("App.vue")]
             self.assertEqual(vue, [(3, "x-chart")], "a global built-in is allowed in its kebab or its Pascal form")
+            write(repo / "src/features/a/B.tsx", "import { Icon } from 'react-icons'\nimport { Tag } from 'other-ui'\n"
+                  "export const B = () => <p>Hi<Icon />(see)<Tag/></p>\n")
+            glued = [(f["line"], f["tag"]) for f in self._check(repo)["findings"] if f["file"].endswith("B.tsx")]
+            self.assertEqual(glued, [(3, "Icon"), (3, "Tag")], "text glued to an element never hides it")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["catalog"] = {**self.BLOCK, "packages": ["@angular/material"], "frameworks": ["@angular"]}
+            write(repo / "config/quality.json", json.dumps(q))
+            write(repo / "src/features/a/A.tsx", "import { MatFoo } from '@angular/material/foo'\nimport { Input } from '@angular/core'\n"
+                  "export const A = () => <><MatFoo /><Input /></>\n")
+            r = self._check(repo)
+            self.assertEqual([f["tag"] for f in r["findings"]], ["MatFoo"], catalog_render(r))
+            self.assertIn("not in the catalog", catalog_render(r), "a design system under a framework's scope is judged as the design system")
 
     def test_the_home_wraps_what_it_likes(self):
         """The home is the catalog's own implementation: (a) skips it; (b) and (c) still read it."""
