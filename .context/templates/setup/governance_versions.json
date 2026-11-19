@@ -2109,7 +2109,7 @@
       "path": ".context/utils/budget_tracker.py"
     },
     "utils/migrate_legacy_setup.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "path": ".context/utils/migrate_legacy_setup.py"
     },
     "utils/scaffolding_generator.sh": {
@@ -2211,13 +2211,13 @@
       "path": ".context/utils/brownfield_scanner.sh"
     },
     "utils/budget_validator.py": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "type": "script",
       "role": "SETUP budget validation helper.",
       "path": ".context/utils/budget_validator.py"
     },
     "utils/interactive_review.py": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "type": "script",
       "role": "SETUP interactive review helper.",
       "path": ".context/utils/interactive_review.py"

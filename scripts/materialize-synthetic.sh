@@ -419,7 +419,7 @@ if [ -f "$P/bitbucket-pipelines.yml" ]; then
   # EVOL-084 — the design-system rebuild step merged in: before the manual production step, and the parity gate green with
   # Bitbucket's deploying file and the declared read the materialisation adds (read from the instruction, its one home)
   if grep -q 'design-system-rebuild:' "$BB"; then
-    ORDER=$(PYTHONPATH="$ROOT/scripts" python3 -c 'import sys; from gates.common import load_yaml; m = load_yaml(open(sys.argv[1]))["pipelines"]["branches"]["main"]; n = [s["step"].get("name", "") for s in m]; r = n.index("Design system rebuild (advisory)"); t = [i for i, s in enumerate(m) if s["step"].get("trigger") == "manual"]; print("ok" if all(r < i for i in t) else "after-manual")' "$BB" 2>&1)
+    ORDER=$(PYTHONPATH="$ROOT/scripts${PYTHONPATH:+:$PYTHONPATH}" python3 -c 'import sys; from gates.common import load_yaml; m = load_yaml(open(sys.argv[1]))["pipelines"]["branches"]["main"]; n = [s["step"].get("name", "") for s in m]; r = n.index("Design system rebuild (advisory)"); t = [i for i, s in enumerate(m) if s["step"].get("trigger") == "manual"]; print("ok" if all(r < i for i in t) else "after-manual")' "$BB" 2>&1)
     cp "$P/config/quality.json" "$SCRATCH/q084.json"
     python3 - "$ROOT/.claude/instructions/Factory-setup-materialization.instructions.md" "$P/config/quality.json" <<'PY'
 import json, re, sys
@@ -832,7 +832,7 @@ rm -rf "$P/docs/spec/FEAT-001/test_plan.md" "$P/tests/test_trace.py" "$P/docs/pr
 # server-side branch protection (EVOL-054): the runbook lands per platform; the reader is n/a where it cannot see the server and says so
 [ -f "$P/docs/scm/protection.md" ] && grep -q 'Rulesets' "$P/docs/scm/protection.md" && grep -q 'checks: \*\*\["governance-check"\]\*\*' "$P/docs/scm/protection.md" && grep -q 'approvals: \*\*0\*\*' "$P/docs/scm/protection.md" && ! grep -q '{{' "$P/docs/scm/protection.md" && ok "the GitHub protection runbook landed (docs/scm/protection.md) with the resolved checks and approvals, no placeholder left" || bad "protection runbook missing or unresolved" "$(grep -n 'checks:\|approvals:\|{{' "$P/docs/scm/protection.md" 2>&1 | head -5)"
 WF=$(ls "$P"/.github/workflows/governance-check*.yml 2>/dev/null | head -1)
-[ -n "$WF" ] && PYTHONPATH="$ROOT/scripts" python3 -c '
+[ -n "$WF" ] && PYTHONPATH="$ROOT/scripts${PYTHONPATH:+:$PYTHONPATH}" python3 -c '
 import sys
 from gates.common import load_yaml
 d = load_yaml(open(sys.argv[1]))
