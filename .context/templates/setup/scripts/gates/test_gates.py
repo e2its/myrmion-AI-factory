@@ -143,6 +143,7 @@ class Common(unittest.TestCase):
             ("```\nx\n````  \nb", [True, True, True, False]),                # a longer closer, trailing blanks
             ("```\r\nx\r\n```\r\nb", [True, True, True, False]),            # CRLF
             ("~~~ a`b\nx\n~~~\nb", [True, True, True, False]),               # a backtick in a ~~~ info string: still a fence
+            ("      ```\nx\n    ```\nb", [True, True, True, False]),          # any indentation opens and closes: a fence nested deep in a list hides its example (fails closed)
         )
         for text, mask in cases:
             self.assertEqual(common.fence_mask(text.splitlines()), mask, text)
