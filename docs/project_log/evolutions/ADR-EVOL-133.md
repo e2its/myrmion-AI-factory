@@ -83,7 +83,7 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
      - it counts the user-authored transcript entries delivered after the notebook's `st_mtime`;
      - it writes only the count and the authors into the state file.
    - The count rules close two of the known defects:
-     - a queued message is judged by where it sits in the transcript, not by its enqueue time. The attachment entry carries the enqueue time as its own `timestamp` (verified on real transcripts at review); it is delivered at its position, so it takes the timestamp of the next newer entry, its own when none follows;
+     - a queued message is judged by where it sits in the transcript, not by its enqueue time. The attachment entry carries the enqueue time as its own `timestamp` (verified on real transcripts at review); it is delivered at its position, so it takes the timestamp of the next newer entry, and is counted when none follows (the compaction fired right after its delivery);
      - an interruption marker (`[Request interrupted by user]`) is not someone's words;
      - with `trigger == "manual"`, the newest entry that is the `/compact` invocation is dropped.
    - The transcript is read backwards from its end and stops at the first entry older than the notebook.
@@ -97,7 +97,7 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
      - the newest `## Log` entries that fit, in chronological order;
      - `[N older entries cut — read <path>]`;
      - the advisory line, when the count is above 0.
-   - The whole block is at most `budgets.notebook_reinject`, counted in UTF-8 bytes and cut only at entry boundaries. Every `<` of the notebook's text reaches the model as `&lt;`; the split is linear in the notebook's size.
+   - The whole block is at most `budgets.notebook_reinject`, counted in UTF-8 bytes and cut only at entry boundaries. Every `<` of the notebook's text reaches the model as `&lt;`; the split is linear in the notebook's size and reads CRLF as LF. A project that symlinks `.context/state` or `.claude/state` gets its notebook refused (fail-closed, silent, exit 0): the guard cannot tell a shared directory from a planted one.
    - A standing part over the budget is never cut. In its place the block prints its path and size and says "read it whole".
    - No claim, or no reload pending, prints nothing, so the cost is zero.
    - *Rationale:* the harness caps each hook command's output separately, and the measured governance block already fills its share. Putting this block inside `governance-onprompt.sh` is the shared budget #235 rules out. The trigger is the existing PreCompact → next-prompt pair. Only the emitter is a sibling. `governance-onprompt.sh` does not change.
@@ -132,12 +132,13 @@ This ADR plans issue #235 (epic #112, wave 5, destination G). Base model #97 (EV
   - the rule paragraph.
 - **What `SETUP --upgrade` does:** today merge-preserve adds the `UserPromptSubmit` block only when it is absent (`Factory-setup-upgrade.instructions.md:457`), so an installed project would never get the second entry. The fix:
   - **Merge rule.** The rule gains: `UserPromptSubmit`: add `gate.py notebook --hook-json` when absent, identified by the reader it runs; never touch a project's own entries. The `PostToolUse` entry that runs `governance-onedit.sh` takes the matcher `Edit|Write|Bash`. The same clause goes into `Factory-setup-materialization.instructions.md:1016`. The anchor adds a budget key that is absent or not a positive int, at the template's value or the project's `hook_output_cap` when lower; it never raises a value.
-  - **Anchor.** A new anchor `**session-notebook (EVOL-133).**` holds a bash block that adds the entry and the two budget keys when they are absent. The block is idempotent.
+  - **Anchor.** A new anchor `**session-notebook (EVOL-133).**` holds a bash block that adds the two budget keys when absent, the entry when the `UserPromptSubmit` event exists without it (an absent event comes whole from the merge rule), and the `Edit|Write|Bash` matcher. The block is idempotent.
   - **Restart.** Hook wiring reloads per tool call, so no restart is needed.
 - **Synthetic proof** (`scripts/materialize-synthetic.sh`, every fixture run with `--answers`):
   - (a) the settings carry exactly one anchored notebook entry ending in `|| true`, and `scripts/gate.py` is delivered (the check at `:851-855` reads `.sh` tokens only);
   - (b) both budget keys are present and `gate.py budget` is green on both rows;
   - (c) on a fix branch, end to end:
+    - the shipped `check-branch-protection.sh` and `check-plan-approval.sh` let a Write to the notebook through;
     - a Write payload claims;
     - a PreCompact payload over a fixture transcript prints at most 1000 bytes with the count and authors and without the fixture's sentinel word;
     - the next UserPromptSubmit prints the block at most 9000 bytes with the standing part whole;

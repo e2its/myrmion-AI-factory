@@ -119,6 +119,8 @@ def _read_state(repo: Path, sid: str) -> dict | None:
 def _write_state(repo: Path, sid: str, st: dict) -> None:
     d = repo / STATE_DIR
     d.mkdir(parents=True, exist_ok=True)
+    if os.path.realpath(d) != os.path.abspath(_dir(repo, STATE_DIR)):
+        raise Refused(f"{d} resolves outside the repository's {STATE_DIR}")
     fd, tmp = tempfile.mkstemp(dir=d, prefix=f".notebook-{sid}.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -274,7 +276,7 @@ def _backwards(path: Path):
 def unsaved(transcript: Path, since: float, manual: bool) -> tuple[int, list[str], bool]:
     """(count, authors, lower_bound): someone's words delivered after `since`. A queued entry's own timestamp is
     its enqueue time; it is delivered where it sits in the file, so it is judged by the next newer entry's time
-    (its own when none follows). With a manual trigger the newest such entry that is the /compact invocation
+    (counted when none follows: it was delivered after everything before it). With a manual trigger the newest such entry that is the /compact invocation
     itself is not counted."""
     count, seen, capped, first, newer = 0, [], False, True, None
     for e, cap in _backwards(transcript):
@@ -283,12 +285,10 @@ def unsaved(transcript: Path, since: float, manual: bool) -> tuple[int, list[str
             break
         ts = _ts(e)
         if e.get("type") == "attachment":
-            ts = newer if newer is not None else ts
+            ts = newer                       # None when none follows: delivered last, after any notebook write
         elif ts is not None:
             newer = ts
         if ts is not None and ts <= since:
-            if e.get("type") == "attachment":
-                continue
             break
         who = author(e)
         if who is None:

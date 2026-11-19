@@ -5860,11 +5860,17 @@ class Notebook(unittest.TestCase):
             self.assertEqual(st["unsaved"], 3, "queued (judged at delivery), peer, user — never tool results, meta, notices or an interruption")
             self.assertEqual(st["authors"], ["user", "queued", "peer"])
             t2 = self._transcript(Path(tmp), [
-                # enqueued and delivered before the notebook was written (the next entry is older than it): not counted
-                {"type": "attachment", "timestamp": before, "attachment": {"type": "queued_command", "prompt": "q", "origin": {"kind": "human"}, "timestamp": before}},
-                {"type": "assistant", "timestamp": before, "message": {"content": "ok"}}])
+                # the compaction fires right after the delivery: the queued entry is the last line, its own stamp the
+                # enqueue time before the notebook write — still counted; the older user entry is not
+                {"type": "user", "timestamp": before, "message": {"content": "old words"}},
+                {"type": "attachment", "timestamp": before, "attachment": {"type": "queued_command", "prompt": "q", "origin": {"kind": "human"}, "timestamp": before}}])
             self._compact(repo, t2)
-            self.assertEqual(self._state(repo)["unsaved"], 0)
+            self.assertEqual((self._state(repo)["unsaved"], self._state(repo)["authors"]), (1, ["queued"]))
+            st = self._state(repo); st["lower_bound"] = True
+            (repo / f".claude/state/notebook-{self.SID}.json").write_text(json.dumps(st), encoding="utf-8")
+            self._claim(repo)                                    # a write after the compaction keeps what it cannot prove
+            st = self._state(repo)
+            self.assertEqual((st["reload"], st["unsaved"], st["authors"], st["lower_bound"]), (True, 1, ["queued"], True))
 
     def test_advisory_names_count_and_authors_never_words(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -5936,9 +5942,12 @@ class Notebook(unittest.TestCase):
             self._nb(repo, "## Standing\n- s\n"); os.unlink(st)
             real_state = repo / "real-state"; real_state.mkdir()
             shutil.rmtree(repo / ".claude/state"); os.symlink(real_state, repo / ".claude/state")
-            self._claim(repo)
             with self.assertRaises(notebook.Refused):
-                self._compact(repo)                               # a symlinked state directory
+                self._claim(repo)                                 # a symlinked state directory: never written through
+            self.assertEqual(list(real_state.iterdir()), [], "nothing lands in the link's target")
+            (real_state / f"notebook-{self.SID}.json").write_text(json.dumps({"path": ".context/state/notebook/pm.md", "reload": True}), encoding="utf-8")
+            with self.assertRaises(notebook.Refused):
+                self._compact(repo)                               # nor read through
 
     def test_claim_is_atomic_last_wins_subagent_never_and_shell_writes_claim(self):
         with tempfile.TemporaryDirectory() as tmp:
