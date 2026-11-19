@@ -84,6 +84,24 @@ Ninguna forma de empaquetar arregla por sí sola los archivos con dos dueños. L
 
 **Recommendation: option 1.** Main tradeoff: the framework is still copied into each repository, in exchange for no rename, no second channel and no onboarding change. Surviving risk: two seam files (`settings.json`, `config/quality.json`) stay two-owner — mechanical and add-only, but not pure project files. Revisit trigger: #186's measurement shows upgrade cost that comes from copy volume, not from ownership. Then option 3 is the next candidate; the split built here is its prerequisite.
 
+## Decision (evidence)
+
+**Option 1 — copy+sync, one owner per delivered file.** Decided on the evidence, with no owner RDR. The owner set the precedent on #139 (2026-11-19): «Con eso debes tener informacion mas que de sobra».
+
+**Why no RDR.** The choice changes no business scope or data, and it is neither irreversible nor outward-facing. The evidence gives a clear winner:
+- No packaging channel fixes mixed ownership by itself. Every option needs the same split.
+- Options 2–5 add to that split:
+  - a namespace rename;
+  - a second delivery channel for CI and git hooks;
+  - a plugin-root locator, or a dist build.
+- Option 1 builds strictly less (do-less lens, DC-29). It keeps CI, cloud sessions and managed organisations working unchanged.
+
+**Provider practice.**
+- Claude Code loads `CLAUDE.md` and `.claude/rules/` only from the project, never from a plugin ([plugins-reference](https://code.claude.com/docs/en/plugins-reference), [memory](https://code.claude.com/docs/en/memory)).
+- So a project's instruction layer stays in the repository under every option. Separating owners inside the repository is the shape the platform expects.
+
+**Revisit trigger** (unchanged): #186's measurement shows that the upgrade cost comes from copy volume, not ownership. Then option 3 is next, and F1 is its prerequisite.
+
 ## Consequences
 
 - **What lands in a materialised project:**
@@ -112,7 +130,7 @@ Ninguna forma de empaquetar arregla por sí sola los archivos con dos dueños. L
 
 ## Follow-up issues
 
-**F1 — One owner per delivered file: sync replaces, upgrade never rewrites the project layer**
+**F1 — One owner per delivered file: sync replaces, upgrade never rewrites the project layer** → #247 (EVOL-136)
 - Goal: every file a project receives has one declared owner, and sync and upgrade obey it.
 - We want:
   - an owner on every manifest entry, validated (no entry without one);
@@ -129,7 +147,7 @@ Ninguna forma de empaquetar arregla por sí sola los archivos con dos dueños. L
 - How it reaches a project: no answer — framework core. Lands with the next sync and upgrade. Upgrade path: migration row stamps owners. Synthetic proof as in Consequences.
 - Depends on: #159 phase 2 (shipped). Phases with #159 phase 3: until it ships, `--reconfigure` does not exist; when it ships, it writes answers through F1's add-only path.
 
-**F2 — Framework instructions out of the project's CLAUDE.md**
+**F2 — Framework instructions out of the project's CLAUDE.md** → #248 (EVOL-137)
 - Goal: the project's `CLAUDE.md` holds only the project's text; universal instructions arrive in a framework-owned file it imports.
 - We want:
   - the split;
@@ -142,7 +160,7 @@ Ninguna forma de empaquetar arregla por sí sola los archivos con dos dueños. L
 - How it reaches a project: no answer. The migration row lands it. Synthetic proof: an old-version fixture with a project-added section, kept after upgrade.
 - Depends on: F1.
 
-**F3 — No project edit inside a framework file**
+**F3 — No project edit inside a framework file** → #249 (EVOL-138)
 - Goal: every place the framework tells a project to extend it is a project-owned file.
 - We want:
   - project gate members in a project-owned file read by the profile;
@@ -157,6 +175,7 @@ Ninguna forma de empaquetar arregla por sí sola los archivos con dos dueños. L
 
 ## Honest limits
 
+- The evidence was read at framework 10.9.0. The decision was taken at 10.10.0, and the cited line numbers may have moved since.
 - No plugin prototype was built or loaded. Plugin facts come from the docs pages cited, read on 2026-11-19.
 - ❓ unverified — external: there is no documented way for a project to disable one hook, skill or agent of an enabled plugin (only plugin-level `enabledPlugins`). This is inferred from the absence of such a mechanism in the pages read.
 - ❓ unverified — external: a git submodule checked out under `.claude/skills/<name>/` loads as a skills-dir plugin. The docs speak of a directory; submodules are not mentioned.
