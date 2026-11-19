@@ -1,6 +1,6 @@
 ---
 id: ADR-EVOL-085
-title: "Team mode: one standing owner per surface in the SCM platform's own code-owners file, ids no other branch can take, version counters re-derived by the second to land"
+title: "Team mode: one person, a coordinator session and parallel squad sessions — ownership by feature through the tracker, relayed decisions verbatim, ids no other branch can take"
 date: 2026-11-19
 status: proposed
 ---
@@ -43,6 +43,27 @@ This spike answers issue #139 (epic #112, wave 5). It was checked against branch
   - `scm.py:365` already treats self-review as a note: "a solo maintainer needs it, a team sets prevent_self_review".
 - **One answer home.** Every answer lives in `docs/setup.md` frontmatter (ADR-EVOL-102 §3, #159).
 
+**Field evidence — the team a downstream project actually runs (read 2026-11-19).**
+- **Who the team is.** One person, a coordinator session (the project manager), and two permanent squad sessions. Each squad works its own clone and its own train. The sessions talk through the harness's cross-session messages.
+  - The coordinator received about 330 messages from the squads in one session and sent 380.
+  - The person speaks to the coordinator; decisions and notices travel through it.
+- **What each squad owns is a feature, not a code surface.** The person and the coordinator assign the order once, in one tracker item:
+  - squad 1: features 002, 004, 005, 012;
+  - squad 2: features 003, 011, 020.
+  - Each squad's train touches every surface of its feature: backend, frontend, infrastructure, tests.
+- **Who decides.** The project made it its own law by ADR (accepted 2026-11-18), after two months of a delegation exception kept outside its corpus. It has three deciders:
+  - the session decides up to and including the merge, and records each rejected option with an anchored reason;
+  - the coordinator decides a technical RDR that is lawful, not visible to users, involves no money, and follows a cited best practice;
+  - the person keeps a closed reserved list.
+  - About 25 sentences in 11 framework-shipped files said the opposite («zero authority», «always RDR to the user»), and the project aligned them in its own copy.
+- **What is never relayed.** Plan, BLUEPRINT and `plan_exception` approvals are typed by the person in the squad's own window. Every other reserved act is posed by the coordinator and relayed with the person's verbatim words. A relay without verbatim words authorises nothing.
+- **What the sessions needed and built themselves:**
+  - a per-session notebook that survives compaction (#235 owns it here);
+  - a goal reset for the squad at each new train;
+  - the second-to-land rule for counters (comment on #139).
+- **Locks.** Each squad is on its own clone, so the per-clone lock (`check-concurrency-lock.sh:46-60`) never sees the other squad. That is the same gap as two persons.
+- **Persons.** No downstream project has more than one person deciding. The second downstream project's multi-author need is who builds each task (#172 RDR-1 «1», on hold), not code-surface review.
+
 **Owned elsewhere — not re-decided here:**
 - **#153 (EVOL-096): where cross-branch state lives** (the tracker, main, the `none` fallback). Its design question 2 is still open: the issue body ratifies only RDR-1a/1b/1c, and no `ADR-EVOL-096` exists in `docs/project_log/evolutions/`.
 - **#156 (EVOL-099): the one cross-branch channel**, with element reservations as its first user.
@@ -60,7 +81,7 @@ This spike answers issue #139 (epic #112, wave 5). It was checked against branch
    |---|---|---|
    | Version counters (governance manifest, contract semver) | computed against the base (`manifest.py:8,268`) | already derived. Second-lands-absorbs becomes the written rule: re-run the bump against main after the rebase, never hand-merge a version. → follow-up B |
    | Board state with the `none` adapter (`docs/backlog/state.md`) | one shared file | **#153 RDR-3 / #156** — not here |
-   | Who works a feature, across people | a local lock that cannot reach (`check-concurrency-lock.sh:46-60`) | the tracker's In Progress state, already written by `gate.py tracker --start` (`tracker.py` docstring), carried by #156's channel. The lock stays a same-clone session guard, and its description says so. → follow-up D |
+   | Who works a feature, across people or squad sessions | a local lock that cannot reach (`check-concurrency-lock.sh:46-60`) | the tracker's In Progress state, already written by `gate.py tracker --start` (`tracker.py` docstring), carried by #156's channel. The lock stays a same-clone session guard, and its description says so. → follow-up D |
    | Increment status, increment plan | feature-scoped, one branch at a time (`branching.md:64`) | single writer per feature; no change |
    | Code inventory, element ids | one JSON file per project | **#154 / #141** — not here |
 
@@ -77,110 +98,62 @@ This spike answers issue #139 (epic #112, wave 5). It was checked against branch
    - **Existing ids are never renamed.** Readers accept both shapes (`freeze.py:51` must widen).
    - **Element ids are #154's.**
    - → follow-up B. If the owner contests the qualified ADR id, this becomes a queued RDR (one per turn).
-4. **Standing ownership by surface, people included.** The open product choice → the RDR below.
+4. **Standing ownership, people included.** Decided from the field evidence below (§ Decision); no RDR.
 5. **How team mode reaches a project.**
    - No mode key (#172 RDR-1).
    - Team is what earlier answers already say: `scm.approvals` ≠ 0.
-   - One registry question, unlocked by `scm.approvals != 0`, asks for standing owners by surface. In the closed grammar, `!=` holds only for a key that holds an answer (ADR-EVOL-102 §2).
-   - Everything else is framework core: ids, the second-lands rule, relayed ratification, the lock's stated reach.
+   - No new registry question: the team the field runs needs none.
+   - Everything is framework core: ids, the second-lands rule, relayed ratification, the lock's stated reach.
 6. **Not here:** proof on the commit (#176); where cross-branch state lives (#153); per-epic element claims (#156); `--reconfigure` (#159).
 
-## Decision to take (RDR)
+## Decision (field evidence)
 
-### In plain words
+**Ratification.** The owner, 2026-11-19, while the RDR for code-surface owners was pending: «en ⟨a downstream project⟩ estamos utilizando una sesion que hace de pm» and «Con eso debes tener informacion mas que de sobra». The draft RDR (platform code-owners file, map in config, owners in the agent roster, nothing) is withdrawn. The evidence answers the question it asked.
 
-Cuando varias personas trabajan en el mismo proyecto, cada parte del producto (la parte de servidor, la de pantallas, la infraestructura, las pruebas…) necesita a alguien que responda por ella de forma estable. Esa persona o equipo revisa los cambios que tocan su parte y decide cuando hay que elegir algo de esa parte. Hoy el sistema solo sabe qué agente escribe en cada parte; de las personas solo sabe cuántas aprobaciones pide un cambio, no quién debe darlas. Lo decidimos ahora porque el trabajo en equipo es el siguiente paso, y las piezas que lo construyen necesitan saber dónde vive este dato.
+1. **Ownership is by feature, held by a session, recorded in the tracker.**
+   - The owner of a feature in flight is the session that holds its train. The tracker's In Progress state, written by `gate.py tracker --start`, is the record, carried by #156's channel (route D).
+   - Assigning features to sessions is the person's scope and calendar decision. A coordinator session may relay it, never take it.
+   - The roster's surfaces stay what they are: which agent class writes where (`rules/agents.md:66-80`).
+2. **No code-owners file, no new question, for now.** The field shows one person and no reviewer per surface.
+   - The platform's code-owners mechanism stays the right home when a project has several persons who review by surface. The evidence for it is kept below.
+   - It enters through #172, the any-author epic, as the person-side of a team, never as a second map. Until then, `scm.approvals` stays the count it is.
+3. **Delegated decision authority stays project law.** A project may give a session or a coordinator authority by its own accepted ADR, as the field did.
+   - The framework does not ship a delegation law. The owner's scope ruling of 2026-11-18 (RDR-4 «2») keeps autonomy rules out of framework content.
+   - What the framework owes every project is that a relay never forges a decision (follow-up C).
+4. **Relayed ratification is framework core** (follow-up C), shaped by the field:
+   - a relay carries the person's verbatim words and names the relay;
+   - plan, BLUEPRINT and `plan_exception` approvals, and every harness approval, are typed in the deciding session's own window and never relayed.
+5. **Ids and counters** are unchanged from Questions 1 and 3 (follow-up B). Two parallel trains are exactly the case they cure.
 
-1. **El fichero de responsables que ya usa la plataforma de código.** Se guarda en el propio repositorio, y la plataforma lo aplica sola: pide la revisión del responsable antes de aceptar un cambio. Coste: una plantilla por plataforma, una pregunta nueva en la configuración inicial (solo para equipos) y una comprobación automática. En una plataforma que no tiene ese fichero, el reparto se configura a mano siguiendo una guía. En planes gratuitos de algunas plataformas, la exigencia no se puede imponer y solo queda como aviso.
-2. **Una lista propia en la configuración del proyecto, desde la que se genera el fichero de la plataforma.** Coste: lo mismo que la opción 1, más un generador. Además, la gente acaba editando el fichero de la plataforma a mano y la lista se queda atrás, con lo que habría dos sitios para el mismo dato.
-3. **Añadir las personas a la lista que ya reparte el trabajo entre agentes.** Coste: mezcla dos cosas distintas, quién puede escribir y quién debe aprobar. Esa lista tiene partes compartidas por todos los revisores automáticos, y la plataforma no la entiende, así que nada la haría cumplir en el servidor.
-4. **No construir nada más:** seguir contando aprobaciones y que cada equipo configure a mano su plataforma. Coste: cero de construcción. Pero no cubre lo que pide el encargo (responsables por parte), nadie comprueba que el reparto exista ni que siga siendo cierto, y el sistema no sabe a quién preguntar cuando hay que decidir.
-
-Recomiendo la **1**: es lo que menos se construye sin dejar el encargo sin cumplir, y la propia plataforma hace cumplir la regla. El coste que asumimos es que en algunas plataformas o planes la regla solo puede verificarse como aviso, no imponerse.
-
-### Technical
-
-**Evidence (external).**
-- **GitHub:** `CODEOWNERS` in `.github/`, the repository root or `docs/`, first found wins. The file of the PR's **base** branch applies. Owners need write access. "Require review from Code Owners" is a branch-protection and ruleset setting. Invalid lines are skipped, and the API lists the errors. https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-  - Private repositories need Pro, Team or Enterprise. `❓ unverified — external`: only an older Enterprise Server page states it.
-- **GitLab:** `CODEOWNERS`, `docs/CODEOWNERS` or `.gitlab/CODEOWNERS`, first found wins. Premium or Ultimate only. https://docs.gitlab.com/user/project/codeowners/
-- **Bitbucket Cloud:** `.bitbucket/CODEOWNERS`, read from the destination branch. It adds suggested reviewers automatically. https://support.atlassian.com/bitbucket-cloud/docs/set-up-and-use-code-owners/
-  - A merge check that *requires* code-owner approval: `❓ unverified — external`.
-- **Azure DevOps:** no file. The branch policy "Automatically include reviewers" takes a path filter, Required or Optional. https://learn.microsoft.com/en-us/azure/devops/repos/git/branch-policies
-- **Other:** checklist only, as `protection.other.md` does today.
-
-**Evidence (repo).**
-- Approvals are already a Q21.2 answer, verified by `gate.py scm-protection` at `ci` (`scm.py:7,351-356`).
-- A setting the platform does not expose is listed as `unverifiable`, never red (`scm.py:237-244`). That pattern fits GitLab Free.
-- The runbooks are per platform (`.context/templates/setup/scm/protection.*.md`).
-
-**Adversarial pass on option 1.**
+**Adversarial pass.**
 - **FOR — governance:**
-  - One home per concern (the platform file is the ownership home, and `docs/setup.md` holds only the answer that unlocks it).
-  - The check is mechanical and server-side, through the existing `scm-protection` control point.
-  - No mode key, no change to any gate's strength (#172 RDR-1).
-  - No new command or flag (§4).
-- **FOR — product:** teams already know the format, and the platform requests reviews natively. The main session can compute the owning role of a decision's surface with a script, so the RDR names who ratifies.
-- **AGAINST — governance:**
-  - (a) Azure DevOps has no file. Its policy lives in the server, so the runbook is the record and a reader there needs the API.
-  - (b) A file of `@handles` can name persons. #159's premise is "a role, never a person, where an owner is asked", so owners must be teams or groups. A personal handle cannot be told from a group by syntax on every platform, so that is a recommendation, not a red check; an e-mail address, a personal datum, is red.
-  - (c) The ownership file is a governed file, edited by PR like any other, so it needs its own planning carve-out or none. None is needed: it is a project artefact, not a gate input.
-- **AGAINST — product:** on GitLab Free and Bitbucket the requirement may not be enforceable, so ownership degrades to suggested reviewers.
-- **AGAINST — do-less lens:** option 4 builds nothing, but it fails the issue's WHAT ("ownership by surface that covers people").
-  - Option 1 is the smallest that meets it: per platform, one template plus one runbook row; one registry entry; one check folded into the existing reader. No generator, no second map.
-  - The recommendation survives.
+  - one home per concern: the tracker for ownership, project law for delegation, the RDR skill for relays;
+  - nothing new for a solo project;
+  - no new command, flag or question.
+- **FOR — product:** it builds for the team that exists. The field paid for every piece in its own copy, so each follow-up removes a fork point.
+- **AGAINST — governance:** a project with several persons gets no surface review from the framework. Mitigation: the evidence and the home (#172) are written here; nothing blocks a team from adding the platform file by hand.
+- **AGAINST — product:** n = 1 field team. Mitigation: each follow-up is small and stands on the existing tracker, RDR skill and gates. None assumes squads; one session is the degenerate case.
+- **Do-less lens:** dropping the code-owners file, its templates, its runbook rows and its check is the smallest change the evidence allows. The recommendation survives.
 
-| Option | Governance — pro | Governance — con | Product — pro | Product — con |
-|---|---|---|---|---|
-| 1 · platform code-owners file | one home; server-enforced; no mode key | Azure is policy, not file; persons vs roles | native reviews; RDR names owner role | GitLab Free / Bitbucket enforcement weak |
-| 2 · map in config, file generated | config is gate-readable | two homes in practice; generator to keep | same as 1 | hand edits drift from the map |
-| 3 · owners in the agent roster | one roster | mixes write policy with approval; `**` critic surfaces; not server-enforced | — | platform ignores it |
-| 4 · nothing more | zero build | no check that ownership exists or holds | — | issue WHAT unmet; nobody to route a decision to |
+**External evidence kept for #172 (code-owners per platform).**
+- **GitHub:** `CODEOWNERS` in `.github/`, the root or `docs/`. The base branch's file applies, and owners need write access. "Require review from Code Owners" is a protection or ruleset setting. https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+- **GitLab:** `CODEOWNERS`, `docs/` or `.gitlab/`, Premium or Ultimate only. https://docs.gitlab.com/user/project/codeowners/
+- **Bitbucket Cloud:** `.bitbucket/CODEOWNERS`, suggested reviewers. https://support.atlassian.com/bitbucket-cloud/docs/set-up-and-use-code-owners/
+- **Azure DevOps:** branch policy "Automatically include reviewers" per path, with no file. https://learn.microsoft.com/en-us/azure/devops/repos/git/branch-policies
 
-**Recommendation: 1.**
-- **Main tradeoff:** native server enforcement and no second map, in exchange for platform-dependent strength (enforced on GitHub and Azure; `unverifiable` where the tier does not expose it).
-- **Surviving risk:** a team that names persons rather than groups. The runbook recommends groups, and only an e-mail address is red.
+## Consequences
 
-## Consequences (option 1 plus the settled answers)
-
-- **What lands in a materialised project when `scm.approvals != 0`:**
-  - the platform's code-owners file at its native path, seeded with one line per surface the roster already declares (`rules/agents.md:66-80`, writer surfaces), each owned by a role the team names;
-  - for Azure DevOps, the runbook row "Automatically include reviewers" per surface;
-  - the protection runbook row "require review from code owners".
-- **Selected by:** Q21.2 `scm.platform`, which picks the template, and a new registry question unlocked by `scm.approvals != 0`. That question records only that standing owners exist; the owner list lives in the file.
-- **Framework core, every project:**
-  - branch-born ids qualified by scope, plus a duplicate check for the ordinal indexes;
-  - the second-lands-absorbs rule for version counters;
-  - relayed ratification across sessions;
-  - the lock's stated reach.
-- **Upgrade path:** `SETUP --upgrade` asks the new question (#159's generic upgrade, which reads `since`). Existing ADR numbers stay valid; readers accept both id shapes.
+- **What lands in a materialised project:** framework core only, through follow-ups B, C and D. There is no question and no template.
+- **Upgrade path:** existing ADR numbers stay valid, and readers accept both id shapes. The RDR skill and the lock's text arrive with the core.
 - **Synthetic proof:**
-  - one fixture per `scm.platform` with `approvals: 2`, and one with `approvals: 0` where nothing lands;
-  - a red fixture where an owner glob matches no tracked path;
   - a red fixture where two branches add the same ordinal id;
-  - a fixture where two branch-born ADRs never collide.
+  - a fixture where two branch-born ADRs never collide;
+  - a lint fixture where a relayed record without verbatim words is red;
+  - a hook test where a dead PID's lock is reclaimed.
 
 ## Follow-up issues
 
-**A — Standing owners by surface, for people**
-- **Goal:** Every surface of a team project has a standing owner the SCM platform knows, and the decisions on that surface are routed to that owner.
-- **We want:**
-  - the platform's own code-owners mechanism as the one home;
-  - each owned pattern matching something tracked, and every writer surface owned;
-  - the server requiring owner review where the platform can, and `unverifiable` where it cannot;
-  - an RDR naming the owning role of the surface it decides, computed by a script.
-- **We do not want:**
-  - a second ownership map;
-  - persons where a role will do, or an e-mail address in the file;
-  - a mode key, or a gate softened for a solo project.
-- **How it reaches a project:**
-  - Selected by Q21.2 platform plus a new registry question when `scm.approvals != 0`.
-  - What lands: the file at the platform path, or the Azure runbook row, plus the protection runbook row.
-  - Upgrade: `--upgrade` asks it.
-  - Proof: a fixture per platform, and a red unmatched glob.
-- **Depends on:** #159 phase 1 (shipped, ADR-EVOL-102); #176 for the server verdict (phased: until #176 ships, the owner-review requirement is read by `scm-protection` only).
-
-**B — Ids no other branch can take; counters re-derived by the second to land**
+**B — Ids no other branch can take; counters re-derived by the second to land** → #242 (EVOL-134)
 - **Goal:** Two branches never ship the same record id, and never hand-merge a version.
 - **We want:**
   - records born on a branch take a scope-qualified id;
@@ -197,21 +170,24 @@ Recomiendo la **1**: es lo que menos se construye sin dejar el encargo sin cumpl
   - Proof: two-branch fixtures, one duplicate red and one ADR pair green.
 - **Depends on:** none. Phase with #154: element ids stay #154's.
 
-**C — Relayed ratification across sessions**
-- **Goal:** When several sessions work in parallel, a person's decision reaches the deciding session intact, and approvals that only a person can give stay in that person's own window.
+**C — Relayed ratification across sessions** → #243 (EVOL-135)
+- **Goal:** When a coordinator session and squad sessions work in parallel, a person's decision reaches the deciding session intact, and approvals that only a person can give stay in that person's own window.
 - **We want:**
   - a relayed choice keeps the verbatim words and names the relay;
-  - harness approvals and permission denials are never relayed.
+  - a relay without verbatim words authorises nothing;
+  - plan, BLUEPRINT and `plan_exception` approvals, harness approvals and permission denials are never relayed;
+  - a project's own delegation law (an accepted project ADR) is honoured by the skill without editing framework files.
 - **We do not want:**
   - an agent ratifying;
-  - a peer session answering a permission prompt.
+  - a peer session answering a permission prompt;
+  - a delegation law shipped by the framework (RDR-4 «2»).
 - **How it reaches a project:**
   - Framework core (RDR skill), no question.
   - Proof: a lint fixture where a relayed record without its verbatim words is red.
 - **Depends on:** none.
 
-**D — fix: the session lock says what it guards** (`fix/` branch, no EVOL)
-- **Goal:** The lock's description matches the hook, a branch on one clone, and cross-person exclusivity points to the tracker's In Progress state.
+**D — fix: the session lock says what it guards** (`fix/` branch, no EVOL) → #244
+- **Goal:** The lock's description matches the hook, a branch on one clone. Exclusivity across clones, whether between persons or squad sessions, points to the tracker's In Progress state.
 - **We want:**
   - the skill aligned to `check-concurrency-lock.sh`;
   - an orphan lock of a merged branch removed.
@@ -224,10 +200,11 @@ Recomiendo la **1**: es lo que menos se construye sin dejar el encargo sin cumpl
 
 ## Honest limits
 
-- **#153 RDR-3 is not yet ratified.** Route 1's board row and D's pointer depend on its answer. If #153 chooses a different home than the tracker, D's pointer moves with it.
-- **Three external premises are unverified:**
+- **One field team.** The design rests on one downstream project: one person, a coordinator and two squads. The second downstream project has not run a team yet.
+- **#153 RDR-3 is not yet ratified.** Decision 1 and D's pointer depend on its answer. If #153 chooses a different home than the tracker, both move with it.
+- **Code-owners premises are unverified** and now wait for #172:
   - GitHub CODEOWNERS on private repositories needs a paid plan;
   - Bitbucket Cloud cannot require code-owner approval in a merge check;
-  - the exact GitLab Free behaviour beyond "Premium/Ultimate only".
-- **Not measured:** how often branch-born ADR collisions occur in a downstream project. The evidence is structural, plus one downstream report of counter collisions.
+  - the exact GitLab Free behaviour.
+- **Not measured:** how often branch-born ADR collisions occur. The evidence is structural, plus one downstream report of counter collisions.
 - **Qualified ADR ids change a visible convention.** The owner may prefer sequential ids with a duplicate gate. That choice is queued as an RDR if contested.
