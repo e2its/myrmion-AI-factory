@@ -34,14 +34,13 @@ import re
 from pathlib import Path
 
 from . import corpus, documents, profile
-from .common import GateFault, clean as _clean, key, parse_yaml, read_frontmatter
+from .common import GateFault, clean as _clean, key, parse_yaml, read_frontmatter, unfenced as _unfenced
 from .digests import changed_paths
 from .seal import DEFAULT_SEAL_DIR, RED, _norm_path, vcfg
 
 DESIGN_RE = re.compile(r"docs/spec/[^/]+/design\.md")
 DECISION_RE = re.compile(r"docs/spec/[^/]+/.+\.(?:md|feature)|docs/project_log/adr/[^/]+\.md|docs/ux/vision/[^/]+\.md")   # EVOL-132: where a decision cites
 CITE = re.compile(r"(?<![\w`-])(?:\*\*)?Reference product:(?:\*\*)?[ \t]+((?:`[^`\n]+`[ \t]*,?[ \t]*)+)([^\n]*)")
-FENCE_OPEN = re.compile(r"(`{3,}|~{3,})")
 CONTRACT_RE = re.compile(r"contracts/openapi/.+\.(?:ya?ml|json)")
 METHODS = ("get", "put", "post", "delete", "patch", "head", "options")
 CONSTRAINTS = ("maxLength", "pattern", "enum", "format", "minimum", "maximum")
@@ -114,24 +113,6 @@ def questions(text: str) -> tuple[list[str], int, str]:
 
 def _fold(s: str) -> str:
     return " ".join(str(s).split()).lower()
-
-
-def _unfenced(text: str) -> str:
-    """The text without its fenced code blocks, read line by line — linear (a regex spanning fences backtracks
-    quadratically on many unclosed openers). A fence closes on a line of its own marker, at least as long; an unclosed
-    fence runs to the end; a backtick opener whose info string holds a backtick is inline code (CommonMark)."""
-    out, fence = [], None
-    for ln in (text or "").splitlines():
-        s = ln.strip()
-        if fence is None:
-            m = FENCE_OPEN.match(s)
-            if m and not (m.group(1)[0] == "`" and "`" in s[len(m.group(1)):]):
-                fence = m.group(1)
-            else:
-                out.append(ln)
-        elif s and set(s) == {fence[0]} and len(s) >= len(fence):
-            fence = None
-    return "\n".join(out)
 
 
 def citations(text: str, named) -> tuple[list[str], int]:

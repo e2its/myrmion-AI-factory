@@ -29,6 +29,37 @@ def clean(s, cap: int | None = None) -> str:
     return out if cap is None else out[:cap]
 
 
+FENCE_OPEN = re.compile(r"(`{3,}|~{3,})")
+
+
+def fence_mask(lines) -> list[bool]:
+    """The one fence reader (#233): per line, True inside a fenced code block, its opener and closer included. Line by
+    line — linear (a regex spanning fences backtracks quadratically on many unclosed openers). A fence closes on a line
+    of its own marker only, at least as long; an unclosed fence runs to the end; a backtick opener whose info string
+    holds a backtick is inline code (CommonMark)."""
+    mask, fence = [], None
+    for ln in lines:
+        s = ln.strip()
+        if fence is None:
+            m = FENCE_OPEN.match(s)
+            if m and not (m.group(1)[0] == "`" and "`" in s[len(m.group(1)):]):
+                fence = m.group(1)
+                mask.append(True)
+            else:
+                mask.append(False)
+        else:
+            mask.append(True)
+            if s and set(s) == {fence[0]} and len(s) >= len(fence):
+                fence = None
+    return mask
+
+
+def unfenced(text: str) -> str:
+    """The text without its fenced code blocks (`fence_mask`)."""
+    lines = (text or "").splitlines()
+    return "\n".join(ln for ln, inside in zip(lines, fence_mask(lines)) if not inside)
+
+
 # ─── repo + context ─────────────────────────────────────────────────────────────
 
 def repo_root(start: Path | None = None) -> Path:

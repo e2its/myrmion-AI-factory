@@ -43,7 +43,7 @@ import subprocess
 from pathlib import Path
 
 from . import documents
-from .common import GateFault, frontmatter_of, key, read_frontmatter
+from .common import GateFault, fence_mask, frontmatter_of, key, read_frontmatter
 from .seal import _norm_path, _root_match
 
 HOMES = {
@@ -190,12 +190,10 @@ def declared(repo: Path, c: dict, listing: list[str] | None = None, outage=None)
 def _rows(text: str):
     """(line, HEADER, cells) for every body row of every table, outside code fences — the one table walk."""
     header: list[str] | None = None
-    fence = False
-    for n, line in enumerate(text.splitlines(), 1):
-        if line.lstrip().startswith(("```", "~~~")):
-            fence = not fence; header = None; continue
+    lines = text.splitlines()
+    for n, (line, fence) in enumerate(zip(lines, fence_mask(lines)), 1):
         if fence:
-            continue
+            header = None; continue
         m = re.match(r"^\s*\|(.*)\|\s*$", line)
         if not m:
             header = None; continue
@@ -242,13 +240,11 @@ VISUAL = re.compile(r"\[QA-VIS-(?P<id>[^\]\s]+)\]")
 def _walked_items(text: str) -> list[tuple[int, str]]:
     """(line, item) for every case a report walks, outside code fences: `Covered TCs:` lines, the `Covered TCs` table column, `[QA-VIS-<id>]` tokens."""
     out: list[tuple[int, str]] = []
-    fence = False
     col: int | None = None
-    for n, line in enumerate(text.splitlines(), 1):
-        if line.lstrip().startswith(("```", "~~~")):
-            fence = not fence; col = None; continue
+    lines = text.splitlines()
+    for n, (line, fence) in enumerate(zip(lines, fence_mask(lines)), 1):
         if fence:
-            continue
+            col = None; continue
         out += [(n, m.group("id")) for m in VISUAL.finditer(line)]
         m = COVERED.match(line)
         if m:

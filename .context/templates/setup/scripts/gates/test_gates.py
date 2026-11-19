@@ -128,6 +128,26 @@ def fixture_repo(root: Path, context_: str = "downstream") -> Path:
 
 
 class Common(unittest.TestCase):
+    def test_one_fence_reader(self):
+        """#233: one fence reader for every gate — a closer is its own marker, at least as long; an unclosed fence runs to the end."""
+        from gates import common
+        cases = (
+            ("a\n```py\nx\n```\nb", [False, True, True, True, False]),
+            ("a\n~~~\nx\n~~~\nb", [False, True, True, True, False]),
+            ("````\n```\nx\n````\nb", [True, True, True, True, False]),       # a shorter marker inside never closes
+            ("```\nx\n~~~\ny", [True, True, True, True]),                      # another marker never closes
+            ("```\nx\n```js\ny", [True, True, True, True]),                    # a line with an info string never closes
+            ("a\n```\nx", [False, True, True]),                                # unclosed: to the end
+            ("```a`b``` inline\nc", [False, False]),                             # a backtick in the info string: inline code
+            ("  ```\n  x\n  ```\nb", [True, True, True, False]),              # an indented fence
+        )
+        for text, mask in cases:
+            self.assertEqual(common.fence_mask(text.splitlines()), mask, text)
+        self.assertEqual(common.unfenced("a\n```\nx\n```\nb"), "a\nb")
+        doc = "| A | B |\n|---|---|\n| 1 | 2 |\n\n~~~\n| C | D |\n|---|---|\n| 3 | 4 |\n~~~\n"
+        self.assertEqual([h for h, _ in contracts._tables(doc)], [["A", "B"]], "a table inside a ~~~ fence is an example")
+        self.assertEqual([c for _, _, c in traceability._rows(doc)], [["1", "2"]])
+
     def test_glob(self):
         self.assertTrue(glob_match(".github/workflows/ci.yml", ".github/**"), "a dot-directory is an ordinary path")
         self.assertTrue(glob_match(".env", "**/.env"))
@@ -3294,6 +3314,13 @@ class Canary(unittest.TestCase):
 
 class Digests(unittest.TestCase):
     """EVOL-051: the loop checks what the push checks — every planning artefact of the feature carries a current, complete governance digest."""
+
+    def test_many_unclosed_fences_are_read_in_linear_time(self):
+        """#233: the references reader strips fences in one pass — 20,000 unclosed openers in under 5 s."""
+        body = "# Design\nSee `rules/testing.md`.\n```\n`rules/hidden.md`\n```\n" + "```js\nx\n" * 20000
+        t = time.monotonic(); refs = digests.references(body); spent = time.monotonic() - t
+        self.assertLess(spent, 5.0, "the fence reader is linear")
+        self.assertEqual(refs, {"testing"})
 
     def _repo(self, tmp):
         repo = fixture_repo(Path(tmp))
