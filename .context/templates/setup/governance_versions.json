@@ -2610,13 +2610,13 @@
       "path": "scripts/test-check-design-sections.sh"
     },
     "scripts/fixtures/synthetic-answers/default.json": {
-      "version": "1.15.0",
+      "version": "1.16.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json"
     },
     "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
-      "version": "1.13.1",
+      "version": "1.14.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json"
@@ -3029,13 +3029,13 @@
       "role": "META-ONLY recorded Confluence response (Cloud REST v2 or Data Center REST v1) read by the Documents tests (EVOL-080)."
     },
     "scripts/fixtures/synthetic-answers/unmodelled.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/unmodelled.json"
     },
     "scripts/fixtures/synthetic-answers/unmodelled-unbuilt.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/unmodelled-unbuilt.json"
