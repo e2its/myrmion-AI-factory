@@ -33,6 +33,7 @@ os.environ.update({"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", 
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
 from gates import agents, aligned, bounds, branch, budget, canary, checklist, coherence, contracts, data, delivery, dependencies, corpus, digests, discovery, documents, freeze, frontmatter, manifest, performance, planning, profile, proof, qa, rest, retired, runtime, scm, seal, traceability, tracker, train  # noqa: E402
+from gates import common  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -130,7 +131,7 @@ def fixture_repo(root: Path, context_: str = "downstream") -> Path:
 class Common(unittest.TestCase):
     YAML_CALL = re.compile(r"\byaml\s*\.\s*(?:safe_load|load|full_load|unsafe_load|load_all|safe_load_all)\s*\(")
 
-    @unittest.skipUnless((HERE.parent.parent / ".context/templates/setup").is_dir(), "the framework repo only: a materialised project's own scripts and data are its own")
+    @unittest.skipUnless(common.context(HERE.parent.parent) == "meta", "the framework repo only: a materialised project's own scripts and data are its own")
     def test_one_yaml_entry_point(self):
         """#236: every governance script parses YAML through `gates.common.load_yaml` — no second entry point."""
         root, scripts = HERE.parent.parent, HERE.parent
@@ -160,7 +161,7 @@ class Common(unittest.TestCase):
             with self.subTest(unsafe=unsafe), self.assertRaises(yaml.YAMLError):
                 load_yaml(unsafe)
 
-    @unittest.skipUnless((HERE.parent.parent / ".context/templates/setup").is_dir(), "the framework repo only: a materialised project's own scripts and data are its own")
+    @unittest.skipUnless(common.context(HERE.parent.parent) == "meta", "the framework repo only: a materialised project's own scripts and data are its own")
     def test_c_and_pure_loaders_agree(self):
         """#236: the C and the pure safe loader give the same result and the same refusal class on the corpus."""
         try:
