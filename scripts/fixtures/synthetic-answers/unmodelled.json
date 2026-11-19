@@ -10,6 +10,8 @@
     "backend.runtime": "Crystal",
     "backend.framework": "Kemal",
     "frontend.framework": "Lit",
+    "frontend.design_system.packages": ["@acme/elements"],
+    "frontend.design_system.prefixes": ["acme-"],
     "frontend.meta_framework": "Vite",
     "frontend.state_management": "@lit/context",
     "frontend.pattern": "F2",

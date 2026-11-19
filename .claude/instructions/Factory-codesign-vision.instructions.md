@@ -370,6 +370,7 @@ SSOT of design-system ↔ build alignment. One entry per `data-component` anchor
 {
   "$schema": "component_registry_v1",
   "version": "1.0.0",
+  "design_system_version": "1.0.0",
   "last_updated": "ISO_8601",
   "catalog_feature": null,
   "components": [{
@@ -381,7 +382,8 @@ SSOT of design-system ↔ build alignment. One entry per `data-component` anchor
     "cip_name": null,
     "status": "DESIGNED|PLANNED|IMPLEMENTED|NO_PRIMITIVE",
     "backlog_ref": null,
-    "introduced_by": "UX-VISION|ERQ-…"
+    "introduced_by": "UX-VISION|ERQ-…",
+    "since": "1.0.0"
   }]
 }
 ```
@@ -389,14 +391,15 @@ SSOT of design-system ↔ build alignment. One entry per `data-component` anchor
 - `id` = the anchor's `id`. `cip_name` = `name` of a `type: ui_component` inventory artifact, or `null`.
 - `status`: `DESIGNED` (in the library, no build work) → `PLANNED` (`backlog_ref` set) → `IMPLEMENTED` (`cip_name` resolves to an `IMPLEMENTED` inventory artifact). `NO_PRIMITIVE` = deliberately style-only — RDR only.
 - `catalog_feature` = id of the foundational Component Catalog feature once planned.
+- `version` = the schema's. `design_system_version` = the catalog's semver (EVOL-084), `1.0.0` at first write; `since` = the version that added the entry. Every writer that adds or removes an entry bumps in the same write: add → MINOR, new entry's `since` = new version; remove, or change an `id` / `cip_name` → MAJOR; refresh of `name` / `group` / `ds_anchor` → no bump; binding a built component (`cip_name` null → name, PO intake) → no bump. `gate.py catalog` (d) checks it against the base.
 
 | Writer | When | May write |
 |---|---|---|
 | CODESIGN `--vision` / `--vision-refine` / `--sync VISION` | after V.5 / after adoption | add entries `DESIGNED`; refresh `name`/`group`/`ds_anchor`. NEVER touches `cip_name`, `status`, `backlog_ref` of existing entries. Anchor gone ⇒ keep entry, report it |
-| SETUP external-DS Component Migration | materialisation | add entries, `origin: external_ds` |
+| SETUP external-DS Component Migration | materialisation | add entries, `origin: external_ds`; `design_system_version: "1.0.0"`, `since: "1.0.0"` |
 | `factory-po-intake` catalog beat | after a sync | `cip_name`, `status`, `backlog_ref`, `catalog_feature` (reconcile vs inventory) |
 
-Readers: PO package builder (component base + card footers + drift), PO return validator (known components), BLUEPRINT / IMPLEMENT REVIEW `[UX-VISION]` (reuse before create).
+Readers: PO package builder (component base + card footers + drift), PO return validator (known components), BLUEPRINT design (catalog components only; a missing one → `--vision-refine` by RDR), IMPLEMENT frontend worker and REVIEW `[UX-VISION]` (reuse before create), QA (`gate.py catalog --json`). `gate.py catalog` (DC-45) rejects shipped UI built outside it.
 
 ---
 

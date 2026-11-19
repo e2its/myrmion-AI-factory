@@ -49,6 +49,7 @@ MEMBERS = [
     ("contracts",        False, False, "gate.py",                 ["gate", "contracts", "--base", "{base}", "--branch", "{branch}"], False),
     ("data",             False, False, "gate.py",                 ["gate", "data", "--base", "{base}", "--branch", "{branch}"], False),
     ("performance",      False, False, "gate.py",                 ["gate", "performance", "--base", "{base}", "--branch", "{branch}"], False),
+    ("catalog",          False, False, "gate.py",                 ["gate", "catalog", "--base", "{base}", "--branch", "{branch}"], False),
     ("delivery",         False, False, "gate.py",                 ["gate", "delivery", "--check"], False),
     ("qa",               False, False, "gate.py",                 ["gate", "qa", "--check", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
     ("proof",            False, False, "gate.py",                 ["gate", "proof", "--check"], False),

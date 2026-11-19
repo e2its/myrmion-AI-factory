@@ -8,7 +8,7 @@ applicable_when:
     - "**/*.jsx"
     - "**/*.tsx"
     - "**/*.vue"
-version: 1.9.0
+version: 1.10.0
 date: 2026-01-26
 ---
 
@@ -573,7 +573,7 @@ inset-inline-start: 0;      /* ✅ Instead of left: 0 */
 - **Canonical components** are the entries of `docs/ux/component-registry.json` with a `cip_name`, plus the atoms of `src/components/ui/`. A feature imports them and never writes a local copy, a fork or a same-named component.
 - **Mock primitives** are the `data-component` anchors of the mocks (`docs/spec/*/mock.html`, `component_library.html`). Each one maps to its canonical component; the product never re-creates its markup by hand.
 - **The mock's vocabulary never ships.** Placeholder copy, sample data, `data-component` anchors and mock-only class names stay in the mock. The UI carries the product's copy (`rules/ux-constitution.md` § 5.1).
-- **Check:** the component-catalog class-usage gate is the one gate for this rule, and it brings its defect class and red test. Until it ships, the governance lens reads this rule at review.
+- **Check:** `gate.py catalog` (DC-45, EVOL-084) — a profile member on the UI files a change touches: a component from a package outside the catalog, a local copy of a catalog component, or the mock's vocabulary is red; so is a registry edit without its `design_system_version` bump.
 
 ---
 

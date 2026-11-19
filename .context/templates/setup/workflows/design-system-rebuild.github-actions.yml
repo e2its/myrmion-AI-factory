@@ -3,8 +3,9 @@ name: Design System Rebuild
 # ============================================================================
 # Design System Rebuild — ADVISORY job, never fails the pipeline
 # ============================================================================
-# Materialised by SETUP --generate ONLY when the project configured a
-# design-system rebuild command (docs/setup.md § po_package.ds_rebuild_command).
+# Materialised by SETUP --generate ONLY when the project has a frontend and
+# configured a design-system rebuild command (docs/setup.md §
+# po_package.ds_rebuild_command). Bitbucket twin: design-system-rebuild.bitbucket.yml.
 #
 # Rebuilds the design-system preview cards from code through the PO package
 # builder, reports card-to-registry drift, and uploads the bundle:

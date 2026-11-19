@@ -52,6 +52,7 @@
   gate.py performance --run [--json]                 the loop member (needs a build): each route of performance.bundles, gzip total ≤ bundle_kb; null bundles or a glob matching nothing is red
   gate.py performance --run --site S --url U [--json]   the deployed measurement (DEVOPS after a deploy): p95 per endpoint ≤ api_p95_ms, Lighthouse LCP/FCP/CLS per route, warm p50 and the hosting's start/cold figure ≤ the same site's last line × (1 + margin_pct); no record with metrics for the site → advisory and the first one written; a better run writes a record tag (deploy/{site}/{ts}); --rebaseline ADR-NNN|<feature>/FDR-NNNN (an accepted record) appends the line even when worse, the thresholds still block; exit 1 red
   gate.py delivery --check [--json]                EVOL-081, the light member: the deploy pipeline of the answered CI platform (delivery.PIPELINE_FILE; shipped on GitHub Actions and Bitbucket Pipelines, authored at SETUP elsewhere) — every deploy / rollback / teardown stage calls gate.py delivery, none applies directly, each pushes only its own environment's tags, production behind approval on a shipped template; the adapter row has apply and url_from and names its environment; red when the pipeline is missing; n/a with delivery.execution local or nothing to deploy
+  gate.py catalog [--base B] [--branch X] [--json]       EVOL-084, the light member: the UI files the change touches are built from the design-system catalog — no component from another package or outside the catalog (a), no local copy of a catalog component (b), no mock vocabulary (c); the registry's design_system_version moves with its catalog (d); n/a without the block, a frontend or the registry; exit 1 red
   gate.py delivery --run|--rollback|--teardown --env E [--json]   the one executor: validate → plan → migrate (trace) → apply → probe every healthCheckPath → performance → record tag deploy/E/{ts} → lkg/E/{ts} when green (tags created, never pushed); teardown runs the adapter's destroy, no tag; refused outside CI when delivery.execution is ci; exit 1 red
   gate.py delivery --last E | --lkg E               the latest record / last-known-good record of E as JSON; exit 1 none
   gate.py contracts --parity [--json]               EVOL-070, the loop member contract-parity (needs a build): the contract tests (the test files under contracts.tests_root, through seal --scoped's dispatch) record each answer to CONTRACT_OBSERVED — every status declared, every code in the catalog and the operation's x-error-codes, every operation answered; contracts.emit writes the code's OpenAPI and oasdiff diff --fail-on-diff compares each twin (shapes, constraints, security, responses, info.version); exit 1 red · n/a without an OpenAPI contract
@@ -91,7 +92,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, aligned as aligned_mod, bounds as bounds_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, delivery as delivery_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, proof as proof_mod, qa as qa_mod, tracker as tracker_mod, documents as documents_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
+    from gates import agents as agents_mod, aligned as aligned_mod, bounds as bounds_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, catalog as catalog_mod, delivery as delivery_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, proof as proof_mod, qa as qa_mod, tracker as tracker_mod, documents as documents_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
     from gates.common import GateFault, clean, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -507,6 +508,16 @@ def cmd_performance(repo, a):
     return 0 if r["ok"] else 1
 
 
+def cmd_catalog(repo, a):
+    try:
+        r = catalog_mod.check(repo, _base(repo, a))
+    except (GateFault, branch_mod.UnknownBranch) as e:
+        print(f"catalog: RED — {clean(e)}", file=sys.stderr)
+        return 1
+    print(json.dumps(r) if a.json else catalog_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
 def cmd_delivery(repo, a):
     try:
         acts = [x for x in ("run", "rollback", "teardown", "check", "pr") if getattr(a, x)] + (["last"] if a.last else []) + (["lkg"] if a.lkg else [])
@@ -877,6 +888,7 @@ def build_parser():
     p = sub.add_parser("freeze"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_freeze)
     p = sub.add_parser("contracts"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--parity", action="store_true"); p.set_defaults(fn=cmd_contracts)
     p = sub.add_parser("data"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_data)
+    p = sub.add_parser("catalog"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_catalog)
     p = sub.add_parser("performance"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--run", action="store_true"); p.add_argument("--site", default=""); p.add_argument("--url", default=""); p.add_argument("--rebaseline", default=None); p.set_defaults(fn=cmd_performance)
     p = sub.add_parser("delivery"); p.add_argument("--run", action="store_true"); p.add_argument("--rollback", action="store_true"); p.add_argument("--teardown", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--pr", action="store_true", help="the verdicts the PR demands: sweep + smoke (owed: feature branch, full-sdlc, not docs only)"); p.add_argument("--base", default=None); p.add_argument("--branch", default=""); p.add_argument("--last", default=None, metavar="ENV"); p.add_argument("--lkg", default=None, metavar="ENV"); p.add_argument("--env", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_delivery)
     p = sub.add_parser("qa"); p.add_argument("--verdict", action="store_true"); p.add_argument("--ready", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--file", default=None); p.add_argument("--env", default=""); p.add_argument("--feature", default=""); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_qa)

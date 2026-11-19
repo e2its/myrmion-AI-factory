@@ -1,5 +1,5 @@
 {
-  "_doc": "Synthetic SETUP answers (EVOL-116): None backend, Angular frontend. The per-file scoped rows land without `red: false` and without `was`; the red member proves through frontend-tests. META-ONLY.",
+  "_doc": "Synthetic SETUP answers (EVOL-116): None backend, Angular frontend, Bitbucket with a design-system rebuild command (EVOL-084: the rebuild step merges into bitbucket-pipelines.yml). The per-file scoped rows land without `red: false` and without `was`; the red member proves through frontend-tests. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
     "project_scope": "frontend-only",
@@ -7,19 +7,30 @@
     "qa.dast_tool": "owasp-zap",
     "backend.runtime": "None",
     "frontend.framework": "Angular",
+    "frontend.design_system.packages": [
+      "@angular/material"
+    ],
+    "frontend.design_system.prefixes": [
+      "mat-"
+    ],
     "frontend.meta_framework": "None",
     "frontend.pattern": "F1",
     "database.primary.engine": "PostgreSQL",
     "hosting.provider": "AWS",
     "hosting.type": "container",
     "hosting.deploy_tool": "Terraform",
-    "ci_cd.platform": "GitHub Actions",
-    "scm.platform": "GitHub",
+    "ci_cd.platform": "Bitbucket Pipelines",
+    "scm.platform": "Bitbucket",
     "project_tracking.tool": "None",
-    "project_tracking.flow": ["Backlog", "Ready", "In Progress", "Done"],
+    "project_tracking.flow": [
+      "Backlog",
+      "Ready",
+      "In Progress",
+      "Done"
+    ],
     "documents.source": "None",
     "po_package.mode": "full",
-    "po_package.ds_rebuild_command": null,
+    "po_package.ds_rebuild_command": "npx ng run app:cards",
     "surface.runtime_surface": [
       "src/**",
       "scripts/**"
@@ -33,7 +44,8 @@
     "landed": [
       ".claude/rules/ux-constitution.md",
       "tests/e2e/support/clauses.ts",
-      "tests/e2e/specs/canary.spec.ts"
+      "tests/e2e/specs/canary.spec.ts",
+      "scripts/gates/catalog.py"
     ],
     "absent": [
       ".claude/rules/database.md",
@@ -44,7 +56,8 @@
       "present": [
         "DC-44",
         "DC-38",
-        "DC-43"
+        "DC-43",
+        "DC-45"
       ],
       "absent": [
         "DC-36",
@@ -52,15 +65,27 @@
         "DC-39"
       ]
     },
-    "contains": {"config/quality.json": ["\"blocking_severity\": \"high\""], 
+    "contains": {
       ".claude/rules/ux-constitution.md": [
-        "### 3. Canonical Components"
+        "### 3. Canonical Components",
+        "`gate.py catalog` (DC-45"
+      ],
+      "bitbucket-pipelines.yml": [
+        "Design system rebuild (advisory)",
+        "design-system-rebuild:"
+      ],
+      "config/quality.json": [
+        "\"blocking_severity\": \"high\"",
+        "\"mock_vocabulary\"",
+        "\"packages\": [\"@angular/material\"]",
+        "\"prefixes\": [\"mat-\"]"
       ]
     },
     "pending_absent": [
       "Q15.1",
       "Q36",
-      "Q37"
+      "Q37",
+      "Q14.1"
     ],
     "gates": {
       "frontend-tests": "npx ng test --no-watch",

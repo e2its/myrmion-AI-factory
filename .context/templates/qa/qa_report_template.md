@@ -66,6 +66,7 @@ warning_count: 0
 - [ ] [QA-PRE-2] Migration safety validation
 - [ ] [QA-PRE-3] IaC governance validation
 - [ ] [QA-PRE-DATA] Synthetic data verification (if UI feature + staging)
+- [ ] [QA-PRE-UI] Design-system catalog (`gate.py catalog --json` green, or n/a with its reason — DC-45)
 - [ ] [QA-PRE-SCM] Server-side branch protection (`gate.py scm-protection` green at ci, or the runbook checklist ticked)
 
 ### Governance

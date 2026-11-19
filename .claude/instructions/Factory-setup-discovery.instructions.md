@@ -240,6 +240,10 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **If Yes (Q14b):** Instruct user to deposit DS files in `docs/ux/design-system/`. Wait for confirmation. Analyze content: tokens, components, guidelines, assets. Verify compatibility with `frontend.framework`. Auto-resolve setup fields (colors, typography, Visual DNA) from DS tokens.
 - **Persist:** `frontend.external_design_system.exists`, `.path`, `.compatibility`, `.resolved_fields[]`
 
+#### Q14.1: Design-system packages and prefixes (conditional: frontend exists) — EVOL-084
+- **Ask:** which npm packages make up the design system (e.g. `@acme/ui`), and which custom-element prefixes it registers (e.g. `mat-`)? A design system built in the project's own tree answers `[]` for both; Q14b's files, when deposited, are evidence for the answer, never a substitute for asking.
+- **Persist:** `frontend.design_system.packages[]`, `frontend.design_system.prefixes[]` — they fill the packages and prefixes of the catalog block in config/quality.json. `gate.py catalog` (DC-45) reads them: a component from a package outside the list, or a custom element with no listed prefix, is red.
+
 #### Q15: Primary Database
 - **Options:** PostgreSQL | MySQL | MongoDB | DynamoDB | SQLite | Redis | None
 - **Persist:** `database.primary.engine`

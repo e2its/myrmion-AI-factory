@@ -11,6 +11,8 @@
     "domain.monetary_amounts": false,
     "backend.runtime": ".NET",
     "frontend.framework": "Vue.js",
+    "frontend.design_system.packages": ["@acme/vue-ui"],
+    "frontend.design_system.prefixes": [],
     "frontend.meta_framework": "Nuxt",
     "frontend.pattern": "F1",
     "database.primary.engine": "PostgreSQL",

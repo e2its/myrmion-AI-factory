@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.8.0
+version: 1.9.0
 date: 2026-09-25
 applicable_when:
   path_glob:
@@ -162,3 +162,11 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 **Story:** The deploy command exited zero and the pipeline went green. The service crashed on start, so nothing answered. The next rollback had no good state to return to, because every deploy had been recorded as good.
 
 **Detection:** `gate.py delivery --run` probes every `healthCheckPath` of `config/system_resources.json` against the deployed URL until its timeout. Any service down → the run is red and no `lkg/{env}/*` tag is written. The light member `delivery` refuses a pipeline whose deploy stage skips the executor, or whose production stage has no approval.
+
+### DC-45 — UI built around the catalog
+
+**Origin:** The canonical-components rule of EVOL-072 (`rules/ux-constitution.md` § 3), gated in EVOL-084 (#138).
+
+**Story:** The design system declared a Button. A feature imported another library's button because it was closer to hand, a second feature pasted its own copy, and a third shipped the mock's `data-component` anchors and placeholder copy. Each one passed review on its own. The product ended with three buttons that looked alike and behaved differently.
+
+**Detection:** `gate.py catalog`, a light member at every push and in CI, reads each UI file the change touches against `docs/ux/component-registry.json`. A component from a package outside `catalog.packages`, a design-system export the catalog does not hold, a catalog component defined outside its home, or a `catalog.mock_vocabulary` entry is red. A registry edit that adds a component without a MINOR bump, or removes or renames one without a MAJOR bump, is red too.
