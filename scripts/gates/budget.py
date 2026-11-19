@@ -10,6 +10,9 @@ against its worst-case input and measures what it emits. Not the file size — t
   claude_md_advisory  the CLAUDE.md in bytes (the template in the framework repo, a project's own file elsewhere) — OPTIONAL and ADVISORY (EVOL-064):
                       over the key is a WARN row that stays ok; no key, no row
 
+  hook_output_cap  the harness cap on one hook's text (#240): every injection key above it is a RED row — over the
+                   cap the harness swaps the text for a file path the model never reads
+
 A producer that is absent, exits non-zero, or emits nothing (banner, prompt, pre-edit delivery) is a RED row:
 a dead producer is exactly the failure the gate exists to catch. A missing budget key is a red row too.
 The caller (gate.py budget) exits 1 on any red row; only an unreadable config/quality.json is exit 2.
@@ -25,7 +28,7 @@ from pathlib import Path
 from .common import GateFault, any_glob, context, key
 from .corpus import catalog, laws, universe
 
-REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars")
+REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars", "hook_output_cap")
 MUST_EMIT = ("session_start", "prompt_submit", "pre_edit")   # an empty emission from these is a dead producer, never "within budget"
 
 
@@ -110,6 +113,12 @@ def measure(repo: Path) -> dict:
         if type(cap) is not int:
             rows[name] = {"budget": None, "bytes": nbytes, "producer": producer, "ok": False, "fault": f"key budgets.{name} missing from config/quality.json"}
             return
+        hook = budgets.get("hook_output_cap")
+        if name in MUST_EMIT:   # a key above the harness cap is a budget the harness never honours (#240): the key's fault comes first
+            if type(hook) is not int:
+                fault = "key budgets.hook_output_cap missing from config/quality.json (the harness cap on one hook's text)"
+            elif cap > hook:
+                fault = f"budgets.{name} = {cap} is over the harness hook cap budgets.hook_output_cap = {hook} — the harness would swap the text for a file path"
         ok = fault is None and (nbytes is None or (nbytes <= cap and (nbytes > 0 or name not in MUST_EMIT)))
         rows[name] = {"budget": cap, "bytes": nbytes, "producer": producer, "ok": ok, "fault": fault}
 

@@ -440,6 +440,24 @@ Run `python3 scripts/gate.py catalog`: green, n/a with its reason, or each findi
 
 **contracts.outage_status (EVOL-115).** Add the template's `contracts` block (`outage_status`, default `503`) to `config/quality.json`; `gate.py freeze` is red on the first changed contract without it.
 
+**budgets.hook_output_cap (#240).** The harness swaps a hook's text over its cap for a file path. Run it as written (idempotent; it only lowers, never raises); name each lowered key with its old value in the upgrade report:
+
+```bash
+python3 - <<'PY'
+import json, pathlib
+p = pathlib.Path("config/quality.json")
+q = json.loads(p.read_text(encoding="utf-8"))
+b = q.setdefault("budgets", {})
+cap = b.setdefault("hook_output_cap", 10000)
+lowered = [(k, b[k]) for k in ("session_start", "prompt_submit", "pre_edit") if type(b.get(k)) is int and b[k] > cap]
+for k, _ in lowered:
+    b[k] = cap
+p.write_text(json.dumps(q, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+for k, old in lowered:
+    print(f"budgets.{k}: {old} -> {cap} (budgets.hook_output_cap)")
+PY
+```
+
 ---
 
 ### Step 3: New File Handling (4.4.3)
