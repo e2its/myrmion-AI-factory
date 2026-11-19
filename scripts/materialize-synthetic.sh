@@ -425,6 +425,7 @@ PY2
     && ok "the hook-cap migration lowers prompt_submit 20000 → 10000 and names it, keeps every value under the cap, and a second run changes nothing (#240)" \
     || bad "the hook-cap migration (rc=$RC1/$RC2, got=$GOT)" "$OUT1${OUT2:+
 $OUT2}"
+  (cd "$P" && bash "$H/mig.sh") >/dev/null 2>&1   # the aged project takes its migration, as SETUP --upgrade does: later checks read an upgraded tree
 fi
 # EVOL-081 — the merged Bitbucket pipeline (target_mode: merge): governance check, auto-tag and deploy in one file,
 # valid against the live schema, held by the executor's static check

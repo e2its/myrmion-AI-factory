@@ -157,10 +157,12 @@ emit_reload() {
   rest=$(wc -c < "$REST" 2>/dev/null | tr -d ' ')
   p=$(python3 scripts/gate.py key budgets.prompt_submit --required 2>/dev/null)
   c=$(python3 scripts/gate.py key budgets.hook_output_cap --required 2>/dev/null)
-  case "$p|$c|$inline|$rest" in
-    *[!0-9\|]*|\|*|*\|\|*|*\|) ;;
-    *) [ ${#p} -le 9 ] && [ ${#c} -le 9 ] && budget=$(( 10#$p < 10#$c ? 10#$p : 10#$c )) ;;
-  esac
+  local v ok=1
+  for v in "$p" "$c" "$inline" "$rest"; do   # each value on its own: digits only, at most 9 — else the pointer
+    case "$v" in ''|*[!0-9]*) ok=0 ;; esac
+    [ ${#v} -le 9 ] || ok=0
+  done
+  [ "$ok" = 1 ] && budget=$(( 10#$p < 10#$c ? 10#$p : 10#$c ))
   if [ -n "$budget" ] && [ $(( 10#$inline + 10#$rest )) -le "$budget" ]; then
     echo "<governance-reload>"
     cat "$SNAPSHOT"

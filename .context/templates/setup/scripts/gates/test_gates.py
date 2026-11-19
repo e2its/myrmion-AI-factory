@@ -902,10 +902,14 @@ class Budget(unittest.TestCase):
             big = prompt("# laws\n" + "b" * 12000 + "\n")
             self.assertNotIn("b" * 100, big, "the snapshot over the key never goes out inline")
             self.assertIn('<governance-reload mode="file" bytes="12008">', big)
-            self.assertIn(f"Read {repo.resolve()}/.context/governance_snapshot.md in full now", big)
+            self.assertTrue(any(f"Read {r}/.context/governance_snapshot.md in full now" in big for r in {str(repo), str(repo.resolve())}), big)
             self.assertIn("budget: 10000 bytes", big)
             self.assertLessEqual(len(big.encode()), 10000)
             cfg = json.loads((repo / "config/quality.json").read_text(encoding="utf-8"))
+            cfg["budgets"]["prompt_submit"] = 5000   # a project key under the cap: the lower one bounds the reload
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            lower = prompt("# laws\n" + "l" * 6000 + "\n")
+            self.assertIn('mode="file"', lower); self.assertIn("budget: 5000 bytes", lower)
             cfg["budgets"]["prompt_submit"] = 20000   # a project key not yet lowered by the upgrade
             (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
             unlowered = prompt("# laws\n" + "u" * 12000 + "\n")
