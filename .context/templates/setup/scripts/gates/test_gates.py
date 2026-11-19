@@ -98,8 +98,8 @@ def fixture_repo(root: Path, context_: str = "downstream") -> Path:
     subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
     write(repo / "config/coherence-context.json", json.dumps({"context": context_, "audit": {"root_sets": ["."], "exclusions": [".git/"]}}))
     write(repo / "config/quality.json", json.dumps({
-        "budgets": {"session_start": 2000, "prompt_submit": 16000, "pre_edit": 6000, "snapshot": 16000,
-                    "law_sentence_max_chars": 240, "dc_invariant_max_chars": 160},
+        "budgets": {"session_start": 2000, "prompt_submit": 10000, "pre_edit": 6000, "snapshot": 16000,
+                    "law_sentence_max_chars": 240, "dc_invariant_max_chars": 160, "hook_output_cap": 10000},
         "retired_terms": [{"term": RETIRED, "record": "ADR-EVOL-043", "exempt": ["docs/legacy/**"]}]}))
     write(repo / "CLAUDE.md", CLAUDE_MD)
     write(repo / "docs/constitution.md", CONSTITUTION)
@@ -847,6 +847,78 @@ class Budget(unittest.TestCase):
             (repo / "config/quality.json").write_text(json.dumps({"budgets": {"session_start": 1}}), encoding="utf-8")
             rows = budget.measure(repo)
             self.assertFalse(rows["pre_edit"]["ok"]); self.assertIn("key budgets.pre_edit missing", rows["pre_edit"]["fault"])
+
+    def test_injection_key_over_the_hook_cap_is_red(self):
+        """#240: the harness swaps hook text over its cap for a file path — an injection key above budgets.hook_output_cap is red."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            cfg = json.loads((repo / "config/quality.json").read_text(encoding="utf-8"))
+            cfg["budgets"]["prompt_submit"] = 20000
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            r = budget.measure(repo)["prompt_submit"]
+            self.assertFalse(r["ok"])
+            self.assertIn("budgets.prompt_submit = 20000 is over the harness hook cap budgets.hook_output_cap = 10000", r["fault"])
+            del cfg["budgets"]["hook_output_cap"]
+            cfg["budgets"]["prompt_submit"] = 10000
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            rows = budget.measure(repo)
+            for k in budget.MUST_EMIT:
+                with self.subTest(k=k):
+                    self.assertFalse(rows[k]["ok"]); self.assertIn("budgets.hook_output_cap missing", rows[k]["fault"])
+
+    def test_reload_goes_out_whole_or_as_a_pointer(self):
+        """#240: the post-compact reload is inline when it fits budgets.prompt_submit with the rest of the hook's text,
+        else (or when the key cannot be read) a pointer telling the model to Read the snapshot — never over the key."""
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            shutil.copytree(HERE, repo / "scripts/gates", ignore=shutil.ignore_patterns("__pycache__", "test_*"))
+            shutil.copy(HERE.parent / "governance-onprompt.sh", repo / "scripts/governance-onprompt.sh")
+            shutil.copy(HERE.parent / "gate.py", repo / "scripts/gate.py")
+
+            def prompt(snapshot: str) -> str:
+                write(repo / ".context/governance_snapshot.md", snapshot)
+                write(repo / ".claude/state/governance-reload-s1.marker", "")
+                write(repo / ".claude/state/governance-source-edited-s1.marker", "docs/setup.md\n")   # a fixed rest after the reload
+                r = subprocess.run(["bash", "scripts/governance-onprompt.sh"], cwd=repo, input='{"session_id":"s1","prompt":"x"}',
+                                   capture_output=True, text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": str(repo)}, timeout=60)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertFalse((repo / ".claude/state/governance-reload-s1.marker").exists(), "the marker is consumed")
+                head, sep, rest = r.stdout.partition("</governance-reload>\n")
+                self.assertTrue(head.startswith("<governance-reload") and sep, "the reload comes first")
+                self.assertIn('<governance-source-edited paths="docs/setup.md">', rest, "the rest of the hook's text follows the reload, whole")
+                return r.stdout
+            def inline_size(body: str) -> int:
+                return len(("<governance-reload>\n" + body + "</governance-reload>\n").encode())
+            small = prompt("# laws\n" + "a" * 200 + "\n")
+            self.assertIn("<governance-reload>\n# laws", small)
+            rest = len(small.encode()) - inline_size("# laws\n" + "a" * 200 + "\n")
+            self.assertGreater(rest, 2)
+            edge = "# laws\n" + "e" * (10000 - inline_size("# laws\n\n") - rest // 2) + "\n"
+            self.assertLessEqual(inline_size(edge), 10000)
+            fit_alone = prompt(edge)
+            self.assertIn('mode="file"', fit_alone, "a reload that fits the key alone but not with the rest goes out as the pointer")
+            self.assertLessEqual(len(fit_alone.encode()), 10000)
+            big = prompt("# laws\n" + "b" * 12000 + "\n")
+            self.assertNotIn("b" * 100, big, "the snapshot over the key never goes out inline")
+            self.assertIn('<governance-reload mode="file" bytes="12008">', big)
+            self.assertTrue(any(f"Read {r}/.context/governance_snapshot.md in full now" in big for r in {str(repo), str(repo.resolve())}), big)
+            self.assertIn("budget: 10000 bytes", big)
+            self.assertLessEqual(len(big.encode()), 10000)
+            cfg = json.loads((repo / "config/quality.json").read_text(encoding="utf-8"))
+            cfg["budgets"]["prompt_submit"] = 5000   # a project key under the cap: the lower one bounds the reload
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            lower = prompt("# laws\n" + "l" * 6000 + "\n")
+            self.assertIn('mode="file"', lower); self.assertIn("budget: 5000 bytes", lower)
+            cfg["budgets"]["prompt_submit"] = 20000   # a project key not yet lowered by the upgrade
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            unlowered = prompt("# laws\n" + "u" * 12000 + "\n")
+            self.assertIn('mode="file"', unlowered, "the hook cap bounds the reload even when prompt_submit is above it")
+            self.assertIn("budget: 10000 bytes", unlowered)
+            (repo / "scripts/gate.py").unlink()
+            blind = prompt("# laws\n" + "c" * 200 + "\n")
+            self.assertIn('mode="file"', blind, "the key cannot be read: the pointer is the safe form")
+            self.assertIn("budget: unreadable bytes", blind)
 
     def test_claude_md_advisory_warns_never_blocks(self):
         """EVOL-064: the project CLAUDE.md (in the framework repo, the template it ships) against budgets.claude_md_advisory —

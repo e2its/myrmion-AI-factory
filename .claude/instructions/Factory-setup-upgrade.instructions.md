@@ -440,6 +440,31 @@ Run `python3 scripts/gate.py catalog`: green, n/a with its reason, or each findi
 
 **contracts.outage_status (EVOL-115).** Add the template's `contracts` block (`outage_status`, default `503`) to `config/quality.json`; `gate.py freeze` is red on the first changed contract without it.
 
+**budgets.hook_output_cap (#240).** The harness swaps a hook's text over its cap for a file path. Run it as written (idempotent): it adds the key when absent or invalid and lowers an injection key above it — never raises one; name each line it prints in the upgrade report:
+
+```bash
+python3 - <<'PY'
+import json, pathlib
+p = pathlib.Path("config/quality.json")
+q = json.loads(p.read_text(encoding="utf-8"))
+b = q.setdefault("budgets", {})
+was = b.get("hook_output_cap")
+added = type(was) is not int or was < 1
+if added:
+    b["hook_output_cap"] = 10000   # the template's value at 10.9.2 (the harness cap per hook text); a project's own positive int is kept
+    if was is not None:
+        print(f"budgets.hook_output_cap: {was!r} -> 10000 (not a positive integer)")
+cap = b["hook_output_cap"]
+lowered = [(k, b[k]) for k in ("session_start", "prompt_submit", "pre_edit") if type(b.get(k)) is int and b[k] > cap]
+for k, _ in lowered:
+    b[k] = cap
+if added or lowered:
+    p.write_text(json.dumps(q, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+for k, old in lowered:
+    print(f"budgets.{k}: {old} -> {cap} (budgets.hook_output_cap)")
+PY
+```
+
 ---
 
 ### Step 3: New File Handling (4.4.3)

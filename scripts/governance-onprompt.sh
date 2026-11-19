@@ -6,7 +6,9 @@
 #   1. Post-compact re-inject: if the sibling PreCompact hook left a session-
 #      scoped marker, emit the governance snapshot wrapped in
 #      <governance-reload>...</governance-reload> so Claude Code appends it to
-#      the next turn as additional context. Then consume the marker.
+#      the next turn as additional context. Then consume the marker. Over
+#      the hook budget (the lower of budgets.prompt_submit and
+#      budgets.hook_output_cap) the reload becomes a pointer to the file (#240).
 #   2. Source-edit attribution: if the sibling PostToolUse hook
 #      (governance-onedit.sh) left a session-scoped marker, emit a
 #      <governance-source-edited paths="..."> block naming the governance
@@ -134,11 +136,51 @@ fi
 # marker, so the measured bytes are what a session receives at its worst, not the file
 # size. The IPP / source-edited blocks are small and not simulated.
 WORST_CASE="${GOVERNANCE_ONPROMPT_WORST_CASE:-0}"
-if { [ -n "$MARKER" ] || [ "$WORST_CASE" = "1" ]; } && [ -f "$SNAPSHOT" ]; then
-  echo "<governance-reload>"
-  cat "$SNAPSHOT"
+
+# The reload goes out whole only when it fits the hook's budget together with everything else this
+# hook says (#240): the harness swaps any hook text over its cap for a file path the model never reads.
+# The budget is the lower of budgets.prompt_submit and budgets.hook_output_cap, so a project key not yet
+# lowered by SETUP --upgrade cannot reopen the swap. The other blocks go to a scratch file first; at exit
+# the reload is chosen — inline when reload + rest fit the budget, otherwise (or when a key cannot be
+# read) a pointer that tells the model to Read the snapshot now — and printed first, then the rest.
+reload_pointer() {
+  echo "<governance-reload mode=\"file\" bytes=\"$(wc -c < "$SNAPSHOT" 2>/dev/null | tr -d ' ')\">"
+  echo "The governance snapshot is not inlined here: with the rest of this hook's text it would not fit the hook's budget (budget: ${1:-unreadable} bytes, the lower of budgets.prompt_submit and budgets.hook_output_cap; the harness swaps longer hook text for a file path)."
+  echo "Read $PWD/$SNAPSHOT in full now, before any other action — it holds the laws and defect classes in force."
   echo "</governance-reload>"
+}
+emit_reload() {
+  set +e   # an EXIT trap: a failed measure falls to the pointer, never aborts the hook's output
+  exec 1>&3 3>&-
+  local inline rest p c budget=""
+  inline=$({ echo "<governance-reload>"; cat "$SNAPSHOT"; echo "</governance-reload>"; } 2>/dev/null | wc -c | tr -d ' ')
+  rest=$(wc -c < "$REST" 2>/dev/null | tr -d ' ')
+  p=$(python3 scripts/gate.py key budgets.prompt_submit --required 2>/dev/null)
+  c=$(python3 scripts/gate.py key budgets.hook_output_cap --required 2>/dev/null)
+  local v ok=1
+  for v in "$p" "$c" "$inline" "$rest"; do   # each value on its own: digits only, at most 9 — else the pointer
+    case "$v" in ''|*[!0-9]*) ok=0 ;; esac
+    [ ${#v} -le 9 ] || ok=0
+  done
+  [ "$ok" = 1 ] && budget=$(( 10#$p < 10#$c ? 10#$p : 10#$c ))
+  if [ -n "$budget" ] && [ $(( 10#$inline + 10#$rest )) -le "$budget" ]; then
+    echo "<governance-reload>"
+    cat "$SNAPSHOT"
+    echo "</governance-reload>"
+  else
+    reload_pointer "$budget"
+  fi
+  cat "$REST" 2>/dev/null
+  rm -f "$REST"
+}
+if { [ -n "$MARKER" ] || [ "$WORST_CASE" = "1" ]; } && [ -f "$SNAPSHOT" ]; then
   [ "$WORST_CASE" = "1" ] || rm -f "$MARKER"
+  if REST=$(mktemp 2>/dev/null); then
+    exec 3>&1 1>"$REST"
+    trap emit_reload EXIT
+  else
+    reload_pointer ""   # no scratch file to measure with: the pointer is the safe form
+  fi
 fi
 
 # ── 2) Source-edit attribution (PostToolUse → onprompt) ─────────────────────

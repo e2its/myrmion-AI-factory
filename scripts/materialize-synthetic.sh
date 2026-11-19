@@ -320,6 +320,7 @@ g["frontend-tests"]["scoped"]="npx jest --config jest.config.ts {paths} --no-cov
   rm -f "$P/.github/workflows/deploy.yml"   # and the deploy pipeline (templates_to_add, added where ci_cd.platform has one)
   rm -rf "$P/security/sast"   # it predates the SAST packs (EVOL-074): the packs and the `sast` row are owed (templates_to_add, added)
   rm -f "$P/contracts/errors.yaml" "$P/.claude/rules/monetary-amounts.md"   # it predates the product laws (EVOL-072): owed where the answers select them
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); b=q["budgets"]; b.pop("hook_output_cap", None); b["prompt_submit"]=20000; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"   # it predates the hook cap (#240): the migration is owed
   python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
   URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
   UMISS=$(printf '%s' "$UP" | python3 -c '
@@ -406,6 +407,26 @@ PY
     && ok "the catalog migration versions an 8.x registry (design_system_version, every since) and a second run changes nothing (EVOL-084)" \
     || bad "the catalog migration's registry write (rc=$RC1/$RC2, got=$GOT)" ""
 fi
+# #240 — the hook-cap migration on the installed project's config, in a tree of its own: an injection key over the harness cap is lowered to it and named,
+# a value under the cap is kept, nothing is raised; twice, the second a no-op
+if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(open(sys.argv[1])) else 1)' "$ANSWERS"; then
+  H="$SCRATCH/h240"; Q="$H/q"; mkdir -p "$Q/config"
+  python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY2'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**budgets.hook_output_cap (#240).**")
+print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
+PY2
+  cp "$P/config/quality.json" "$Q/config/quality.json"   # the installed 8.12 project's own config: no cap key, prompt_submit 20000
+  BEFORE=$(python3 -c 'import json,sys; b=json.load(open(sys.argv[1]))["budgets"]; b.pop("prompt_submit"); print(sorted(b.items()))' "$Q/config/quality.json" 2>&1)
+  OUT1=$(cd "$Q" && bash "$H/mig.sh" 2>&1); RC1=$?; SUM1=$(sha256sum < "$Q/config/quality.json")
+  OUT2=$(cd "$Q" && bash "$H/mig.sh" 2>&1); RC2=$?; SUM2=$(sha256sum < "$Q/config/quality.json")
+  GOT=$(python3 -c 'import json,sys; b=json.load(open(sys.argv[1]))["budgets"]; print(b.pop("hook_output_cap"), b.pop("prompt_submit"), sorted(b.items()))' "$Q/config/quality.json" 2>&1)
+  [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "10000 10000 $BEFORE" ] \
+    && [ "$OUT1" = "budgets.prompt_submit: 20000 -> 10000 (budgets.hook_output_cap)" ] && [ -z "$OUT2" ] \
+    && ok "the hook-cap migration lowers prompt_submit 20000 → 10000 and names it, keeps every value under the cap, and a second run changes nothing (#240)" \
+    || bad "the hook-cap migration (rc=$RC1/$RC2, got=$GOT)" "$OUT1${OUT2:+
+$OUT2}"
+  (cd "$P" && bash "$H/mig.sh") >/dev/null 2>&1   # the aged project takes its migration, as SETUP --upgrade does: later checks read an upgraded tree
+fi
 # EVOL-081 — the merged Bitbucket pipeline (target_mode: merge): governance check, auto-tag and deploy in one file,
 # valid against the live schema, held by the executor's static check
 if [ -f "$P/bitbucket-pipelines.yml" ]; then
@@ -470,7 +491,14 @@ OUT=$(cd "$P" && python3 scripts/gate.py laws --parity 2>&1); RC=$?
 OUT=$(cd "$P" && python3 scripts/gate.py budget 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "injection budgets hold against the real producers" || bad "budget red (rc=$RC)" "$OUT"
 PS=$(printf '%s' "$OUT" | grep '| prompt_submit |' | awk -F'|' '{gsub(/ /,"",$4); print $4}'); SNAPB=$(wc -c < "$P/.context/governance_snapshot.md" | tr -d ' ')
-[ "${PS:-0}" -ge "$SNAPB" ] 2>/dev/null && ok "prompt_submit worst case measured ≥ the snapshot ($PS ≥ $SNAPB B: the reload is forced)" || bad "prompt_submit worst case smaller than the snapshot ($PS < $SNAPB) — the reload is not forced" "$OUT"
+RL=$(cd "$P" && printf '%s' '{"session_id":"smoke","prompt":"x"}' | GOVERNANCE_ONPROMPT_WORST_CASE=1 bash scripts/governance-onprompt.sh 2>/dev/null)
+CAP=$(cd "$P" && python3 scripts/gate.py key budgets.hook_output_cap --required 2>/dev/null)
+# #240: the forced reload goes out whole (≥ the snapshot) or as the file form naming the snapshot's size — never above the harness cap
+{ { [ "${PS:-0}" -ge "$SNAPB" ] && printf '%s' "$RL" | grep -q '^<governance-reload>$'; } \
+  || printf '%s' "$RL" | grep -q "^<governance-reload mode=\"file\" bytes=\"$SNAPB\">$"; } 2>/dev/null \
+  && [ -n "$CAP" ] && [ "${PS:-0}" -le "$CAP" ] 2>/dev/null \
+  && ok "prompt_submit worst case forces the reload, whole or as the file form, within budgets.hook_output_cap ($PS B ≤ $CAP; snapshot $SNAPB B)" \
+  || bad "prompt_submit worst case: reload missing or over the harness cap (measured $PS B, snapshot $SNAPB B, cap ${CAP:-unreadable})" "$RL"
 PRE=$(printf '%s' "$OUT" | grep '| pre_edit |' | awk -F'|' '{gsub(/ /,"",$4); print $4}')
 [ "${PRE:-0}" -gt 0 ] 2>/dev/null && ok "pre-edit delivery measured on the worst-case path ($PRE B, never 0)" || bad "pre-edit measured empty — dead delivery" "$OUT"
 OUT=$(cd "$P" && printf '%s' '{"tool_input":{"file_path":"src/app/models.py"},"session_id":"smoke"}' | bash .claude/hooks/deliver-governance.sh 2>&1)
