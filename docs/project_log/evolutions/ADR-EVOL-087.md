@@ -91,6 +91,23 @@ Result: no candidate replaces the inventory; Sourcebot is the only one that woul
 
 **Recommendation: option 2.** Main tradeoff: inventory-level reuse only, no cross-repo code search. Surviving risk: a sibling repository not run by the framework (no inventory) is invisible; the reader says so per source rather than staying silent.
 
+## Decision (evidence)
+
+**Option 2 — a federated read of each sibling's inventory at its main commit, through the SCM API, off by default.** Decided on the evidence, with no owner RDR. The owner set the precedent on #139 (2026-11-19).
+
+**Why no RDR.** The goal is the issue's own, stated by the owner: multi-repository reuse. Option 2 serves it with the least build, and a project's own answer decides whether it lands (empty by default). Nothing is irreversible or outward-facing. The evidence gives a clear winner:
+- Option 1 leaves the stated scope unmet.
+- Option 3 contradicts #153 RDR-1a: it keeps a second copy of an external source of truth, and it is a server to host and secure.
+- Option 4 needs V12 widened for credentials in MCP headers. Its agents read search results instead of a script deciding, and it still does not know PLANNED entries.
+
+**Comparable products.**
+- Hosted code-search products (Sourcebot, Sourcegraph) solve cross-repository *code* search with a server.
+- Cross-repository *reuse of planned and built components* has no off-the-shelf equivalent. Reading each repository's own record at a pin is the pattern the framework already uses for external sources (`gate.py documents`, #153 RDR-1a).
+
+**Revisit trigger:** a measured run in an adopting project (#186) shows duplicates that the inventory misses and code search would catch. Then option 4 is next, after a recall bake-off on a planted duplicate (Honest limits).
+
+**Follow-up:** #251 (EVOL-139).
+
 ## Consequences
 
 - **What lands (answer non-empty):** the inventory reader gains a cross-repository read; the CIP skill's consultation step calls it and receives only matching entries tagged `{source, sha}`; the reuse RDR records that pin in design § Reuse Analysis. Answer empty (default): nothing lands, the reader reports n/a.
@@ -101,7 +118,7 @@ Result: no candidate replaces the inventory; Sourcebot is the only one that woul
 
 ## Follow-up issues
 
-**Title:** Cross-repository inventory reuse — agents check sibling repositories' inventories at their main commit before creating a component, off by default
+**→ #251 (EVOL-139)** · **Title:** Cross-repository inventory reuse — agents check sibling repositories' inventories at their main commit before creating a component, off by default
 - **Goal:** In a product spread over several repositories, reuse is checked against every sibling's inventory, not only the local one.
 - **We want:**
   - The sibling repositories named once, at SETUP, by a registry question (#159); none by default, and then nothing changes.
@@ -123,7 +140,7 @@ Result: no candidate replaces the inventory; Sourcebot is the only one that woul
 
 ## Honest limits
 
-- The bake-off is a desk review (README, docs, GitHub API metadata); no candidate was run against a synthetic multi-repo fixture. If the owner picks option 4, a measured run (recall on a planted duplicate, tokens per consultation) is owed before build.
+- The bake-off is a desk review (README, docs, GitHub API metadata); no candidate was run against a synthetic multi-repo fixture. If option 4 is ever revisited, a measured run (recall on a planted duplicate, tokens per consultation) is owed before build.
 - ❓ unverified — external: Sourcebot's request limits and whether any MCP feature needs a paid key; Serena's HTTP transport and auth; CodeGraphContext and code-graph-rag transports; Joern MCP availability; current Sourcegraph licence.
 - Rate limits of each SCM API for N siblings per consultation are not measured; caching by SHA bounds repeat reads but not the first.
 - Option 2 assumes siblings are materialised by the framework (they carry an inventory); a mixed estate sees only part.
