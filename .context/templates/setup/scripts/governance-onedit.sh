@@ -17,6 +17,12 @@
 # here would emit a marker without a corresponding warning and confuse the
 # agent.
 #
+# Block 3 (EVOL-133): a write that lands in the session notebook directory
+# (.context/state/notebook/) claims the notebook for this session through
+# the one reader, gate.py notebook --hook-json — Edit/Write, and a shell
+# write resolved by the write-target reader. Wired on Edit|Write|Bash: a Bash
+# payload that never names the directory leaves at once.
+#
 # Exit policy: always exit 0. Hook is observational, never blocks.
 #
 # Marker file: .claude/state/governance-source-edited-${session_id}.marker
@@ -41,6 +47,15 @@ if [ ! -t 0 ]; then
   PAYLOAD=$(cat || true)
 fi
 [ -n "$PAYLOAD" ] || exit 0
+
+# ── Block 3 — session notebook claim (EVOL-133) ─────────────────────────────
+case "$PAYLOAD" in
+  *'.context/state/notebook/'*)
+    printf '%s' "$PAYLOAD" | python3 scripts/gate.py notebook --hook-json >/dev/null 2>&1 || true ;;
+esac
+case "$PAYLOAD" in
+  *'"tool_name":"Bash"'*|*'"tool_name": "Bash"'*) exit 0 ;;
+esac
 
 # Extract a JSON field by dotted path. jq → python3 cascade. Awk has no clean
 # dotted-path support so we degrade silently when neither jq nor python3 is

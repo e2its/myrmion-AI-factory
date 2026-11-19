@@ -10,6 +10,11 @@ against its worst-case input and measures what it emits. Not the file size — t
   claude_md_advisory  the CLAUDE.md in bytes (the template in the framework repo, a project's own file elsewhere) — OPTIONAL and ADVISORY (EVOL-064):
                       over the key is a WARN row that stays ok; no key, no row
 
+  notebook_reinject    EVOL-133: gate.py notebook --hook-json at UserPromptSubmit on a throw-away claimed notebook larger
+                       than the key, reload pending — the <session-notebook> block (never counted in prompt_submit)
+  notebook_precompact  EVOL-133: scripts/governance-oncompact.sh on a throw-away claimed notebook and a transcript with
+                       every author delivered after it — the advisory for the summary
+
   hook_output_cap  the harness cap on one hook's text (#240): every injection key above it is a RED row — over the
                    cap the harness swaps the text for a file path the model never reads
 
@@ -19,17 +24,21 @@ The caller (gate.py budget) exits 1 on any red row; only an unreadable config/qu
 """
 from __future__ import annotations
 
+import datetime
 import json
 import os
+import shutil
 import subprocess
+import tempfile
 import uuid
 from pathlib import Path
 
 from .common import GateFault, any_glob, context, key
 from .corpus import catalog, laws, universe
 
-REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars", "hook_output_cap")
-MUST_EMIT = ("session_start", "prompt_submit", "pre_edit")   # an empty emission from these is a dead producer, never "within budget"
+REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars", "hook_output_cap",
+            "notebook_reinject", "notebook_precompact")
+MUST_EMIT = ("session_start", "prompt_submit", "pre_edit", "notebook_reinject", "notebook_precompact")   # an empty emission from these is a dead producer, never "within budget"
 
 
 class ProducerFault(GateFault):
@@ -149,6 +158,7 @@ def measure(repo: Path) -> dict:
         marker = repo / ".claude/state" / f"governance-delivered-{session}.txt"
         if marker.is_file():
             marker.unlink()
+    _notebook_rows(repo, budgets, produce)
     snap = repo / ".context/governance_snapshot.md"
     row("snapshot", snap.stat().st_size if snap.is_file() else None,
         ".context/governance_snapshot.md" + ("" if snap.is_file() else " (absent — n/a here)"))
@@ -167,6 +177,46 @@ def measure(repo: Path) -> dict:
             r["ok"] = True
             r["warn"] = r["bytes"] is not None and r["bytes"] > r["budget"]
     return rows
+
+
+def _notebook_rows(repo: Path, budgets: dict, produce) -> None:
+    """EVOL-133: both notebook producers on a throw-away session — a claimed notebook larger than the re-injection key
+    and a transcript with every author after it. Every fixture is removed in `finally`."""
+    sid = f"budget-{uuid.uuid4().hex}"
+    nbd, std = repo / ".context/state/notebook", repo / ".claude/state"
+    nb, state, marker = nbd / f"{sid}.md", std / f"notebook-{sid}.json", std / f"governance-reload-{sid}.marker"
+    size = budgets.get("notebook_reinject") if type(budgets.get("notebook_reinject")) is int else 10000
+    tdir = Path(tempfile.mkdtemp(prefix="nb-budget-"))
+    try:
+        nbd.mkdir(parents=True, exist_ok=True)
+        std.mkdir(parents=True, exist_ok=True)
+        entries = "".join(f"- 2026-01-01T00:00:{i % 60:02d}Z entry {i} " + "é" * 80 + "\n" for i in range(2 * size // 80 + 4))
+        nb.write_text("## Standing\n" + "- decision in force " + "x" * 200 + "\n\n## Log\n" + entries, encoding="utf-8")
+        os.utime(nb, (946684800, 946684800))
+        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        tr = tdir / "transcript.jsonl"
+        lines = [{"type": "user", "timestamp": now, "message": {"content": "words"}},
+                 {"type": "attachment", "timestamp": now, "attachment": {"type": "queued_command", "prompt": "q", "origin": {"kind": "human"}}},
+                 {"type": "user", "isMeta": True, "timestamp": now, "message": {"content": "<cross-session-message from=\"p\">m"}},
+                 {"type": "user", "timestamp": now, "message": {"content": ""}}] * 50
+        tr.write_text("".join(json.dumps(x) + "\n" for x in lines), encoding="utf-8")
+        state.write_text(json.dumps({"path": f".context/state/notebook/{sid}.md", "claimed_at": now, "reload": False,
+                                     "unsaved": 0, "authors": []}), encoding="utf-8")
+        produce("notebook_precompact", repo / "scripts/governance-oncompact.sh", ["bash", "scripts/governance-oncompact.sh"],
+                "scripts/governance-oncompact.sh (claimed notebook, every author unsaved)",
+                json.dumps({"hook_event_name": "PreCompact", "session_id": sid, "transcript_path": str(tr), "trigger": "auto"}))
+        state.write_text(json.dumps({"path": f".context/state/notebook/{sid}.md", "claimed_at": now, "reload": True,
+                                     "unsaved": 200, "authors": ["user", "queued", "peer", "other"], "lower_bound": True}), encoding="utf-8")
+        produce("notebook_reinject", repo / "scripts/gates/notebook.py", ["python3", "scripts/gate.py", "notebook", "--hook-json"],
+                "gate.py notebook --hook-json (UserPromptSubmit, reload pending, notebook over the key)",
+                json.dumps({"hook_event_name": "UserPromptSubmit", "session_id": sid, "prompt": "x"}))
+    finally:
+        for f in (nb, state, marker):
+            try:
+                f.unlink()
+            except OSError:
+                pass
+        shutil.rmtree(tdir, ignore_errors=True)
 
 
 def summary(rows: dict) -> str:

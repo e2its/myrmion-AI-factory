@@ -321,6 +321,9 @@ g["frontend-tests"]["scoped"]="npx jest --config jest.config.ts {paths} --no-cov
   rm -rf "$P/security/sast"   # it predates the SAST packs (EVOL-074): the packs and the `sast` row are owed (templates_to_add, added)
   rm -f "$P/contracts/errors.yaml" "$P/.claude/rules/monetary-amounts.md"   # it predates the product laws (EVOL-072): owed where the answers select them
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); b=q["budgets"]; b.pop("hook_output_cap", None); b["prompt_submit"]=20000; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"   # it predates the hook cap (#240): the migration is owed
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q["budgets"].pop(k, None) for k in ("notebook_reinject", "notebook_precompact")]; json.dump(q, open(p, "w"), indent=2)
+p=sys.argv[2]; s=json.load(open(p)); h=s["hooks"]; h["UserPromptSubmit"]=[e for e in h["UserPromptSubmit"] if not any("gate.py notebook" in x.get("command", "") for x in e.get("hooks", []))]
+[e.update(matcher="Edit|Write") for e in h["PostToolUse"] if e.get("matcher") == "Edit|Write|Bash"]; json.dump(s, open(p, "w"), indent=2)' "$P/config/quality.json" "$P/.claude/settings.json"   # it predates the session notebook (EVOL-133): the migration is owed
   python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
   URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
   UMISS=$(printf '%s' "$UP" | python3 -c '
@@ -427,6 +430,29 @@ PY2
 $OUT2}"
   (cd "$P" && bash "$H/mig.sh") >/dev/null 2>&1   # the aged project takes its migration, as SETUP --upgrade does: later checks read an upgraded tree
 fi
+# EVOL-133 (e) — the session-notebook migration on the installed 10.9-shaped project, in a tree of its own that carries a UserPromptSubmit hook
+# of the project's own: both keys, the notebook entry and the Bash matcher land, the project's hook is kept; twice, the second a no-op
+if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(open(sys.argv[1])) else 1)' "$ANSWERS"; then
+  H="$SCRATCH/h133"; Q="$H/q"; mkdir -p "$Q/config" "$Q/.claude"
+  python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY2'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**session-notebook (EVOL-133).**")
+print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
+PY2
+  cp "$P/config/quality.json" "$Q/config/quality.json"
+  python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); s["hooks"]["UserPromptSubmit"].append({"hooks": [{"type": "command", "command": "bash scripts/own-prompt-hook.sh"}]}); json.dump(s, open(sys.argv[2], "w"), indent=2)' "$P/.claude/settings.json" "$Q/.claude/settings.json"
+  OUT1=$(cd "$Q" && bash "$H/mig.sh" 2>&1); RC1=$?; SUM1=$(cat "$Q/config/quality.json" "$Q/.claude/settings.json" | sha256sum)
+  OUT2=$(cd "$Q" && bash "$H/mig.sh" 2>&1); RC2=$?; SUM2=$(cat "$Q/config/quality.json" "$Q/.claude/settings.json" | sha256sum)
+  GOT=$(python3 -c 'import json,sys; b=json.load(open(sys.argv[1]))["budgets"]; h=json.load(open(sys.argv[2]))["hooks"]
+c=[x["command"] for e in h["UserPromptSubmit"] for x in e.get("hooks", [])]
+m=[e.get("matcher") for e in h["PostToolUse"] if any("governance-onedit.sh" in x.get("command", "") for x in e.get("hooks", []))]
+print(b["notebook_reinject"], b["notebook_precompact"], sum("gate.py notebook --hook-json" in x for x in c), "bash scripts/own-prompt-hook.sh" in c, m)' "$Q/config/quality.json" "$Q/.claude/settings.json" 2>&1)
+  [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "9000 1000 1 True ['Edit|Write|Bash']" ] \
+    && [ "$(printf '%s\n' "$OUT1" | wc -l)" -eq 4 ] && [ -z "$OUT2" ] \
+    && ok "the session-notebook migration adds both keys, the notebook entry and the Bash matcher, keeps the project's own prompt hook, and a second run changes nothing (EVOL-133)" \
+    || bad "the session-notebook migration (rc=$RC1/$RC2, got=$GOT)" "$OUT1${OUT2:+
+$OUT2}"
+  (cd "$P" && bash "$H/mig.sh") >/dev/null 2>&1   # the aged project takes its migration: later checks read an upgraded tree
+fi
 # EVOL-081 — the merged Bitbucket pipeline (target_mode: merge): governance check, auto-tag and deploy in one file,
 # valid against the live schema, held by the executor's static check
 if [ -f "$P/bitbucket-pipelines.yml" ]; then
@@ -501,6 +527,36 @@ CAP=$(cd "$P" && python3 scripts/gate.py key budgets.hook_output_cap --required 
   || bad "prompt_submit worst case: reload missing or over the harness cap (measured $PS B, snapshot $SNAPB B, cap ${CAP:-unreadable})" "$RL"
 PRE=$(printf '%s' "$OUT" | grep '| pre_edit |' | awk -F'|' '{gsub(/ /,"",$4); print $4}')
 [ "${PRE:-0}" -gt 0 ] 2>/dev/null && ok "pre-edit delivery measured on the worst-case path ($PRE B, never 0)" || bad "pre-edit measured empty — dead delivery" "$OUT"
+# EVOL-133 — the session notebook on the materialised tree: (a) one anchored, fail-open entry and its reader delivered; (b) both budget rows green
+NBW=$(python3 -c 'import json,sys; h=json.load(open(sys.argv[1]))["hooks"]
+c=[x["command"] for e in h["UserPromptSubmit"] for x in e.get("hooks", []) if "gate.py notebook" in x.get("command", "")]
+m=[e.get("matcher") for e in h["PostToolUse"] if any("governance-onedit.sh" in x.get("command", "") for x in e.get("hooks", []))]
+print(len(c), all(x.startswith("cd \"${CLAUDE_PROJECT_DIR:-.}\" && ") and x.endswith("|| true") for x in c), m)' "$P/.claude/settings.json" 2>&1)
+[ "$NBW" = "1 True ['Edit|Write|Bash']" ] && [ -f "$P/scripts/gate.py" ] && [ -f "$P/scripts/gates/notebook.py" ] \
+  && ok "the settings wire one anchored, fail-open notebook entry and the claim on Edit|Write|Bash; its reader is delivered (EVOL-133 a)" || bad "notebook wiring wrong ($NBW)" ""
+printf '%s' "$OUT" | grep -q '| notebook_reinject |' && printf '%s' "$OUT" | grep -q '| notebook_precompact |' \
+  && ok "both notebook budget rows measured green on the materialised tree (EVOL-133 b)" || bad "notebook budget rows missing" "$OUT"
+# (c) end to end through the shipped hooks: a Write claims, a compaction counts without leaking, the next prompt reloads once
+NB="$P/.context/state/notebook/smoke.md"; NT="$SCRATCH/nb-transcript.jsonl"; mkdir -p "$(dirname "$NB")"
+printf '# Notebook\n\nDecision: keep the queue.\n\n## Log\n- 10:00 started\n- 10:05 queued the review\n' > "$NB"; touch -d '2000-01-01' "$NB"
+printf '{"type":"user","timestamp":"2026-01-01T00:00:00Z","message":{"role":"user","content":"ZEBRA-SENTINEL do the thing"}}\n' > "$NT"
+OUT=$(cd "$P" && printf '{"session_id":"nbsmoke","hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"%s"}}' "$NB" | bash scripts/governance-onedit.sh 2>&1)
+PC=$(cd "$P" && printf '{"session_id":"nbsmoke","hook_event_name":"PreCompact","trigger":"auto","transcript_path":"%s"}' "$NT" | bash scripts/governance-oncompact.sh 2>/dev/null)
+R1=$(cd "$P" && printf '%s' '{"session_id":"nbsmoke","hook_event_name":"UserPromptSubmit","prompt":"x"}' | python3 scripts/gate.py notebook --hook-json 2>/dev/null)
+R2=$(cd "$P" && printf '%s' '{"session_id":"nbsmoke","hook_event_name":"UserPromptSubmit","prompt":"x"}' | python3 scripts/gate.py notebook --hook-json 2>/dev/null)
+NBP=$(cd "$P" && python3 scripts/gate.py key budgets.notebook_precompact --required 2>/dev/null); NBR=$(cd "$P" && python3 scripts/gate.py key budgets.notebook_reinject --required 2>/dev/null)
+printf '%s' "$PC" | grep -q '<session-notebook-advisory>' && printf '%s' "$PC" | grep -q 'user' && ! printf '%s%s' "$PC" "$R1" | grep -q 'ZEBRA-SENTINEL' \
+  && [ "$(printf '%s' "$PC" | wc -c)" -le "${NBP:-0}" ] && [ "$(printf '%s' "$R1" | wc -c)" -le "${NBR:-0}" ] \
+  && printf '%s' "$R1" | grep -q 'Decision: keep the queue.' && printf '%s' "$R1" | grep -q '10:05 queued the review' && [ -z "$R2" ] \
+  && ok "a Write claims the notebook, the compaction counts the unsaved user message without its words (≤ $NBP B), the next prompt reloads it whole (≤ $NBR B), once (EVOL-133 c)" \
+  || bad "notebook end to end" "claim: $OUT
+precompact: $PC
+reload: $R1
+second: $R2"
+rm -rf "$P/.context/state/notebook" "$P/.claude/state/notebook-nbsmoke.json" "$NT"
+# (d) the notebook directory is outside every governed path: a notebook write needs no plan
+OUT=$(cd "$P" && python3 scripts/gate.py plan --path .context/state/notebook/x.md 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "a notebook write is not governed — no plan owed (EVOL-133 d)" || bad "the notebook path is governed (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '%s' '{"tool_input":{"file_path":"src/app/models.py"},"session_id":"smoke"}' | bash .claude/hooks/deliver-governance.sh 2>&1)
 printf '%s' "$OUT" | grep -q '"additionalContext"' && printf '%s' "$OUT" | grep -q 'DC-' && ok "a real edit payload gets its defect classes delivered through the envelope" || bad "delivery hook delivered nothing for src/app/models.py" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py retired-terms 2>&1); RC=$?

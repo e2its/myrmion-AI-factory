@@ -465,6 +465,42 @@ for k, old in lowered:
 PY
 ```
 
+**session-notebook (EVOL-133).** The session notebook's two budget keys and its two hook wirings. Run it as written (idempotent): it adds `budgets.notebook_reinject` and `budgets.notebook_precompact` when absent or invalid, adds the `UserPromptSubmit` entry that runs `scripts/gate.py notebook --hook-json` when no entry runs it, and widens the `PostToolUse` entry that runs `scripts/governance-onedit.sh` to `Edit|Write|Bash`; a project's own entries and values are kept. Name each line it prints in the upgrade report:
+
+```bash
+python3 - <<'PY'
+import json, pathlib
+def load(p):
+    return json.loads(p.read_text(encoding="utf-8"))
+q_path, s_path = pathlib.Path("config/quality.json"), pathlib.Path(".claude/settings.json")
+q = load(q_path)
+b = q.setdefault("budgets", {})
+changed_q = False
+for k, v in (("notebook_reinject", 9000), ("notebook_precompact", 1000)):   # the template's values at 10.10.0
+    if type(b.get(k)) is not int or b[k] < 1:
+        print(f"budgets.{k}: {b.get(k)!r} -> {v}")
+        b[k] = v
+        changed_q = True
+if changed_q:
+    q_path.write_text(json.dumps(q, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+s = load(s_path)
+h = s.setdefault("hooks", {})
+changed_s = False
+ups = h.setdefault("UserPromptSubmit", [])
+if not any("scripts/gate.py notebook --hook-json" in (x.get("command") or "") for e in ups for x in e.get("hooks", [])):
+    ups.append({"hooks": [{"type": "command", "command": 'cd "${CLAUDE_PROJECT_DIR:-.}" && python3 scripts/gate.py notebook --hook-json || true'}]})
+    print("hooks.UserPromptSubmit: + scripts/gate.py notebook --hook-json")
+    changed_s = True
+for e in h.get("PostToolUse", []):
+    if e.get("matcher") == "Edit|Write" and any("scripts/governance-onedit.sh" in (x.get("command") or "") for x in e.get("hooks", [])):
+        e["matcher"] = "Edit|Write|Bash"
+        print("hooks.PostToolUse: governance-onedit.sh matcher Edit|Write -> Edit|Write|Bash")
+        changed_s = True
+if changed_s:
+    s_path.write_text(json.dumps(s, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+```
+
 ---
 
 ### Step 3: New File Handling (4.4.3)
@@ -481,6 +517,7 @@ Files that exist in framework but not in project:
 - `.context/templates/setup/claude/settings.json` → target `.claude/settings.json`. Uses `merge-preserve` (more conservative than smart-additive-merge):
   - Add the `hooks.SessionStart`, `hooks.UserPromptSubmit`, `hooks.PreCompact` blocks from the template if absent in target.
   - For `hooks.PreToolUse` and `hooks.PostToolUse`: never remove or reorder user-configured entries; **add** the framework's missing hook commands under their matcher (idempotent) — `Edit|Write`: `check-plan-approval.sh` after `check-branch-protection.sh`, `deliver-governance.sh` last; `EnterPlanMode`: `check-plan-mode.sh`; `PostToolUse` `ExitPlanMode`: `record-plan-approval.sh` (EVOL-048). `Bash`: `check-branch-protection.sh`, `check-plan-approval.sh`, `check-concurrency-lock.sh` before `check-push-preflight.sh` (EVOL-065 — a shell write meets the same gates). A framework entry is identified by the script it runs (`.claude/hooks/X.sh`, `scripts/X.sh`): a target entry running the same script in an older command form (the bare `bash X.sh`, not anchored by `cd "${CLAUDE_PROJECT_DIR:-.}" && …`) is **replaced** in place with the template's command — never added beside it, which would run the hook twice. A framework entry the template now wires under another matcher **moves** there — `check-completion-gate.sh` from `Write` to `Edit|Write`, before `deliver-governance.sh` (#171) — never kept under both. The `planning` block of `config/quality.json` (JSON additive merge) and these hook entries land in the **same** upgrade step — a wired gate with no `planning` key blocks every write except the one that adds the key.
+  - The session notebook (EVOL-133): `UserPromptSubmit` gains the entry that runs `scripts/gate.py notebook --hook-json` when no entry runs it (identified by the reader it runs; a project's own `UserPromptSubmit` entries are kept), and the `PostToolUse` entry that runs `scripts/governance-onedit.sh` takes the template's matcher `Edit|Write|Bash` — the **session-notebook (EVOL-133)** step above does both.
   - Add the top-level `autoCompactWindow` from the template only if absent in target (EVOL-063 — the compaction window); a value the project set is kept.
   - NEVER touch `permissions`, `model`, `env`, or any other top-level key (the one exception: `autoCompactWindow` above, added only when absent).
   - Idempotent: re-running `--upgrade` after the first run is a no-op.
