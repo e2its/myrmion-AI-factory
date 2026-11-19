@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.7.0",
+  "framework_version": "10.8.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-18",
   "governance_features": {
@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.24.2",
+      "version": "2.24.3",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -148,7 +148,7 @@
       "target": ".claude/rules/contract-first-policy.md"
     },
     "rules/immutability_policy.md": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/immutability_policy.md"
     },
@@ -898,7 +898,7 @@
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**)."
     },
     "scripts/gate.py": {
-      "version": "2.7.2",
+      "version": "2.7.3",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
@@ -940,7 +940,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.44.0",
+      "version": "1.45.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -1253,7 +1253,7 @@
       "target": "scripts/gates/aligned.py"
     },
     "scripts/gates/train.py": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/train.py"
@@ -1449,7 +1449,7 @@
       "target": ".context/templates/architect/fdr_template.md"
     },
     "architect/increment_plan_template.md": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "content_type": "universal",
       "target": ".context/templates/architect/increment_plan_template.md"
     },
@@ -1573,7 +1573,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.32.2",
+      "version": "2.32.3",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -1617,7 +1617,7 @@
       "path": ".claude/instructions/Factory-audit-complexity.instructions.md"
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.26.0",
+      "version": "3.26.1",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md"
     },
     "instructions/Factory-blueprint-refine.instructions.md": {
@@ -1629,7 +1629,7 @@
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md"
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "3.9.0",
+      "version": "3.10.0",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md"
     },
     "instructions/Factory-codesign-vision.instructions.md": {
@@ -1645,7 +1645,7 @@
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md"
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.31.0",
+      "version": "2.32.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md"
     },
     "instructions/Factory-implement-plan.instructions.md": {
@@ -1697,7 +1697,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.37.2",
+      "version": "14.37.3",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
@@ -1721,7 +1721,7 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.13.0",
+      "version": "2.14.0",
       "type": "skill",
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
@@ -1888,7 +1888,7 @@
       "path": ".claude/skills/factory-pr-review/references/code-review-criteria.md"
     },
     "skills/factory-pr-review/references/docs-sync-checklist.md": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "type": "skill-asset",
       "role": "Factory PR Review code↔docs sync matrix — three-tier matrix: Universal (any project: CLI flags, env vars, OpenAPI/AsyncAPI, README, CHANGELOG, ADR, runbooks, DB schema), Materialised Factory project (CVP-driven: spec.feature ↔ user_journey ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan, Per-Increment Immutability, Scope Compatibility Gate, CIP), Framework meta repo (governance-bump miss enforcing CLAUDE.md Generation Standards §2).",
       "path": ".claude/skills/factory-pr-review/references/docs-sync-checklist.md"
@@ -2316,7 +2316,7 @@
       "path": ".claude/hooks/deliver-governance.sh"
     },
     "scripts/gate.py": {
-      "version": "2.7.2",
+      "version": "2.7.3",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
@@ -2352,13 +2352,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.44.0",
+      "version": "1.45.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.41.0",
+      "version": "1.41.1",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2646,7 +2646,7 @@
       "path": "scripts/gates/aligned.py"
     },
     "scripts/gates/train.py": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "script",
       "path": "scripts/gates/train.py"
     },

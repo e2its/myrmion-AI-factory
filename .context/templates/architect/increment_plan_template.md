@@ -69,7 +69,7 @@ iterations: []
 
 ### INC-1 — {{increment-title}}
 
-- **Status:** DRAFT   *(DRAFT | READY | BUILDING | MERGED | INVALIDATED — governs immutability, see `immutability_policy.md § Per-Increment Immutability`)*
+- **Status:** DRAFT   *(DRAFT | READY | BUILDING | MERGED | INVALIDATED — governs immutability, see `immutability_policy.md § Per-Increment Immutability`; any other value, or none, is red: `gate.py train` (k))*
 - **Scope:** {{one-line user-observable capability delivered by this increment}}
 - **Scenarios covered:** `spec.feature` → [{{Scenario name 1}}, {{Scenario name 2}}]
 - **Contract surface:** [{{POST /api/v1/foo}}, {{GET /api/v1/bar/:id}}] (or GraphQL fields / AsyncAPI topics / gRPC RPCs)
@@ -93,8 +93,8 @@ iterations: []
   - [ ] `/qa --verify {{FEATURE_ID}} INC-1` report APPROVED   *(after IMPLEMENT closes the slice)*
 - **Branch convention:** `feature/{{FEATURE_ID}}-inc-1-{{slug}}` (one PR per increment — see factory-branching-strategy) — with sub-increments it is the train; sub-increments branch from it as `…-sub-{M}`
 - **Merged at:** null   *(ISO timestamp; set by the merge hook when the increment PR lands on main; trigger for status transition READY/BUILDING → MERGED)*
-- **Pending iteration:** null   *(non-null when `CASCADE_INCREMENT_INTERNAL` detects upstream change affecting this increment and status is BUILDING — the increment completes first, then `IMPLEMENT --refine` takes the change; cleared by `IMPLEMENT --refine`)*
-- **Pending reason:** null   *(human-readable cascade trigger description, populated alongside `Pending iteration`)*
+- **Pending iteration:** null   *(`null` or the iteration number; non-null when `CASCADE_INCREMENT_INTERNAL` detects an upstream change affecting this increment while it is BUILDING — the increment is kept on its branch, completes first, then `IMPLEMENT --refine` takes the change and clears it; only BUILDING or MERGED may carry it, `gate.py train` (k) — factory-iteration-model § Change in flight)*
+- **Pending reason:** null   *(the change request id `ERQ-{{FEATURE_ID}}-{NN}` and the cascade trigger, populated alongside `Pending iteration`)*
 - **Layer tasks (filled by IMPLEMENT `--plan`):**
   - [A.1] …   *(backend / domain)*
   - [B.1] …   *(frontend)*
@@ -200,7 +200,7 @@ New increments MAY be appended to `increment_plan.md` after earlier increments r
 2. **increment_to_scenario_coverage** (CRITICAL) — every scenario in `spec.feature` appears in exactly one increment; no orphan, no duplicate.
 3. **increment_to_contract_coverage** (CRITICAL) — every contract operation in `contracts/**` appears in exactly one increment.
 4. **monolithic_heuristic** (CRITICAL when `slicing_strategy == monolithic`) — § 3 declaration present AND heuristic actually satisfied (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack).
-5. **increment_status_monotonic** — status transitions follow the lifecycle above; no regression (e.g., `MERGED → BUILDING` is BLOCKED). **Delegated to `immutability_policy.check_increment_immutability`** — this is NOT a CVP function (CVP has none); the monotonicity guard lives in the immutability layer.
+5. **increment_status_monotonic** — status transitions follow the lifecycle above; no regression (e.g., `MERGED → BUILDING` is BLOCKED). Delegated to `immutability_policy.check_increment_immutability`, which is NOT a CVP function (CVP has none). The mechanical layer is `gate.py train` (EVOL-083): (k) every state is in its vocabulary; (l) against the merge-base, a BUILDING increment is never discarded and a MERGED one never regresses.
 6. **surface_declared** (CRITICAL, EVOL-078) — every increment and sub-increment carries `~N files · ~N lines` (mechanical layer: `gate.py train` (i)).
 
 (h) and (i) skip an increment whose status is BUILDING or MERGED — a frozen increment is never edited (owner RDR, EVOL-078).

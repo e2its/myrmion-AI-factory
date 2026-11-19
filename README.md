@@ -520,7 +520,7 @@ Every feature ships as a sequence of **vertical increments**. Each increment is 
 
 **Trains and the surface ceiling (EVOL-045).** No reviewer receives a diff larger than the ceiling the project declared (`config/quality.json → surface.ceiling_files / ceiling_lines`, SETUP Q31). BLUEPRINT estimates every increment's surface and splits an over-ceiling increment into sub-increments — one PR each (`…-inc-N-{slug}-sub-M`) into the increment's branch, which becomes a **train**: protected, merges only, one closing PR to the base branch, one verification loop and one deployment per train. One diff base for every gate (`python3 scripts/gate.py diff-base`: a sub-increment measures against its train; an unrecognised branch name is red). The push measures the real surface (`gate.py surface`, files + lines, no exclusions) and blocks over the ceiling unless a commit trailer `Surface-Escape: <term>` names one of the closed `surface.escapes`.
 
-**Enforcement.** CRITICAL CVP checks at `BLUEPRINT --approve` (and the local push preflight): `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, `monolithic_heuristic`, plus the EVOL-036 slice checks `slice_map_presence` (0d), `slice_to_increment_coverage` (18), `slice_seam_resolution` (19), `slice_immutability_consistency` (20), `surface_declared` (21); 13 and 21 read `gate.py train` (h) and (i). Per-increment immutability (see `.claude/rules/immutability_policy.md § Per-Increment Immutability`) locks MERGED increments; per-slice immutability (§ Per-Slice Immutability) freezes a scenario wherever it sits once a realizing increment merges. Changes route through either `CODESIGN --revise` (new feature version) or a **Follow-up Increment / Follow-up Slice** (additive, non-overlapping — no version bump).
+**Enforcement.** CRITICAL CVP checks at `BLUEPRINT --approve` (and the local push preflight): `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, `monolithic_heuristic`, plus the EVOL-036 slice checks `slice_map_presence` (0d), `slice_to_increment_coverage` (18), `slice_seam_resolution` (19), `slice_immutability_consistency` (20), `surface_declared` (21); 13 and 21 read `gate.py train` (h) and (i). Per-increment immutability (see `.claude/rules/immutability_policy.md § Per-Increment Immutability`) locks MERGED increments; per-slice immutability (§ Per-Slice Immutability) freezes a scenario wherever it sits once a realizing increment merges. Changes route through either `CODESIGN --revise` (new feature version) or a **Follow-up Increment / Follow-up Slice** (additive, non-overlapping — no version bump). A change that arrives mid-build is a change request through `CODESIGN --refine` (`factory-iteration-model` § Change in flight, EVOL-083). The increment in progress is kept on its branch with a pending iteration, and the cascade invalidates what is not started.
 
 **Iteration cascade.** `CASCADE_INCREMENT_INTERNAL` (see `.claude/skills/factory-iteration-model/SKILL.md`) propagates upstream changes selectively: only increments whose `scenarios_covered` or `contract_surface` overlap with the change are flagged `INVALIDATED`. MERGED increments are never invalidated — they anchor production history; a follow-up increment carries the change forward.
 
@@ -1097,7 +1097,7 @@ The framework ships 23 protocols reusable by every command and agent (`.claude/s
 | `agents` | the roster and the class policy; `--resolve`, `--fallback`, `--digest`, `--spawn`, `--check-return` |
 | `aligned` | an accepted change aligned every artefact it contradicts in the same pull request (LAW-17) |
 | `discovery` | the SETUP registry, its conditions and consumers agree; `--resolve` the pending questions and owed migrations |
-| `train` | a train stacks its changes by file: no stackable re-touch, no early gate, ledgers at the train close, seams in one sub; `--figures` |
+| `train` | a train stacks its changes by file: no stackable re-touch, no early gate, ledgers at the train close, seams in one sub; every increment's state known, none in progress discarded (EVOL-083); `--figures` |
 | `freeze` | the design frozen with its plan: weighted reliability questions answered with a source, every operation's outage response, sensitive fields bounded, every critical decision bound to its law and a gate the project runs, every reference product a decision cites named in the answer (BLUEPRINT `--approve` runs it) |
 | `contracts` | the one contract reader: one error code per meaning in `contracts/errors.yaml`, every code a contract names in the catalog, every resource with CRUD single and batch, an omission or an operation outside CRUD-First with its `x-crud-exception` reason; older findings in a shrink-only baseline; each ACTIVE registry row at its contract's `info.version`; every new operation named by a TC-API row; a changed test plan covering its journey |
 | `contracts --parity` | the loop member `contract-parity` (API scopes): the code's emitted OpenAPI equals the authored contract (`oasdiff diff`), and every answer the contract tests record is declared (status, catalog code) |
@@ -1146,9 +1146,9 @@ See `.claude/skills/factory-memory-cache/SKILL.md` for the complete protocol (th
 
 ## Immutability and Versioning
 
-Once an artifact is **APPROVED** with downstream work APPROVED, it becomes **immutable**.
+Once an artifact is **APPROVED** with downstream work APPROVED, it becomes **immutable**. A change that arrives mid-build goes through `/codesign --refine`: it is classified, and anything but a pure breaking change is an iteration of the same feature — the increment in progress is kept on its branch and completes first (`factory-iteration-model` § Change in flight; `gate.py train` (k)/(l)).
 
-### Solution: Automatic Versioning
+### Pure breaking change: versioning
 
 ```
 Original:     USR-001
@@ -1167,6 +1167,7 @@ Hotfix:       USR-001-v2.1 (security emergencies only)
 - Marks `USR-001` as `APPROVED (SUPERSEDED)`.
 - Downstream artifact inheritance (test_plan, design) available.
 - Maximum one active version (forced linearity).
+- Blocked while an increment is in progress: it completes first; discarding it is only the person's own `--cancel`.
 
 See `.claude/rules/immutability_policy.md` for the full rules.
 

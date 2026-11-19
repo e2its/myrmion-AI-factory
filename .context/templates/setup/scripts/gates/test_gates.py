@@ -6365,7 +6365,7 @@ class Train(unittest.TestCase):
     def _plan(*rows):
         """A complete INC (clauses h, i): its own measured exit criterion and its estimate; a row without one gets ~1/~1."""
         rows = [r if "~" in r else f"{r} · ~1 files · ~1 lines" for r in rows]
-        return ("# Plan\n\n### INC-1: x\n\n- **Estimated surface:** paths [src/**] · ~9 files · ~90 lines\n- **Upgrade over data:** none\n"
+        return ("# Plan\n\n### INC-1: x\n\n- **Status:** READY\n- **Estimated surface:** paths [src/**] · ~9 files · ~90 lines\n- **Upgrade over data:** none\n"
                 "- **Acceptance — exit criteria (each measurable on its own):**\n  - [ ] `pytest tests/` passes\n\n"
                 "**Sub-increments:**\n" + "".join(f"- {r}\n" for r in rows))
 
@@ -6395,7 +6395,7 @@ class Train(unittest.TestCase):
                                                "SUB-1-2: m · paths [src/m.py] · after [SUB-1-1] · status: READY",
                                                "SUB-1-3: b · paths [src/a.py] · after [SUB-1-2] · ~2 files · ~10 lines · status: READY"))
             r = train.check(repo, "main"); self.assertTrue(r["ok"], r)
-            self.assertEqual([e["id"] for e in r["entries"]], ["FEAT-001 INC-1", "FEAT-001 exits"])
+            self.assertEqual([e["id"] for e in r["entries"]], ["FEAT-001 INC-1", "FEAT-001 exits", "FEAT-001 states"])
 
     def test_a_shared_glob_over_the_ceiling_green(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -6524,13 +6524,13 @@ class Train(unittest.TestCase):
         self.assertTrue(r["ok"], out)
 
     def test_seam_placeholder_without_subs_na_and_second_table_ignored(self):
-        tpl = ("# Plan\n\n### INC-1: x\n\nno subs\n- **Estimated surface:** paths [src/**] · ~2 files · ~10 lines\n- **Upgrade over data:** none\n"
+        tpl = ("# Plan\n\n### INC-1: x\n\nno subs\n- **Status:** READY\n- **Estimated surface:** paths [src/**] · ~2 files · ~10 lines\n- **Upgrade over data:** none\n"
                "- **Acceptance:**\n  - [ ] `pytest tests/` passes\n\n## Seam map\n\n| use case | handler | grant/route | integration test | client | e2e case | sub |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
                "| `{{src/…/use_case}}` | `{{src/…/handler}}` | {{grant}} · {{METHOD /route}} | `{{tests/…/it}}` | closes: SUB-{{N}}-{{M}} | closes: SUB-{{N}}-{{M}} | SUB-{{N}}-{{M}} |\n")
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp); write(repo / self.PLAN, tpl)
             r = train.check(repo, "main"); self.assertTrue(r["ok"], r)
-            self.assertEqual([e["id"] for e in r["entries"]], ["FEAT-001 exits"], r)   # the placeholder seam row is not judged
+            self.assertEqual([e["id"] for e in r["entries"]], ["FEAT-001 exits", "FEAT-001 states"], r)   # the placeholder seam row is not judged
         r, out = self._seam("src/**, tests/**", "src/h.py")
         self.assertTrue(r["ok"], out)
         with tempfile.TemporaryDirectory() as tmp:
@@ -6548,7 +6548,7 @@ class Train(unittest.TestCase):
 
         def inc(n, scen, op, crit):
             acc = "".join(f"  - [ ] {c}\n" for c in crit) if isinstance(crit, list) else f" {crit}\n"
-            st = f"- **Status:** {status1}\n" if n == 1 and status1 else ""
+            st = f"- **Status:** {status1 if n == 1 and status1 else 'READY'}\n"
             return (f"### INC-{n} — x\n\n{st}- **Scenarios covered:** `spec.feature` → [{scen}]\n- **Contract surface:** [{op}]\n"
                     f"- **Estimated surface:** paths [src/**] · {est1 if n == 1 and est1 is not None else est}\n{sub if n == 1 else ''}- **Upgrade over data:** none\n- **Acceptance (mergeable = 100% functional):**"
                     + ("\n" + acc if isinstance(crit, list) else acc) + "- **Deployable:** production\n\n")
@@ -6618,6 +6618,131 @@ class Train(unittest.TestCase):
             self.assertTrue(inc["criteria"], f"{inc['id']} carries its own exit criteria")
             for c in inc["criteria"]:
                 self.assertRegex(c, r"`[^`]+`", f"{inc['id']}: «{c}» names its measure")
+
+    @staticmethod
+    def _states(s1="BUILDING", s2="READY", p1="null", p2="null", sub="BUILDING", inc1=True):
+        """EVOL-083: two increments; `s1=None` writes no Status line, `sub=None` no sub row, `sub=""` a row with no status."""
+        def inc(n, st, p, extra=""):
+            line = f"- **Status:** {st}\n" if st is not None else ""
+            return (f"### INC-{n} — x\n\n{line}- **Estimated surface:** paths [src/**] · ~2 files · ~10 lines\n- **Upgrade over data:** none\n"
+                    f"- **Acceptance:**\n  - [ ] `pytest tests/` passes\n{extra}"
+                    f"- **Pending iteration:** {p}   *(non-null when the cascade keeps an increment in progress)*\n\n")
+        row = "" if sub is None else ("- **Sub-increments:**\n  - SUB-1-1: a · paths [src/a.py] · ~1 files · ~5 lines"
+                                      + (f" · status: {sub}" if sub else "") + "\n")
+        return "# Plan\n\n## 1. Increments\n\n" + (inc(1, s1, p1, row) if inc1 else "") + inc(2, s2, p2)
+
+    def test_a_change_in_flight_keeps_the_increment_in_progress(self):
+        """EVOL-083 (l): a change request mid-build keeps the increment in progress and marks what the cascade invalidates."""
+        cases = (
+            ("BUILDING", {"p1": "2", "s2": "INVALIDATED"}, True, None),
+            ("BUILDING", {"s1": "MERGED", "sub": "MERGED", "p1": "2", "s2": "INVALIDATED"}, True, None),
+            ("BUILDING", {"s1": "INVALIDATED"}, False, "(l) INC-1 was BUILDING and is now INVALIDATED"),
+            ("BUILDING", {"s1": "READY"}, False, "never discarded"),
+            ("BUILDING", {"inc1": False}, False, "(l) INC-1 was BUILDING and is gone from the plan"),
+            ("BUILDING", {"sub": "READY"}, False, "(l) SUB-1-1 was BUILDING and is now READY"),
+            ("BUILDING", {"sub": None}, False, "(l) SUB-1-1 was BUILDING and is gone from the plan"),
+            ("MERGED", {"s1": "MERGED", "sub": "MERGED", "p1": "2"}, True, None),
+            ("MERGED", {"s1": "READY", "sub": "MERGED"}, False, "(l) INC-1 was MERGED and is now READY"),
+            ("MERGED", {"s1": "MERGED", "sub": "READY"}, False, "follow-up increment"),
+        )
+        for was, kw, ok, msg in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, plan=self._states(s1=was, sub=was))
+                write(repo / self.PLAN, self._states(**kw))
+                r = train.check(repo, "main"); out = train.render(r)
+                self.assertEqual(r["ok"], ok, (was, kw, out))
+                self.assertIn("FEAT-001 states", [e["id"] for e in r["entries"]], out)
+                if msg:
+                    self.assertIn(msg, out, (was, kw))
+                    self.assertIn("Change in flight", out)
+                    res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "train", "--base", "main"], capture_output=True, text=True)
+                    self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
+
+    def test_a_legacy_base_without_states_is_not_judged_by_the_plan_clause(self):
+        """EVOL-083 (l): a base plan written before states were recorded holds nothing in progress to compare."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, plan=self._states(s1=None, s2=None, sub=""))
+            write(repo / self.PLAN, self._states(s1="READY", sub="READY", s2="INVALIDATED"))
+            r = train.check(repo, "main"); out = train.render(r)
+            self.assertTrue(r["ok"], out)
+
+    def test_an_open_increment_branch_is_in_progress_whatever_the_plan_records(self):
+        """EVOL-083 (l): BUILDING lives on the increment's branch; a change cut from main sees READY and must not discard it."""
+        def ref(repo, name, merged=False):
+            git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, text=True).stdout.strip()
+            sha = git("rev-parse", "main") if merged else git("-c", "user.name=t", "-c", "user.email=t@t", "commit-tree",
+                                                              git("rev-parse", "main^{tree}"), "-p", "main", "-m", "work")
+            git("update-ref", name, sha)
+        cases = (
+            ("refs/heads/feature/FEAT-001-inc-1-login", False, {"s1": "INVALIDATED"}, False, "(l) INC-1 has an open branch `feature/FEAT-001-inc-1-login`"),
+            ("refs/heads/feature/FEAT-001-inc-1-login", False, {"inc1": False}, False, "this change drops it from the plan"),
+            ("refs/heads/feature/FEAT-001-inc-1-login-sub-2", False, {"s1": "INVALIDATED"}, False, "marks it INVALIDATED"),
+            ("refs/remotes/origin/feature/FEAT-001-inc-1-login", False, {"s1": "INVALIDATED"}, False, "has an open branch"),
+            ("refs/heads/feature/FEAT-001-inc-1-login", True, {"s1": "INVALIDATED"}, True, None),
+            ("refs/heads/feature/FEAT-002-inc-1-login", False, {"s1": "INVALIDATED"}, True, None),
+            ("refs/heads/feature/FEAT-001-inc-2-other", False, {"s1": "INVALIDATED"}, True, None),
+            ("refs/heads/feature/FEAT-001-inc-1-login", False, {"s1": "BUILDING", "sub": "BUILDING", "p1": "2", "s2": "INVALIDATED"}, True, None),
+        )
+        for name, merged, kw, ok, msg in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, plan=self._states(s1="READY", sub="READY"))
+                ref(repo, name, merged)
+                write(repo / self.PLAN, self._states(**{"sub": "READY", **kw}))
+                r = train.check(repo, "main"); out = train.render(r)
+                self.assertEqual(r["ok"], ok, (name, kw, out))
+                if msg:
+                    self.assertIn(msg, out, (name, kw))
+                    self.assertIn("Change in flight", out)
+        with tempfile.TemporaryDirectory() as tmp:   # already INVALIDATED at the base: an earlier change spoke, this one is not judged
+            repo = self._repo(tmp, plan=self._states(s1="INVALIDATED", sub="READY"))
+            ref(repo, "refs/heads/feature/FEAT-001-inc-1-login")
+            write(repo / self.PLAN, self._states(s1="INVALIDATED", sub="READY", s2="DRAFT"))
+            r = train.check(repo, "main")
+            self.assertTrue(r["ok"], train.render(r))
+
+    def test_an_unknown_increment_state_is_red(self):
+        """EVOL-083 (k): the state the plan records is read by the one reader, and a state outside the vocabulary is red."""
+        cases = (
+            ({}, True, None),
+            ({"s1": "`BUILDING`", "p1": "`3`"}, True, None),
+            ({"s1": "MERGED", "sub": "MERGED", "p1": "2"}, True, None),
+            ({"s1": "PAUSED"}, False, "(k) INC-1: status «PAUSED» is no increment state"),
+            ({"s1": None}, False, "(k) INC-1: no `**Status:**`"),
+            ({"sub": "PAUSED"}, False, "(k) SUB-1-1: status «PAUSED» is no sub-increment state"),
+            ({"sub": "INVALIDATED"}, False, "is no sub-increment state"),
+            ({"sub": ""}, False, "(k) SUB-1-1: no `status:`"),
+            ({"p1": "soon"}, False, "(k) INC-1: Pending iteration «soon» is no iteration"),
+            ({"p1": "0"}, False, "is no iteration"),
+            ({"p2": "3"}, False, "(k) INC-2: Pending iteration 3 on a READY increment"),
+            ({"s2": "INVALIDATED", "p2": "3"}, False, "on a INVALIDATED increment"),
+            ({"s1": "BUILDING_PAUSED"}, False, "status «BUILDING_PAUSED» is no increment state"),
+            ({"sub": "`building`"}, True, None),
+            ({"sub": "MERGED-ish"}, False, "status «MERGED-ISH» is no sub-increment state"),
+            ({"p1": "٣"}, False, "is no iteration"),
+        )
+        for kw, ok, msg in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.PLAN, self._states(**kw))
+                r = train.check(repo, "main"); out = train.render(r)
+                self.assertEqual(r["ok"], ok, (kw, out))
+                if msg:
+                    self.assertIn(msg, out, kw)
+                    res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "train", "--base", "main"], capture_output=True, text=True)
+                    self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
+
+    def test_a_sub_status_is_read_in_linear_time(self):
+        """EVOL-083: a long run of blanks after `status:` never backtracks quadratically."""
+        row = "# Plan\n### INC-1 — x\n- **Sub-increments:**\n  - SUB-1-1: x · status:" + " \t" * 40000 + "!\n"
+        t = time.monotonic(); subs = train.parse(row); spent = time.monotonic() - t
+        self.assertLess(spent, 1.0, "the sub status reader is linear")
+        self.assertEqual(subs["INC-1"][0]["status"], "")
+
+    def test_the_shipped_template_records_a_known_state(self):
+        tmpl = (HERE.parent.parent / ".context/templates/architect/increment_plan_template.md").read_text(encoding="utf-8")
+        self.assertEqual(train.judge_states(tmpl), [])
+        incs = train.increments(tmpl)
+        self.assertTrue(incs)
+        self.assertTrue(all(i["status"] in train.INC_STATES for i in incs), [i["status"] for i in incs])
 
     def test_dangling_after_and_after_cycle_red(self):
         for rows, word in ((("SUB-1-1: a · paths [src/a.py] · after [SUB-1-9] · status: READY",), "SUB-1-9"),

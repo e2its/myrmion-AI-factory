@@ -736,7 +736,7 @@ IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-comman
 # Step 5: Iteration Execution (bump iteration, cascade, changelog)
 # Step 6: Re-run Tripartite Alignment + auto-approval validations
 # Step 7: Status — NEEDS_INFO → DRAFT once no blocking question is left open; else stays NEEDS_INFO.
-#         APPROVED → DRAFT (new iteration, step 5); with downstream work Step 4 classifies each change — a blocked one → --revise.
+#         APPROVED → DRAFT (new iteration, step 5); with downstream work Step 4 classifies each change — REVISE → --revise; the rest is an iteration (iteration-model § Change in flight).
 #         Iteration with only `kind: accepted_change` changes (pre-approved realignment, rules/branching.md § [LAW-17]) → stays APPROVED;
 #         form-only realignment cascades nothing.
 #         Terminal: HARD BLOCK.
@@ -784,6 +784,8 @@ FUNCTION cip_refine_recheck(FEATURE_ID, refine_changes):
 ### Change Classification Protocol (when refining APPROVED specs with downstream work)
 
 Reads `iteration` via `read_iteration_state(artifact_path)` (factory-iteration-model § Dual-format read). Direct `fm.iteration` access is a violation.
+
+**Mid-build change (EVOL-083).** This is the change-request lane: factory-iteration-model § Change in flight. Record its `ERQ-{ID}-{NN}` on the iteration entry (`erq_id`). An increment in progress is kept, never discarded.
 
 **Level 1: Structural Classification (Deterministic)**
 
@@ -862,7 +864,8 @@ rdr_rounds = round
 id: {new_id}
 iteration: {N+1}
 date: {ISO_8601}
-source: user-feedback | cascade
+source: user-feedback | cascade | rdr-ratification   # a PO return: rdr-ratification + its erq_id (Factory-codesign-sync)
+erq_id: ERQ-{FEAT_ID}-{NN}   # the change request (iteration-model § Change in flight)
 classification: {DELTA|BREAKING|HYBRID}
 scope_summary: "one-line"
 changes: [{kind: scenario_added|scenario_modified|nfr_added|accepted_change|..., ref: "..." (accepted_change: "AC-{FEAT}-{N}")}, ...]
@@ -951,6 +954,7 @@ This changelog serves as:
 ## Command: `--revise {{FEATURE_ID}}`
 
 Creates a new Feature ID from an existing one (for pure BREAKING changes):
+- **Blocked while an increment is in progress** (`Status: BUILDING`, or its `feature/{ID}-inc-N-…` branch not merged): it completes first; discarding it is only the person's own `--cancel` (iteration-model § Change in flight)
 - Copies existing artifacts as starting point
 - Marks original scenarios as `@superseded_by(NEW_ID)`
 - New feature has `iteration: 1` (fresh start)

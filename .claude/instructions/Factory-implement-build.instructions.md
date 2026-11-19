@@ -168,6 +168,8 @@ IF spec.iteration > dev_plan.based_on_iteration:
      total_tasks: {recalculate including new D tasks}
      pending_iteration: null (CLEAR)
      invalidated_sections: [] (CLEAR)
+     increment_plan.md: each MERGED INC whose `Pending iteration` ≤ {spec.iteration} → `Pending iteration: null`,
+       `Pending reason` cleared (the kept increment took its change — iteration-model § Change in flight)
   6. SET status → READY
   
   LOG: "Generated {count} delta tasks [D.1..D.{N}] in dev_plan.md"
@@ -252,6 +254,12 @@ All four iteration reads route through `read_iteration_state(artifact_path)` (fa
 ```yaml
 READ spec.feature → iteration                     # read_iteration_state()
 READ dev_plan.md → based_on_iteration, pending_iteration
+
+# Change in flight (EVOL-083): the cascade kept this increment — finish it on its iteration
+IF current branch is this increment's (or its sub's) AND increment_plan.md INC-N.Status == BUILDING
+   AND INC-N.Pending iteration IS NOT NULL:
+  ✅ proceed on based_on_iteration; the pending iteration lands after the merge (IMPLEMENT --refine)
+  SKIP the staleness checks below          # factory-iteration-model § Change in flight
 
 # Check push-based staleness (from upstream cascade)
 IF pending_iteration IS NOT NULL AND pending_iteration > based_on_iteration:
