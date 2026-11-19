@@ -82,6 +82,8 @@ This ADR implements issue #137 (epic #112, Wave 5). It was verified on `main` at
 ### Honest limits
 - (l) compares the plan at the merge-base with the plan on disk. A branch that adds and discards an increment in progress inside its own commits is not seen.
 - The open-branch read sees only the refs this clone knows (local and fetched remote branches). A branch never fetched is not seen; CI sees what its checkout fetched.
+- A squash-merged increment's branch, if never deleted, stays unmerged in git terms. It reads as in progress only when the plan on main still says DRAFT or READY for it; the red names the cure (record it BUILDING, or delete the stale branch).
+- The `--revise` guard and the cascade's open-branch read are instruction text, executed by the agent; no gate reads `--revise`.
 - A plan renamed or deleted is not judged. A git fault or timeout reading the base skips the plan comparison, and an unreadable ref list skips the branch read; the row note says so.
 - The cascade's overlap judgement (which increments a change touches) is agent-executed. The gate checks the outcome, not the judgement.
 - A plan written before states were recorded goes red at its next change, with a message naming the missing state.

@@ -864,7 +864,7 @@ rdr_rounds = round
 id: {new_id}
 iteration: {N+1}
 date: {ISO_8601}
-source: user-feedback | cascade | po-return | rdr-ratification
+source: user-feedback | cascade | rdr-ratification   # a PO return: rdr-ratification + its erq_id (Factory-codesign-sync)
 erq_id: ERQ-{FEAT_ID}-{NN}   # the change request (iteration-model § Change in flight)
 classification: {DELTA|BREAKING|HYBRID}
 scope_summary: "one-line"

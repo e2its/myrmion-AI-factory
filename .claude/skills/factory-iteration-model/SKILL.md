@@ -614,9 +614,10 @@ FUNCTION CASCADE_INCREMENT_INTERNAL(FEATURE_ID, target_iteration, affected_scope
     RETURN   # monolithic plans cascade through the plan-level pending_iteration path only
 
   increments = PARSE_INCREMENTS(plan_path)   # § 1 entries with id, status, scenarios_covered, contract_surface
-  erq_id = read_iteration_state("docs/spec/{FEATURE_ID}/spec.feature").history[-1].erq_id   # the change request (§ Change in flight)
+  latest = LAST(read_iteration_state("docs/spec/{FEATURE_ID}/spec.feature").history)
+  erq_id = latest.erq_id OR "ITER-{FEATURE_ID}-{target_iteration}"   # the change request (§ Change in flight); the iteration when none
   FOR EACH inc IN increments:   # BUILDING lives on the increment's branch, never on the main branch
-    IF inc.status IN (DRAFT, READY) AND UNMERGED_BRANCH_EXISTS("feature/{FEATURE_ID}-inc-{inc.n}-*"):
+    IF inc.status IN (DRAFT, READY) AND UNMERGED_BRANCH_EXISTS("feature/{FEATURE_ID}-inc-{inc.n}-*"):   # train.in_progress
       inc.status = "BUILDING"; UPDATE_INCREMENT_FIELD(plan_path, inc.id, "status", "BUILDING")   # the read gate.py train (l) makes
   invalidated = []
   warnings = []

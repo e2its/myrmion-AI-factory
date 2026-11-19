@@ -6730,6 +6730,13 @@ class Train(unittest.TestCase):
                     res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "train", "--base", "main"], capture_output=True, text=True)
                     self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
 
+    def test_a_sub_status_is_read_in_linear_time(self):
+        """EVOL-083: a long run of blanks after `status:` never backtracks quadratically."""
+        row = "# Plan\n### INC-1 — x\n- **Sub-increments:**\n  - SUB-1-1: x · status:" + " \t" * 40000 + "!\n"
+        t = time.monotonic(); subs = train.parse(row); spent = time.monotonic() - t
+        self.assertLess(spent, 1.0, "the sub status reader is linear")
+        self.assertEqual(subs["INC-1"][0]["status"], "")
+
     def test_the_shipped_template_records_a_known_state(self):
         tmpl = (HERE.parent.parent / ".context/templates/architect/increment_plan_template.md").read_text(encoding="utf-8")
         self.assertEqual(train.judge_states(tmpl), [])

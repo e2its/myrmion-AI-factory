@@ -168,7 +168,7 @@ IF spec.iteration > dev_plan.based_on_iteration:
      total_tasks: {recalculate including new D tasks}
      pending_iteration: null (CLEAR)
      invalidated_sections: [] (CLEAR)
-     increment_plan.md: each INC whose `Pending iteration` ≤ {spec.iteration} → `Pending iteration: null`,
+     increment_plan.md: each MERGED INC whose `Pending iteration` ≤ {spec.iteration} → `Pending iteration: null`,
        `Pending reason` cleared (the kept increment took its change — iteration-model § Change in flight)
   6. SET status → READY
   
