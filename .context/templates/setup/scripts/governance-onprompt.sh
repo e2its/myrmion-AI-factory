@@ -7,7 +7,8 @@
 #      scoped marker, emit the governance snapshot wrapped in
 #      <governance-reload>...</governance-reload> so Claude Code appends it to
 #      the next turn as additional context. Then consume the marker. Over
-#      budgets.prompt_submit the reload becomes a pointer to the file (#240).
+#      the hook budget (the lower of budgets.prompt_submit and
+#      budgets.hook_output_cap) the reload becomes a pointer to the file (#240).
 #   2. Source-edit attribution: if the sibling PostToolUse hook
 #      (governance-onedit.sh) left a session-scoped marker, emit a
 #      <governance-source-edited paths="..."> block naming the governance
@@ -136,32 +137,38 @@ fi
 # size. The IPP / source-edited blocks are small and not simulated.
 WORST_CASE="${GOVERNANCE_ONPROMPT_WORST_CASE:-0}"
 
-# The reload goes out whole only when it fits budgets.prompt_submit together with everything else
-# this hook says (#240): the harness swaps any hook text over its cap for a file path the model never
-# reads. So the other blocks go to a scratch file first; at exit the reload is chosen — inline when
-# reload + rest fit the key, otherwise (or when the key cannot be read) a pointer that tells the model
-# to Read the snapshot now — and printed first, then the rest.
+# The reload goes out whole only when it fits the hook's budget together with everything else this
+# hook says (#240): the harness swaps any hook text over its cap for a file path the model never reads.
+# The budget is the lower of budgets.prompt_submit and budgets.hook_output_cap, so a project key not yet
+# lowered by SETUP --upgrade cannot reopen the swap. The other blocks go to a scratch file first; at exit
+# the reload is chosen — inline when reload + rest fit the budget, otherwise (or when a key cannot be
+# read) a pointer that tells the model to Read the snapshot now — and printed first, then the rest.
 reload_pointer() {
-  echo "<governance-reload mode=\"file\" bytes=\"$(wc -c < "$SNAPSHOT" | tr -d ' ')\">"
-  echo "The governance snapshot is larger than one hook can deliver whole (budgets.prompt_submit: ${1:-unreadable}; the harness swaps hook text over budgets.hook_output_cap for a file path)."
-  echo "Read $SNAPSHOT in full now, before any other action — it holds the laws and defect classes in force."
+  echo "<governance-reload mode=\"file\" bytes=\"$(wc -c < "$SNAPSHOT" 2>/dev/null | tr -d ' ')\">"
+  echo "The governance snapshot is not inlined here: with the rest of this hook's text it would not fit the hook's budget (budget: ${1:-unreadable} bytes, the lower of budgets.prompt_submit and budgets.hook_output_cap; the harness swaps longer hook text for a file path)."
+  echo "Read $PWD/$SNAPSHOT in full now, before any other action — it holds the laws and defect classes in force."
   echo "</governance-reload>"
 }
 emit_reload() {
+  set +e   # an EXIT trap: a failed measure falls to the pointer, never aborts the hook's output
   exec 1>&3 3>&-
-  local inline rest budget
-  inline=$({ echo "<governance-reload>"; cat "$SNAPSHOT"; echo "</governance-reload>"; } | wc -c | tr -d ' ')
-  rest=$(wc -c < "$REST" | tr -d ' ')
-  budget=$(python3 scripts/gate.py key budgets.prompt_submit --required 2>/dev/null || true)
-  case "$budget" in ''|*[!0-9]*) budget="" ;; esac
-  if [ -n "$budget" ] && [ $((inline + rest)) -le "$budget" ]; then
+  local inline rest p c budget=""
+  inline=$({ echo "<governance-reload>"; cat "$SNAPSHOT"; echo "</governance-reload>"; } 2>/dev/null | wc -c | tr -d ' ')
+  rest=$(wc -c < "$REST" 2>/dev/null | tr -d ' ')
+  p=$(python3 scripts/gate.py key budgets.prompt_submit --required 2>/dev/null)
+  c=$(python3 scripts/gate.py key budgets.hook_output_cap --required 2>/dev/null)
+  case "$p|$c|$inline|$rest" in
+    *[!0-9\|]*|\|*|*\|\|*|*\|) ;;
+    *) [ ${#p} -le 9 ] && [ ${#c} -le 9 ] && budget=$(( 10#$p < 10#$c ? 10#$p : 10#$c )) ;;
+  esac
+  if [ -n "$budget" ] && [ $(( 10#$inline + 10#$rest )) -le "$budget" ]; then
     echo "<governance-reload>"
     cat "$SNAPSHOT"
     echo "</governance-reload>"
   else
     reload_pointer "$budget"
   fi
-  cat "$REST"
+  cat "$REST" 2>/dev/null
   rm -f "$REST"
 }
 if { [ -n "$MARKER" ] || [ "$WORST_CASE" = "1" ]; } && [ -f "$SNAPSHOT" ]; then

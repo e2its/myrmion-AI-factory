@@ -129,7 +129,7 @@
       "delivery-execution (EVOL-081)",
       "deploy-records (EVOL-081)",
       "proof-at-the-close (EVOL-106)",
-      "tracker (EVOL-079)", "documents (EVOL-080)", "catalog (EVOL-084)"
+      "tracker (EVOL-079)", "documents (EVOL-080)", "catalog (EVOL-084)", "budgets.hook_output_cap (#240)"
     ],
     "templates_to_add": [
       "workflows/deploy.github-actions.yml",

@@ -114,11 +114,14 @@ def measure(repo: Path) -> dict:
             rows[name] = {"budget": None, "bytes": nbytes, "producer": producer, "ok": False, "fault": f"key budgets.{name} missing from config/quality.json"}
             return
         hook = budgets.get("hook_output_cap")
-        if name in MUST_EMIT:   # a key above the harness cap is a budget the harness never honours (#240): the key's fault comes first
+        if name in MUST_EMIT:   # a key above the harness cap is a budget the harness never honours (#240): named beside any producer fault
+            over = None
             if type(hook) is not int:
-                fault = "key budgets.hook_output_cap missing from config/quality.json (the harness cap on one hook's text)"
+                over = "key budgets.hook_output_cap missing from config/quality.json (the harness cap on one hook's text)"
             elif cap > hook:
-                fault = f"budgets.{name} = {cap} is over the harness hook cap budgets.hook_output_cap = {hook} — the harness would swap the text for a file path"
+                over = f"budgets.{name} = {cap} is over the harness hook cap budgets.hook_output_cap = {hook} — the harness would swap the text for a file path"
+            if over:
+                fault = f"{over}; {fault}" if fault else over
         ok = fault is None and (nbytes is None or (nbytes <= cap and (nbytes > 0 or name not in MUST_EMIT)))
         rows[name] = {"budget": cap, "bytes": nbytes, "producer": producer, "ok": ok, "fault": fault}
 

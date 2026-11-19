@@ -448,11 +448,15 @@ import json, pathlib
 p = pathlib.Path("config/quality.json")
 q = json.loads(p.read_text(encoding="utf-8"))
 b = q.setdefault("budgets", {})
-cap = b.setdefault("hook_output_cap", 10000)
+added = type(b.get("hook_output_cap")) is not int
+if added:
+    b["hook_output_cap"] = 10000   # the template's value at 10.9.2 (the harness cap per hook text); a project's own int is kept
+cap = b["hook_output_cap"]
 lowered = [(k, b[k]) for k in ("session_start", "prompt_submit", "pre_edit") if type(b.get(k)) is int and b[k] > cap]
 for k, _ in lowered:
     b[k] = cap
-p.write_text(json.dumps(q, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+if added or lowered:
+    p.write_text(json.dumps(q, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 for k, old in lowered:
     print(f"budgets.{k}: {old} -> {cap} (budgets.hook_output_cap)")
 PY

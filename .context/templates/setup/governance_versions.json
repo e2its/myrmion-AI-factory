@@ -1230,7 +1230,7 @@
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V14 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132)."
     },
     "setup/discovery_registry.json": {
-      "version": "2.8.0",
+      "version": "2.8.1",
       "content_type": "universal",
       "target": null,
       "role": "The SETUP discovery registry (EVOL-102) — consumed in place by SETUP and gate.py discovery, never copied: the questions, their tiers, keys, options and conditions; derived values never asked."
@@ -1587,7 +1587,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.33.0",
+      "version": "2.33.1",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -1986,7 +1986,7 @@
       "version": "2.4.1",
       "path": "scripts/governance-onprompt.sh",
       "type": "utility",
-      "role": "UserPromptSubmit hook companion — four jobs per prompt: (1) post-compact re-inject of governance snapshot via `<governance-reload>` (sibling PreCompact marker); (2) source-edit attribution — reads marker written by PostToolUse governance-onedit.sh Block 1 and emits `<governance-source-edited paths=\"...\">` with explicit regen instruction; (2b) IPP marker consumer — reads `ipp-first-write` and `ipp-pillar2` markers and emits `<ipp-reminder>` / `<ipp-warning>` tagged blocks; (3) advisory freshness gate — emits `<governance-warning reason=\"snapshot-stale\">` on stale (suppressed when (2) fired). Always exits 0.",
+      "role": "UserPromptSubmit hook companion — four jobs per prompt: (1) post-compact re-inject of governance snapshot via `<governance-reload>` (sibling PreCompact marker) — inline when it fits the hook budget (the lower of budgets.prompt_submit and budgets.hook_output_cap), else `mode=\"file\"` with the order to read it (#240); (2) source-edit attribution — reads marker written by PostToolUse governance-onedit.sh Block 1 and emits `<governance-source-edited paths=\"...\">` with explicit regen instruction; (2b) IPP marker consumer — reads `ipp-first-write` and `ipp-pillar2` markers and emits `<ipp-reminder>` / `<ipp-warning>` tagged blocks; (3) advisory freshness gate — emits `<governance-warning reason=\"snapshot-stale\">` on stale (suppressed when (2) fired). Always exits 0.",
       "delivery": "both"
     },
     "scripts/governance-oncompact.sh": {
@@ -2649,7 +2649,7 @@
       "path": "scripts/gates/frontmatter.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12.json": {
-      "version": "1.15.0",
+      "version": "1.15.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json"
@@ -2895,7 +2895,7 @@
       "path": "scripts/gates/data.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json": {
-      "version": "1.10.0",
+      "version": "1.10.1",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json"

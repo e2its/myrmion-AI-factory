@@ -320,6 +320,7 @@ g["frontend-tests"]["scoped"]="npx jest --config jest.config.ts {paths} --no-cov
   rm -f "$P/.github/workflows/deploy.yml"   # and the deploy pipeline (templates_to_add, added where ci_cd.platform has one)
   rm -rf "$P/security/sast"   # it predates the SAST packs (EVOL-074): the packs and the `sast` row are owed (templates_to_add, added)
   rm -f "$P/contracts/errors.yaml" "$P/.claude/rules/monetary-amounts.md"   # it predates the product laws (EVOL-072): owed where the answers select them
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); b=q["budgets"]; b.pop("hook_output_cap", None); b["prompt_submit"]=20000; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"   # it predates the hook cap (#240): the migration is owed
   python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
   URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
   UMISS=$(printf '%s' "$UP" | python3 -c '
@@ -406,7 +407,7 @@ PY
     && ok "the catalog migration versions an 8.x registry (design_system_version, every since) and a second run changes nothing (EVOL-084)" \
     || bad "the catalog migration's registry write (rc=$RC1/$RC2, got=$GOT)" ""
 fi
-# #240 — the hook-cap migration, in a tree of its own: an injection key over the harness cap is lowered to it and named,
+# #240 — the hook-cap migration on the installed project's config, in a tree of its own: an injection key over the harness cap is lowered to it and named,
 # a value under the cap is kept, nothing is raised; twice, the second a no-op
 if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(open(sys.argv[1])) else 1)' "$ANSWERS"; then
   H="$SCRATCH/h240"; Q="$H/q"; mkdir -p "$Q/config"
@@ -414,11 +415,12 @@ if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(o
 import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**budgets.hook_output_cap (#240).**")
 print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
 PY2
-  printf '{"budgets": {"session_start": 2000, "prompt_submit": 20000, "pre_edit": 6000, "snapshot": 16000}}\n' > "$Q/config/quality.json"
+  cp "$P/config/quality.json" "$Q/config/quality.json"   # the installed 8.12 project's own config: no cap key, prompt_submit 20000
+  BEFORE=$(python3 -c 'import json,sys; b=json.load(open(sys.argv[1]))["budgets"]; b.pop("prompt_submit"); print(sorted(b.items()))' "$Q/config/quality.json" 2>&1)
   OUT1=$(cd "$Q" && bash "$H/mig.sh" 2>&1); RC1=$?; SUM1=$(sha256sum < "$Q/config/quality.json")
   OUT2=$(cd "$Q" && bash "$H/mig.sh" 2>&1); RC2=$?; SUM2=$(sha256sum < "$Q/config/quality.json")
-  GOT=$(python3 -c 'import json,sys; b=json.load(open(sys.argv[1]))["budgets"]; print(b["hook_output_cap"], b["session_start"], b["prompt_submit"], b["pre_edit"], b["snapshot"])' "$Q/config/quality.json" 2>&1)
-  [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "10000 2000 10000 6000 16000" ] \
+  GOT=$(python3 -c 'import json,sys; b=json.load(open(sys.argv[1]))["budgets"]; print(b.pop("hook_output_cap"), b.pop("prompt_submit"), sorted(b.items()))' "$Q/config/quality.json" 2>&1)
+  [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "10000 10000 $BEFORE" ] \
     && [ "$OUT1" = "budgets.prompt_submit: 20000 -> 10000 (budgets.hook_output_cap)" ] && [ -z "$OUT2" ] \
     && ok "the hook-cap migration lowers prompt_submit 20000 → 10000 and names it, keeps every value under the cap, and a second run changes nothing (#240)" \
     || bad "the hook-cap migration (rc=$RC1/$RC2, got=$GOT)" "$OUT1${OUT2:+

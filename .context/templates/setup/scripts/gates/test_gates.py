@@ -879,23 +879,42 @@ class Budget(unittest.TestCase):
             def prompt(snapshot: str) -> str:
                 write(repo / ".context/governance_snapshot.md", snapshot)
                 write(repo / ".claude/state/governance-reload-s1.marker", "")
+                write(repo / ".claude/state/governance-source-edited-s1.marker", "docs/setup.md\n")   # a fixed rest after the reload
                 r = subprocess.run(["bash", "scripts/governance-onprompt.sh"], cwd=repo, input='{"session_id":"s1","prompt":"x"}',
                                    capture_output=True, text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": str(repo)}, timeout=60)
                 self.assertEqual(r.returncode, 0, r.stderr)
                 self.assertFalse((repo / ".claude/state/governance-reload-s1.marker").exists(), "the marker is consumed")
+                head, sep, rest = r.stdout.partition("</governance-reload>\n")
+                self.assertTrue(head.startswith("<governance-reload") and sep, "the reload comes first")
+                self.assertIn('<governance-source-edited paths="docs/setup.md">', rest, "the rest of the hook's text follows the reload, whole")
                 return r.stdout
+            def inline_size(body: str) -> int:
+                return len(("<governance-reload>\n" + body + "</governance-reload>\n").encode())
             small = prompt("# laws\n" + "a" * 200 + "\n")
             self.assertIn("<governance-reload>\n# laws", small)
+            rest = len(small.encode()) - inline_size("# laws\n" + "a" * 200 + "\n")
+            self.assertGreater(rest, 2)
+            edge = "# laws\n" + "e" * (10000 - inline_size("# laws\n\n") - rest // 2) + "\n"
+            self.assertLessEqual(inline_size(edge), 10000)
+            fit_alone = prompt(edge)
+            self.assertIn('mode="file"', fit_alone, "a reload that fits the key alone but not with the rest goes out as the pointer")
+            self.assertLessEqual(len(fit_alone.encode()), 10000)
             big = prompt("# laws\n" + "b" * 12000 + "\n")
             self.assertNotIn("b" * 100, big, "the snapshot over the key never goes out inline")
             self.assertIn('<governance-reload mode="file" bytes="12008">', big)
-            self.assertIn("Read .context/governance_snapshot.md in full now", big)
-            self.assertIn("budgets.prompt_submit: 10000", big)
+            self.assertIn(f"Read {repo.resolve()}/.context/governance_snapshot.md in full now", big)
+            self.assertIn("budget: 10000 bytes", big)
             self.assertLessEqual(len(big.encode()), 10000)
+            cfg = json.loads((repo / "config/quality.json").read_text(encoding="utf-8"))
+            cfg["budgets"]["prompt_submit"] = 20000   # a project key not yet lowered by the upgrade
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            unlowered = prompt("# laws\n" + "u" * 12000 + "\n")
+            self.assertIn('mode="file"', unlowered, "the hook cap bounds the reload even when prompt_submit is above it")
+            self.assertIn("budget: 10000 bytes", unlowered)
             (repo / "scripts/gate.py").unlink()
             blind = prompt("# laws\n" + "c" * 200 + "\n")
             self.assertIn('mode="file"', blind, "the key cannot be read: the pointer is the safe form")
-            self.assertIn("budgets.prompt_submit: unreadable", blind)
+            self.assertIn("budget: unreadable bytes", blind)
 
     def test_claude_md_advisory_warns_never_blocks(self):
         """EVOL-064: the project CLAUDE.md (in the framework repo, the template it ships) against budgets.claude_md_advisory —

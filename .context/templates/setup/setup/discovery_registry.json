@@ -3140,6 +3140,12 @@
    "since": "10.9.0",
    "detect": "config/quality.json#/catalog",
    "apply": "catalog (EVOL-084)"
+  },
+  {
+   "id": "budgets.hook_output_cap (#240)",
+   "since": "10.9.2",
+   "detect": "config/quality.json#/budgets/hook_output_cap",
+   "apply": "budgets.hook_output_cap (#240)"
   }
  ]
 }
