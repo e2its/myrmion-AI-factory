@@ -861,6 +861,26 @@
    }
   },
   {
+   "id": "Q14.1",
+   "tier": 2,
+   "since": "10.9.0",
+   "when": "project_scope NOT IN [backend-only, integration] AND frontend.framework != None",
+   "keys": {
+    "frontend.design_system.packages": {
+     "free": "list",
+     "fills": [
+      "CATALOG_PACKAGES"
+     ]
+    },
+    "frontend.design_system.prefixes": {
+     "free": "list",
+     "fills": [
+      "CATALOG_PREFIXES"
+     ]
+    }
+   }
+  },
+  {
    "id": "Q15",
    "tier": 2,
    "since": "1.0.0",

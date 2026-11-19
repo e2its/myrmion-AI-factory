@@ -391,7 +391,7 @@ SSOT of design-system ↔ build alignment. One entry per `data-component` anchor
 - `id` = the anchor's `id`. `cip_name` = `name` of a `type: ui_component` inventory artifact, or `null`.
 - `status`: `DESIGNED` (in the library, no build work) → `PLANNED` (`backlog_ref` set) → `IMPLEMENTED` (`cip_name` resolves to an `IMPLEMENTED` inventory artifact). `NO_PRIMITIVE` = deliberately style-only — RDR only.
 - `catalog_feature` = id of the foundational Component Catalog feature once planned.
-- `version` = the schema's. `design_system_version` = the catalog's semver (EVOL-084), `1.0.0` at first write; `since` = the version that added the entry. Every writer that adds or removes an entry bumps in the same write: add → MINOR, new entry's `since` = new version; remove, or change an `id` / `cip_name` → MAJOR; refresh of `name` / `group` / `ds_anchor` → no bump. `gate.py catalog` (d) checks it against the base.
+- `version` = the schema's. `design_system_version` = the catalog's semver (EVOL-084), `1.0.0` at first write; `since` = the version that added the entry. Every writer that adds or removes an entry bumps in the same write: add → MINOR, new entry's `since` = new version; remove, or change an `id` / `cip_name` → MAJOR; refresh of `name` / `group` / `ds_anchor` → no bump; binding a built component (`cip_name` null → name, PO intake) → no bump. `gate.py catalog` (d) checks it against the base.
 
 | Writer | When | May write |
 |---|---|---|

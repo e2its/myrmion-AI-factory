@@ -92,10 +92,14 @@ for key, e in m["templates"].items():
     dst = P / tgt; dst.parent.mkdir(parents=True, exist_ok=True)
     if e.get("target_mode") == "merge" and dst.is_file():   # Factory-setup-materialization § target_mode: merge
         import yaml
-        def merge(a, b):   # mapping by mapping; a list under the same key concatenates; a scalar keeps the target's
+        def merge(a, b):   # mapping by mapping; a list under the same key concatenates — before the target's first manual
+            # step, which holds every step after it (EVOL-084); a scalar keeps the target's
             if isinstance(a, dict) and isinstance(b, dict):
                 return {**a, **{k: merge(a[k], v) if k in a else v for k, v in b.items()}}
-            return a + b if isinstance(a, list) and isinstance(b, list) else a
+            if isinstance(a, list) and isinstance(b, list):
+                cut = next((i for i, x in enumerate(a) if isinstance(x, dict) and (x.get("step") or {}).get("trigger") == "manual"), len(a))
+                return a[:cut] + b + a[cut:]
+            return a
         dst.write_text(yaml.safe_dump(merge(yaml.safe_load(dst.read_text()), yaml.safe_load(src.read_text())), sort_keys=False, allow_unicode=True))
     else:
         shutil.copy2(src, dst)
@@ -135,6 +139,8 @@ if (T / "setup/setup_master_template.md").is_file():
 # {{#if}}/{{#each}} blocks keep their content)
 NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "security/sast/**", ".semgrepignore", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "SCM_PLATFORM": '"GitHub"', "SCM_REQUIRED_CHECKS": '["governance-check"]', "SCM_APPROVALS": "0"}
 NUM["VERIFICATION_GATES"] = json.dumps(GATES)
+for tok, k in (("CATALOG_PACKAGES", "frontend.design_system.packages"), ("CATALOG_PREFIXES", "frontend.design_system.prefixes")):
+    NUM[tok] = json.dumps(A.get(k) or [])   # Q14.1 (EVOL-084); not asked (no frontend) → []
 if RES["placeholders"].get("DB_MIGRATION_TOOL"):   # Q15.1, or decided by backend.framework (EVOL-071)
     NUM["DB_MIGRATION_TOOL"] = str(RES["placeholders"]["DB_MIGRATION_TOOL"])
 NUM["DC_ENTRIES"] = "| PDC-1 | `runtime` | sample project class. | — | `src/**` | IMPLEMENT, REVIEW | WARNING |"   # the seed, PDC-numbered (EVOL-066)
@@ -383,6 +389,22 @@ PY
     || bad "the deploy-records migration (rc=$RC1/$RC2, last=$LAST, origin tags=$ORIG)" "$OUT${OUT2:+
 $OUT2}"
 fi
+# EVOL-084 — the catalog migration's registry write, in a tree of its own: an 8.x registry gains its design-system version
+# and every entry its `since`; twice, the second a no-op
+if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(open(sys.argv[1])) else 1)' "$ANSWERS"; then
+  H="$SCRATCH/h084"; Q="$H/q"; mkdir -p "$Q/docs/ux"
+  python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**catalog (EVOL-084).**")
+print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
+PY
+  printf '{"version": "1.0.0", "components": [{"id": "button", "cip_name": "Button"}, {"id": "card", "cip_name": null}]}\n' > "$Q/docs/ux/component-registry.json"
+  (cd "$Q" && bash "$H/mig.sh") >/dev/null 2>&1; RC1=$?; SUM1=$(sha256sum < "$Q/docs/ux/component-registry.json")
+  (cd "$Q" && bash "$H/mig.sh") >/dev/null 2>&1; RC2=$?; SUM2=$(sha256sum < "$Q/docs/ux/component-registry.json")
+  GOT=$(python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(r["design_system_version"], ",".join(c["since"] for c in r["components"]))' "$Q/docs/ux/component-registry.json" 2>&1)
+  [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$SUM1" = "$SUM2" ] && [ "$GOT" = "1.0.0 1.0.0,1.0.0" ] \
+    && ok "the catalog migration versions an 8.x registry (design_system_version, every since) and a second run changes nothing (EVOL-084)" \
+    || bad "the catalog migration's registry write (rc=$RC1/$RC2, got=$GOT)" ""
+fi
 # EVOL-081 — the merged Bitbucket pipeline (target_mode: merge): governance check, auto-tag and deploy in one file,
 # valid against the live schema, held by the executor's static check
 if [ -f "$P/bitbucket-pipelines.yml" ]; then
@@ -393,6 +415,24 @@ if [ -f "$P/bitbucket-pipelines.yml" ]; then
   [ "$RC" -eq 0 ] && ok "the merged bitbucket-pipelines.yml against the live schema$(printf '%s' "$OUT" | grep -q 'skipped' && echo ' (skipped — schema unreachable)')" || bad "the merged bitbucket-pipelines.yml fails its schema (rc=$RC)" "$OUT"
   OUT=$(cd "$P" && python3 scripts/gate.py delivery --check 2>&1); RC=$?
   [ "$RC" -eq 0 ] && ok "delivery --check holds the merged Bitbucket pipeline" || bad "delivery --check red on the merged Bitbucket pipeline (rc=$RC)" "$OUT"
+  # EVOL-084 — the design-system rebuild step merged in: before the manual production step, and the parity gate green with
+  # Bitbucket's deploying file and the declared read the materialisation adds (read from the instruction, its one home)
+  if grep -q 'design-system-rebuild:' "$BB"; then
+    ORDER=$(python3 -c 'import sys, yaml; m = yaml.safe_load(open(sys.argv[1]))["pipelines"]["branches"]["main"]; n = [s["step"].get("name", "") for s in m]; r = n.index("Design system rebuild (advisory)"); t = [i for i, s in enumerate(m) if s["step"].get("trigger") == "manual"]; print("ok" if all(r < i for i in t) else "after-manual")' "$BB" 2>&1)
+    cp "$P/config/quality.json" "$SCRATCH/q084.json"
+    python3 - "$ROOT/.claude/instructions/Factory-setup-materialization.instructions.md" "$P/config/quality.json" <<'PY'
+import json, re, sys
+s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("where `workflows/design-system-rebuild.bitbucket.yml` lands")
+read = json.loads(re.search(r"```json\n(.*?)```", s[a:], re.S).group(1))
+q = json.load(open(sys.argv[2])); q["surface"]["deploying_workflows"] = ["bitbucket-pipelines.yml"]; q["surface"]["declared_reads"].append(read)
+json.dump(q, open(sys.argv[2], "w"), indent=1)
+PY
+    OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?
+    cp "$SCRATCH/q084.json" "$P/config/quality.json"
+    [ "$ORDER" = "ok" ] && [ "$RC" -eq 0 ] \
+      && ok "the design-system rebuild step runs before the manual production step, and runtime-surface parity holds with its declared read (EVOL-084)" \
+      || bad "the merged rebuild step (order=$ORDER, runtime-surface rc=$RC)" "$OUT"
+  fi
 fi
 # another stack's fixture proves its selection and its map only: the toolchain checks below are written for the default stack
 if [ "$IS_DEFAULT" != "1" ]; then

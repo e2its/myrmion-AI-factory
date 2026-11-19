@@ -452,7 +452,7 @@
       "upgrade_strategy": "smart-additive-merge"
     },
     "setup/setup_master_template.md": {
-      "version": "3.5.0",
+      "version": "3.6.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md"
     },
@@ -906,7 +906,7 @@
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**)."
     },
     "scripts/gate.py": {
-      "version": "2.7.3",
+      "version": "2.8.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
@@ -948,7 +948,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.45.1",
+      "version": "1.46.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -969,7 +969,7 @@
       "role": "gates: branch classes, the ONE diff-base resolver and the per-PR surface ceiling (EVOL-045) — `branch_class` (protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown; a train = per-increment branch whose increment plan declares sub-increments, protected), `diff_base` (sub-increment → its train, else the default base branch; unknown name → red, fail-closed), `surface` (files + lines of base...HEAD vs surface.ceiling_*, Surface-Escape trailer from the closed surface.escapes list)."
     },
     "scripts/gates/profile.py": {
-      "version": "1.17.0",
+      "version": "1.18.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
@@ -1553,7 +1553,7 @@
       "target": ".context/templates/po/questions_and_proposals.md"
     },
     "qa/qa_report_template.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": ".context/templates/qa/qa_report_template.md"
     },
@@ -1687,7 +1687,7 @@
       "path": ".claude/instructions/Factory-backlog-next-task.instructions.md"
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "3.6.0",
+      "version": "3.7.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md"
     },
     "instructions/Factory-setup-materialization.instructions.md": {

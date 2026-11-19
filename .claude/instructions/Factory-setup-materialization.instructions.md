@@ -918,7 +918,7 @@ In addition to the CI pipeline, materialise the platform-specific governance che
 | `GCP Cloud Build` | `governance-check.gcp-cloudbuild.yaml` | `cloudbuild-governance.yaml` |
 | `Jenkins` | `governance-check.jenkins.groovy` | `Jenkinsfile.governance` |
 
-**`target_mode: merge`** (the Bitbucket governance check, auto-tag and deploy pipeline share `bitbucket-pipelines.yml`): never overwrite the target. Merge mapping by mapping; a step list under the same key (`pull-requests: '**'`, `branches: main`) concatenates in manifest order; a top-level scalar (`image`) keeps the target's — each template's steps carry their own `image`. An existing target is merged into, never skipped.
+**`target_mode: merge`** (every manifest entry carrying it — on Bitbucket the governance check, auto-tag, the deploy pipeline and the design-system rebuild share `bitbucket-pipelines.yml`): never overwrite the target. Merge mapping by mapping; a step list under the same key (`pull-requests: '**'`, `branches: main`) concatenates in manifest order, the incoming steps before the target's first manual step (`trigger: manual` holds every step after it — an automatic step appended behind it would wait for the button); a top-level scalar (`image`) keeps the target's — each template's steps carry their own `image`. An existing target is merged into, never skipped.
 
 The workflow MUST be wired so that any PR transitioning an ADR file under `docs/project_log/adr/` from `status: proposed` to `status: accepted` without modifying `docs/constitution.md` in the same diff fails the gate. Bypass is via the `[adr-backfill]` commit-message marker (one-shot historical migration only). Additional governance gates are added as steps in the same workflow — do NOT split into multiple workflows per gate.
 
@@ -949,7 +949,13 @@ Mirror the Governance Workflow shape — pick the platform-specific source from 
 - Materialise `config/quality.json` from `.context/templates/setup/config/quality.json` — every token from `--resolve → placeholders` and the derived `fills` (registry):
 - When user picked **Skip**: write `null` (JSON literal, not the string `"null"`) for both placeholders AND set `complexity.enabled` ← `quality.complexity.enabled` (`false`). The skill `factory-complexity-check` short-circuits to `{ok: true, reason: "disabled"}` and never invokes any MCP. The file is still materialised so the project can enable later by editing.
 - All other fields (`thresholds`, `bvl_gate`, `pr_blocker`, `source_extensions`) keep template defaults unless Discovery captured overrides. Defaults: `soft=10`, `hard=15` (McCabe), `bvl_gate=true`, `pr_blocker=false`.
-- Bare tokens (integers, JSON arrays) replace the token unquoted. `surface.escapes` and `surface.declared_reads` keep template defaults. Derived `ci_cd.workflow_paths` (from Q21 `ci_cd.platform`) — one definition for the hard exclusion and for the parity scan:
+- Bare tokens (integers, JSON arrays) replace the token unquoted. `surface.escapes` and `surface.declared_reads` keep template defaults — except where `workflows/design-system-rebuild.bitbucket.yml` lands: its step merges into a deploying file and reads paths the deploy never ships, so `surface.declared_reads` gains the entry below (EVOL-084; SETUP --upgrade adds it the same way):
+
+  ```json
+  {"path": ["subproducts/po-package/**", "ds-bundle/**"], "reason": "the design-system rebuild step (EVOL-084) merged into bitbucket-pipelines.yml: an advisory producer the deploy does not ship"}
+  ```
+
+  `{{CATALOG_PACKAGES}}` / `{{CATALOG_PREFIXES}}` (EVOL-084) ← Q14.1 `frontend.design_system.packages` / `.prefixes`, JSON lists (`[]` when not asked — no frontend). Derived `ci_cd.workflow_paths` (from Q21 `ci_cd.platform`) — one definition for the hard exclusion and for the parity scan:
 
   | Platform | `{{CI_WORKFLOW_PATHS}}` (hard exclusion — workflow definitions) | `{{DEPLOYING_WORKFLOWS}}` (the release / deploy files the parity gate reads) |
   |---|---|---|

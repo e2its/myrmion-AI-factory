@@ -1,5 +1,5 @@
 ---
-version: 3.5.0
+version: 3.6.0
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -74,6 +74,9 @@ frontend:
     path: null
     compatibility: null
     resolved_fields: null
+  design_system:                      # Q14.1 (EVOL-084) → config/quality.json catalog
+    packages: null                    # the design system's npm packages (a list; [] when it lives in the project's tree)
+    prefixes: null                    # the custom-element prefixes it registers (a list, e.g. mat-)
 database:
   primary:
     engine: null

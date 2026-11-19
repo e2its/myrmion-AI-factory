@@ -1103,6 +1103,14 @@ RUN python3 scripts/gate.py data
   IF red: fix with its lines — a new migration instead of an edit, the decision tag (FDR or ADR), CONCURRENTLY, the factory, the owner's create
 ```
 
+#### Design-system catalog (EVOL-084, DC-45 — where a frontend and the component registry exist)
+```yaml
+The frontend worker builds UI from the catalog's components, imported from their home; a component the catalog lacks
+  is a design-system change: CODESIGN --vision-refine by RDR, never a local copy or another package's component
+RUN python3 scripts/gate.py catalog
+  IF red: fix with its lines — (a) import the catalog component, (b) import from its home, (c) the product's copy, (d) bump design_system_version
+```
+
 #### Performance endpoints (EVOL-073, DC-43)
 ```yaml
 IF config/quality.json → performance.endpoints IS null AND this increment builds the backend:

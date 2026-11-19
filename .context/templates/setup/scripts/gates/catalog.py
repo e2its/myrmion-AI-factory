@@ -10,15 +10,19 @@ reads     the UI files the change touches against the diff base (`catalog.source
 (a)       a component outside the catalog: a PascalCase tag (or `NS.Tag`, or a kebab-case tag in a .vue file) bound
           by an ES import to a package — red unless the package is the design system's (`catalog.packages`) AND
           the imported name is a catalog component; a hyphenated custom-element tag nobody imports is red unless
-          the project declares its selector (`selector: 'x-y'`) or its prefix is in `catalog.prefixes`. A source is
-          the project's own when it starts with `.`, `/`, a non-scope `@/`, `~`, `#`, `$`, or a `catalog.local`
-          prefix. Names in `catalog.allow` (framework built-ins) are never judged.
+          the project declares its selector (`selector: 'x-y'`), its prefix is in `catalog.prefixes`, or it is a
+          global built-in in `catalog.allow`. A source is the project's own when it starts with `.`, `/`, a
+          non-scope `@/`, `~`, `#`, `$`, or a `catalog.local` prefix; the UI framework's own packages
+          (`catalog.frameworks`) are never judged. A `<Name` glued to an identifier, `)`, `]` or `.` is a type
+          argument, not a tag; a type-only import binds nothing. The home (`catalog.home`) is the catalog's own
+          implementation, which wraps what it likes: (a) skips it, (b) and (c) still read it.
 (b)       a local copy: a catalog component (`cip_name`) defined in a changed file other than its canonical home —
           its config/codebase_inventory.json path, else any `catalog.home` glob.
 (c)       the mock's vocabulary shipped: a line holding a `catalog.mock_vocabulary` entry (substring, any case).
 (d)       the registry's version: `design_system_version` semver; every entry's `since` semver and not above it;
           against the base, never lower; an added entry owes at least a MINOR bump and `since` = the new version;
-          a removed entry, or an `id`/`cip_name` changed, owes a MAJOR bump.
+          a removed entry, or an `id`/`cip_name` changed, owes a MAJOR bump; binding a built component (`cip_name`
+          null → name) is no catalog change and owes none. A registry the base has and HEAD does not is red.
 An unreadable block, registry or UI file is red with its reason (LAW-08); there is no advisory mode.
 """
 from __future__ import annotations
@@ -35,14 +39,17 @@ from .seal import DEFAULT_SEAL_DIR, _git, _reference, vcfg
 
 REGISTRY = "docs/ux/component-registry.json"
 INVENTORY = "config/codebase_inventory.json"
-SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 # ES imports — the clause bounded, so a crafted file is read in linear time
-IMPORT = re.compile(r"\bimport\s+(?!type\b)([^;'\"]{1,1000}?)\s*\bfrom\s*(['\"])([^'\"\n]{1,300})\2")
-TAG = re.compile(r"<([A-Z][\w$]{0,200})(?:\.([A-Z][\w$]{0,200}))?(?=[\s/>])")
-KEBAB = re.compile(r"<([a-z][a-z0-9]{0,100}(?:-[a-z0-9]{1,100}){1,20})(?=[\s/>])")
+# (the clause starts on a non-space and every blank run is bounded, so no run is shared — no polynomial back-off)
+IMPORT = re.compile(r"\bimport\s{1,64}(?!type\b)([^\s;'\"][^;'\"]{0,999}?)\s{0,64}\bfrom\s{0,64}(['\"])([^'\"\n]{1,300})\2")
+GLUED = r"(?<![\w$)\].])"   # `useState<T>`, `FC<P>`, `a[i]<B>`: a type argument or a comparison, never a tag
+TAG = re.compile(GLUED + r"<([A-Z][\w$]{0,200})(?:\.([A-Z][\w$]{0,200}))?(?=[\s/>])")
+KEBAB = re.compile(GLUED + r"<([a-z][a-z0-9]{0,100}(?:-[a-z0-9]{1,100}){1,20})(?=[\s/>])")
+LISTS = ("sources", "exclude", "home", "packages", "frameworks", "prefixes", "local", "allow", "mock_vocabulary")
 DEFINE = re.compile(r"(?:\bfunction\s+|\bclass\s+|\b(?:const|let|var)\s+)([A-Z][\w$]{0,200})\s*(?:[(<{:=]|extends\b)")
 SELECTOR = re.compile(r"""\bselector\s*:\s*['"]([a-z][\w-]{0,200})['"]""")
-PACKAGE = re.compile(r"^(?:@[a-z0-9][\w.-]*/)?[a-z0-9][\w.-]*(?:/.*)?$")
+SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 
 
 def _row(id_: str, problems: list[str], note: str) -> dict:
@@ -56,6 +63,17 @@ def _list(cfg: dict, k: str) -> list[str]:
     return v
 
 
+def _block(cfg: dict) -> dict:
+    """Every key read once, before any file: a malformed block is red on every change, never only on the next UI one."""
+    for k in LISTS:
+        _list(cfg, k)
+    if not cfg.get("sources"):
+        raise GateFault("`catalog.sources` in config/quality.json is missing or empty — the gate would judge no file; restore the template's globs")
+    if not isinstance(cfg.get("registry", REGISTRY), str):
+        raise GateFault("`catalog.registry` in config/quality.json must be a path")
+    return cfg
+
+
 def _scope(repo: Path) -> tuple[dict | None, str | None]:
     if context(repo) == "meta":
         return None, "the framework repo has no product UI"
@@ -64,11 +82,12 @@ def _scope(repo: Path) -> tuple[dict | None, str | None]:
         return None, "no `catalog` block in config/quality.json — SETUP --upgrade adds it (EVOL-084)"
     if not isinstance(cfg, dict):
         raise GateFault("`catalog` in config/quality.json is not an object")
+    _block(cfg)
     fw = answers(repo).get("frontend.framework")
     if not (isinstance(fw, str) and fw.strip() not in NONE):
         return None, "no frontend answered in docs/setup.md — no UI to judge"
     if not (repo / str(cfg.get("registry") or REGISTRY)).is_file():
-        return None, "no component registry yet — CODESIGN --vision or the SETUP external-DS migration writes it"
+        return cfg, "no component registry yet — CODESIGN --vision or the SETUP external-DS migration writes it"
     return cfg, None
 
 
@@ -96,13 +115,14 @@ def version_row(head: dict, base: dict | None) -> dict:
     problems, v = [], _ver(head.get("design_system_version"))
     if v is None:
         problems.append(f"`design_system_version` must be semver (MAJOR.MINOR.PATCH), not {_clean(head.get('design_system_version'), 40)!r}")
+    hv = _clean(head.get("design_system_version"), 40)
     now = _entries(head)
     for i, c in now.items():
         s = _ver(c.get("since"))
         if s is None:
             problems.append(f"`{_clean(i, 60)}` has no semver `since` — the design-system version that introduced it")
         elif v is not None and s > v:
-            problems.append(f"`{_clean(i, 60)}` is `since` {_clean(c.get('since'), 20)}, above the design system's {head['design_system_version']}")
+            problems.append(f"`{_clean(i, 60)}` is `since` {_clean(c.get('since'), 20)}, above the design system's {hv}")
     if base is not None and v is not None:
         b = _ver(base.get("design_system_version"))
         was = _entries(base)
@@ -110,22 +130,25 @@ def version_row(head: dict, base: dict | None) -> dict:
         renamed = sorted(i for i in set(now) & set(was) if was[i].get("cip_name") and now[i].get("cip_name") != was[i].get("cip_name"))   # binding a built one (null → name) is no catalog change
         if b is not None:
             if v < b:
-                problems.append(f"`design_system_version` went down ({base['design_system_version']} → {head['design_system_version']})")
+                problems.append(f"`design_system_version` went down ({_clean(base['design_system_version'], 40)} → {hv})")
             if (gone or renamed) and v[0] <= b[0]:
                 which = ", ".join(f"`{_clean(i, 60)}`" for i in (gone + renamed)[:5])
-                problems.append(f"{which} removed or renamed — a breaking change to the catalog owes a MAJOR bump (from {base['design_system_version']})")
+                problems.append(f"{which} removed or renamed — a breaking change to the catalog owes a MAJOR bump (from {_clean(base['design_system_version'], 40)})")
             elif added and v[:2] <= b[:2]:
-                problems.append(f"{', '.join(f'`{_clean(i, 60)}`' for i in added[:5])} added — a new component owes at least a MINOR bump (from {base['design_system_version']})")
+                problems.append(f"{', '.join(f'`{_clean(i, 60)}`' for i in added[:5])} added — a new component owes at least a MINOR bump (from {_clean(base['design_system_version'], 40)})")
         for i in added:
             if v is not None and _ver(now[i].get("since")) not in (None, v):
-                problems.append(f"`{_clean(i, 60)}` is new: its `since` is the new version {head['design_system_version']}")
+                problems.append(f"`{_clean(i, 60)}` is new: its `since` is the new version {hv}")
     n = len(now)
-    return _row("catalog.version", problems, f"design system {head.get('design_system_version')} · {n} component{'s' if n != 1 else ''}")
+    return _row("catalog.version", problems, f"design system {hv} · {n} component{'s' if n != 1 else ''}")
 
 
 def _own(src: str, local: list[str]) -> bool:
-    return src.startswith((".", "/", "~", "#", "$", "@/")) or any(src == p.rstrip("/") or src.startswith(p) for p in local) \
-        or not PACKAGE.match(src)
+    """The project's own tree: a relative or rooted path, an alias, a `catalog.local` prefix. A URL, a protocol-relative
+    `//host` or a scheme specifier (`https:`, `npm:`) is never the project's own — it is judged like any package."""
+    if src.startswith("//") or SCHEME.match(src):
+        return False
+    return src.startswith((".", "/", "~", "#", "$", "@/")) or any(src == p.rstrip("/") or src.startswith(p) for p in local)
 
 
 def _in_pkg(src: str, pkgs: list[str]) -> bool:
@@ -140,7 +163,10 @@ def _bindings(text: str) -> dict[str, tuple[str, str]]:
         named = re.search(r"\{([^}]{0,2000})\}", clause)
         if named:
             for part in named.group(1).split(","):
-                bits = part.replace("type ", "").split(" as ")
+                part = part.strip()
+                if part.startswith("type "):
+                    continue   # a type-only specifier binds no component
+                bits = part.split(" as ")
                 imp, loc = bits[0].strip(), bits[-1].strip()
                 if loc:
                     out[loc] = (src, imp)
@@ -168,38 +194,32 @@ def scan(rel: str, text: str, cfg: dict, catalog: set[str], selectors: set[str],
     out: list[dict] = []
     allow, pkgs, local = set(_list(cfg, "allow")), _list(cfg, "packages"), _list(cfg, "local")
     prefixes, vocab = _list(cfg, "prefixes"), [v.lower() for v in _list(cfg, "mock_vocabulary")]
-    binds = _bindings(text)
+    frameworks, in_home = _list(cfg, "frameworks"), any_glob(rel, _list(cfg, "home"))
+    binds = {} if in_home else _bindings(text)
 
     def judge(tag: str, name: str, imp: tuple[str, str], pos: int):
         src, imported = imp
-        if _own(src, local):
+        if _own(src, local) or _in_pkg(src, frameworks):
             return
         if not _in_pkg(src, pkgs):
-            why = f"`{tag}` comes from `{_clean(src, 80)}`, not from the design system — build it from the catalog"
+            why = (f"`{tag}` comes from `{_clean(src, 80)}`, not from the design system — build it from the catalog, or name the"
+                   " package in `catalog.packages` (the design system's), `catalog.local` (the project's own) or `catalog.frameworks`")
         elif (name if imported in ("*", "default") else imported) not in catalog:
             why = f"`{tag}` from the design system is not in the catalog — a new component is a design-system change (CODESIGN --vision-refine)"
         else:
             return
         out.append({"file": rel, "line": _lineno(text, pos), "clause": "a", "tag": tag, "problem": why})
 
-    seen: set[tuple[str, int]] = set()
     for m in TAG.finditer(text):
         head, tail = m.group(1), m.group(2)
-        tag = f"{head}.{tail}" if tail else head
-        if head in allow or tag in allow or head not in binds:
-            continue
-        judge(tag, tail or head, binds[head], m.start())
-        seen.add((tag, m.start()))
+        if head in binds:
+            judge(f"{head}.{tail}" if tail else head, tail or head, binds[head], m.start())
     for m in KEBAB.finditer(text):
-        tag = m.group(1)
-        if tag in allow:
-            continue
-        pas = _pascal(tag)
+        tag, pas = m.group(1), _pascal(m.group(1))
         if rel.endswith(".vue") and pas in binds:
-            if pas not in allow:
-                judge(tag, pas, binds[pas], m.start())
+            judge(tag, pas, binds[pas], m.start())
             continue
-        if tag in selectors or any(tag.startswith(p) for p in prefixes):
+        if in_home or tag in allow or pas in allow or tag in selectors or any(tag.startswith(p) for p in prefixes):
             continue
         out.append({"file": rel, "line": _lineno(text, m.start()), "clause": "a", "tag": tag,
                     "problem": f"`{tag}` is a custom element neither declared by the project nor carrying a design-system prefix (`catalog.prefixes`)"})
@@ -207,11 +227,11 @@ def scan(rel: str, text: str, cfg: dict, catalog: set[str], selectors: set[str],
         name = m.group(1)
         if name in copies and not _home(rel, name, copies, cfg):
             out.append({"file": rel, "line": _lineno(text, m.start()), "clause": "b", "tag": name,
-                        "problem": f"`{name}` is a catalog component redefined here — import it from {copies[name] or 'its home'}"})
+                        "problem": f"`{name}` is a catalog component redefined here — import it from {_clean(copies[name], 120) or 'its home'}"})
     stem = Path(rel).stem
     if Path(rel).suffix in (".vue", ".svelte") and stem in copies and not _home(rel, stem, copies, cfg):
         out.append({"file": rel, "line": 1, "clause": "b", "tag": stem,
-                    "problem": f"`{stem}` is a catalog component redefined here — import it from {copies[stem] or 'its home'}"})
+                    "problem": f"`{stem}` is a catalog component redefined here — import it from {_clean(copies[stem], 120) or 'its home'}"})
     for i, ln in enumerate(text.splitlines(), 1):
         low = ln.lower()
         for v in vocab:
@@ -248,18 +268,25 @@ def _selectors(repo: Path, files: list[str]) -> set[str]:
     return out
 
 
+def _base_text(repo: Path, base: str, reg_path: str) -> str | None:
+    try:
+        return _git(repo, "show", f"{_reference(repo, base)}:{reg_path}")
+    except GateFault:
+        return None   # absent at the base (a first registry) — the convention of every `_at` reader
+
+
 def check(repo: Path, base: str) -> dict:
     cfg, why = _scope(repo)
-    if cfg is None:
+    if why:
+        if cfg is not None and _base_text(repo, base, str(cfg.get("registry") or REGISTRY)):
+            return {"ok": False, "na": None, "findings": [], "rows": [_row("catalog.version", [
+                "the component registry is gone — the base has it: removing the catalog is a MAJOR change, restore the registry"
+                " or retire the catalog block by a decision record"], "registry removed")]}
         return {"ok": True, "na": why, "rows": [], "findings": []}
     reg_path = str(cfg.get("registry") or REGISTRY)
     sources, exclude = _list(cfg, "sources"), _list(cfg, "exclude")
     head = _registry((repo / reg_path).read_text(encoding="utf-8", errors="replace"), "at HEAD")
-    ref = _reference(repo, base)
-    try:
-        base_text = _git(repo, "show", f"{ref}:{reg_path}")
-    except GateFault:
-        base_text = None
+    base_text = _base_text(repo, base, reg_path)
     base_reg = _registry(base_text, "at the base") if base_text else None
     rows = [version_row(head, base_reg)]
     entries = list(_entries(head).values())
@@ -272,13 +299,13 @@ def check(repo: Path, base: str) -> dict:
         cfgv = {"dir": DEFAULT_SEAL_DIR}
     moved = changed_paths(repo, base, cfgv)
     changed = sorted(p for p in moved if any_glob(p, sources) and not any_glob(p, exclude) and (repo / p).is_file())
-    selectors = _selectors(repo, sorted(set(tracked_files(repo)) | set(moved))) if any(p.endswith(".html") for p in changed) else set()
+    selectors = _selectors(repo, sorted(set(tracked_files(repo)) | set(moved))) if changed else set()
     findings: list[dict] = []
     for rel in changed:
         try:
             text = (repo / rel).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
-            findings.append({"file": rel, "line": 0, "clause": "read", "tag": "", "problem": f"unreadable ({e.__class__.__name__})"})
+            findings.append({"file": rel, "line": 0, "clause": "read", "tag": "", "problem": f"unreadable as UTF-8 text ({e.__class__.__name__}) — save it as UTF-8, or list it in `catalog.exclude` if it is no UI source"})
             continue
         findings += scan(rel, text, cfg, catalog, selectors, copies)
     problems = [f"{_clean(f['file'], 120)}:{f['line']} ({f['clause']}) {f['problem']}" for f in findings]

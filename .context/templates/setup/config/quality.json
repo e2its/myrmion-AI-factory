@@ -274,15 +274,16 @@
     "timeout_s": 120
   },
   "catalog": {
-    "_doc": "The design-system catalog (EVOL-084), read by python3 scripts/gate.py catalog — a light member, n/a without a frontend or before the component registry exists. The UI files a change touches (sources minus exclude) are built from the catalog: a component imported from a package outside packages, or a design-system export the registry does not hold, is red (a); a catalog component (cip_name) defined outside its home — its config/codebase_inventory.json path, else a home glob — is red (b); a mock_vocabulary entry (substring, any case) in shipped UI is red (c); the registry's design_system_version moves with its catalog — a new component MINOR, a removed or renamed one MAJOR (d). packages names the design system's npm packages; prefixes the custom-element prefixes it registers; local the import prefixes the project resolves to its own tree (a baseUrl path); allow the framework built-ins never judged. Rules: rules/ux-constitution.md § 3, DC-45.",
+    "_doc": "The design-system catalog (EVOL-084), read by python3 scripts/gate.py catalog — a light member, n/a without a frontend or before the component registry exists. The UI files a change touches (sources minus exclude) are built from the catalog: a component imported from a package outside packages, or a design-system export the registry does not hold, is red (a) — the home is the catalog's own implementation and wraps what it likes, so (a) skips it; a catalog component (cip_name) defined outside its home — its config/codebase_inventory.json path, else a home glob — is red (b); a mock_vocabulary entry (substring, any case) in shipped UI is red (c); the registry's design_system_version moves with its catalog — a new component MINOR, a removed or renamed one MAJOR (d). packages names the design system's npm packages and prefixes the custom-element prefixes it registers (both answered at SETUP Q14.1); frameworks the UI framework's own packages, never judged (the union of the supported frameworks; add a framework the list lacks); local the import prefixes the project resolves to its own tree (a baseUrl path); allow the global built-in custom elements no import binds (kebab or Pascal form). A URL or scheme import is never the project's own. Rules: rules/ux-constitution.md § 3, DC-45.",
     "registry": "docs/ux/component-registry.json",
     "sources": ["**/*.{tsx,jsx,vue,svelte}", "**/*.component.html"],
     "exclude": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/*.test.*", "**/*.spec.*", "**/*.stories.*", "**/__tests__/**", "**/__mocks__/**", "tests/**", "e2e/**", "docs/**"],
     "home": ["src/components/ui/**"],
-    "packages": [],
-    "prefixes": [],
+    "packages": {{CATALOG_PACKAGES}},
+    "frameworks": ["react", "react-dom", "react-router", "react-router-dom", "next", "@remix-run", "vue", "vue-router", "nuxt", "@angular", "svelte", "@sveltejs/kit", "solid-js", "@solidjs/router"],
+    "prefixes": {{CATALOG_PREFIXES}},
     "local": [],
-    "allow": ["Fragment", "Suspense", "StrictMode", "Profiler", "ErrorBoundary", "Link", "NavLink", "Outlet", "Route", "Routes", "Navigate", "Head", "Script", "Image", "Transition", "TransitionGroup", "KeepAlive", "Teleport", "Component", "RouterView", "RouterLink", "Show", "For", "Index", "Switch", "Match", "Portal", "Dynamic", "router-outlet", "ng-container", "ng-template", "ng-content"],
+    "allow": ["router-outlet", "ng-container", "ng-template", "ng-content", "router-view", "router-link", "keep-alive", "transition-group", "nuxt-link", "nuxt-page", "nuxt-layout", "client-only"],
     "mock_vocabulary": ["data-component=", "lorem ipsum"]
   }
 }

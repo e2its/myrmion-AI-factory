@@ -23,6 +23,17 @@
 #
 # If your rebuild command needs a toolchain (for example a package install),
 # add that line where marked below, in both steps.
+#
+# The builder stages outside the clone (it refuses a folder inside the
+# repository); the bundle is copied back in for the artifact.
+#
+# Bitbucket hands every repository variable to every step. The step unsets the
+# framework's own credentials (the documents and SCM readers of the governance
+# check) before the project's command runs; keep any other secret as a secured
+# Deployment variable, never a repository variable (as the deploy pipeline does).
+#
+# This step sits before the deploy pipeline's manual production step in the
+# merged main pipeline — after it, it would wait for the button.
 # ============================================================================
 
 pipelines:
@@ -33,8 +44,9 @@ pipelines:
           image: python:3.12
           script:
             # ── Add here whatever your rebuild command needs (toolchain, dependencies). ──
-            - rc=0; python3 subproducts/po-package/build_po_package.py --mode ds-only --rebuild --check-drift --no-zip --out ds-bundle || rc=$?
-            - if [ "$rc" -eq 0 ]; then echo "Design-system bundle rebuilt. Read the drift lines above; publish the mirror with /design-sync when you want it refreshed."; else echo "WARNING the design-system rebuild did not complete (exit $rc). See subproducts/po-package/RUNBOOK.md section 9. This step is advisory."; fi
+            - unset BITBUCKET_TOKEN CONFLUENCE_API_TOKEN CONFLUENCE_USER_EMAIL
+            - rc=0; python3 subproducts/po-package/build_po_package.py --mode ds-only --rebuild --check-drift --no-zip --out /tmp/ds-bundle || rc=$?
+            - if [ "$rc" -eq 0 ]; then cp -R /tmp/ds-bundle ds-bundle; echo "Design-system bundle rebuilt. Read the drift lines above; publish the mirror with /design-sync when you want it refreshed."; else echo "WARNING the design-system rebuild did not complete (exit $rc). See subproducts/po-package/RUNBOOK.md section 9. This step is advisory."; fi
           artifacts:
             - ds-bundle/**
   custom:
@@ -44,7 +56,8 @@ pipelines:
           image: python:3.12
           script:
             # ── Add here whatever your rebuild command needs (toolchain, dependencies). ──
-            - rc=0; python3 subproducts/po-package/build_po_package.py --mode ds-only --rebuild --check-drift --no-zip --out ds-bundle || rc=$?
-            - if [ "$rc" -eq 0 ]; then echo "Design-system bundle rebuilt. Read the drift lines above; publish the mirror with /design-sync when you want it refreshed."; else echo "WARNING the design-system rebuild did not complete (exit $rc). See subproducts/po-package/RUNBOOK.md section 9. This step is advisory."; fi
+            - unset BITBUCKET_TOKEN CONFLUENCE_API_TOKEN CONFLUENCE_USER_EMAIL
+            - rc=0; python3 subproducts/po-package/build_po_package.py --mode ds-only --rebuild --check-drift --no-zip --out /tmp/ds-bundle || rc=$?
+            - if [ "$rc" -eq 0 ]; then cp -R /tmp/ds-bundle ds-bundle; echo "Design-system bundle rebuilt. Read the drift lines above; publish the mirror with /design-sync when you want it refreshed."; else echo "WARNING the design-system rebuild did not complete (exit $rc). See subproducts/po-package/RUNBOOK.md section 9. This step is advisory."; fi
           artifacts:
             - ds-bundle/**

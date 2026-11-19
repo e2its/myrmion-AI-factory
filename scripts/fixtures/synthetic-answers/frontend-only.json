@@ -7,6 +7,12 @@
     "qa.dast_tool": "owasp-zap",
     "backend.runtime": "None",
     "frontend.framework": "Angular",
+    "frontend.design_system.packages": [
+      "@angular/material"
+    ],
+    "frontend.design_system.prefixes": [
+      "mat-"
+    ],
     "frontend.meta_framework": "None",
     "frontend.pattern": "F1",
     "database.primary.engine": "PostgreSQL",
@@ -16,7 +22,12 @@
     "ci_cd.platform": "Bitbucket Pipelines",
     "scm.platform": "Bitbucket",
     "project_tracking.tool": "None",
-    "project_tracking.flow": ["Backlog", "Ready", "In Progress", "Done"],
+    "project_tracking.flow": [
+      "Backlog",
+      "Ready",
+      "In Progress",
+      "Done"
+    ],
     "documents.source": "None",
     "po_package.mode": "full",
     "po_package.ds_rebuild_command": "npx ng run app:cards",
@@ -33,7 +44,8 @@
     "landed": [
       ".claude/rules/ux-constitution.md",
       "tests/e2e/support/clauses.ts",
-      "tests/e2e/specs/canary.spec.ts"
+      "tests/e2e/specs/canary.spec.ts",
+      "scripts/gates/catalog.py"
     ],
     "absent": [
       ".claude/rules/database.md",
@@ -44,7 +56,8 @@
       "present": [
         "DC-44",
         "DC-38",
-        "DC-43"
+        "DC-43",
+        "DC-45"
       ],
       "absent": [
         "DC-36",
@@ -61,12 +74,18 @@
         "Design system rebuild (advisory)",
         "design-system-rebuild:"
       ],
-      "config/quality.json": ["\"blocking_severity\": \"high\"", "\"mock_vocabulary\""]
+      "config/quality.json": [
+        "\"blocking_severity\": \"high\"",
+        "\"mock_vocabulary\"",
+        "\"packages\": [\"@angular/material\"]",
+        "\"prefixes\": [\"mat-\"]"
+      ]
     },
     "pending_absent": [
       "Q15.1",
       "Q36",
-      "Q37"
+      "Q37",
+      "Q14.1"
     ],
     "gates": {
       "frontend-tests": "npx ng test --no-watch",

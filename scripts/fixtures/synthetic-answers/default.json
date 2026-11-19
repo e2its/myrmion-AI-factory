@@ -11,6 +11,8 @@
     "domain.monetary_amounts": true,
     "backend.runtime": "Python",
     "frontend.framework": "React",
+    "frontend.design_system.packages": ["@acme/ui"],
+    "frontend.design_system.prefixes": [],
     "frontend.meta_framework": "None",
     "frontend.pattern": "F2",
     "reference_products": [{"name": "Linear", "for": "product", "link": "https://linear.app"}, {"name": "Stripe Checkout", "for": "feature", "feature": "checkout"}, {"name": "Notion", "for": "look_and_feel"}],

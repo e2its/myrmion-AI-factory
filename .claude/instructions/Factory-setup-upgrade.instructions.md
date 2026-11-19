@@ -394,10 +394,25 @@ PY
 2. **The documents block.** Add the template's `documents` block to `config/quality.json`: `adapter` ← the derived adapter, `site` / `space` / `deployment` / `verify` ← Q38.1 / Q38.2 / the derived deployment / Q38.8, `title_prefix` ← the project name, `homes` ← Q38.5–Q38.7 (`Repo` for an unasked category). A project answering `None` gets `{adapter: none}` and nothing else moves. A store with no shipped adapter (`built`): build `documents.commands` (Factory-setup-materialization § Deliverable homes) and run `python3 scripts/gate.py documents --probe` — no category is homed `External` before it is green. With `verify: ci`, wire the CI's read-only credential (Factory-setup-materialization § Deliverable homes; a built store's `documents.credentials` go into the workflow's env block); with `local`, record the accepted risk in the upgrade report.
 3. **No document moves at upgrade.** An approved artefact of a category homed `External` stays a file until its owner phase approves it again; `python3 scripts/gate.py documents` names each one (`--approve` publishes it and writes its pin).
 
-**catalog (EVOL-084).** Two writes, no question:
+**catalog (EVOL-084).** Q14.1 is pending for a project with a frontend (`since` 10.9.0) — ask it first.
 
-1. **The block.** Add the template's `catalog` block to `config/quality.json`. A project with a frontend fills `packages` (its design system's package names), `prefixes` (its custom-element prefixes) and `local` (its own import aliases); without them every foreign import is red. A project without a frontend keeps it inert, like `performance`.
-2. **The registry.** An existing `docs/ux/component-registry.json` without `design_system_version` gains `"design_system_version": "1.0.0"` and `"since": "1.0.0"` on every entry. No registry: nothing to write.
+1. **The block.** Add the template's `catalog` block to `config/quality.json`, `packages` / `prefixes` from Q14.1 (`[]` without a frontend — the block stays inert, like `performance`); `local` names the project's own import aliases. Where `bitbucket-pipelines.yml` carries the design-system rebuild step, `surface.declared_reads` gains the entry Factory-setup-materialization § Quality Configuration names.
+2. **The registry.** Run it as written (idempotent; no registry, nothing written):
+
+```bash
+python3 - <<'PY'
+import json, pathlib
+p = pathlib.Path("docs/ux/component-registry.json")
+if p.is_file():
+    r = json.loads(p.read_text(encoding="utf-8"))
+    if "design_system_version" not in r:
+        r["design_system_version"] = "1.0.0"
+        for c in r.get("components", []):
+            if isinstance(c, dict):
+                c.setdefault("since", "1.0.0")
+        p.write_text(json.dumps(r, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+```
 
 Run `python3 scripts/gate.py catalog`: green, n/a with its reason, or each finding named. Only the UI files a change touches are judged, so the upgrade itself stops nothing.
 
