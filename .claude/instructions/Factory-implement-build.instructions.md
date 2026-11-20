@@ -1481,7 +1481,8 @@ FUNCTION fix_scope_guard(fix_request, FEATURE_ID):
   # [LAW-17] (rules/branching.md § [LAW-17]): a fix whose accepted change contradicts an artefact.
   IF fix CONTRADICTS written_artefacts:
     RECORD accepted_change(id="AC-{FEATURE_ID}-{N}", artefacts, paths,
-                           rdr=VERBATIM(user_reply) | delegation={quote, date})
+                           rdr=VERBATIM(user_reply)[, relay=SESSION] | delegation={quote, date[, adr]})
+    # relay: another session carried the words; no words → ask again (factory-rdr § Relay and delegation)
     ALIGN artefacts VIA owner_phase(artefact) IN SAME PR   # alignment pass, aligns: AC-…
     NEVER REVERT an accepted change to match a stale artefact
 
@@ -1796,7 +1797,7 @@ FUNCTION verify_schema_adherence(task, FEATURE_ID):
             # align the artefact in the SAME PR via its owner phase (alignment pass, aligns: AC-…).
             # No backlog issue left behind.
             RECORD accepted_change(id="AC-{FEATURE_ID}-{N}", artefacts, paths,
-                                   rdr=VERBATIM(user_reply))   # the user's verbatim choice, its justification included
+                                   rdr=VERBATIM(user_reply)[, relay=SESSION])   # the user's verbatim choice, its justification included; relay: another session carried it
             ALIGN artefacts VIA owner_phase(artefact)   # per rules/branching.md § [LAW-17] Owner phase
       # Technical fields (id, created_at, updated_at, hash) are free — no check
 

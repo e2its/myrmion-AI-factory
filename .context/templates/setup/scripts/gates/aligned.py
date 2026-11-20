@@ -6,7 +6,7 @@ Every decision log the change touches — `docs/project_log/features/{FEAT}.log.
 (a fix branch too); the feature id comes from the log's file name — is judged, the tree on disk against the
 merge-base with the diff base. Every `action: accepted-change` entry the change ADDS to a log:
 
-  (a) ratified    exactly one of `rdr` (the verbatim choice) or `delegation` ({quote, date}); `id` AC-{FEAT}-{N},
+  (a) ratified    exactly one of `rdr` (the verbatim choice) or `delegation` ({quote, date[, adr]}); `id` AC-{FEAT}-{N},
                   `artefacts` and `paths` non-empty lists of repo-relative FILE paths (no absolute path, no `..`,
                   no control byte, never a directory nor a decision log). Neither, both or a malformed entry → red.
   (b) aligned     every artefact it names is in the change — an artefact left untouched is a stale artefact.
@@ -16,15 +16,27 @@ merge-base with the diff base. Every `action: accepted-change` entry the change 
 And every changed artefact:
   (e) backed      each `accepted_change` of its latest iteration names (`ref`) a ratified accepted-change entry in
                   its feature's decision log on disk — added by this change or an earlier one.
+Relay and delegation (EVOL-135) — the two records that may carry them: an accepted-change entry, and an RDR record
+(one that carries `user_choice`: a changed artefact's `_progress.decisions[]` entry, or a decision-log line):
+  (f) relayed     a record that carries `relay` (the session that carried the person's words) names it and keeps the
+                  person's verbatim words (`rdr` / `user_choice`; a bare option id counts); a relay without them
+                  authorises nothing. A delegation is the project's own act: never relayed.
+  (g) approvals   any other decision-log line the change adds that carries `relay` or `delegation` is red: an approval
+                  is typed in the deciding session's own window — never relayed, never delegated.
+  (h) delegation  a `delegation` carries its quote and date; one that names its law (`adr`) names a project ADR,
+                  accepted when the record is added — read through the one reader of a decision record's acceptance
+                  (`data._accepted`). An entry an earlier change added was judged then: re-read for its shape only.
 
 The decision logs themselves are not "the change" for (b)/(c). Nothing to judge → `aligned: n/a`. No config key.
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 import re
 from pathlib import Path
 
+from . import data
 from .common import GateFault, clean as _clean, frontmatter_of, iteration_state, read_frontmatter
 from .digests import changed_paths
 from .seal import DEFAULT_SEAL_DIR, _git, _norm_path, _reference, vcfg
@@ -33,6 +45,7 @@ ACTION = "accepted-change"
 KIND = "accepted_change"
 LOG = "docs/project_log/features/{fid}.log.jsonl"
 LOG_RE = re.compile(r"docs/project_log/features/([^/]+)\.log\.jsonl")
+PROJECT_ADR = re.compile(r"ADR-[A-Za-z0-9][\w-]*")
 
 
 def _lines(text: str | None) -> list[str]:
@@ -55,14 +68,16 @@ def _read(repo: Path, log: str) -> str:
     return p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
 
 
+def _added(repo: Path, ref: str, log: str) -> list[str]:
+    before = set(_lines(_at(repo, ref, log)))
+    return [ln for ln in _lines(_read(repo, log)) if ln not in before]
+
+
 def added_entries(repo: Path, ref: str, log: str) -> list[dict | str]:
     """The accepted-change lines on disk that the base does not carry: parsed entries (a near-miss action too — judged
     malformed, never skipped), or the raw line when it mentions the action but is not a JSON object."""
-    before = set(_lines(_at(repo, ref, log)))
     out: list[dict | str] = []
-    for ln in _lines(_read(repo, log)):
-        if ln in before:
-            continue
+    for ln in _added(repo, ref, log):
         try:
             e = json.loads(ln)
         except json.JSONDecodeError:
@@ -89,15 +104,97 @@ def _bad_path(repo: Path, p: str) -> str | None:
     return None
 
 
-def ratification(e: dict) -> list[str]:
+def _words(v) -> bool:
+    """The person's words: a non-empty string, or a bare option id (a number — YAML reads `2` unquoted)."""
+    return (isinstance(v, str) and bool(v.strip())) or (isinstance(v, int) and not isinstance(v, bool))
+
+
+def _dlg_ok(dlg) -> bool:
+    """Its verbatim quote and its date (YAML reads an unquoted date as a date)."""
+    return (isinstance(dlg, dict) and isinstance(dlg.get("quote"), str) and bool(dlg["quote"].strip())
+            and (isinstance(dlg.get("date"), dt.date) or (isinstance(dlg.get("date"), str) and bool(dlg["date"].strip()))))
+
+
+def relayed(e: dict, words: str) -> list[str]:
+    """Clause (f): a record that carries `relay` names the session and keeps the person's verbatim words."""
+    if "relay" not in e:
+        return []   # no relay: a direct answer
+    relay = e.get("relay")
+    if not (isinstance(relay, str) and relay.strip()):
+        return ["`relay` must name the session that carried the person's words"]
+    if not _words(e.get(words)):
+        return [f"relayed by `{_clean(relay, 80)}` without the person's verbatim words (`{words}`) — a relay authorises "
+                f"nothing; ask the person and record their words, between «», never a summary"]
+    return []
+
+
+def delegated(dlg: dict, repo: Path | None) -> list[str]:
+    """Clause (h): a delegation that names its law names a project ADR — accepted, when `repo` is given (the record
+    is added by this change); `None` judges the shape only (an earlier change's record, judged at its own push)."""
+    if "adr" not in dlg:
+        return []
+    adr = dlg.get("adr")
+    if not (isinstance(adr, str) and PROJECT_ADR.fullmatch(adr.strip())):
+        return [f"`delegation.adr` `{_clean(adr, 80)}` is not a project ADR id (`ADR-NNN`) — a delegation is project law, "
+                f"held in an accepted project ADR under docs/project_log/adr/, never a feature's design record"]
+    why = data._accepted(repo, adr.strip(), {}, "a delegated decision") if repo is not None else None
+    return [f"the delegation {why.split(' — ')[0]} — a delegation is honoured only from an accepted project ADR"] if why else []
+
+
+def rdr_record(e: dict, repo: Path | None) -> list[str]:
+    """Clauses (f) and (h) on an RDR record (`user_choice`)."""
+    if "relay" in e and "delegation" in e:
+        return ["carries both `relay` and `delegation` — a delegation is the project's own act, never relayed"]
+    problems = relayed(e, "user_choice")
+    if "delegation" in e:
+        dlg = e.get("delegation")
+        problems += delegated(dlg, repo) if _dlg_ok(dlg) else ["`delegation` must carry its verbatim quote and date"]
+    return problems
+
+
+def ratification(e: dict, repo: Path | None) -> list[str]:
+    """`repo`: the tree an entry this change adds is judged against; `None` for an earlier change's entry (clause h)."""
     rdr, dlg = e.get("rdr"), e.get("delegation")
-    has_rdr = isinstance(rdr, str) and bool(rdr.strip())
-    has_dlg = isinstance(dlg, dict) and all(isinstance(dlg.get(k), str) and dlg[k].strip() for k in ("quote", "date"))
+    has_rdr = _words(rdr)
+    has_dlg = _dlg_ok(dlg)
     if "rdr" in e and "delegation" in e:
         return ["carries both `rdr` and `delegation` — one ratification, never two"]
+    relay = relayed(e, "rdr")
+    if relay:
+        return relay
     if not (has_rdr or has_dlg):
         return ["not ratified — record the user's verbatim choice (`rdr`) or the standing delegation's quote and date (`delegation`)"]
-    return []
+    return delegated(dlg, repo) if has_dlg else []
+
+
+def log_records(repo: Path, ref: str, log: str) -> list[dict]:
+    """Clauses (f)-(h) on the other lines the change adds to a decision log — red rows only. An RDR record
+    (`user_choice`) may carry `relay` or `delegation`; any other line carrying one is an approval relayed or delegated."""
+    rows = []
+    for ln in _added(repo, ref, log):
+        try:
+            e = json.loads(ln)
+        except json.JSONDecodeError:
+            if ('"relay"' in ln or '"delegation"' in ln) and not (ACTION in ln or KIND in ln):   # those: added_entries
+                rows.append({"id": "(unreadable)", "ok": False, "problems": [
+                    f"a decision-log line in {log} carries a relay or a delegation and is not JSON — rewrite it as one object: {_clean(ln, 80)}"]})
+            continue
+        if not isinstance(e, dict) or _near(e.get("action")):
+            continue
+        action = _clean(e["action"], 80) if isinstance(e.get("action"), str) and e["action"].strip() else "(no action)"
+        if "user_choice" in e:
+            problems = rdr_record(e, repo)
+        elif "relay" in e:
+            problems = [f"`{action}` in {log} carries `relay` — an approval is typed by the person in the deciding "
+                        f"session's own window, never relayed; ask the person to give it there"]
+        elif "delegation" in e:
+            problems = [f"`{action}` in {log} carries `delegation` — a delegation never covers an approval; the person "
+                        f"gives it in the deciding session's own window"]
+        else:
+            continue
+        if problems:
+            rows.append({"id": action, "ok": False, "problems": problems})
+    return rows
 
 
 def malformed(e: dict, fid: str, repo: Path) -> list[str]:
@@ -115,7 +212,7 @@ def malformed(e: dict, fid: str, repo: Path) -> list[str]:
             why = _bad_path(repo, p)
             if why:
                 problems.append(f"`{k}` item `{_clean(p)}` is not a repo-relative file path ({why})")
-    return problems + ratification(e)
+    return problems + ratification(e, repo)
 
 
 def _status(fm: dict) -> str:
@@ -158,21 +255,47 @@ def _backed(repo: Path, ref_id: str) -> bool:
             e = json.loads(ln)
         except json.JSONDecodeError:
             continue
-        if isinstance(e, dict) and e.get("action") == ACTION and e.get("id") == ref_id and not ratification(e):
+        if isinstance(e, dict) and e.get("action") == ACTION and e.get("id") == ref_id and not ratification(e, None):   # judged at its own push
             return True
     return False
+
+
+def _frontmatters(repo: Path, changed: set[str]):
+    for art in sorted(changed):
+        if not art.endswith(".md") or not (repo / art).is_file():
+            continue
+        try:
+            yield art, read_frontmatter(repo / art)
+        except GateFault:
+            continue
+
+
+def _decisions(fm) -> list:
+    prog = fm.get("_progress") if isinstance(fm, dict) else None
+    decs = prog.get("decisions") if isinstance(prog, dict) else None
+    return decs if isinstance(decs, list) else []
+
+
+def relayed_decisions(repo: Path, ref: str, changed: set[str]) -> list[dict]:
+    """Clauses (f) and (h) on a changed artefact's `_progress.decisions[]` entries (red rows only). An entry already
+    at the base, unchanged, was judged at its own push: its delegation is re-read for its shape only."""
+    rows = []
+    for art, fm in _frontmatters(repo, changed):
+        try:
+            before = _decisions(frontmatter_of(_at(repo, ref, art) or ""))
+        except GateFault:
+            before = []
+        for d in _decisions(fm):
+            problems = rdr_record(d, None if d in before else repo) if isinstance(d, dict) else []
+            if problems:
+                rows.append({"id": _clean(f"{art} {d.get('id') or '(decision)'}"), "ok": False, "problems": problems})
+    return rows
 
 
 def claims(repo: Path, changed: set[str]) -> list[dict]:
     """Clause (e): the changed artefacts whose registration-only claims name no ratified entry (red rows only)."""
     rows = []
-    for art in sorted(changed):
-        if not art.endswith(".md") or not (repo / art).is_file():
-            continue
-        try:
-            fm = read_frontmatter(repo / art)
-        except GateFault:
-            continue
+    for art, fm in _frontmatters(repo, changed):
         refs = [c.get("ref") for c in _latest_changes(fm) if isinstance(c, dict) and c.get("kind") == KIND]
         if not refs:
             continue
@@ -212,13 +335,14 @@ def check(repo: Path, base: str, branch: str | None = None, control_point: str =
                 if dropped:
                     problems.append(f"{', '.join(dropped)} lost APPROVED on a registration-only realignment — an iteration of only accepted_change changes keeps APPROVED")
             rows.append({"id": _clean(e.get("id") or "(no id)"), "ok": not problems, "problems": problems})
-    rows += claims(repo, changed)
+        rows += log_records(repo, ref, log)
+    rows += claims(repo, changed) + relayed_decisions(repo, ref, changed)
     if not rows:
         why = "the change adds no accepted change to its decision log(s)" if logs else "no decision log in the change (docs/project_log/features/*.log.jsonl), no unbacked registration-only claim"
         return {"ok": True, "logs": logs, "entries": [], "reason": f"{why} — nothing to judge"}
     red = [r for r in rows if not r["ok"]]
     return {"ok": not red, "logs": logs, "entries": rows,
-            "reason": f"{len(red)} of {len(rows)} accepted change(s) not aligned" if red else f"{len(rows)} accepted change(s) aligned in this pull request"}
+            "reason": f"{len(red)} of {len(rows)} record(s) not aligned" if red else f"{len(rows)} accepted change(s) aligned in this pull request"}
 
 
 def render(res: dict) -> str:

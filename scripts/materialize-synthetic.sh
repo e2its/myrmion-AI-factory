@@ -740,6 +740,32 @@ OUT=$(cd "$P" && python3 scripts/gate.py manifest --check --base feature/FEAT-00
 OUT=$(cd "$P" && python3 scripts/gate.py manifest --bump --entry .claude/rules/branching.md --level minor --base feature/FEAT-005-main 2>&1 && python3 scripts/gate.py manifest --check --base feature/FEAT-005-main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "versions: the second to land re-derives with the tool → green" || bad "re-derived version not green (rc=$RC)" "$OUT"
 g134 checkout -q -f feature/FEAT-001-smoke; git -C "$P" clean -qfd -- docs/backlog docs/project_log/adr
+# EVOL-135 (#243): a relay keeps the person's words, an approval never relays, a project's delegation law is read from its own
+# accepted ADR — and the framework-shipped files stay byte-identical
+g135() { git -C "$P" -c user.name=t -c user.email=t@t "$@"; }
+F135=(.claude/skills/factory-rdr/SKILL.md .claude/rules/branching.md scripts/gates/aligned.py CLAUDE.md)
+H135=$(cd "$P" && sha256sum "${F135[@]}") && [ -n "$H135" ] || bad "a framework-shipped file is missing from the materialised tree" "${F135[*]}"
+g135 checkout -q -b feature/FEAT-007-relay; g135 tag relay-root
+mkdir -p "$P/docs/project_log/features" "$P/docs/project_log/adr" "$P/docs/spec/FEAT-007"
+printf 'print(7)\n' > "$P/src/app.py"; printf -- '---\nstatus: DRAFT\n---\nthe copy, aligned\n' > "$P/docs/spec/FEAT-007/design.md"
+L135="$P/docs/project_log/features/FEAT-007.log.jsonl"
+AC135='"action": "accepted-change", "id": "AC-FEAT-007-1", "artefacts": ["docs/spec/FEAT-007/design.md"], "paths": ["src/app.py"]'
+printf '{%s, "relay": "pm"}\n' "$AC135" > "$L135"
+OUT=$(cd "$P" && python3 scripts/gate.py aligned --base relay-root 2>&1); RC=$?
+[ "$RC" -eq 1 ] && grep -q 'authorises nothing' <<<"$OUT" && ok "aligned: a relayed accepted change without the person's words → red (EVOL-135)" || bad "relay without words not red (rc=$RC)" "$OUT"
+printf '{"action": "--approve FEAT-007", "relay": "pm", "rdr": "«approved»"}\n' > "$L135"
+OUT=$(cd "$P" && python3 scripts/gate.py aligned --base relay-root 2>&1); RC=$?
+[ "$RC" -eq 1 ] && grep -q 'never relayed' <<<"$OUT" && ok "aligned: a relayed approval → red (EVOL-135)" || bad "relayed approval not red (rc=$RC)" "$OUT"
+adr135() { printf -- '---\nadr_number: "0042"\ntitle: The PM session decides copy\nstatus: %s\n---\n# ADR-0042\n' "$1" > "$P/docs/project_log/adr/ADR-0042-delegation.md"; }
+adr135 accepted
+printf '{%s, "delegation": {"quote": "the PM session decides copy", "date": "2026-11-20", "adr": "ADR-0042"}}\n' "$AC135" > "$L135"
+OUT=$(cd "$P" && python3 scripts/gate.py aligned --base relay-root 2>&1); RC=$?
+[ "$RC" -eq 0 ] && grep -q '^aligned: ok' <<<"$OUT" && ok "aligned: a delegation held in the project's accepted ADR-0042 is read → green (EVOL-135)" || bad "accepted delegation ADR not green (rc=$RC)" "$OUT"
+adr135 proposed
+OUT=$(cd "$P" && python3 scripts/gate.py aligned --base relay-root 2>&1); RC=$?
+[ "$RC" -eq 1 ] && grep -q '`proposed`' <<<"$OUT" && ok "aligned: the same delegation once its ADR is only proposed → red (EVOL-135)" || bad "proposed delegation ADR not red (rc=$RC)" "$OUT"
+[ "$(cd "$P" && sha256sum "${F135[@]}")" = "$H135" ] && ok "the framework-shipped files stay byte-identical: the delegation lives in the project's own ADR (EVOL-135)" || bad "a framework-shipped file changed" "$H135"
+g135 checkout -q -f feature/FEAT-001-smoke; git -C "$P" clean -qfd -- docs/project_log/features docs/project_log/adr docs/spec/FEAT-007
 # the deployment trigger (EVOL-047): a positive list, a parity gate, the branch rule untouched
 OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "runtime-surface parity: every path the materialised deploying workflow reads is on the list ($OUT)" || bad "runtime-surface parity red in the scratch (rc=$RC)" "$OUT"

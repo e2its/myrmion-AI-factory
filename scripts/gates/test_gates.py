@@ -6791,6 +6791,146 @@ class Aligned(unittest.TestCase):
             out = aligned.render(aligned.check(repo, "main"))
             self.assertNotIn("\x1b", out); self.assertTrue(all(ch.isprintable() for ln in out.splitlines() for ch in ln), out)
 
+    # EVOL-135: a relay keeps the person's verbatim words and names itself; approvals never relay; a delegation names its law.
+    def test_a_relay_without_the_persons_words_authorises_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._aligned_change(repo)
+            dlg = {"quote": "fix copy without asking", "date": "2026-10-20"}
+            for line, needle in ((self._entry(rdr=None, relay="pm"), "authorises nothing"),
+                                 (self._entry(rdr=None, delegation=dlg, relay="pm"), "authorises nothing"),
+                                 (self._entry(rdr="  ", relay="pm"), "authorises nothing"),
+                                 (self._entry(relay=""), "name the session"),
+                                 (self._entry(relay=["pm"]), "name the session")):
+                self._log(repo, line)
+                r = aligned.check(repo, "main"); self.assertFalse(r["ok"], line); self.assertIn(needle, aligned.render(r), line)
+            self._log(repo, self._entry(relay="pm"))
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))
+            self._log(repo, self._entry())
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))   # no relay: a direct answer, as before
+
+    def test_an_approval_is_never_relayed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "src/app.py", "print(2)\n")
+            for action in ("--approve FEAT-001", "plan_exception", "plan-approval"):
+                self._log(repo, json.dumps({"ts": "2026-10-23T10:00:00Z", "action": action, "relay": "pm", "rdr": "«approved»"}))
+                r = aligned.check(repo, "main"); self.assertFalse(r["ok"], action); self.assertIn("never relayed", aligned.render(r), action)
+                self._log(repo, json.dumps({"ts": "2026-10-23T10:00:00Z", "action": action}))
+                r = aligned.check(repo, "main"); self.assertTrue(r["ok"], action); self.assertEqual(r["entries"], [], action)
+            self._log(repo, json.dumps({"action": "--approve FEAT-001", "relay": "pm"}))
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "c"], check=True, capture_output=True)
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "aligned", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr); self.assertIn("never relayed", r.stdout)
+
+    def test_a_relayed_rdr_record_keeps_the_words(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            fm = "---\nstatus: DRAFT\n_progress:\n  decisions:\n    - id: RDR-1\n{rest}---\nbody\n"
+            for rest, ok in (("      user_choice: \"\"\n      relay: pm\n", False),
+                             ("      relay: pm\n", False),
+                             ("      user_choice: \"«2» keep the queue\"\n      relay: \"\"\n", False),
+                             ("      user_choice: \"«2» keep the queue\"\n      relay: pm\n", True),
+                             ("      user_choice: \"\"\n", True)):   # no relay: not this check's
+                write(repo / self.ART, fm.format(rest=rest))
+                r = aligned.check(repo, "main"); self.assertEqual(r["ok"], ok, rest + aligned.render(r))
+                if not ok:
+                    self.assertIn("RDR-1", aligned.render(r), rest)
+
+    def test_an_rdr_record_in_the_log_carries_its_relay_and_an_approval_no_delegation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "src/app.py", "print(2)\n")
+            rdr = lambda **kw: json.dumps({"action": "BLUEPRINT.increment_plan.rdr_ratified", **kw})
+            for line, needle in ((rdr(user_choice="alt-2", relay="pm"), None),
+                                 (rdr(user_choice=2, relay="pm"), None),   # a bare option id is verbatim
+                                 (rdr(user_choice="", relay="pm"), "authorises nothing"),
+                                 (rdr(user_choice="alt-2", relay="pm", delegation={"quote": "q", "date": "2026-11-20"}), "never relayed"),
+                                 (json.dumps({"action": "--approve FEAT-001", "delegation": {"quote": "q", "date": "2026-11-20"}}), "never covers an approval"),
+                                 ('{"action": "--approve FEAT-001", "relay": "pm"', "not JSON"),
+                                 (json.dumps({"relay": "pm"}), "(no action)"),
+                                 (json.dumps({"action": "--approve FEAT-001", "relay": "p\x1b[2Jm"}), "never relayed")):
+                self._log(repo, line)
+                r = aligned.check(repo, "main"); out = aligned.render(r)
+                self.assertEqual(r["ok"], needle is None, line + out)
+                if needle:
+                    self.assertIn(needle, out, line); self.assertIn("record(s)", r["reason"], line)
+                self.assertNotIn("\x1b", out); self.assertNotIn("`None`", out)
+
+    def test_a_delegated_rdr_decision_names_its_law(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "docs/project_log/adr/ADR-0042-delegation.md", "---\nstatus: proposed\n---\nd\n")
+            fm = "---\nstatus: DRAFT\n_progress:\n  decisions:\n    - id: RDR-1\n      user_choice: \"alt-2\"\n{rest}---\nbody\n"
+            for rest, needle in (("      delegation: {quote: the PM decides copy, date: 2026-11-20, adr: ADR-0042}\n", "`proposed`"),
+                                 ("      delegation: {quote: the PM decides copy}\n", "quote and date"),
+                                 ("      delegation: {quote: q, date: 2026-11-20}\n      relay: pm\n", "never relayed"),
+                                 ("      delegation: {quote: q, date: \"2026-11-20\"}\n", None)):
+                write(repo / self.ART, fm.format(rest=rest))
+                r = aligned.check(repo, "main"); out = aligned.render(r)
+                self.assertEqual(r["ok"], needle is None, rest + out)
+                if needle:
+                    self.assertIn(needle, out, rest)
+            write(repo / self.ART, fm.format(rest="").replace('"alt-2"', "2") .replace("---\nbody", "      relay: pm\n---\nbody"))
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))   # an unquoted bare option id is verbatim
+
+    def test_an_earlier_delegated_entry_keeps_backing_its_claims(self):
+        with tempfile.TemporaryDirectory() as tmp:   # its ADR was judged at the push that added it; superseded later, it still backs
+            entry = self._entry(rdr=None, delegation={"quote": "q", "date": "2026-11-20", "adr": "ADR-0042"})
+            repo = self._repo(tmp, log=entry + "\n")
+            write(repo / "docs/project_log/adr/ADR-0042-delegation.md", "---\nstatus: superseded\n---\nd\n")
+            write(repo / self.ART, self.ALIGNED_FM)
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))
+
+    def test_an_earlier_delegated_decision_is_not_re_judged_when_its_artefact_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dec = "_progress:\n  decisions:\n    - id: RDR-1\n      user_choice: alt-2\n      delegation: {quote: q, date: \"2026-11-20\", adr: ADR-0042}\n"
+            repo = fixture_repo(Path(tmp))
+            write(repo / self.ART, "---\nstatus: DRAFT\n" + dec + "---\nbody\n")
+            write(repo / "docs/project_log/adr/ADR-0042-delegation.md", "---\nstatus: accepted\n---\nd\n")
+            for c in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], ["branch", "-M", "main"], ["checkout", "-qb", "feature/FEAT-001-x"]):
+                subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+            write(repo / "docs/project_log/adr/ADR-0042-delegation.md", "---\nstatus: superseded\n---\nd\n")
+            write(repo / self.ART, "---\nstatus: DRAFT\n" + dec + "---\nbody, refined\n")
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))   # judged at the push that added it
+            write(repo / self.ART, "---\nstatus: DRAFT\n" + dec + dec.split("decisions:\n")[1].replace("RDR-1", "RDR-2") + "---\nbody, refined\n")
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("RDR-2", aligned.render(r)); self.assertNotIn("RDR-1", aligned.render(r))
+            write(repo / self.ART, "---\nstatus: DRAFT\n" + dec.replace("adr: ADR-0042", "adr: FEAT-001/FDR-1") + "---\nbody\n")
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("project law", aligned.render(r))   # a changed entry: new
+
+    def test_a_record_named_after_a_device_is_never_opened(self):
+        import threading
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp); (repo / data.ADR_DIR).mkdir(parents=True)
+            os.mkfifo(repo / data.ADR_DIR / "ADR-0042-x.md")
+            out = []
+            t = threading.Thread(target=lambda: out.append(data._accepted(repo, "ADR-0042", {}, "a delegated decision")), daemon=True)
+            t.start(); t.join(10)
+            self.assertFalse(t.is_alive(), "the read blocked on a FIFO")
+            self.assertIn("no docs/project_log/adr/ADR-0042-*.md", out[0])
+
+    def test_a_delegation_names_an_accepted_project_adr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._aligned_change(repo)
+            adr = repo / "docs/project_log/adr/ADR-0042-delegation.md"
+            dlg = lambda a: self._entry(rdr=None, delegation={"quote": "the PM decides copy", "date": "2026-10-20", "adr": a})
+            for status, line, needle in ((None, dlg("ADR-0042"), "no docs/project_log/adr/ADR-0042-*.md"),
+                                         ("proposed", dlg("ADR-0042"), "`proposed`"),
+                                         ("accepted", dlg("FEAT-001/FDR-0001"), "project law"),
+                                         ("accepted", dlg(""), "project law"),
+                                         ("accepted", dlg("ADR-0042"), None),
+                                         (None, self._entry(rdr=None, delegation={"quote": "q", "date": "2026-10-20"}), None)):
+                if status:
+                    write(adr, f"---\nadr_number: \"0042\"\nstatus: {status}\n---\nThe PM session decides copy.\n")
+                elif adr.exists():
+                    adr.unlink()
+                self._log(repo, line)
+                r = aligned.check(repo, "main"); self.assertEqual(r["ok"], needle is None, line + aligned.render(r))
+                if needle:
+                    self.assertIn(needle, aligned.render(r), line)
+
 
 class Train(unittest.TestCase):
     """EVOL-104: a train stacks its changes by file — no stackable re-touch, no early gate, ledgers once per train."""
@@ -11041,6 +11181,12 @@ class Tracker(unittest.TestCase):
             self.assertIn("| L-001 | FEAT-001 | [FEAT-001] CODESIGN: Spec BDD + UX Mock — Login | Done |", (repo / tracker.STATE).read_text(), "never moved")
             self.assertIn("not ratified", tracker.start(repo, "FEAT-001", "codesign", aligns="AC-FEAT-001-2")["red"][0])
             self.assertIn("no accepted change AC-FEAT-001-9", tracker.start(repo, "FEAT-001", "codesign", aligns="AC-FEAT-001-9")["red"][0])
+            # EVOL-135: the delegation's law is a project ADR (shape judged here); its acceptance was judged at the push that added it
+            with log.open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"action": "accepted-change", "id": "AC-FEAT-001-3", "delegation": {"quote": "q", "date": "2026-11-20", "adr": "FEAT-001/FDR-0001"}}) + "\n")
+                f.write(json.dumps({"action": "accepted-change", "id": "AC-FEAT-001-4", "delegation": {"quote": "q", "date": "2026-11-20", "adr": "ADR-0042"}}) + "\n")
+            self.assertIn("project law", tracker.start(repo, "FEAT-001", "codesign", aligns="AC-FEAT-001-3")["red"][0])
+            self.assertTrue(tracker.start(repo, "FEAT-001", "codesign", aligns="AC-FEAT-001-4")["ok"])
         with tempfile.TemporaryDirectory() as tmp:
             repo, gh = self._repo(tmp, "github"), FakeGh()
             self.assertFalse(tracker.start(repo, "FEAT-001", "codesign", gh=gh)["ok"], "a closed GitHub issue is done")

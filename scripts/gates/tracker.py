@@ -754,7 +754,7 @@ def _aligned(repo: Path, ac: str, feature: str | None) -> list[str]:
         except ValueError:
             continue
         if isinstance(e, dict) and e.get("action") == aligned_mod.ACTION and e.get("id") == ac:
-            return [f"{ac}: {p}" for p in aligned_mod.ratification(e)]
+            return [f"{ac}: {p}" for p in aligned_mod.ratification(e, None)]   # its law was judged at the push that added it
     return [f"no accepted change {ac} in {aligned_mod.LOG.format(fid=m.group(1))}"]
 
 

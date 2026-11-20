@@ -3,7 +3,7 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.26.0
+version: 2.27.0
 date: 2026-10-20
 ---
 
@@ -178,14 +178,15 @@ No gate is optional — it changes its control point. One key, `delivery_mode` i
 > An accepted change aligns every written artefact it contradicts in the same pull request through the artefact's owner phase, and nothing reverts an accepted change to match a stale artefact.
 
 - **Accepted** — ratified by the user (the RDR's verbatim choice), or decided under a standing delegation and recorded in the decision log.
-- **Standing delegation** — an owner instruction naming a class of decisions the agent takes without asking; quoted verbatim with its date.
-- **Decision log** — the feature's worklog (`docs/project_log/features/{FEAT}.log.jsonl`). An accepted change is one entry `action: accepted-change`: `id` (`AC-{FEAT}-{N}`), `artefacts` (the written artefacts it contradicts), `paths` (the code paths that carry it), and exactly one of `rdr: "<verbatim choice>"` or `delegation: {quote, date}` (the verbatim quote, its date). `artefacts` and `paths` are repo-relative files — never a directory, never the log itself.
+- **Standing delegation** — an owner instruction naming a class of decisions the agent takes without asking; quoted verbatim with its date. A project that holds it as law names its accepted project ADR (`adr`); the framework ships no delegation law (EVOL-135).
+- **Relay** — another session carried the person's words: `relay: "<session>"` beside `rdr`, the words verbatim. A relay without words authorises nothing; an approval (plan, BLUEPRINT, a project's reserved approval, a harness prompt) is never relayed (`factory-rdr` § Relay and delegation).
+- **Decision log** — the feature's worklog (`docs/project_log/features/{FEAT}.log.jsonl`). An accepted change is one entry `action: accepted-change`: `id` (`AC-{FEAT}-{N}`), `artefacts` (the written artefacts it contradicts), `paths` (the code paths that carry it), and exactly one of `rdr: "<verbatim choice>"` (with `relay` when another session carried it) or `delegation: {quote, date[, adr]}` (the verbatim quote, its date, the project ADR that holds it). `artefacts` and `paths` are repo-relative files — never a directory, never the log itself.
 - **Owner phase** — scenario, journey, mock: CODESIGN `--refine`, or `--sync` of the PO return when `codesign.authoring` is `external` (the guard in Factory-codesign-feature routes it there); design, test plan: BLUEPRINT `--refine`; contract: BLUEPRINT `--refine`, then its CONTRACT-FREEZE re-closed (Factory-backlog-next-task Step 1.3.4.5); rule body: a rule-file edit plus a manifest bump. A form-only realignment (copy, layout, design-system vocabulary) cascades nothing.
 - **Alignment pass** — every realignment spawn is one (`rules/agents.md` § Model policy), `aligns: AC-…`.
 - **Pre-approved realignment** — the refine records its iteration (LAW-09) with `changes: [{kind: accepted_change, ref: AC-…}]`. Every change of that kind → the artefact stays `APPROVED`, no return to draft, no new approval. Any other kind → the approval gate.
 - **Never revert** — a fix or a critic finding never reverts an accepted change to match a stale artefact; the artefact aligns. An accepted divergence is not left behind as a backlog issue.
 
-`python3 scripts/gate.py aligned` checks it (light and full profile, no build). Every changed decision log is judged, whatever the branch; the feature id is the log's file name. For each `accepted-change` entry the branch adds, red on no `rdr` and no `delegation`, a named artefact not in the diff (stale artefact), `paths` equal to the diff base (revert), or an artefact `APPROVED` at the base and not at HEAD whose latest iteration holds only `accepted_change` changes. Red too when a changed artefact's latest iteration carries an `accepted_change` whose `ref` names no ratified entry in the log, from this branch or an earlier one. No decision log → n/a.
+`python3 scripts/gate.py aligned` checks it (light and full profile, no build). Every changed decision log is judged, whatever the branch; the feature id is the log's file name. For each `accepted-change` entry the branch adds, red on no `rdr` and no `delegation`, a named artefact not in the diff (stale artefact), `paths` equal to the diff base (revert), or an artefact `APPROVED` at the base and not at HEAD whose latest iteration holds only `accepted_change` changes. Red too when a changed artefact's latest iteration carries an `accepted_change` whose `ref` names no ratified entry in the log, from this branch or an earlier one. Relay and delegation (EVOL-135): red on a `relay` that names no session or carries no `rdr`; on a changed artefact's `_progress.decisions[]` entry with `relay` and no `user_choice`; on any other line the branch adds to a decision log that carries `relay` or `delegation` — an RDR record (`user_choice`) excepted, judged as the entry is (an approval is never relayed nor delegated); on a `delegation.adr` that is not an accepted project ADR when the record is added (an earlier record is re-read for its shape only). No decision log → n/a.
 
 ## See Also
 - `docs/constitution.md` — `[PLAW-11]` index entry (this file is its body)
