@@ -44,7 +44,7 @@
       },
       {
         "type": "meta_template_mirror",
-        "doc": "Settings JSON must mirror between meta and template tree (merge-preserve in template).",
+        "doc": "Settings JSON must mirror between meta and template tree (the template is a seam, merged by key — EVOL-136).",
         "left": ".claude/settings.json",
         "right": ".context/templates/setup/claude/settings.json"
       },

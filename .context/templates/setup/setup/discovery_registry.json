@@ -3152,6 +3152,12 @@
    "since": "10.10.0",
    "detect": "config/quality.json#/budgets/notebook_reinject",
    "apply": "session-notebook (EVOL-133)"
+  },
+  {
+   "id": "owners (EVOL-136)",
+   "since": "10.14.0",
+   "detect": "docs/project_log/governance_versions.json#/governance_features/owners_v1",
+   "apply": "owners (EVOL-136)"
   }
  ]
 }

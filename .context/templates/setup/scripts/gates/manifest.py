@@ -21,6 +21,7 @@ gate.py manifest-parity (the frontmatter in parity, no history key). The helper 
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import re
 import subprocess
@@ -28,13 +29,18 @@ from pathlib import Path
 
 from . import coherence
 from .common import GateFault
+from .discovery import inside
 
 LEVELS = ("patch", "minor", "major")
 SECTIONS = ("framework_core", "templates", "agent_templates")
 VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 FM_VERSION_RE = re.compile(r'^(version:[ \t]*)(["\']?)(\d+\.\d+\.\d+)(\2)[ \t]*$', re.M)
 META_ROOTS = (".claude/", "scripts/", ".github/workflows/", "config/")   # where a framework_core file lives (and CLAUDE.md itself)
-COPIED_FROM_SIBLING = ("delivery", "type", "content_type")   # a sibling's channel and kind — never its prose (role) nor its stack condition (a new file ships everywhere until it says otherwise)
+COPIED_FROM_SIBLING = ("delivery", "type", "content_type", "owner")   # a sibling's channel, kind and owner — never its prose (role) nor its stack condition (a new file ships everywhere until it says otherwise)
+OWNERS = ("framework", "project", "seam")   # EVOL-136: who writes the landed file — the framework only, the project after it lands, or both (keyed JSON)
+SYNC = ("sync", "both")                     # the delivery values factory-sync ships
+DELIVERED = ".context/templates/setup/governance_versions.json"   # the delivered manifest — in a project, the one sync wrote, with each source's sha256
+DRIFT_EXEMPT = ("subproducts/",)            # neutral in every gate (CLAUDE.md § Subproducts class)
 
 
 def _rel(path: str) -> str:
@@ -74,6 +80,138 @@ def _entries(m: dict, sec: str):
 def core_file(key: str, e: dict) -> str:
     """The file a framework_core entry names — its `path`, else the key under `.claude/` (the rule CHECK 1b reads by)."""
     return e.get("path") or (key if key.startswith(".") else ".claude/" + key)
+
+
+def is_delivered(sec: str, e: dict) -> bool:
+    """An entry a project receives (EVOL-136): every template and agent template, and a framework_core entry sync ships."""
+    return sec in ("templates", "agent_templates") or e.get("delivery") in SYNC
+
+
+def delivered(m: dict) -> dict[str, dict]:
+    """What factory-sync delivers (EVOL-136), landed path → {source, owner, entry, channel}. `sync`: every entry whose delivery
+    is sync|both, at its file (framework_core) or its target (templates); its source is the template that lands at that path
+    when one does — a meta-only construct never ships — else the entry's own file. `tree`: every template and agent template
+    at its source path, the copies SETUP --upgrade reads; framework-owned whatever its landed owner."""
+    by_target = {e["target"]: coherence.ROOTS["templates"] + k for k, e in _entries(m, "templates") if isinstance(e.get("target"), str)}
+    out: dict[str, dict] = {}
+    for sec in SECTIONS:
+        for k, e in _entries(m, sec):
+            if sec != "framework_core" and not inside(k):
+                continue   # a source outside its root is never read (owner_findings names it)
+            if sec != "framework_core":
+                src = coherence.ROOTS[sec] + k
+                out.setdefault(src, {"source": src, "owner": "framework", "entry": f"{sec}:{k}", "channel": "tree"})
+            if e.get("delivery") not in SYNC:
+                continue
+            landed = core_file(k, e) if sec == "framework_core" else e.get("target")
+            if inside(landed) and landed not in out:   # a path outside the project is never delivered (owner_findings names it)
+                out[landed] = {"source": by_target.get(landed) or (core_file(k, e) if sec == "framework_core" else coherence.ROOTS[sec] + k),
+                               "owner": e.get("owner"), "entry": f"{sec}:{k}", "channel": "sync"}
+    return out
+
+
+def owner_findings(m: dict, where: str) -> list[dict]:
+    """The framework repo's owner rules (EVOL-136): every delivered entry carries one owner from the closed list and no other
+    entry does; a framework file is universal and never merged; a seam is keyed JSON; sync never ships a project file; one
+    landed path, one owner."""
+    out: list[dict] = []
+    landed: dict[str, set] = {}
+    for sec in SECTIONS:
+        for k, e in _entries(m, sec):
+            o, name = e.get("owner"), f"{sec}:{k}"
+            if not is_delivered(sec, e):
+                if o is not None:
+                    out.append({"path": where, "reason": f"{name}: carries an owner but no project receives it — drop the owner, or give it a delivery"})
+                continue
+            if o not in OWNERS:
+                out.append({"path": where, "reason": f"{name}: owner {o!r} — every delivered entry declares one of {', '.join(OWNERS)} (EVOL-136)"})
+                continue
+            if o == "framework" and (e.get("content_type", "universal") != "universal" or e.get("target_mode") == "merge"):
+                out.append({"path": where, "reason": f"{name}: a framework-owned file lands byte-identical — {e.get('content_type')} / target_mode {e.get('target_mode')} makes it the project's"})
+            target = core_file(k, e) if sec == "framework_core" else e.get("target")
+            if o == "seam" and not str(target or "").endswith(".json"):
+                out.append({"path": where, "reason": f"{name}: a seam is merged by key — its target {target!r} is not JSON"})
+            if o != "framework" and e.get("delivery") in SYNC:
+                out.append({"path": where, "reason": f"{name}: sync replaces what it ships — a {o}-owned file is never delivered by sync"})
+            if not inside(k) or (target is not None and not inside(target)):
+                out.append({"path": where, "reason": f"{name}: {k!r} → {target!r}: a path outside its root — a delivered path is relative, without `..` or a control character"})
+            if isinstance(target, str) and target and (sec == "framework_core" or not target.startswith(".context/templates/")):
+                landed.setdefault(target, set()).add(o)
+    out += [{"path": where, "reason": f"{t}: one landed file, owners {', '.join(sorted(os_))} — one owner per file"} for t, os_ in sorted(landed.items()) if len(os_) > 1]
+    return out
+
+
+def _sha(p: Path) -> str | None:
+    try:
+        return hashlib.sha256(p.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def project_findings(repo: Path, snap: dict) -> list[dict]:
+    """A project's side (EVOL-136), once the delivered manifest declares owners: every snapshot entry carries the owner it was
+    delivered with (the owners migration stamps it; an owner moves only through its row), and every framework-owned file is
+    the version sync delivered (its sha256 there) — the sync channel and the template copies present or red, a file SETUP
+    landed compared where it is. `subproducts/**` stay neutral."""
+    dp = repo / DELIVERED
+    if not dp.is_file():
+        return []
+    try:
+        d = json.loads(dp.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return [{"path": DELIVERED, "reason": f"not readable JSON ({e}) — run factory-sync.sh"}]
+    dt_ = {k: e for k, e in _entries(d, "templates")}
+    if not any(e.get("owner") for e in dt_.values()):
+        return []   # a framework before EVOL-136: it declares no owner, nothing to hold the project to
+    out: list[dict] = []
+    snap_t = [(k, e) for k, e in _entries(snap, "templates") if k in dt_]
+    missing = [k for k, e in snap_t if "owner" not in e]
+    if missing:
+        out.append({"path": "docs/project_log/governance_versions.json", "reason": f"{len(missing)} entr{'y' if len(missing) == 1 else 'ies'} carry no owner (first `{missing[0]}`) — "
+                                                                              "run SETUP --upgrade (migration owners (EVOL-136))"})
+    for k, e in snap_t:
+        if "owner" in e and dt_[k].get("owner") and e["owner"] != dt_[k]["owner"]:
+            out.append({"path": "docs/project_log/governance_versions.json", "reason": f"`{k}`: owner {e['owner']} here, {dt_[k]['owner']} delivered — "
+                                                                                  "an owner moves only through its registry row: run SETUP --upgrade"})
+    shas = {f"{sec}:{k}": e.get("sha256") for sec in SECTIONS for k, e in _entries(d, sec)}
+    if not any(shas.values()):
+        return out + [{"path": DELIVERED, "reason": "records no sha256 of what was delivered — run factory-sync.sh, which records it"}]
+    restore = "factory-sync.sh restores it; a change of your own belongs in a project-owned file"
+    for landed, r in sorted(delivered(d).items()):
+        sec, key = r["entry"].split(":", 1)
+        if r["owner"] != "framework" or key.startswith(DRIFT_EXEMPT) or not shas.get(r["entry"]):
+            continue
+        got = _sha(repo / landed)
+        if got is None:
+            out.append({"path": landed, "reason": f"framework-owned and delivered, but missing — {restore}"})
+        elif got != shas[r["entry"]]:
+            out.append({"path": landed, "reason": f"framework-owned: differs from the version the framework delivered — {restore}"})
+    synced = delivered(d)
+    for k, e in dt_.items():   # what SETUP landed from a framework-owned template: compared where it is (a stack condition may leave it out)
+        t = e.get("target")
+        if e.get("owner") != "framework" or t in synced or not isinstance(t, str) or k.startswith(DRIFT_EXEMPT) or not e.get("sha256"):
+            continue
+        got = _sha(repo / t)
+        if got is not None and got != e["sha256"]:
+            out.append({"path": t, "reason": "framework-owned: differs from its delivered template — SETUP --upgrade refreshes it (templates_to_refresh); "
+                                             "a change of your own belongs in a project-owned file"})
+    return out
+
+
+def record(m: dict, root: Path) -> dict:
+    """The delivered manifest a project keeps (EVOL-136): the framework's, each entry carrying the sha256 of the source it was
+    delivered from — a template and agent template its source copy, a synced framework_core entry its delivered source."""
+    out = json.loads(json.dumps(m))
+    src = {r["entry"]: r["source"] for r in delivered(m).values()}
+    for sec in SECTIONS:
+        root_ = coherence.ROOTS[sec]
+        for k, e in _entries(out, sec):
+            name = f"{sec}:{k}"
+            p = root / (root_ + k) if sec != "framework_core" else (root / src[name] if name in src else None)
+            h = _sha(p) if p is not None else None
+            if h:
+                e["sha256"] = h
+    return out
 
 
 def _hits(m: dict, rel: str) -> list[tuple[str, str]]:
@@ -125,9 +263,12 @@ def resolve(repo: Path, m: dict, path: str) -> tuple[str, str]:
 
 
 def file_of(repo: Path, m: dict, sec: str, key: str) -> Path | None:
-    """The file an entry names, when it is in this tree: the meta path, else the project's target."""
+    """The file an entry names, when it is in this tree: the framework repo's own path; in a project (a manifest with no
+    framework_core) the landed target first — the template source copy beside it is the framework's (EVOL-136)."""
     e = m[sec][key]
     cands = [core_file(key, e)] if sec == "framework_core" else [coherence.ROOTS[sec] + key, e.get("target")]
+    if "framework_core" not in m:
+        cands = cands[1:]
     for cand in cands:
         if cand and (repo / cand).is_file():
             return repo / cand

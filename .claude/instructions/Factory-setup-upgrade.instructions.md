@@ -1,5 +1,5 @@
 ---
-description: "Factory SETUP upgrade — framework version upgrade, rollback, legacy migration, Smart Additive Merge. Use when: SETUP --upgrade, --rollback-upgrade, --migrate-legacy-setup."
+description: "Factory SETUP upgrade — framework version upgrade, rollback, legacy migration, apply by owner (EVOL-136). Use when: SETUP --upgrade, --rollback-upgrade, --migrate-legacy-setup."
 applicable_when:
   phase: [SETUP]
   command: [setup]
@@ -51,17 +51,17 @@ for f in .claude/rules/*.instructions.md; do
 done
 ```
 
-The rename runs BEFORE Smart Additive Merge so that subsequent file-by-file comparisons use the new path. Manifest `target` fields for `templates.rules/*` already point to the new convention; the rename brings the project filesystem into alignment.
+The rename runs BEFORE the owner step (Step 2) so that subsequent file-by-file comparisons use the new path. Manifest `target` fields for `templates.rules/*` already point to the new convention; the rename brings the project filesystem into alignment.
 
 If the migration finds collisions (both `foo.instructions.md` and `foo.md` exist), it skips the rename and surfaces a manual-resolution warning — typical cause is a half-applied prior upgrade that the user must reconcile.
 
-`factory-sync.sh` accepts both forms during the transition window (1 minor version) and prefers the new form when both exist on the framework side. The `--preserve-local` flag (factory-sync.sh global flag) applies to all targets including current framework-shipped scripts (`generate-governance-snapshot.sh`, `check-inventory-drift.sh`): when set, materialised projects with legitimate local modifications keep their version instead of being overwritten.
+`factory-sync.sh` accepts both forms during the transition window (1 minor version) and prefers the new form when both exist on the framework side. It replaces every framework-owned file wholesale (EVOL-136); a project keeps its own change in a project-owned file — `--preserve-local` is retired.
 
 ---
 
 ## Command: `--upgrade`
 
-Upgrades project governance artifacts to match the latest framework templates. Uses Smart Additive Merge to preserve user customizations while adding new framework capabilities.
+Upgrades project governance artifacts to match the latest framework templates. Each delivered file is applied by its declared owner (EVOL-136): the framework's are replaced, the project's are written only by an answer or a migration row, the seams are merged by key — a project never loses its work to an upgrade.
 
 **Key features:** Pre-Upgrade Audit, Smart Discovery Cascade, RDR Protocol, Zero-TODO Enforcement, Atomic Operations, Rollback, On-Demand Sync.
 
@@ -96,7 +96,7 @@ Check cross-references between governance files. Detect broken links (e.g., cons
 
 **Phase 6 — ADR Customization Protection Check (v2):**
 For each ADR in `docs/project_log/adr/`:
-- **VALUE_PROTECTED (default):** Structural updates allowed, but user-defined values preserved during merge. Smart Merge auto-assigned.
+- **VALUE_PROTECTED (default):** Structural updates allowed, but user-defined values preserved.
 - **FULL_LOCK:** No modifications at all. Only when ADR explicitly states `lock: full`.
 - Classify each ADR, report protection scope.
 
@@ -110,19 +110,19 @@ For each ADR in `docs/project_log/adr/`:
 
 ### Step 1: Version Comparison & Change Detection (4.4.1)
 
-**Manifest sections walked by --upgrade (in order):**
+**Owners (EVOL-136).** Every delivered manifest entry declares `owner`; the owner decides how the upgrade touches the landed file — never the format, never a merge by judgement:
 
-| Section | Target trees | Merge contract |
-|---------|--------------|----------------|
-| `templates` | `.claude/rules/**`, `docs/constitution.md`, `docs/setup.md`, `.context/templates/setup/**` materialised paths, CI/CD workflow YAML | Smart Additive Merge (Step 2) — placeholders resolved via Smart Discovery Cascade |
-| `agent_templates` | `.context/templates/{architect,codesign,develop,peer_review,po,qa,security,ux}/**` | Smart Additive Merge (Step 2) — placeholders are runtime-resolved by agents at feature time and ship verbatim; merge preserves any local customisations of headings, sections, or structural prose |
-| `framework_core` | `.claude/{commands,instructions,skills,hooks,agents}/**`, `scripts/**`, `.github/workflows/**`, root `CLAUDE.md`, `README.md`, `config/coherence-context.json` | Script Semantic Merge for `.sh`/`.py` (Step 1b); Smart Additive Merge for everything else |
+| Owner | Landed files | Upgrade |
+|-------|--------------|---------|
+| `framework` | `.claude/{commands,instructions,skills,hooks,agents}/**`, the framework scripts, `.context/templates/**`, the universal templates the framework alone writes | Replaced wholesale: `factory-sync.sh` (sync channel); `templates_to_refresh` copied by script (Step 2). An edit in the project is red in `gate.py manifest-parity`. |
+| `project` | `.claude/rules/**`, the CI workflows, root `CLAUDE.md`, `docs/**`, every `stack_configured` / `project_data` template | Written only by an answer (Step 8b.3), a migration row (Step 8b.4) or as a new file (Step 3). `templates_moved` is listed, never written. |
+| `seam` | `.claude/settings.json`, `config/quality.json` | Merged by key, add-only, by script (Step 8b.7). |
 
-The three sections are mutually exclusive on target paths — a file appears in exactly one section. Walk all three in a single pass; do not deduplicate by checksum across sections.
+A `framework_core` entry without `delivery` is a file of the framework repo itself — never delivered.
 
 1. Compare framework versions vs project versions (SemVer)
 2. Select templates through `python3 scripts/gate.py discovery --resolve` against the project — never read a `stack_conditional` as prose. A project materialised before 8.13.0 is back-filled first (Step 8b.1). Before resolving: a `ci_cd.platform` of `CircleCI` is no longer offered (#143) — ask Q21 again; a frontmatter `mode:` is renamed `project_mode:` with Q3's literal (`Greenfield` | `Brownfield`).
-3. Detect user customizations (project checksum ≠ previous framework checksum → user modified file)
+3. Drift: `python3 scripts/gate.py manifest-parity` names each framework-owned file the project edited — say it is replaced; the change belongs in a project-owned file.
 4. Present upgrade summary with options: **ALL** (upgrade everything) | **SELECT** (choose files) | **ABORT**
 
 ### Step 1b: Centralized Backup Creation (MANDATORY)
@@ -134,80 +134,49 @@ The three sections are mutually exclusive on target paths — a file appears in 
 
 ---
 
-### Step 2: Unified Smart Additive Merge (4.4.2)
+### Step 2: Apply by owner (EVOL-136)
 
-ALL files use the same merge strategy (replaces old Category A/B/C system):
+**Gate 0 — ADR Lock Check:** a FULL_LOCK file → SKIP (no modifications).
 
-**Gate 0 — ADR Lock Check:**
-If file is FULL_LOCK → SKIP (no modifications). If VALUE_PROTECTED → proceed with value preservation.
+1. **framework.** `factory-sync.sh` already replaced the sync channel. From `gate.py discovery --resolve --json`, list `templates_to_refresh` (a framework-owned landed file whose bytes differ from its delivered template), then copy each `.context/templates/setup/<key>` over its `target` with the script below (idempotent, atomic; the target keeps its mode; a symlinked target is refused). No diff review, no merge. Gate 0 holds for project and seam files; a framework-owned file is the framework's — a project that must differ keeps its change in a project-owned file.
+2. **project.** No write here. List each `templates_moved` entry in the upgrade report as «moved {from}→{to}, not written — a migration row carries what a project needs». `claude/CLAUDE.md` moves are owed to EVOL-137.
+3. **seam.** Step 8b.7.
 
-**Step 1 — Read Source & Target:**
-Read framework template (new) and current project file.
+```bash
+python3 -I - <<'PY'
+import json, os, pathlib, shutil, subprocess, sys, tempfile
+sys.path.insert(0, "scripts")
+from gates import discovery
+r = json.loads(subprocess.run([sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"], capture_output=True, text=True, check=True).stdout)
+m = json.loads(pathlib.Path(discovery.MANIFEST).read_text(encoding="utf-8"))["templates"]
+for k in r.get("templates_to_refresh") or []:
+    t = m[k]["target"]
+    if os.path.islink(t):
+        print(f"refused (a symlink): {t}"); continue
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(t) or ".")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(pathlib.Path(discovery.TEMPLATE_ROOT + k).read_bytes())
+        shutil.copymode(t, tmp); os.replace(tmp, t)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+    print(f"refreshed: {t}")
+PY
+```
 
-**Step 1b — Script Semantic Merge (special case for `.sh`/`.py` scripts):**
-Block-based parsing strategy:
-1. Parse both files into semantic blocks (functions, sections, headers)
-2. Match blocks between old and new by name/signature
-3. For each block: compute diff
-4. Per-block conflict resolution options:
-   - **KEEP:** Retain project version (user customization)
-   - **TAKE:** Accept framework version (new capability)
-   - **MERGE:** Combine both (add new code while preserving customizations)
-   - **APPEND:** Add framework block at end (new function)
-5. Post-merge validation: syntax check, duplicate symbol detection
-
-**Step 2 — Structural Diff (format-aware):**
-- **JSON:** Key-by-key comparison, detect added/removed/modified keys
-- **Markdown:** Section-by-section comparison using headers as anchors
-- **YAML:** Key-path comparison, detect structural changes
-- **Text/Other:** Line-by-line diff
-
-**Step 3 — Check Additions:**
-Identify new sections/keys/content in framework template that don't exist in project file.
-
-**Step 4 — Resolve Placeholders (Smart Discovery Cascade):**
-For any `{{PLACEHOLDER}}` in new content, resolve from 5 sources in order:
+**Placeholder resolution (Smart Discovery Cascade)** — for a new file (Step 3) and a seam's `unresolved` key. Resolve each `{{PLACEHOLDER}}` from, in order:
 1. `docs/setup.md` frontmatter — `gate.py discovery --resolve --json → placeholders`, then the registry's derived `fills` and `constants`
 2. `docs/constitution.md` values
 3. ADR decisions
 4. Existing rules files
 5. Config files (`config/*.json`)
 
-If unresolved after all 5 sources → **RDR Protocol**: Present recommendation with justification + alternatives → User decides → Ratify immediately.
+Unresolved after all 5 → **RDR Protocol**: recommendation with justification + alternatives → user decides → ratify immediately.
 
-**Step 5 — Build Merged Content:**
-Format-specific merge functions:
-- `JSON_ADDITIVE_MERGE`: Add new keys, preserve existing values, deep merge nested objects
-- `MARKDOWN_ADDITIVE_MERGE`: Add new sections at appropriate position, preserve existing content
-- `YAML_ADDITIVE_MERGE`: Add new keys, preserve existing values, handle nested structures
+**Zero-TODO Enforcement** — a written file carries no `TODO`, `FIXME`, `XXX` or `{{...}}` (`REPLACE_ME_*` in `.env.example` is exempt — Secret Placeholder Convention); resolve by the cascade or RDR before writing.
 
-**Step 5a — Semantic Coherence Check:**
-Post-merge validation to detect configuration conflicts:
-
-*JSON conflicts:*
-- Opposing-list conflicts (e.g., `allow: ["X"]` and `deny: ["X"]` for same item) using OPPOSING_PAIRS table
-- Numeric bound conflicts (e.g., `min > max`, `timeout < 0`)
-
-*Markdown conflicts:*
-- Overlapping domain detection using DOMAIN_KEYWORDS
-- Tool conflicts (two rules recommending different tools for same purpose)
-- Numeric conflicts (contradictory thresholds)
-- Policy contradictions
-
-*YAML conflicts:* Same as JSON checks.
-
-**Coherence Resolution Protocol:**
-- **CRITICAL/HIGH issues:** Resolve 1-by-1 with options: HARMONIZE | KEEP EXISTING | KEEP NEW | KEEP BOTH
-- **MEDIUM issues:** Batch resolution
-
-**Step 5b — Zero-TODO Enforcement:**
-Scan merged content for unresolved placeholders (`TODO`, `FIXME`, `XXX`, `{{...}}`).
-- **Exception:** `REPLACE_ME_*` patterns in `.env.example` files are EXEMPT (Secret Placeholder Convention)
-- If unresolved TODOs found → resolve via Smart Discovery Cascade or RDR before proceeding
-
-**Step 6 — Show Diff:** Display unified diff for user confirmation.
-**Step 7 — Write:** Save merged content to file.
-**Step 8 — Update Snapshot:** Record new checksum in project `governance_versions.json`.
+**Update Snapshot** — record each written entry's version and `owner` in the project `governance_versions.json`.
 
 **Step 8b — What the project lacks (EVOL-102).** One call: `python3 scripts/gate.py discovery --resolve --json` against the project (no `--answers`). Exit 2 names what to fix: an answer outside a vocabulary list or under another parent (ask that question again), a catalog row the parser refuses (repair that row) or a missing template catalog (run `factory-sync.sh`); then run the call again. Then, in order:
 1. **Back-fill.** A project materialised before 8.13.0 holds its answers as `docs/setup.md` body bullets (`- **Backend Runtime:** Python`). Each `pending` question whose key the body states unambiguously, with a value inside its options → write it to the frontmatter; list each in the upgrade report. Anything else → RDR, never a guess.
@@ -216,6 +185,32 @@ Scan merged content for unresolved placeholders (`TODO`, `FIXME`, `XXX`, `{{...}
 4. **Migrate.** Run `migrations_owed` in order, each by its anchor below.
 5. **Templates.** Offer `templates_to_add` (Step 3). Offer `templates_to_remove` by RDR — never remove silently.
 6. **Defect catalog (EVOL-066).** From `defect_classes`: land each `to_add` universal row in `.claude/rules/defect-prevention.md § Defect Classes` and its case in the annex; offer `to_remove` (a tool-bound row whose tool the answers do not name) by RDR. Each `collisions` entry — a universal id the project already uses for its own class — is one RDR: renumber the project's class to its next `PDC-NN` (row, case and every reference; recommended — then run the call again and land the universal row, now in `to_add`), retire it into the universal row when it is the same class, or defer the universal row (listed again next upgrade). A row whose id the template does not hold is the project's — never touched. Then `python3 scripts/gate.py budget` (the parser refuses a duplicate or malformed row).
+7. **Seams (EVOL-136), every upgrade.** `seams_upgrade` lists, per seam, the keys it adds, the framework hook commands it replaces and the keys no answer fills. Show the listing; then run it as written (idempotent — a second run adds nothing). Each `unresolved` key is one RDR through the cascade (Step 2); write the answer to that key, then run it again:
+
+```bash
+python3 -I - <<'PY'
+import json, os, pathlib, shutil, subprocess, sys, tempfile
+sys.path.insert(0, "scripts")
+from gates import discovery
+fills = json.loads(subprocess.run([sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"], capture_output=True, text=True, check=True).stdout)["placeholders"]
+for target, r in discovery.seams_upgrade(pathlib.Path("."), fills).items():
+    for k in ("added", "replaced", "unresolved"):
+        for x in r[k]:
+            print(f"{target} {k}: {x}")
+    if r["added"] or r["replaced"]:
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(target) or ".")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(r["merged"], indent=2, ensure_ascii=False) + "\n")
+            if os.path.exists(target):
+                shutil.copymode(target, tmp)
+            os.replace(tmp, target)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+PY
+```
 
 Migration anchors (registry `migrations`; a row is owed when the project is older than its `since` and its `detect` pointer is missing; a `detect: always` row on every upgrade):
 
@@ -465,7 +460,7 @@ for k, old in lowered:
 PY
 ```
 
-**session-notebook (EVOL-133).** The session notebook's two budget keys and its two hook wirings. Run it as written (idempotent): it adds `budgets.notebook_reinject` and `budgets.notebook_precompact` when absent or invalid (at the template's value, or the project's `budgets.hook_output_cap` when lower; a valid value is never touched), adds the `UserPromptSubmit` entry that runs `scripts/gate.py notebook --hook-json` when the event exists and no entry runs it (an absent event is added whole by the merge rule of Step 3), and widens the `PostToolUse` entry that runs `scripts/governance-onedit.sh` to `Edit|Write|Bash`; a project's own entries and values are kept. Name each line it prints in the upgrade report:
+**session-notebook (EVOL-133).** The session notebook's two budget keys and its two hook wirings. Run it as written (idempotent): it adds `budgets.notebook_reinject` and `budgets.notebook_precompact` when absent or invalid (at the template's value, or the project's `budgets.hook_output_cap` when lower; a valid value is never touched), adds the `UserPromptSubmit` entry that runs `scripts/gate.py notebook --hook-json` when the event exists and no entry runs it (an absent event is added whole by the seams step, 8b.7), and widens the `PostToolUse` entry that runs `scripts/governance-onedit.sh` to `Edit|Write|Bash`; a project's own entries and values are kept. Name each line it prints in the upgrade report:
 
 ```bash
 python3 - <<'PY'
@@ -504,51 +499,46 @@ if changed_s:
 PY
 ```
 
+**owners (EVOL-136).** Stamps on each project snapshot entry the `owner` the delivered manifest declares, where the entry has none, and sets `governance_features.owners_v1`. Run it as written (idempotent); name the count it prints in the upgrade report:
+
+```bash
+python3 -I - <<'PY'
+import json, pathlib
+snap_p = pathlib.Path("docs/project_log/governance_versions.json")
+d = json.loads(pathlib.Path(".context/templates/setup/governance_versions.json").read_text(encoding="utf-8"))
+snap = json.loads(snap_p.read_text(encoding="utf-8"))
+n = 0
+for sec in ("templates", "agent_templates", "framework_core"):
+    for k, e in (snap.get(sec) or {}).items():
+        src = (d.get(sec) or {}).get(k)
+        if isinstance(e, dict) and isinstance(src, dict) and src.get("owner") and "owner" not in e:
+            e["owner"] = src["owner"]; n += 1
+feats = snap.setdefault("governance_features", {})
+if n or not feats.get("owners_v1"):
+    feats["owners_v1"] = True
+    snap_p.write_text(json.dumps(snap, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+print(f"owners stamped: {n}")
+PY
+```
+
 ---
 
 ### Step 3: New File Handling (4.4.3)
 Files that exist in framework but not in project:
-1. Apply same Smart Discovery Cascade for placeholder resolution
+1. Apply the Smart Discovery Cascade (Step 2) for placeholder resolution
 2. Apply RDR for unresolvable placeholders
 3. Apply Zero-TODO Enforcement
 4. Write new file
 5. Register in `governance_versions.json`
 
-**Special case — `claude/CLAUDE.md` and `claude/settings.json`:**
-
-- `.context/templates/setup/claude/CLAUDE.md` → target `CLAUDE.md` (project root). Uses `smart-additive-merge`. On first upgrade, the project's existing `CLAUDE.md` is expected to be the old framework-shared variant; the merge keeps all existing sections, adds any new universal sections from the template, and leaves user-added sections untouched. Framework-repo-specific sections in the old file (e.g. "Meta-Framework Triage", paths to `.context/templates/setup/governance_versions.json`) become stale — the upgrade surfaces them as diff candidates for user review. Explicit user confirmation is required before the merge replaces framework-specific guidance with project-specific guidance.
-- `.context/templates/setup/claude/settings.json` → target `.claude/settings.json`. Uses `merge-preserve` (more conservative than smart-additive-merge):
-  - Add the `hooks.SessionStart`, `hooks.UserPromptSubmit`, `hooks.PreCompact` blocks from the template if absent in target.
-  - For `hooks.PreToolUse` and `hooks.PostToolUse`: never remove or reorder user-configured entries; **add** the framework's missing hook commands under their matcher (idempotent) — `Edit|Write`: `check-plan-approval.sh` after `check-branch-protection.sh`, `deliver-governance.sh` last; `EnterPlanMode`: `check-plan-mode.sh`; `PostToolUse` `ExitPlanMode`: `record-plan-approval.sh` (EVOL-048). `Bash`: `check-branch-protection.sh`, `check-plan-approval.sh`, `check-concurrency-lock.sh` before `check-push-preflight.sh` (EVOL-065 — a shell write meets the same gates). A framework entry is identified by the script it runs (`.claude/hooks/X.sh`, `scripts/X.sh`): a target entry running the same script in an older command form (the bare `bash X.sh`, not anchored by `cd "${CLAUDE_PROJECT_DIR:-.}" && …`) is **replaced** in place with the template's command — never added beside it, which would run the hook twice. A framework entry the template now wires under another matcher **moves** there — `check-completion-gate.sh` from `Write` to `Edit|Write`, before `deliver-governance.sh` (#171) — never kept under both. The `planning` block of `config/quality.json` (JSON additive merge) and these hook entries land in the **same** upgrade step — a wired gate with no `planning` key blocks every write except the one that adds the key.
-  - The session notebook (EVOL-133): `UserPromptSubmit` gains the entry that runs `scripts/gate.py notebook --hook-json` when no entry runs it (identified by the reader it runs; a project's own `UserPromptSubmit` entries are kept), and the `PostToolUse` entry that runs `scripts/governance-onedit.sh` takes the template's matcher `Edit|Write|Bash` — the **session-notebook (EVOL-133)** step above does both where the event exists; an absent `UserPromptSubmit` is added whole by the rule above, the notebook entry with it.
-  - Add the top-level `autoCompactWindow` from the template only if absent in target (EVOL-063 — the compaction window); a value the project set is kept.
-  - NEVER touch `permissions`, `model`, `env`, or any other top-level key (the one exception: `autoCompactWindow` above, added only when absent).
-  - Idempotent: re-running `--upgrade` after the first run is a no-op.
+**Special case — `claude/CLAUDE.md`, `claude/settings.json`, `config/quality.json`:** root `CLAUDE.md` is project-owned — present, it is never written here (its template moves are owed to EVOL-137); absent, it lands as a new file. `.claude/settings.json` and `config/quality.json` are seams (Step 8b.7): a missing one lands from its template, the rest is keyed add-only. The `planning` block of `config/quality.json` and the framework hook entries land in the **same** run — a wired gate with no `planning` key blocks every write except the one that adds the key.
 
 **Git hooks:** installed hooks are copies. After `scripts/hooks/**` is refreshed, run `bash scripts/install-hooks.sh --force` — a hook added since the last install (`pre-merge-commit`, EVOL-065) lands only this way.
 
-### Step 3b: Post-Merge Script Validation (4.4.3b)
-After ALL script files are merged, run 6 validation checks:
-
-1. **Syntax Check:** `bash -n` for `.sh`, `py_compile` for `.py`
-2. **Shebang Integrity:** Verify `#!/bin/bash` or `#!/usr/bin/env python3` present
-3. **Permission Check:** Verify `+x` permission on all `.sh` files
-4. **Duplicate Symbol Detection:** Scan for duplicate function names within same file
-5. **Merge Artifact Detection:** Scan for `<<<<<<<`, `=======`, `>>>>>>>` markers
-6. **Smoke Test:** Run `script --help` or equivalent (if supported)
-
-**Decision Gate (if any check fails):**
-- **ROLLBACK SCRIPTS:** Restore all scripts from backup, re-run merge with different options
-- **ROLLBACK ALL:** Full upgrade rollback (→ `--rollback-upgrade`)
-- **FIX NOW:** Manually fix issues before continuing
-- **CONTINUE:** Accept issues (with logged warnings)
-
----
-
 ### Step 4: Finalization (4.4.4)
-1. Update project snapshot (`governance_versions.json`) with all new checksums
+1. Update project snapshot (`governance_versions.json`): each written entry's version and `owner`
 2. Finalize backup manifest: `status: COMPLETED`
-2b. **Seed the dependency allowlist (#114):** `python3 scripts/gate.py dependencies --seed` — Q26's answers (`docs/setup.md → dependencies.backend / frontend / denied`) merge into `config/allowlist.json`; an entry already listed is kept as written. The merge above replaced the `dependency-allowlist.sh` stub with the real check.
+2b. **Seed the dependency allowlist (#114):** `python3 scripts/gate.py dependencies --seed` — Q26's answers (`docs/setup.md → dependencies.backend / frontend / denied`) merge into `config/allowlist.json`; an entry already listed is kept as written. Step 2 replaced the `dependency-allowlist.sh` stub with the real check where the stub was delivered.
 3. **Regenerate governance snapshot** (`.context/governance_snapshot.md`):
    - Constitution / defect-prevention.md / setup.md may have changed during upgrade → snapshot must reflect new state
    - Call `generate_governance_snapshot()` from setup-materialization.md Checkpoint 3.1
@@ -556,10 +546,10 @@ After ALL script files are merged, run 6 validation checks:
    - Frontmatter freshness fields are: `constitution_hash`, `setup_hash`, `dcs_hash` — all three are recomputed
    - This ensures post-upgrade agent commands use fresh governance context
 4. Generate `UPGRADE_REPORT_{timestamp}.md` with:
-   - Files modified (with before/after versions)
+   - Files replaced (framework-owned, with before/after versions) and the drift `manifest-parity` named
    - New files added
-   - Coherence issues resolved (and how)
-   - Script validation results
+   - Seam keys added, replaced and unresolved (Step 8b.7)
+   - Templates moved and not written (`templates_moved`)
    - Skipped files (with reason)
 5. `APPEND_TO_WORKLOG` × 3 (start, execution, completion)
 
@@ -725,7 +715,7 @@ All SETUP commands use `APPEND_TO_WORKLOG` with phase mapping:
 | --generate | setup.md (COMPLETED) | All governance + scaffolding | materialization_complete: true |
 | --generate --resume | MATERIALIZATION_REPORT (IN_PROGRESS) | Remaining tasks | status: COMPLETED |
 | --migrate-legacy-setup | Brownfield project | migration_strategy.md + 5 Epics | Strategy generated |
-| --upgrade | Framework templates | Merged governance files + UPGRADE_REPORT | Snapshot updated |
+| --upgrade | Framework templates | Framework-owned files replaced, seams merged by key, project files untouched + UPGRADE_REPORT | Snapshot updated |
 | --rollback-upgrade | BACKUP_MANIFEST | Restored files | Pre-upgrade state |
 
 **SETUP is responsible for:** Project structure, governance, scaffolding, configuration, budget.

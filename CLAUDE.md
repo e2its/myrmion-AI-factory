@@ -1,6 +1,6 @@
 # Myrmion AI Factory — Framework Repository (Meta)
 
-You are working on the **SDLC framework itself**. This repo defines the governed pipeline that materialised projects consume via `SETUP --generate` and `factory-sync.sh`. Materialised projects run under a different `CLAUDE.md` — the canonical template lives at [.context/templates/setup/claude/CLAUDE.md](.context/templates/setup/claude/CLAUDE.md).
+You are working on the **SDLC framework itself**. This repo defines the governed pipeline that materialised projects consume via `SETUP --generate` and `factory-sync.sh` (one owner per delivered file — EVOL-136). Materialised projects run under a different `CLAUDE.md` — the canonical template lives at [.context/templates/setup/claude/CLAUDE.md](.context/templates/setup/claude/CLAUDE.md).
 
 The default mode here is **meta-framework maintenance**: evolving rules, instructions, skills, templates, scripts, and the governance manifest itself. The classic SDLC lifecycle (`/codesign` → `/blueprint` → `/implement` → …) does NOT run on this repo. Changes here are framework evolutions (`feature/EVOL-*`), bugfixes (`fix/*`, `bugfix/*`, `hotfix/*`), refactors, docs, or chore work — all tracked on the conventional branch types and shipped via PR. "EVOL-*" is the label used specifically for evolutionary features; fixes and other work do NOT require an EVOL number.
 

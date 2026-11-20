@@ -220,10 +220,9 @@ Step 6.4: User decides on ADR-protected files
     Upgrade strategy for ADR-protected files:
     
       a) SKIP - No actualizar archivos protegidos (mantener customizaciones)
-      b) SMART_MERGE - Actualizar estructura, preservar customizaciones
-      c) OVERRIDE - Actualizar todo (⚠️  sobrescribir decisiones ADR)
+      b) OVERRIDE - Actualizar todo (⚠️  sobrescribir decisiones ADR)
     
-    Your choice? (a-c)
+    Your choice? (a-b)
     """
   
   IF choice == a:
@@ -231,10 +230,6 @@ Step 6.4: User decides on ADR-protected files
     LOG: "Protected files will be SKIPPED in upgrade"
   
   IF choice == b:
-    protected_merge_strategy = "smart_merge"
-    LOG: "Protected files will use 3-way merge (preserve customizations)"
-  
-  IF choice == c:
     CONFIRM: "Type 'ENTENDIDO' to confirm overwrite of {{protected_files.length}} ADR decisions"
     IF confirmed:
       protected_override = true
@@ -247,7 +242,7 @@ Step 6.4: User decides on ADR-protected files
 
 ## 3. Smart Placeholder Discovery & RDR Resolution Protocol
 
-**Applies to:** ALL governance files during `/SETUP --upgrade` — both existing file upgrades (Smart Additive Merge) and new file handling.
+**Applies to:** `/SETUP --upgrade` — new files and the keys a seam lacks; every delivered file is applied by its owner (EVOL-136).
 
 **CRITICAL:** This protocol replaces the old "mini-discovery" approach. No TODOs, no defaults invented by the agent, no assumptions.
 
@@ -381,33 +376,9 @@ FOR EACH unresolved_placeholder:
   RETURN { value: decided_value, source: "RDR", ratified: true }
 ```
 
-### 3.3 Semantic Coherence Check (POST-MERGE, PRE-CONFIRMATION)
+### 3.3 Coherence of a seam merge (EVOL-136)
 
-**After building merged content but BEFORE showing diff to user, detect contradictions between new additions and existing content.**
-
-**Why this matters:** Smart Additive Merge is *structurally* safe (never overwrites, never deletes) but NOT *semantically* safe. Adding new content that contradicts existing content produces incoherent governance files.
-
-**Categories of Incoherence Detected:**
-
-| Category | File Type | Example | Severity |
-|----------|-----------|---------|----------|
-| OPPOSING_LIST_CONFLICT | JSON | Same package in `prohibited` AND `exceptions` | HIGH |
-| NUMERIC_BOUND_CONFLICT | JSON | `min_connections: 150` but `max_connections: 100` | HIGH |
-| TOOL_CONFLICT | Markdown | Existing uses Prometheus, new recommends Datadog for same domain | MEDIUM |
-| NUMERIC_CONFLICT | Markdown | Existing says "minimum 8 chars", new says "minimum 12 chars" | HIGH |
-| POLICY_CONTRADICTION | Markdown | Existing: "MUST use sessions", new: "MUST NOT use sessions" | CRITICAL |
-
-**Resolution Protocol (per issue):**
-- **H (HARMONIZE):** User provides unified value/text replacing both conflicting elements
-- **E (KEEP EXISTING):** Don't add the conflicting new content
-- **N (KEEP NEW):** Replace existing with new (⚠️ breaks additive-only for this conflict — logged as exception)
-- **B (KEEP BOTH):** Accept contradiction with inline warning comment (user harmonizes later)
-
-**Severity Handling:**
-- **CRITICAL/HIGH:** Must resolve individually before proceeding
-- **MEDIUM:** Can batch-accept with warnings, or resolve individually
-
-**Implementation:** See `SETUP.AGENT.md` Section 4.4.2, Step 5a.
+No merged content exists to check: `seams_upgrade` adds only the keys a seam lacks, never rewrites a value the project holds (except the declared superseded literals: a hook's bare command form, the #171 matcher), and a project-owned file is never written. Its listing (added, replaced, unresolved) is shown before the write; each unresolved key is one RDR (Factory-setup-upgrade Step 8b.7).
 
 ---
 
@@ -488,7 +459,7 @@ WRITE: {{BACKUP_DIR}}/BACKUP_MANIFEST.json with:
     "framework_version": { "from": "{{current}}", "to": "{{target}}" },
     "status": "IN_PROGRESS",
     "file_count": N,
-    "files": [ { "path", "from_version", "to_version", "checksum_at_backup", "content_type", "strategy" } ]
+    "files": [ { "path", "from_version", "to_version", "checksum_at_backup", "content_type", "owner" } ]
   }
 
 # After ALL upgrades succeed → update manifest.status = "COMPLETED"
@@ -554,7 +525,7 @@ FOR EACH file_to_upgrade IN upgrade_plan.upgrades:
     "materialized_at": NOW,
     "backup_location": "{{BACKUP_DIR}}/files/{{target_path}}",
     "user_customized": {{boolean}},
-    "upgrade_strategy": {{strategy_used}},
+    "owner": {{owner}},
     "validation_passed": true
   }
   
@@ -633,7 +604,7 @@ Read it for a post-mortem of the upgrade.
           "from_version": "1.0.0",
           "to_version": "1.2.3",
           "date": "2026-02-10",
-          "strategy": "Smart Additive Merge",
+          "owner": "framework",
           "status": "COMPLETED",
           "customization_detected": false
         }
@@ -792,8 +763,8 @@ upgrade_settings:
 | **Phantom File** | File in .claude/rules/ not registered in governance_versions.json |
 | **Template Drift** | Checksum mismatch in .context/templates/setup/ (external modification) |
 | **Checkpoint** | Saved state at transaction boundary |
-| **Smart Additive Merge** | Unified upgrade strategy for ALL files: structural diff → add new content → preserve existing → resolve placeholders |
-| **Content Type: universal** | No placeholders. New sections/keys merged additively |
-| **Content Type: stack_configured** | Contains {{PLACEHOLDER}} tokens. Additions resolved via Smart Discovery + RDR |
-| **Content Type: project_data** | Project-specific values. Additions with defaults, existing values never modified |
+| **Owner (EVOL-136)** | Who writes a delivered file: `framework` (replaced wholesale), `project` (written only by an answer or a migration row), `seam` (keyed JSON, merged add-only by script) |
+| **Content Type: universal** | No placeholders |
+| **Content Type: stack_configured** | Contains {{PLACEHOLDER}} tokens, resolved via Smart Discovery + RDR |
+| **Content Type: project_data** | Project-specific values |
 
