@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.10.1",
+  "framework_version": "10.11.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-20",
   "governance_features": {
@@ -846,19 +846,19 @@
       "role": "Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted)."
     },
     "subproducts/measure/measure.py": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "content_type": "universal",
       "target": "subproducts/measure/measure.py",
-      "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates. Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only."
+      "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates, calls to a configured context-compression tool with each compress call's source traced (payload audit, EVOL-140). Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only."
     },
     "subproducts/measure/measure.config.json": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "stack_configured",
       "target": "subproducts/measure/measure.config.json",
-      "role": "Project config of the measurement subproduct — the file SETUP resolves placeholders in (retention_days, report_interval_days from Q30; unquoted integer tokens). Gate / review / governance-path / corpus regex lists are project-editable data."
+      "role": "Project config of the measurement subproduct — the file SETUP resolves placeholders in (retention_days, report_interval_days from Q30; unquoted integer tokens). Gate / review / governance-path / corpus regex lists and the compression tool names and evidence regexes (EVOL-140, empty by default) are project-editable data."
     },
     "subproducts/measure/RUNBOOK.md": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "content_type": "universal",
       "target": "subproducts/measure/RUNBOOK.md",
       "role": "Operator runbook of the measurement subproduct: signal definitions, the before/after protocol as an obligation of the adopting project, options, config keys. Every flag it cites is closure-tested against the real parser."
@@ -1717,7 +1717,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.39.0",
+      "version": "14.39.1",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
@@ -2324,7 +2324,7 @@
       "path": ".claude/skills/factory-po-intake/SKILL.md"
     },
     "scripts/test-measure.sh": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "type": "script",
       "role": "T2 test of the measurement subproduct (EVOL-042, META-ONLY). Self-test of the template source, synthetic materialisation (placeholders → JSON, universal files byte-identical, real reports from fixtures, degradation, plain-language faults), exclusion class (imported by nobody, runbook closure). Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-measure.sh"

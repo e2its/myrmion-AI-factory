@@ -30,6 +30,9 @@ the git log and the per-feature worklog, and reports for a time window:
                (main or the subagent's roster class), in dollars when measure.config.json carries the optional `prices`
                key (`per_family`: a model-id substring → the five $/MTok prices; `as_of`, `source`) — EVOL-113
   main_context the main session's context per request (p50 / p90 / max), overall and per phase — EVOL-113
+  compression  calls to a context-compression MCP tool (EVOL-140): compress and retrieve calls per session (its subagents
+               included), bytes in and out, the payload audit — each compress call's sources traced to the tool results
+               it copies; evidence only when each of them read a file or ran a command matching `compression.evidence`
 
 Nothing leaves the machine. A missing data source degrades that section to
 `unavailable: <reason>`; it never fails the report. Exit 0 report written · 2 the tool
@@ -89,6 +92,15 @@ def load_config(path: Path) -> dict:
         fam = (cfg["prices"] or {}).get("per_family") if isinstance(cfg["prices"], dict) else None
         if not isinstance(fam, dict) or not all(isinstance(row, dict) and all(isinstance(row.get(k), (int, float)) and not isinstance(row.get(k), bool) and row[k] >= 0 for k in CATEGORIES) for row in fam.values()):
             raise ToolFault(f"config key prices.per_family must map a model-id substring to the five prices (input, cache_write_5m, cache_write_1h, cache_read, output — $ per million tokens): {path}")
+    if "compression" in cfg:   # EVOL-140: optional; three lists — tool names, tool names, regexes
+        c = cfg["compression"]
+        good = isinstance(c, dict) and all(isinstance(c.get(k, []), list) and all(isinstance(x, str) and x for x in c.get(k, [])) for k in ("compress", "retrieve", "evidence"))
+        try:
+            good = good and all(re.compile(p) for p in c.get("evidence", []))
+        except re.error:
+            good = False
+        if not good:
+            raise ToolFault(f"config key compression must hold three lists — compress and retrieve: MCP tool names; evidence: regexes on the source's file path or command: {path}")
     if "output_unrecorded_chars_per_token" in cfg:   # EVOL-105: optional; absent → output is not judged
         v = cfg["output_unrecorded_chars_per_token"]
         if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
@@ -148,6 +160,9 @@ def assistant_text(msg: dict) -> str:
     return ""
 
 
+_LINE_NO = re.compile(r"(?m)^ *\d+(\t|→)")   # EVOL-140: the harness numbers each line of a Read result
+
+
 class Session:
     """One transcript file, reduced to what the report needs."""
 
@@ -183,7 +198,13 @@ class Session:
         self.pushes: list[tuple[str, float, str]] = []   # (branch, seconds, profile from the banner in the result, else unknown)
         self.requests: list[dict] = []            # EVOL-113: per assistant message id — {ts, model, tokens by category}
         self.commands: list[tuple] = []           # EVOL-113: (ts, slash command) — the session's command timeline, read outside the window too
+        comp = cfg.get("compression") if isinstance(cfg.get("compression"), dict) else {}   # EVOL-140
+        self._compress, self._retrieve = set(comp.get("compress") or ()), set(comp.get("retrieve") or ())
+        self._evidence = [re.compile(p) for p in comp.get("evidence") or ()]
+        self._prior: list[tuple[str, dict, str, str]] = []   # (tool, input, result text, text without line prefixes) — only while a compress tool is configured
+        self.compression: list[dict] = []         # EVOL-140: one row per compress / retrieve call
         self._load()
+        self._prior = []   # EVOL-140: sources are read at load only; freed before the report holds every session
 
     def _in_window(self, ts):
         return ts is not None and self.since <= ts <= self.until
@@ -308,6 +329,16 @@ class Session:
         seconds = max(0.0, (ts - use["ts"]).total_seconds()) if use["ts"] else 0.0
         self.tool_durations.append((use["name"], use["input"], seconds, use["branch"]))
         self.results.append(text_len(c.get("content")))   # EVOL-062: what entered the context raw
+        if self._compress:   # EVOL-140
+            name, text = use["name"], flat_text(c.get("content"))
+            if name in self._compress:
+                content = str(use["input"].get("content") or "")
+                self.compression.append({"kind": "compress", "bytes_in": len(content), "bytes_out": len(text), "source": self._source(content)})
+            elif name in self._retrieve:
+                self.compression.append({"kind": "retrieve"})
+            else:   # a compression tool's own result is never a source: a re-compress traces back to the original read
+                alt = _LINE_NO.sub("", text) if name == "Read" else text   # Read results carry `N<tab>` line prefixes
+                self._prior.append((str(name), use["input"], text, alt))
         if use["name"] == "Read" and use["input"].get("file_path"):
             self.reads.append((use["input"]["file_path"], text_len(c.get("content"))))
         elif use["name"] == "Bash":
@@ -330,6 +361,18 @@ class Session:
                 self.agent_ids[m.group(1)] = c["tool_use_id"]
             else:                                   # a foreground spawn returns in the tool result itself
                 spawn["channels"]["direct"] = text
+
+    def _source(self, content: str) -> str:
+        """EVOL-140: every earlier tool result that contains the content; evidence only when each of them read a file or ran a
+        command matching `compression.evidence` — an ambiguous source, and content that copies no result, is work input, named
+        after the newest result that is not evidence."""
+        needle = content.strip()
+        hits = [(name, inp) for name, inp, text, alt in self._prior if needle and (needle in text or needle in alt)]
+        for name, inp in reversed(hits):
+            target = inp.get("file_path") if name == "Read" else inp.get("command") if name == "Bash" else None
+            if target is None or not any(p.search(str(target)) for p in self._evidence):
+                return f"work-input:{name}"
+        return "evidence" if hits else "work-input:authored"
 
     def _channel_text(self, text: str):
         for m in NOTIFICATION_RE.finditer(text):
@@ -896,7 +939,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
         report.update({"gates": {"unavailable": why}, "branches": {"unavailable": why},
                        "governance_bytes": {"unavailable": why}, "agents": {"unavailable": why},
                        "citations": {"unavailable": why}, "returns": {"unavailable": why}, "critics": {"unavailable": why}, "context": {"unavailable": why},
-                       "spend": {"unavailable": why}, "main_context": {"unavailable": why}})
+                       "spend": {"unavailable": why}, "main_context": {"unavailable": why}, "compression": {"unavailable": why}})
         report["rework"] = {"git": rework_git, "edits": {"unavailable": why}}
         return report
 
@@ -1040,6 +1083,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
 
     # returns (EVOL-057): every spawn's return through its three channels
     report["returns"] = returns_report(sessions, repo)
+    report["compression"] = compression_report(sessions, subs, cfg)   # EVOL-140
     report["spend"], report["main_context"] = spend_report(sessions, subs, cfg.get("prices"), repo, cfg.get("output_unrecorded_chars_per_token"))   # EVOL-113, EVOL-105
     return report
 
@@ -1168,6 +1212,40 @@ def spend_report(sessions: list, subs: dict, prices, repo: Path | None = None, t
     return spend, main_context
 
 
+def compression_report(sessions: list, subs: dict, cfg: dict) -> dict:
+    """EVOL-140: calls to the configured context-compression tool per main session (its subagents' transcripts with it), the
+    retrieve ratio, bytes in and out, and the payload audit — the compress calls whose source is not evidence (target 0)."""
+    comp = cfg.get("compression") if isinstance(cfg.get("compression"), dict) else {}
+    if not comp.get("compress"):
+        return {"unavailable": "no compression tool configured (measure.config.json → compression.compress)"}
+    per: dict[str, dict] = {}
+    calls: list[dict] = []
+    for s in sessions:
+        own = list(s.compression) + [x for _, sub in subs.get(s.id, []) for x in sub.compression]
+        cs = [x for x in own if x["kind"] == "compress"]
+        per[s.id] = {"compress": len(cs), "retrieve": len(own) - len(cs), "bytes_in": sum(x["bytes_in"] for x in cs),
+                     "bytes_out": sum(x["bytes_out"] for x in cs), "work_input": sum(1 for x in cs if x["source"] != "evidence")}
+        calls.extend(own)
+    cs = [x for x in calls if x["kind"] == "compress"]
+    retrieves, n = len(calls) - len(cs), len(sessions)
+    withc = sum(1 for v in per.values() if v["compress"])
+    by = collections.Counter(x["source"] for x in cs)
+    return {"tools": {"compress": list(comp["compress"]), "retrieve": list(comp.get("retrieve") or []), "evidence": list(comp.get("evidence") or [])},
+            "sessions": n, "sessions_with_compress": withc, "sessions_with_compress_share": round(withc / n, 3) if n else None,
+            "calls": {"compress": len(cs), "retrieve": retrieves}, "compress_per_session": round(len(cs) / n, 3) if n else None,
+            "retrieve_per_compress": round(retrieves / len(cs), 3) if cs and comp.get("retrieve") else None,   # no retrieve tool listed: unmeasured, never 0
+            "bytes_in": sum(x["bytes_in"] for x in cs), "bytes_out": sum(x["bytes_out"] for x in cs),
+            "bytes_in_median_per_call": _median([x["bytes_in"] for x in cs]), "bytes_out_median_per_call": _median([x["bytes_out"] for x in cs]),
+            "payload_audit": {"work_input_calls": sum(v for k, v in by.items() if k != "evidence"), "by_source": dict(sorted(by.items()))},
+            "per_session": per,
+            "definition": "a call = a tool use of a name listed in compression.compress / compression.retrieve, in a main session or its subagents' "
+                          "transcripts; bytes in = characters of the content handed to compress, bytes out = characters of its result; a compress "
+                          "call's sources = the earlier tool results of the same transcript that contain the content (a Read's without its line "
+                          "prefixes; a compression tool's own results never) — evidence when each came from a Read whose file path, or a Bash "
+                          "whose command, matches compression.evidence; work-input:<tool> otherwise, after the newest source that is not; work-input:authored when the content copies no result. work_input_calls should be 0 (the payload-verbatim invariant); "
+                          "retrieve_per_compress is None with no retrieve tool listed (unmeasured, never 0)"}
+
+
 def context_report(rows: list, cfg: dict, kb, rule_reason: str) -> dict:
     """EVOL-062: what the context costs — tokens de-duplicated per message id, the median context per main session, the cache
     per spawn by turn bucket and roster class, the raw tool results above the key. The rows are the agents table's."""
@@ -1213,7 +1291,9 @@ SCALARS = (("gates", "share"), ("branches", "avg_commits"), ("branches", "avg_re
            ("pushes", "unknown_share"), ("loop", "hours_total"), ("critics", "share"), ("critics", "orchestrator_tokens_out_per_round"),
            ("governance", "hours"), ("governance", "manifest_commits_per_week"), ("governance", "edit_share"),   # EVOL-061
            ("context", "median_context_tokens"), ("context", "writer_cache_per_spawn_median"), ("context", "raw_results_over_threshold"),   # EVOL-062
-           ("spend", "total", "usd"), ("spend", "total", "tokens"), ("main_context", "p50"), ("main_context", "p90"))   # EVOL-113
+           ("spend", "total", "usd"), ("spend", "total", "tokens"), ("main_context", "p50"), ("main_context", "p90"),   # EVOL-113
+           ("compression", "compress_per_session"), ("compression", "retrieve_per_compress"), ("compression", "bytes_in"), ("compression", "bytes_out"),
+           ("compression", "sessions_with_compress_share"), ("compression", "payload_audit", "work_input_calls"))   # EVOL-140
 
 
 def dig(d, *keys):
@@ -1378,6 +1458,15 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
             [f"requests {mc['requests']} · p50 **{_fmt(mc['p50'])}** · p90 **{_fmt(mc['p90'])}** · max {_fmt(mc['max'])} tokens (nearest-rank)", "",
              "| phase | requests | p50 | p90 | max |", "|---|---|---|---|---|"] +
             [f"| {_cell(k)} | {v['requests']} | {_fmt(v['p50'])} | {_fmt(v['p90'])} | {_fmt(v['max'])} |" for k, v in mc["by_phase"].items()] + ["", f"> {mc['definition']}"])
+    cp = r.get("compression") or {"unavailable": "not measured"}
+    section("Compression (EVOL-140)", cp, [] if "unavailable" in cp else
+            [f"tools: compress {', '.join(_cell(t) for t in cp['tools']['compress'])} · retrieve {', '.join(_cell(t) for t in cp['tools']['retrieve']) or '—'}",
+             f"sessions {cp['sessions']} · with a compress call {cp['sessions_with_compress']} (share **{_fmt(cp['sessions_with_compress_share'])}**) · "
+             f"compress {cp['calls']['compress']} · retrieve {cp['calls']['retrieve']} · retrieve per compress {_fmt(cp['retrieve_per_compress'])}",
+             f"bytes in {cp['bytes_in']:,} · out {cp['bytes_out']:,} · per call median in {_fmt(cp['bytes_in_median_per_call'])} / out {_fmt(cp['bytes_out_median_per_call'])} · "
+             f"work-input calls **{cp['payload_audit']['work_input_calls']}** (target 0) · by source " + (', '.join(f'{_cell(k)} {v}' for k, v in cp['payload_audit']['by_source'].items()) or '—'), "",
+             "| session | compress | retrieve | bytes in | bytes out | work input |", "|---|---|---|---|---|---|"] +
+            [f"| {_cell(k)} | {v['compress']} | {v['retrieve']} | {v['bytes_in']:,} | {v['bytes_out']:,} | {v['work_input']} |" for k, v in cp["per_session"].items()] + ["", f"> {cp['definition']}"])
     if delta is not None:
         out += ["## Before → after", "", "| signal | before | after | delta |", "|---|---|---|---|"]
         out += [f"| {k} | {_fmt(v['before'])} | {_fmt(v['after'])} | {_fmt(v['delta'])} |" for k, v in delta.items()]
@@ -1665,6 +1754,63 @@ def _fixture_passes(root: Path, session="q1") -> Path:
     return tdir
 
 
+SELFTEST_COMPRESSION = {"compress": ["mcp__zip__compress"], "retrieve": ["mcp__zip__retrieve"], "evidence": [r"(^|[/\s])loop-[^/\s]*\.log\b"]}   # the shipped default
+FX_LOG = "PASS test_x\n" * 50                       # a log with repeated blocks: the evidence a compression tool is for
+FX_CODE = "def f():\n    return 1\n" * 5           # code under edit: work input, never compressed
+FX_TAIL = "ok unit\n" * 20
+FX_AUTHORED = "my summary of the plan"               # copies no tool result: an unproven source
+FX_CI = "ERROR build failed at step 3\n" * 3         # a CI log under repair: work input, though a .log
+FX_GREP = "src/a.py:1:x\n" * 5                       # a search result: work input
+FX_E2E = "e2e passed step\n" * 10                    # in a note and in a loop log: an ambiguous source is work input
+
+
+def _fixture_compression(root: Path, session="c1") -> Path:
+    """EVOL-140: session c1 compresses an evidence log, a source file, an authored text, a CI log read through Bash, a search
+    result, a text read from a note and from a loop log (ambiguous: work input), and the evidence log again after a
+    retrieve (traced to the read, never to the retrieve); its subagent compresses the tail of a loop log read through Bash;
+    session c2 calls no compression tool. Read results carry the line-number prefixes the harness writes."""
+    tdir = root / "projects" / "compression"
+    (tdir / session / "subagents").mkdir(parents=True)
+    t0 = dt.datetime(2026, 9, 4, 10, 0, 0, tzinfo=dt.timezone.utc)
+
+    def ts(seconds):
+        return (t0 + dt.timedelta(seconds=seconds)).strftime(ISO)
+
+    def use(i, name, inp, at):
+        return _entry("assistant", ts(at), message={"id": f"m{i}", "role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1},
+                                                    "content": [{"type": "tool_use", "id": f"u{i}", "name": name, "input": inp}]})
+
+    def res(i, at, text):
+        return _entry("user", ts(at), message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"u{i}", "content": [{"type": "text", "text": text}]}]})
+
+    def numbered(text):   # the shape the harness gives a Read result
+        return "\n".join(f"{n:>6}\t{line}" for n, line in enumerate(text.splitlines(), 1))
+
+    main = [use(1, "Read", {"file_path": ".claude/state/loop-tests.log"}, 1), res(1, 2, numbered(FX_LOG)),
+            use(2, "mcp__zip__compress", {"content": FX_LOG}, 3), res(2, 4, "50x PASS hash=h1"),
+            use(3, "Read", {"file_path": "src/app.py"}, 5), res(3, 6, numbered(FX_CODE)),
+            use(4, "mcp__zip__compress", {"content": FX_CODE}, 7), res(4, 8, "def f x5"),
+            use(5, "mcp__zip__compress", {"content": FX_AUTHORED}, 9), res(5, 10, "summary"),
+            use(6, "mcp__zip__retrieve", {"hash": "h1"}, 11), res(6, 12, FX_LOG),
+            use(10, "Bash", {"command": "cat logs/ci.log"}, 13), res(10, 14, FX_CI),
+            use(11, "mcp__zip__compress", {"content": FX_CI}, 15), res(11, 16, "3x ERROR"),
+            use(12, "Grep", {"pattern": "x"}, 17), res(12, 18, FX_GREP),
+            use(13, "mcp__zip__compress", {"content": FX_GREP}, 19), res(13, 20, "5x a.py"),
+            use(14, "Read", {"file_path": "notes/copy.txt"}, 21), res(14, 22, numbered(FX_E2E)),
+            use(15, "Read", {"file_path": ".claude/state/loop-e2e.log"}, 23), res(15, 24, numbered(FX_E2E)),
+            use(16, "mcp__zip__compress", {"content": FX_E2E}, 25), res(16, 26, "10x e2e"),
+            use(17, "mcp__zip__compress", {"content": FX_LOG}, 27), res(17, 28, "50x PASS hash=h2")]
+    sub = [_entry("user", ts(20), message={"role": "user", "content": "effort: low\nturn budget: 5\nRun."}),
+           use(7, "Bash", {"command": "tail -n 40 .claude/state/loop-unit.log"}, 21), res(7, 22, FX_TAIL),
+           use(8, "mcp__zip__compress", {"content": FX_TAIL}, 23), res(8, 24, "20x ok")]
+    other = [use(9, "Read", {"file_path": "README.md"}, 30), res(9, 31, "hello")]
+    (tdir / f"{session}.jsonl").write_text("\n".join(json.dumps(e) for e in main) + "\n", encoding="utf-8")
+    (tdir / "c2.jsonl").write_text("\n".join(json.dumps(e) for e in other) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-z1.jsonl").write_text("\n".join(json.dumps(e) for e in sub) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-z1.meta.json").write_text(json.dumps({"agentType": "factory-dev-backend"}), encoding="utf-8")
+    return tdir
+
+
 def _sessions_of(tdir: Path, cfg: dict, since, until) -> list:
     return [s for s in (Session(f, cfg, since, until) for f in sorted(tdir.glob("*.jsonl"))) if s.entries]
 
@@ -1896,6 +2042,32 @@ def selftest() -> int:
         expect((hs.pass_, hs.effort, hs.budget) == ("-", "high", 7), "only the opening header lines are read: a `pass:` quoted in the body is not the spawn's pass")
         t0 = time.time(); first_user("effort: low\n" + "\n" * 40000 + " " * 40000 + "x\n")
         expect(time.time() - t0 < 1.0, "a prompt with a long run of blanks is read in linear time")
+        # EVOL-140: calls to a context-compression tool, the retrieve ratio, bytes in and out, the payload audit traced to each call's source
+        cdir = _fixture_compression(root)
+        rc_ = build_report(srepo, {**cfg, "compression": SELFTEST_COMPRESSION}, cdir, since, until)
+        cp = rc_.get("compression") or {}
+        expect(cp.get("calls") == {"compress": 8, "retrieve": 1} and cp.get("retrieve_per_compress") == 0.125, "compress and retrieve calls counted, a subagent's with its session; retrieve per compress")
+        expect(cp.get("sessions") == 2 and cp.get("sessions_with_compress") == 1 and cp.get("sessions_with_compress_share") == 0.5 and cp.get("compress_per_session") == 4.0,
+               "sessions with a compress call and their share: a session that never called the tool counts, never dropped")
+        ins = [len(FX_LOG), len(FX_CODE), len(FX_AUTHORED), len(FX_CI), len(FX_GREP), len(FX_E2E), len(FX_LOG), len(FX_TAIL)]
+        bout = sum(len(x) for x in ("50x PASS hash=h1", "def f x5", "summary", "3x ERROR", "5x a.py", "10x e2e", "50x PASS hash=h2", "20x ok"))
+        expect(cp.get("bytes_in") == sum(ins) and cp.get("bytes_out") == bout and cp.get("bytes_in_median_per_call") == _median(ins),
+               "bytes in = the content handed, bytes out = the compress result; a retrieve result is not compress output")
+        pa = cp.get("payload_audit") or {}
+        expect(pa.get("work_input_calls") == 5 and pa.get("by_source") == {"evidence": 3, "work-input:Bash": 1, "work-input:Grep": 1, "work-input:Read": 2, "work-input:authored": 1},
+               "payload audit: a loop log read (line-numbered) or tailed is evidence, a source also held by a note is work input, a re-compress after a retrieve traces to the read; a source file, a CI log, a search result and an authored text are work input")
+        expect((cp.get("per_session") or {}).get("c1", {}).get("work_input") == 5 and (cp.get("per_session") or {}).get("c2", {}).get("compress") == 0, "per session: calls, bytes and work-input calls")
+        r0c = build_report(srepo, cfg, cdir, since, until)
+        expect("no compression tool configured" in str((r0c.get("compression") or {}).get("unavailable")), "no compression tool configured: unavailable, never a silent 0")
+        expect("no compression tool configured" in str((build_report(srepo, {**cfg, "compression": {"compress": [], "retrieve": ["x"]}}, cdir, since, until).get("compression") or {}).get("unavailable")),
+               "an empty compress list is no tool configured")
+        rnr = build_report(srepo, {**cfg, "compression": {**SELFTEST_COMPRESSION, "retrieve": []}}, cdir, since, until).get("compression") or {}
+        expect(rnr.get("calls", {}).get("compress") == 8 and rnr.get("retrieve_per_compress") is None, "no retrieve tool listed: the ratio is unmeasured, never 0")
+        dcc = compare(rc_, rc_)
+        expect(all(k in dcc for k in ("compression.compress_per_session", "compression.retrieve_per_compress", "compression.bytes_in", "compression.bytes_out",
+                                      "compression.sessions_with_compress_share", "compression.payload_audit.work_input_calls")), "the compression signals are in the before/after table")
+        mdc = render_markdown(rc_)
+        expect("## Compression (EVOL-140)" in mdc and "work-input calls **5**" in mdc and "no compression tool configured" in render_markdown(r0c), "the compression section renders, and says unavailable without the key")
         # degradation: no transcripts, no git
         r2 = build_report(root / "nope", cfg, root / "missing", since, until)
         expect(r2["window"]["sources"]["transcripts"].startswith("unavailable"), "missing transcripts folder is said, not raised")
@@ -1904,6 +2076,7 @@ def selftest() -> int:
         expect("unavailable" in r2["reliability"], "missing git: the reliability figures are said unavailable")
         expect("unavailable" in r2["gates"] and "unavailable" in r2["citations"], "sections degrade to unavailable")
         expect("unavailable" in r2["critics"], "no transcripts: the critics section is said unavailable")
+        expect("unavailable" in (r2.get("compression") or {}), "no transcripts: the compression section is said unavailable (EVOL-140)")
         expect("unavailable" in render_markdown(r2), "partial report still renders")
         # config faults are tool faults in plain language
         bad = root / "bad.json"
@@ -1928,6 +2101,12 @@ def selftest() -> int:
             load_config(bad); expect(False, "an output_unrecorded_chars_per_token that is not a positive number is refused")
         except ToolFault as e:
             expect("output_unrecorded_chars_per_token" in str(e), "an output_unrecorded_chars_per_token that is not a positive number is refused in plain language (EVOL-105)")
+        for fault, what in (('{"compress": "x"}', "a list that is not a list"), ('{"compress": [""]}', "an empty tool name"), ('{"compress": ["x"], "evidence": ["("]}', "a regex that does not compile")):
+            bad.write_text('{"$schema": "measure_config_v1", "retention_days": 90, "report_interval_days": 30, "compression": ' + fault + '}', encoding="utf-8")
+            try:
+                load_config(bad); expect(False, f"a compression key with {what} is refused")
+            except ToolFault as e:
+                expect("compression" in str(e), f"a compression key with {what} is refused in plain language (EVOL-140)")
         try:
             compare({"schema": "other"}, r)
             expect(False, "baseline with wrong schema refused")
