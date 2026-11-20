@@ -1683,7 +1683,7 @@
     }
   },
   "agent_templates": {
-    "_description": "Per-role agent templates consumed by CODESIGN, BLUEPRINT (architect), DEVELOP, PO, QA, SECURITY, UX, and PEER REVIEW agents at feature time. Synced to materialised projects by factory-sync.sh under the same `.context/templates/{role}/` path. Tracked here so SETUP --upgrade can apply Smart Additive Merge with version awareness instead of factory-sync.sh's blind overwrite. Placeholders ({{FEATURE_ID}}, {{TIMESTAMP}}, etc.) are runtime-resolved by agents when generating per-feature artefacts — they are part of the template contract, not setup-time variables. Hence content_type: universal across the board.",
+    "_description": "Per-role agent templates consumed by CODESIGN, BLUEPRINT (architect), DEVELOP, PO, QA, SECURITY, UX, and PEER REVIEW agents at feature time. Synced to materialised projects by factory-sync.sh under the same `.context/templates/{role}/` path. Tracked here so each carries its version and its owner (framework: replaced wholesale, EVOL-136). Placeholders ({{FEATURE_ID}}, {{TIMESTAMP}}, etc.) are runtime-resolved by agents when generating per-feature artefacts — they are part of the template contract, not setup-time variables. Hence content_type: universal across the board.",
     "_architecture": "Each entry's target is the same `.context/templates/{role}/{file}` path in the materialised project. Framework-owned (EVOL-136): factory-sync replaces them wholesale; SETUP --upgrade Step 3 lands a new one. EVOL-027 fase 1 — keystone for fase 5 (parser-canonical user_journey reaches materialised projects via --upgrade).",
     "architect/adr_template.md": {
       "version": "1.2.0",
@@ -2036,7 +2036,7 @@
       "owner": "framework"
     },
     "CLAUDE.md": {
-      "version": "14.41.0",
+      "version": "14.41.1",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {

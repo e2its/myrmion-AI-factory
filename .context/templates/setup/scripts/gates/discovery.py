@@ -741,7 +741,7 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
         out["stop"] = " · ".join(stops)
     if project:
         ver = project_version(repo)
-        target = lambda k: templates[k].get("target") if isinstance(templates[k].get("target"), str) else None
+        target = lambda k: templates[k].get("target") if inside(templates[k].get("target")) else None
         out["project_version"] = ".".join(map(str, ver))
         out["migrations_owed"] = [{"id": m.get("id"), "since": m.get("since"), "apply": m.get("apply")} for m in (reg.get("migrations") or [])
                                   if isinstance(m, dict) and (m.get("detect") == "always"   # every upgrade, whatever its since
@@ -807,7 +807,12 @@ def gates_upgrade(repo: Path, conf: dict) -> dict:
     return {"gates": gates, "added": added, "replaced": replaced, "kept": kept}
 
 
-TEMPLATE_ROOT = ".context/templates/setup/"
+def inside(path) -> bool:
+    """A manifest path lands inside the project: relative, no `..` (EVOL-136 — one containment check for sync and the seams)."""
+    return isinstance(path, str) and bool(path) and not path.startswith(("/", "\\", "~")) and ":" not in path \
+        and ".." not in path.replace("\\", "/").split("/")
+
+
 UNRESOLVED = "\x00unresolved:"   # a token no answer fills: the key it sits in is listed, never written
 HOOK_SCRIPT = re.compile(r"((?:\.claude/hooks|scripts)/[\w./-]+\.(?:sh|py))(?:\s+([a-z][\w-]*))?")
 SEAM_WAS_MATCHERS = {("PreToolUse", ".claude/hooks/check-completion-gate.sh"): ("Write",)}   # #171: the one superseded wiring a seam replaces
@@ -825,8 +830,7 @@ def _render_seam(text: str, fills: dict) -> dict:
     """A seam template with its placeholders rendered from the answers; a token no answer fills becomes a marker."""
     def val(tok):
         return json.dumps(fills[tok]) if fills.get(tok) is not None else json.dumps(UNRESOLVED + tok)
-    text = re.sub(r'"\{\{([A-Z0-9_]+)\}\}"', lambda mo: val(mo.group(1)), text)
-    text = re.sub(r"\{\{([A-Z0-9_]+)\}\}", lambda mo: val(mo.group(1)), text)
+    text = re.sub(r'"\{\{([A-Z0-9_]+)\}\}"|\{\{([A-Z0-9_]+)\}\}', lambda mo: val(mo.group(1) or mo.group(2)), text)   # one pass: a value is never re-read
     return json.loads(text)
 
 
@@ -855,8 +859,9 @@ def _merge_keys(mine: dict, tpl: dict, at: str, added: list, unresolved: list) -
 
 
 def _merge_hooks(mine: dict, tpl: dict, added: list, replaced: list) -> None:
-    """`hooks`, keyed: an absent event lands whole; a framework hook (its script) the event wires nowhere is added under the
-    template's matcher; the bare command form and a declared superseded matcher are replaced; the project's own are kept."""
+    """`hooks`, keyed: an absent event lands whole; a framework hook is known by (matcher, script) — one wired under another
+    matcher only is added under the template's (one script may guard several matchers); the bare command form and a declared
+    superseded matcher are replaced; the project's own entries are kept, only an entry a move emptied is dropped."""
     for ev, entries in tpl.items():
         if not isinstance(mine.get(ev), list):
             if ev not in mine:
@@ -866,7 +871,8 @@ def _merge_hooks(mine: dict, tpl: dict, added: list, replaced: list) -> None:
             for th in te.get("hooks", []):
                 key, cmd = _hook_key(th.get("command")), th.get("command") or ""
                 bare = cmd.split("&& ", 1)[1].strip() if "&& " in cmd else None
-                where = [(e, h) for e in mine[ev] if isinstance(e, dict) for h in e.get("hooks", []) if isinstance(h, dict) and _hook_key(h.get("command")) == key]
+                where = [(e, h) for e in mine[ev] if isinstance(e, dict) and isinstance(e.get("hooks"), list) for h in e["hooks"]
+                         if isinstance(h, dict) and _hook_key(h.get("command")) == key]
                 for e, h in where:
                     if bare and (h.get("command") or "").strip() == bare:
                         h["command"] = cmd; replaced.append(f"/hooks/{ev}/{key}: command")
@@ -875,8 +881,9 @@ def _merge_hooks(mine: dict, tpl: dict, added: list, replaced: list) -> None:
                 for e, h in moved:
                     e["hooks"].remove(h)
                     replaced.append(f"/hooks/{ev}/{key}: matcher {e.get('matcher')} -> {te.get('matcher')}")
-                mine[ev][:] = [e for e in mine[ev] if not isinstance(e, dict) or e.get("hooks")]
-                if where and not moved:
+                emptied = [e for e, _ in moved if not e["hooks"]]
+                mine[ev][:] = [e for e in mine[ev] if not any(e is x for x in emptied)]
+                if any(e.get("matcher") == te.get("matcher") and not any(h is y for _, y in moved) for e, h in where):
                     continue
                 home = next((e for e in mine[ev] if isinstance(e, dict) and e.get("matcher") == te.get("matcher")), None)
                 if home is None:
@@ -896,6 +903,8 @@ def seams_upgrade(repo: Path, fills: dict) -> dict:
     for k, e in (load_manifest(repo).get("templates") or {}).items():
         if not isinstance(e, dict) or e.get("owner") != "seam" or not isinstance(e.get("target"), str):
             continue
+        if not inside(k) or not inside(e["target"]):
+            raise GateFault(f"the seam {k} → {e['target']}: a path outside the project — the delivered manifest is damaged; run factory-sync.sh")
         src, dst = repo / TEMPLATE_ROOT / k, repo / e["target"]
         try:
             tpl = _render_seam(src.read_text(encoding="utf-8"), fills or {})

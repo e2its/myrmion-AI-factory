@@ -29,6 +29,7 @@ from pathlib import Path
 
 from . import coherence
 from .common import GateFault
+from .discovery import inside
 
 LEVELS = ("patch", "minor", "major")
 SECTIONS = ("framework_core", "templates", "agent_templates")
@@ -95,13 +96,13 @@ def delivered(m: dict) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for sec in SECTIONS:
         for k, e in _entries(m, sec):
-            if sec != "framework_core":
+            if sec != "framework_core" and inside(k):
                 src = coherence.ROOTS[sec] + k
                 out.setdefault(src, {"source": src, "owner": "framework", "entry": f"{sec}:{k}", "channel": "tree"})
             if e.get("delivery") not in SYNC:
                 continue
             landed = core_file(k, e) if sec == "framework_core" else e.get("target")
-            if isinstance(landed, str) and landed not in out:
+            if inside(landed) and landed not in out:   # a path outside the project is never delivered (owner_findings names it)
                 out[landed] = {"source": by_target.get(landed) or (core_file(k, e) if sec == "framework_core" else coherence.ROOTS[sec] + k),
                                "owner": e.get("owner"), "entry": f"{sec}:{k}", "channel": "sync"}
     return out
@@ -128,8 +129,10 @@ def owner_findings(m: dict, where: str) -> list[dict]:
             target = core_file(k, e) if sec == "framework_core" else e.get("target")
             if o == "seam" and not str(target or "").endswith(".json"):
                 out.append({"path": where, "reason": f"{name}: a seam is merged by key — its target {target!r} is not JSON"})
-            if o == "project" and e.get("delivery") in SYNC:
-                out.append({"path": where, "reason": f"{name}: sync replaces what it ships — a project-owned file is never delivered by sync"})
+            if o != "framework" and e.get("delivery") in SYNC:
+                out.append({"path": where, "reason": f"{name}: sync replaces what it ships — a {o}-owned file is never delivered by sync"})
+            if target is not None and not inside(target):
+                out.append({"path": where, "reason": f"{name}: lands at {target!r}, outside the project — a delivered path is relative, without `..`"})
             if isinstance(target, str) and target and (sec == "framework_core" or not target.startswith(".context/templates/")):
                 landed.setdefault(target, set()).add(o)
     out += [{"path": where, "reason": f"{t}: one landed file, owners {', '.join(sorted(os_))} — one owner per file"} for t, os_ in sorted(landed.items()) if len(os_) > 1]

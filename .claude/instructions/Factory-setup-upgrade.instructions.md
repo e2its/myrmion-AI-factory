@@ -138,9 +138,22 @@ A `framework_core` entry without `delivery` is a file of the framework repo itse
 
 **Gate 0 — ADR Lock Check:** a FULL_LOCK file → SKIP (no modifications).
 
-1. **framework.** `factory-sync.sh` already replaced the sync channel. From `gate.py discovery --resolve --json`, list `templates_to_refresh` (a framework-owned landed file whose bytes differ from its delivered template), then copy each `.context/templates/setup/<key>` over its `target`, by script. No diff review, no merge.
+1. **framework.** `factory-sync.sh` already replaced the sync channel. From `gate.py discovery --resolve --json`, list `templates_to_refresh` (a framework-owned landed file whose bytes differ from its delivered template), then copy each `.context/templates/setup/<key>` over its `target` with the script below (idempotent; the target keeps its mode). No diff review, no merge.
 2. **project.** No write here. List each `templates_moved` entry in the upgrade report as «moved {from}→{to}, not written — a migration row carries what a project needs». `claude/CLAUDE.md` moves are owed to EVOL-137.
 3. **seam.** Step 8b.7.
+
+```bash
+python3 -I - <<'PY'
+import json, pathlib, shutil, subprocess, sys
+sys.path.insert(0, "scripts")
+from gates import discovery
+r = json.loads(subprocess.run([sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"], capture_output=True, text=True, check=True).stdout)
+m = json.loads(pathlib.Path(discovery.MANIFEST).read_text(encoding="utf-8"))["templates"]
+for k in r.get("templates_to_refresh") or []:
+    shutil.copyfile(discovery.TEMPLATE_ROOT + k, m[k]["target"])
+    print(f"refreshed: {m[k]['target']}")
+PY
+```
 
 **Placeholder resolution (Smart Discovery Cascade)** — for a new file (Step 3) and a seam's `unresolved` key. Resolve each `{{PLACEHOLDER}}` from, in order:
 1. `docs/setup.md` frontmatter — `gate.py discovery --resolve --json → placeholders`, then the registry's derived `fills` and `constants`
@@ -165,8 +178,8 @@ Unresolved after all 5 → **RDR Protocol**: recommendation with justification +
 7. **Seams (EVOL-136), every upgrade.** `seams_upgrade` lists, per seam, the keys it adds, the framework hook commands it replaces and the keys no answer fills. Show the listing; then run it as written (idempotent — a second run adds nothing). Each `unresolved` key is one RDR through the cascade (Step 2); write the answer to that key, then run it again:
 
 ```bash
-python3 - <<'PY'
-import json, os, pathlib, subprocess, sys, tempfile
+python3 -I - <<'PY'
+import json, os, pathlib, shutil, subprocess, sys, tempfile
 sys.path.insert(0, "scripts")
 from gates import discovery
 fills = json.loads(subprocess.run([sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"], capture_output=True, text=True, check=True).stdout)["placeholders"]
@@ -175,10 +188,17 @@ for target, r in discovery.seams_upgrade(pathlib.Path("."), fills).items():
         for x in r[k]:
             print(f"{target} {k}: {x}")
     if r["added"] or r["replaced"]:
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(target) or ".")
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(json.dumps(r["merged"], indent=2, ensure_ascii=False) + "\n")
-        os.replace(tmp, target)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(r["merged"], indent=2, ensure_ascii=False) + "\n")
+            if os.path.exists(target):
+                shutil.copymode(target, tmp)
+            os.replace(tmp, target)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
 PY
 ```
 
@@ -472,7 +492,7 @@ PY
 **owners (EVOL-136).** Stamps on each project snapshot entry the `owner` the delivered manifest declares, where the entry has none, and sets `governance_features.owners_v1`. Run it as written (idempotent); name the count it prints in the upgrade report:
 
 ```bash
-python3 - <<'PY'
+python3 -I - <<'PY'
 import json, pathlib
 snap_p = pathlib.Path("docs/project_log/governance_versions.json")
 d = json.loads(pathlib.Path(".context/templates/setup/governance_versions.json").read_text(encoding="utf-8"))
@@ -685,7 +705,7 @@ All SETUP commands use `APPEND_TO_WORKLOG` with phase mapping:
 | --generate | setup.md (COMPLETED) | All governance + scaffolding | materialization_complete: true |
 | --generate --resume | MATERIALIZATION_REPORT (IN_PROGRESS) | Remaining tasks | status: COMPLETED |
 | --migrate-legacy-setup | Brownfield project | migration_strategy.md + 5 Epics | Strategy generated |
-| --upgrade | Framework templates | Merged governance files + UPGRADE_REPORT | Snapshot updated |
+| --upgrade | Framework templates | Framework-owned files replaced, seams merged by key, project files untouched + UPGRADE_REPORT | Snapshot updated |
 | --rollback-upgrade | BACKUP_MANIFEST | Restored files | Pre-upgrade state |
 
 **SETUP is responsible for:** Project structure, governance, scaffolding, configuration, budget.

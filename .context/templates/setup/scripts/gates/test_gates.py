@@ -5807,6 +5807,9 @@ class Owners(unittest.TestCase):
             (lambda m: m["templates"]["scripts/tool.sh"].__setitem__("target_mode", "merge"), "makes it the project's"),
             (lambda m: m["templates"]["claude/settings.json"].__setitem__("target", ".claude/settings.yaml"), "is not JSON"),
             (lambda m: m["templates"]["rules/r.md"].__setitem__("delivery", "sync"), "never delivered by sync"),
+            (lambda m: m["templates"]["claude/settings.json"].__setitem__("delivery", "both"), "a seam-owned file is never delivered by sync"),
+            (lambda m: m["templates"]["scripts/tool.sh"].__setitem__("target", "../outside/tool.sh"), "outside the project"),
+            (lambda m: m["templates"]["scripts/tool.sh"].__setitem__("target", "/etc/tool.sh"), "outside the project"),
             (lambda m: m["templates"].__setitem__("claude/dup.md", {"version": "1.0.0", "content_type": "universal", "target": ".claude/newtree/n.md", "owner": "project"}), "one owner per file"),
         )
         for mutate, want in cases:
@@ -5821,6 +5824,46 @@ class Owners(unittest.TestCase):
         m = json.loads(real.read_text(encoding="utf-8"))
         self.assertEqual(manifest.owner_findings(m, manifest.DELIVERED), [], "the shipped manifest holds the owner rules")
         self.assertEqual({e.get("owner") for sec in ("templates", "agent_templates") for e in m[sec].values() if isinstance(e, dict)} - {None}, set(manifest.OWNERS))
+
+    def test_paths_stay_inside_the_project(self):
+        """A delivered path outside the project is never delivered and never merged — red at the owner rules instead."""
+        for bad in ("../x/tool.sh", "/abs/tool.sh", "a/../../tool.sh", "C:/tool.sh", "~/tool.sh", ""):
+            with self.subTest(bad=bad):
+                self.assertFalse(discovery.inside(bad))
+                m = self._m(lambda m: m["templates"]["scripts/gates/x.py"].__setitem__("target", bad))
+                self.assertNotIn(bad, manifest.delivered(m))
+        self.assertTrue(discovery.inside(".claude/rules/r.md")); self.assertTrue(discovery.inside("a..b/c.md"))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            write(repo / discovery.MANIFEST, json.dumps({"templates": {"claude/settings.json": {"version": "1.0.0", "target": "../settings.json", "owner": "seam"}}}))
+            write(repo / ".context/templates/setup/claude/settings.json", "{}")
+            with self.assertRaisesRegex(GateFault, "outside the project"):
+                discovery.seams_upgrade(repo, {})
+
+    def test_parity_holds_the_owner_rules_in_the_framework_repo(self):
+        """The member, not only the function: an entry without its owner turns manifest-parity red in the framework repo."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            write(repo / "config/coherence-context.json", json.dumps({"context": "meta", "audit": {"manifest_paths": {"primary": manifest.DELIVERED}}}))
+            for f, t in OWN_SRC.items():
+                write(repo / f, t)
+            write(repo / manifest.DELIVERED, json.dumps(self._m()))
+            self.assertEqual(coherence.manifest_parity(repo)[0], [])
+            write(repo / manifest.DELIVERED, json.dumps(self._m(lambda m: m["templates"]["rules/r.md"].pop("owner"))))
+            self.assertTrue(any("owner None" in f["reason"] for f in coherence.manifest_parity(repo)[0]))
+
+    def test_owners_row_owed_then_not(self):
+        """The shipped row's detect pointer: owed before the owners anchor, not after (else it is owed on every upgrade)."""
+        reg = Path(__file__).resolve().parents[2] / ".context/templates/setup/setup/discovery_registry.json"
+        if not reg.is_file():
+            self.skipTest("no registry")
+        row = next(r for r in json.loads(reg.read_text(encoding="utf-8"))["migrations"] if r.get("id") == "owners (EVOL-136)")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {}}))
+            self.assertFalse(discovery._detected(repo, row["detect"]))
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {}, "governance_features": {"owners_v1": True}}))
+            self.assertTrue(discovery._detected(repo, row["detect"]))
 
     def test_new_entry_copies_the_sibling_owner(self):
         self.assertEqual(manifest._sibling_fields(self._m(), "templates", "rules/q.md").get("owner"), "project")
@@ -5951,6 +5994,26 @@ class Seams(unittest.TestCase):
             write(repo / ".claude/settings.json", json.dumps(m))
             again = discovery.seams_upgrade(repo, {"TOOL_CMD": "go test", "GOV": "src/**"})[".claude/settings.json"]
             self.assertEqual((again["added"], again["replaced"], again["merged"]), ([], [], m), "a second run is a no-op")
+
+    def test_one_script_under_two_matchers(self):
+        """A script the template wires under two matchers lands under both; one already under the template's matcher is never doubled."""
+        tpl = {"hooks": {"PreToolUse": [{"matcher": "Edit|Write", "hooks": [{"type": "command", "command": SEAM_HOOK + "bash .claude/hooks/check-branch-protection.sh"},
+                                                                            {"type": "command", "command": SEAM_HOOK + "bash .claude/hooks/check-completion-gate.sh"}]},
+                                        {"matcher": "Bash", "hooks": [{"type": "command", "command": SEAM_HOOK + "bash .claude/hooks/check-branch-protection.sh"}]}]}}
+        mine = {"hooks": {"PreToolUse": [{"matcher": "Edit|Write", "hooks": [{"type": "command", "command": SEAM_HOOK + "bash .claude/hooks/check-branch-protection.sh"},
+                                                                             {"type": "command", "command": SEAM_HOOK + "bash .claude/hooks/check-completion-gate.sh"}]},
+                                         {"matcher": "Write", "hooks": [{"type": "command", "command": SEAM_HOOK + "bash .claude/hooks/check-completion-gate.sh"}]},
+                                         {"matcher": "Notebook", "hooks": []}]}}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, settings=mine)
+            write(repo / ".context/templates/setup/claude/settings.json", json.dumps(tpl))
+            r = discovery.seams_upgrade(repo, {})[".claude/settings.json"]
+            pre = {e.get("matcher"): [h["command"].split()[-1] for h in e["hooks"]] for e in r["merged"]["hooks"]["PreToolUse"]}
+            self.assertEqual(pre["Bash"], [".claude/hooks/check-branch-protection.sh"], "the shell-write guard lands under Bash too")
+            self.assertEqual(pre["Edit|Write"], [".claude/hooks/check-branch-protection.sh", ".claude/hooks/check-completion-gate.sh"], "never doubled")
+            self.assertNotIn("Write", pre, "the superseded copy removed, its empty entry dropped")
+            self.assertEqual(pre["Notebook"], [], "a project's own entry is kept, empty or not")
+            self.assertEqual(r["added"], ["/hooks/PreToolUse/.claude/hooks/check-branch-protection.sh"])
 
     def test_quality_add_only_with_resolved_tokens(self):
         with tempfile.TemporaryDirectory() as tmp:

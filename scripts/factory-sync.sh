@@ -219,7 +219,7 @@ fi
 
 echo -e "${BOLD}[1/3] Delivered files (governance_versions.json — sync and tree channels)${NC}"
 QUERY_FAILED=0
-PLAN=$(python3 - "$FRAMEWORK_ROOT" <<'PY'
+PLAN=$(python3 -I - "$FRAMEWORK_ROOT" <<'PY'
 import json, sys
 from pathlib import Path
 root = Path(sys.argv[1]); sys.path.insert(0, str(root / "scripts"))
@@ -248,16 +248,22 @@ elif $DRY_RUN; then
   echo -e "  ${CYAN}would record $MANIFEST_REL${NC}"
 else
   mkdir -p "$TARGET_PROJECT/$(dirname "$MANIFEST_REL")"
-  python3 - "$FRAMEWORK_ROOT" "$TARGET_PROJECT/$MANIFEST_REL" <<'PY' || { echo -e "  ${RED}✗ the delivered manifest could not be written${NC}"; ERRORS=$((ERRORS + 1)); }
-import json, os, sys, tempfile
+  python3 -I - "$FRAMEWORK_ROOT" "$TARGET_PROJECT/$MANIFEST_REL" <<'PY' || { echo -e "  ${RED}✗ the delivered manifest could not be written${NC}"; ERRORS=$((ERRORS + 1)); }
+import json, os, shutil, sys, tempfile
 from pathlib import Path
 root, out = Path(sys.argv[1]), Path(sys.argv[2]); sys.path.insert(0, str(root / "scripts"))
 from gates import manifest
 m = json.loads((root / manifest.DELIVERED).read_text(encoding="utf-8"))
 fd, tmp = tempfile.mkstemp(dir=out.parent)
-with os.fdopen(fd, "w", encoding="utf-8") as f:
-    f.write(json.dumps(manifest.record(m, root), indent=2, ensure_ascii=False) + "\n")
-os.replace(tmp, out)
+try:
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(json.dumps(manifest.record(m, root), indent=2, ensure_ascii=False) + "\n")
+    if out.exists():
+        shutil.copymode(out, tmp)   # mkstemp is 0600: the manifest keeps the mode it had
+    os.replace(tmp, out)
+finally:
+    if os.path.exists(tmp):
+        os.unlink(tmp)
 PY
   echo -e "  ${GREEN}✓${NC}  $MANIFEST_REL"
 fi
@@ -265,7 +271,7 @@ echo ""
 
 echo -e "${BOLD}[3/3] Orphans (delivered before, no longer delivered)${NC}"
 if [[ -n "$PREV_MANIFEST" ]] && [[ "$QUERY_FAILED" -eq 0 ]]; then
-  ORPHANS=$(python3 - "$FRAMEWORK_ROOT" "$PREV_MANIFEST" "$TARGET_PROJECT" <<'PY'
+  ORPHANS=$(python3 -I - "$FRAMEWORK_ROOT" "$PREV_MANIFEST" "$TARGET_PROJECT" <<'PY'
 import json, sys
 from pathlib import Path
 root, prev, target = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]); sys.path.insert(0, str(root / "scripts"))
@@ -285,7 +291,7 @@ PY
   rm -f "$PREV_MANIFEST"
   while IFS= read -r o; do
     [[ -z "$o" ]] && continue
-    echo -e "  ${RED}!${NC}  $o ${YELLOW}(delivered before, no longer delivered — rename or removal: review and delete by hand)${NC}"
+    printf '  %b!%b  %s %b(delivered before, no longer delivered — rename or removal: review and delete by hand)%b\n' "$RED" "$NC" "$o" "$YELLOW" "$NC"
     DELETED=$((DELETED + 1))
   done <<< "$ORPHANS"
 else

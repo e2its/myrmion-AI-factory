@@ -588,7 +588,7 @@ sed -i '/^x_drift: /d; 0,/^version: 9.9.9/s//version: '"$(cd "$P" && python3 -c 
 # EVOL-136: one owner per delivered file — an aged project with its own work and one framework edit: parity names the
 # framework edit; sync + the owners and seams anchors restore what the framework owns, keep what the project owns, add the
 # seams' missing keys; a second run changes nothing; --preserve-local is retired
-Q="$SCRATCH/h136"; cp -a "$P" "$Q"; cp "$Q/.claude/skills/factory-rdr/SKILL.md" "$Q.skill"
+Q="$SCRATCH/h136"; cp -a "$P" "$Q"; cp "$Q/.claude/skills/factory-rdr/SKILL.md" "$Q.skill"; cp "$Q/scripts/view-worklog.sh" "$Q.landed"
 python3 - "$Q" <<'PY'
 import json, pathlib, sys
 q = pathlib.Path(sys.argv[1])
@@ -602,15 +602,16 @@ sj.setdefault("permissions", {}).setdefault("allow", []).append("Bash(make test)
 (q / "CLAUDE.md").write_text((q / "CLAUDE.md").read_text() + "\n## Project notes\n")
 (q / ".claude/commands/mine.md").write_text("# our own command\n")
 (q / ".claude/skills/factory-rdr/SKILL.md").write_text((q / ".claude/skills/factory-rdr/SKILL.md").read_text() + "\nlocal edit\n")
+(q / "scripts/view-worklog.sh").write_text((q / "scripts/view-worklog.sh").read_text() + "\n# local edit\n")
 PY
 cp "$Q/.claude/rules/architecture.md" "$Q.arch"; cp "$Q/CLAUDE.md" "$Q.claude"
 OUT=$(cd "$Q" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q '.claude/skills/factory-rdr/SKILL.md' && printf '%s' "$OUT" | grep -q 'migration owners (EVOL-136)' \
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q '.claude/skills/factory-rdr/SKILL.md' && printf '%s' "$OUT" | grep -q 'scripts/view-worklog.sh' && printf '%s' "$OUT" | grep -q 'migration owners (EVOL-136)' \
   && ! printf '%s' "$OUT" | grep -q 'architecture.md\|CLAUDE.md\|mine.md' \
   && ok "RED: parity names the framework file the project edited and the owners it owes — never the project's own files (EVOL-136)" || bad "the drift of a framework file not named (rc=$RC)" "$OUT"
 python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$Q.mig.sh" <<'PY'
 import re, sys; s = open(sys.argv[1], encoding="utf-8").read()
-for mark in ("**owners (EVOL-136).**", "7. **Seams (EVOL-136), every upgrade.**"):
+for mark in ("**owners (EVOL-136).**", "7. **Seams (EVOL-136), every upgrade.**", "3. **seam.** Step 8b.7."):
     print(re.search(r"```bash\n(.*?)```", s[s.index(mark):], re.S).group(1))
 PY
 up136() { bash "$ROOT/scripts/factory-sync.sh" "$Q" --force 2>&1 && (cd "$Q" && bash "$Q.mig.sh") 2>&1; }
@@ -623,6 +624,7 @@ import json, pathlib, sys
 q = pathlib.Path(sys.argv[1])
 bad = []
 if (q / ".claude/skills/factory-rdr/SKILL.md").read_bytes() != pathlib.Path(sys.argv[1] + ".skill").read_bytes(): bad.append("the framework skill is not restored")
+if (q / "scripts/view-worklog.sh").read_bytes() != pathlib.Path(sys.argv[1] + ".landed").read_bytes(): bad.append("the framework file SETUP landed is not refreshed")
 cfg = json.loads((q / "config/quality.json").read_text())
 if cfg.get("x_project_key") != {"mine": 1}: bad.append("the project's own quality key is lost")
 if not isinstance(cfg["budgets"].get("notebook_reinject"), int): bad.append("the seam key the template carries is not added")
@@ -637,13 +639,13 @@ PY
 )
 [ "$RC1" -eq 0 ] && [ "$RC" -eq 0 ] && [ -z "$CHK" ] && [ "$SUM1" = "$SUM2" ] && cmp -s "$Q/.claude/rules/architecture.md" "$Q.arch" && cmp -s "$Q/CLAUDE.md" "$Q.claude" \
   && ! printf '%s' "$SYNC1" | grep -q 'mine.md' \
-  && ok "sync + the owners and seams anchors: the framework's file restored, the project's rule, CLAUDE.md, command, permission and key kept, the seams' missing key and hook added, owners stamped, parity green, a second run changes nothing (EVOL-136)" \
+  && ok "sync + the owners, seams and refresh anchors: the framework's files restored, the project's rule, CLAUDE.md, command, permission and key kept, the seams' missing key and hook added, owners stamped, parity green, a second run changes nothing (EVOL-136)" \
   || bad "the upgrade by owner (sync rc=$RC1, parity rc=$RC, idempotent=$([ "$SUM1" = "$SUM2" ] && echo y || echo n))" "$CHK
 $OUT
 $(printf '%s' "$SYNC1" | tail -8)"
 OUT=$(bash "$ROOT/scripts/factory-sync.sh" "$Q" --preserve-local --force 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'retired' && ok "--preserve-local is retired: refused with its reason (EVOL-136)" || bad "--preserve-local still accepted (rc=$RC)" "$OUT"
-rm -rf "$Q" "$Q.arch" "$Q.claude" "$Q.mig.sh" "$Q.skill"
+rm -rf "$Q" "$Q.arch" "$Q.claude" "$Q.mig.sh" "$Q.skill" "$Q.landed"
 # EVOL-118: the manifest carries current state only — a reintroduced history key is red, named by its path; removed, green again
 if grep -rlq '^changelog:' "$P/.claude/rules"; then bad "a materialised rule carries a frontmatter changelog (EVOL-118)" "$(grep -rl '^changelog:' "$P/.claude/rules")"; else ok "no materialised rule carries a frontmatter changelog (EVOL-118)"; fi
 cp "$P/docs/project_log/governance_versions.json" "$P/manifest.keep"

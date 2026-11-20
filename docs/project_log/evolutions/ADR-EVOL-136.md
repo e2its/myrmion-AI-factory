@@ -42,10 +42,12 @@ This ADR plans issue #247 (epic #112, wave 5, destination S), follow-up F1 of sp
 3. **One reader of the delivered set.**
    - `manifest.delivered()` maps each landed path to its source, owner and entry, preferring the template variant as sync does today.
    - `factory-sync.sh`, the synthetic materialisation and the SAST pack test read it.
+   - A landed path is relative and has no `..` (`discovery.inside`, the one containment check). One outside the project is never delivered, never merged (`seams_upgrade` refuses it) and red in the owner rules.
 4. **Sync delivers framework-owned files wholesale and records what it delivered.**
    - It writes each delivered source's `sha256` into the project's copy of the delivered manifest: one writer, no hash in the framework manifest.
    - Orphans are framework-owned paths the previous delivered manifest named and the new one does not. They are reported, never deleted.
    - `--preserve-local` retires (`retired_terms`, CLAUDE.md §4): `--dry-run` and the drift check cover its intent.
+   - Sync exits non-zero when a delivered source is missing or the record cannot be written; before, it always exited 0.
 5. **Project-owned files are written only by listed rows or answers.**
    - Upgrade lists `templates_to_refresh` (framework-owned, differing from delivery, copied by script) and `templates_moved` (project-owned, moved since the snapshot, reported "not written").
    - No generic merge runs. It would re-add sections a project deleted, and #247 rules out a project value changed by an upgrade.
@@ -55,7 +57,7 @@ This ADR plans issue #247 (epic #112, wave 5, destination S), follow-up F1 of sp
    - `discovery.seams_upgrade()` returns, per seam, the merged document and the `added`, `replaced` and `unresolved` keys.
    - **`settings.json`:**
      - an absent key or hook event is added whole;
-     - a framework hook, keyed by its event and the script it runs, is added when the event wires that script nowhere;
+     - a framework hook is known by its event, its matcher and the script it runs: it is added under the template's matcher when that matcher does not run it (one script may guard several matchers — the shell-write guards run under both `Edit|Write` and `Bash`);
      - only declared superseded literals are replaced: the bare command form and the #171 matcher.
    - **`quality.json`:**
      - an absent key path gets the template value with its placeholders resolved;
@@ -69,7 +71,7 @@ This ADR plans issue #247 (epic #112, wave 5, destination S), follow-up F1 of sp
    - a snapshot entry has no owner, naming the migration;
    - a stamped owner differs from the delivered one, naming the row that moves it.
 
-   `subproducts/**` stay neutral in every gate. In the framework repo the check is n/a: the sources are the delivery.
+   `subproducts/**` stay neutral in every gate. In the framework repo the check is n/a: the sources are the delivery. The drift check runs where the delivered manifest lives: the project's working copy, at commit and push. A project's CI clone carries no `.context/` (the materialised `.gitignore` excludes it), so there it is n/a — the push gate is its control point.
 
    In a project, parity and `manifest --bump` read the landed target, never the template source copy beside it. Sync has always delivered that copy, and the old order compared it first. A project's own drift was then invisible, and a bump moved the copy. The drift check now holds the copy.
 8. **Validation in the framework repo** (`manifest-parity`). Red when:
@@ -77,7 +79,8 @@ This ADR plans issue #247 (epic #112, wave 5, destination S), follow-up F1 of sp
    - an owner is outside the closed list;
    - a framework entry is not `universal` or carries `target_mode: merge`;
    - a seam's target is not JSON;
-   - a project entry is delivered by sync;
+   - a project or seam entry is delivered by sync;
+   - a landed path is absolute or climbs out with `..`;
    - one landed path has two owners.
 
    `gate.py manifest --new` copies the owner from its sibling.
@@ -89,12 +92,13 @@ This ADR plans issue #247 (epic #112, wave 5, destination S), follow-up F1 of sp
 ## Consequences
 
 - `Factory-setup-upgrade` replaces the Step 2 merge, the Script Semantic Merge and the Step 3 `CLAUDE.md` / `settings.json` prose with the owner table. It also rewrites the contradictory section table.
-- `upgrade_safety_protocol.md`, `/setup`, `factory-codebase-inventory`, `Factory-setup-materialization`, `README.md`, `gate.py` help and the meta `config/coherence-context.json` say the same. `--preserve-local` joins `retired_terms`. `rules/branching.md` needs no change: its «manifest parity» member is the one that grows.
+- `upgrade_safety_protocol.md`, `/setup`, `factory-codebase-inventory`, `Factory-setup-materialization`, `README.md`, `gate.py` help, the meta `config/coherence-context.json` and the meta `CLAUDE.md` intro say the same. `--preserve-local` joins `retired_terms`. `rules/branching.md` needs no change: its «manifest parity» member is the one that grows.
 - **Honest limits.**
   - The first sync after this ships reports no orphans: older delivered manifests carry no hashes.
   - Until #248 ships, a project receives no `CLAUDE.md` template change.
   - A forgotten row means a framework change never reaches a project-owned file. The report shows it; no gate forces it.
 - **Upgrade.** Next sync and `SETUP --upgrade`: the row stamps owners; the seams merge.
+- **Version kind.** MINOR (10.14.0). Retiring a flag with its replacement in place is a MINOR in this framework (EVOL-114 retired `--deprecate` and `--reset` at 8.14.0). The release notes name the downstream effects: `--preserve-local` exits 1, sync exits non-zero on an error, and a local edit of a framework-owned file is red until moved into a project-owned file.
 
 ## Verification
 
