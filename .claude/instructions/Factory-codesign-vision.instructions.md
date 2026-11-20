@@ -181,7 +181,6 @@ IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-comman
 ```
 
 **Branch:** Creates `feature/UX-VISION-global-app-design`
-**Lock:** `.context/locks/ux-vision.lock` (project-scoped)
 
 ### Prerequisites
 - `docs/setup.md` with `phase: COMPLETED`

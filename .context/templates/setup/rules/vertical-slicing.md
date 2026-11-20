@@ -6,7 +6,7 @@ applicable_when:
     - "docs/spec/**/slice_map.md"
     - "docs/spec/**/increment_plan.md"
     - "docs/spec/**/dev_plan.md"
-version: 1.2.0
+version: 1.2.1
 date: 2026-10-07
 ---
 
@@ -26,7 +26,7 @@ Every feature ships as a chain of **vertical increments**. One PR per increment.
 
 **Increment lifecycle.** `DRAFT → READY → BUILDING → MERGED` + `→ INVALIDATED` branch from DRAFT/READY only. Transitions are monotonic — no regression. MERGED is terminal for that increment: further change to its scope requires either `CODESIGN --revise` (feature version bump) or a **Follow-up Increment** (additive, non-overlapping scenarios; no bump). See `.claude/rules/immutability_policy.md § Per-Increment Immutability`.
 
-**Branching.** `feature/{FEATURE_ID}-inc-N-{slug}` per increment, merged as independent PR. One branch open at a time per feature (concurrency lock). Merge hook stamps `Merged at:` and flips status.
+**Branching.** `feature/{FEATURE_ID}-inc-N-{slug}` per increment, merged as independent PR. One branch open at a time per feature; across clones its record is the increment's tracker In Progress state. Merge hook stamps `Merged at:` and flips status.
 
 **Trains and the surface ceiling (EVOL-045).** The reviewable unit is bounded **per pull request** by `config/quality.json → surface.ceiling_files / ceiling_lines` (SETUP Q31; keys, never digits in prose). BLUEPRINT estimates every increment's surface (paths · ~files · ~lines, ratified by RDR) and splits an over-ceiling increment into sub-increments; the per-increment branch then becomes a **train** — protected like a base branch, receiving one PR per sub-increment `feature/{FEATURE_ID}-inc-N-{slug}-sub-M` (branched from the train), closed to the base branch by one PR when every sub-increment has landed. One full verification loop and one deployment per train (none when its diff touches no `surface.runtime_surface` glob), never per sub-increment. **One diff base** for every gate, review and measurement: `python3 scripts/gate.py diff-base` (a sub-increment → its train; else the default base branch; an unrecognised name is red). The push measures the real surface — `gate.py surface`: files + lines of the diff, no exclusion list — and blocks over the ceiling unless a commit trailer `Surface-Escape: <term>` names one of the closed `surface.escapes` (extending the list is a decision record). An increment or sub-increment without an estimate is red: `gate.py train` (i), CVP Check `21` `surface_declared` (EVOL-078). See `.claude/skills/factory-branching-strategy/SKILL.md § Trains`.
 

@@ -87,8 +87,7 @@ Verdict + conditions + risk summary
 - If `technical_due.md` has `status: CANCELLED` → HARD BLOCK. No modifications allowed.
 
 ### Concurrency Prevention
-- Uses **global** lock: `.context/locks/audit.lock` (NOT per-feature)
-- Only one AUDIT can run at a time across the entire project
+- The session lock hook guards the AUDIT branch in this clone (`factory-branching-strategy` § SESSION LOCK).
 
 ### Required Branching
 - `--audit` CREATES branch: `feature/AUDIT-XXX-due-diligence`

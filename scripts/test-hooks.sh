@@ -19,6 +19,7 @@ HOOKS="$ROOT/.context/templates/setup/claude/hooks"
 [ -d "$HOOKS" ] || { echo "test-hooks: hooks template tree absent" >&2; exit 2; }
 command -v python3 >/dev/null || { echo "test-hooks: python3 required" >&2; exit 2; }
 command -v git >/dev/null || { echo "test-hooks: git required" >&2; exit 2; }
+command -v ps >/dev/null || { echo "test-hooks: ps required (the session lock cases)" >&2; exit 2; }
 export PYTHONDONTWRITEBYTECODE=1
 
 SANDBOX=$(mktemp -d) || exit 2
@@ -388,6 +389,60 @@ assert_block "branch locked by a live foreign PID: exit 2 on stderr" "locked by 
 kill "$SLEEPER" 2>/dev/null; wait "$SLEEPER" 2>/dev/null; SLEEPER=""
 run_hook check-concurrency-lock.sh '{"tool_name":"Edit"}'
 assert_pass "stale lock (dead PID): acquired, passes"
+# #244: the holder is the long-lived launcher (the Claude Code process), never the transient sh -c wrapper
+LOCKF="$REPO/.context/locks/feature-FEAT-001-x.lock"
+rm -f "$REPO"/.context/locks/*.lock
+# the wrapper is Claude Code's `cd … && bash …`; the trailing exit keeps it alive under any sh (no exec of the last command)
+HOLDER=$(cd "$REPO" && python3 -c '
+import os, subprocess, sys
+hook, lockf = sys.argv[1], sys.argv[2]
+run = lambda: subprocess.run(["sh", "-c", "cd . && bash \"$0\"; exit $?", hook], input=b"{\"tool_name\":\"Edit\"}", stderr=subprocess.DEVNULL).returncode
+rc1 = run()
+left = os.path.join(os.path.dirname(lockf), "fix-left-behind.lock")
+open(left, "w").write(open(lockf).read())
+rc2 = run()
+print(os.getpid(), open(lockf).readline().strip(), rc1, rc2, int(os.path.exists(left)))
+' "$HOOKS/check-concurrency-lock.sh" "$LOCKF" 2>&1)
+set -- $HOLDER
+[ "${1:-x}" = "${2:-y}" ] && [ "${3:-1}" = 0 ] && [ "${4:-1}" = 0 ] && ok "the lock holds the launcher's PID, not the wrapper's, and the same launcher refreshes it (#244)" || bad "lock holder is not the launcher (pid, holder, rc1, rc2)" "$HOLDER"
+[ "${5:-1}" = 0 ] && ok "the sweep drops the session's own lock on a branch it left (#244)" || bad "own lock on another branch kept" "$HOLDER"
+sleep 300 & SLEEPER=$!
+printf '%s\n%s\n%s\n' "$SLEEPER" "2026-01-01T00:00:00Z" "sleep" > "$LOCKF"
+run_hook check-concurrency-lock.sh '{"tool_name":"Edit"}'
+assert_block "a live holder whose name matches the lock: exit 2, the cross-clone record named (#244)" "tracker's In Progress"
+printf '%s\n%s\n%s\n' "$SLEEPER" "2026-01-01T00:00:00Z" "claude-gone" > "$LOCKF"
+run_hook check-concurrency-lock.sh '{"tool_name":"Edit"}'
+[ "$RC" -eq 0 ] && [ "$(head -1 "$LOCKF")" != "$SLEEPER" ] && ok "a live PID whose name differs from the lock's (PID reuse): reclaimed (#244)" || bad "PID-reuse lock not reclaimed (rc=$RC)" "$ERR"
+sleep 0 & DEAD=$!; wait "$DEAD" 2>/dev/null
+printf '%s\n%s\n' "$DEAD" "2026-01-01T00:00:00Z" > "$REPO/.context/locks/fix-merged-long-ago.lock"
+printf '%s\n%s\n%s\n' "$SLEEPER" "2026-01-01T00:00:00Z" "sleep" > "$REPO/.context/locks/fix-other-live.lock"
+rm -f "$LOCKF"
+run_hook check-concurrency-lock.sh '{"tool_name":"Edit"}'
+[ "$RC" -eq 0 ] && [ ! -e "$REPO/.context/locks/fix-merged-long-ago.lock" ] && [ -e "$REPO/.context/locks/fix-other-live.lock" ] && ok "the sweep removes another branch's dead lock and keeps a live one (#244)" || bad "sweep wrong (rc=$RC, dead kept: $([ -e "$REPO/.context/locks/fix-merged-long-ago.lock" ] && echo yes || echo no), live kept: $([ -e "$REPO/.context/locks/fix-other-live.lock" ] && echo yes || echo no))" "$ERR"
+printf '# not a lock this hook wrote\n' > "$REPO/.context/locks/notes.lock"
+printf '0\n2026-01-01T00:00:00Z\n' > "$REPO/.context/locks/zero.lock"
+run_hook check-concurrency-lock.sh '{"tool_name":"Edit"}'
+[ "$RC" -eq 0 ] && [ -e "$REPO/.context/locks/notes.lock" ] && [ -e "$REPO/.context/locks/zero.lock" ] && ok "the sweep leaves a file whose first line is not a PID, 0 included (#244)" || bad "sweep removed a foreign file (rc=$RC)" "$ERR"
+# no usable ps: holder $PPID, liveness by kill -0, no sweep
+NOPS="$SANDBOX/nops"; mkdir -p "$NOPS"
+for t in bash sh git tr mkdir head sed date rm cat python3 dirname; do ln -sf "$(command -v "$t")" "$NOPS/$t"; done
+printf '%s\n%s\n%s\n' "$SLEEPER" "2026-01-01T00:00:00Z" "sleep" > "$LOCKF"
+PATH="$NOPS" run_hook check-concurrency-lock.sh '{"tool_name":"Edit"}'
+assert_block "no ps: a live foreign holder still blocks through kill -0 (#244)" "locked by another session"
+rm -f "$LOCKF"; sleep 0 & DEAD=$!; wait "$DEAD" 2>/dev/null
+printf '%s\n%s\n' "$DEAD" "2026-01-01T00:00:00Z" > "$REPO/.context/locks/fix-merged-long-ago.lock"
+PATH="$NOPS" run_hook check-concurrency-lock.sh '{"tool_name":"Edit"}'
+[ "$RC" -eq 0 ] && [ -s "$LOCKF" ] && [ -e "$REPO/.context/locks/fix-merged-long-ago.lock" ] && ok "no ps: the lock is taken and nothing is swept (#244)" || bad "no-ps run wrong (rc=$RC)" "$ERR"
+kill "$SLEEPER" 2>/dev/null; wait "$SLEEPER" 2>/dev/null; SLEEPER=""
+rm -f "$REPO"/.context/locks/*.lock
+# a symlinked lock directory is never followed: nothing outside is written or removed
+OUTSIDE="$SANDBOX/outside"; mkdir -p "$OUTSIDE"
+printf '# lockfile of another tool\n' > "$OUTSIDE/Cargo.lock"
+printf '%s\n%s\n' "$DEAD" "2026-01-01T00:00:00Z" > "$OUTSIDE/fix-x.lock"
+mv "$REPO/.context/locks" "$SANDBOX/locks.real"; ln -s "$OUTSIDE" "$REPO/.context/locks"
+run_hook check-concurrency-lock.sh '{"tool_name":"Edit"}'
+[ "$RC" -eq 0 ] && [ -e "$OUTSIDE/Cargo.lock" ] && [ -e "$OUTSIDE/fix-x.lock" ] && [ ! -e "$OUTSIDE/feature-FEAT-001-x.lock" ] && ok "a symlinked lock directory: the hook steps aside, nothing outside touched (#244)" || bad "symlinked lock dir followed (rc=$RC)" "$(ls "$OUTSIDE")"
+rm "$REPO/.context/locks"; mv "$SANDBOX/locks.real" "$REPO/.context/locks"
 
 echo "── check-completion-gate ──"
 run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":"---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [ ] open task\n"}}'

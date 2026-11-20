@@ -1385,13 +1385,7 @@ FUNCTION update_codebase_inventory_on_build(FEATURE_ID):
   SAVE config/codebase_inventory.json
 ```
 
-### 3.6: Lock Cleanup
-```yaml
-DELETE .context/locks/feature-{FEATURE_ID}.lock
-LOG: "Feature lock released"
-```
-
-### 3.7: Draft PR
+### 3.6: Draft PR
 ```yaml
 EXECUTE Post-Command Commit Prompt (if files modified)
 CREATE Draft PR:
@@ -1400,7 +1394,7 @@ CREATE Draft PR:
   Status: DRAFT (during build) → Ready for Review (after build completes)
 ```
 
-### 3.8: Smart Redirect
+### 3.7: Smart Redirect
 ```yaml
 # FINAL STEP — the command-executing agent runs Smart Redirect ITSELF, inline,
 # as the last block of its output. Next steps come from artifact frontmatter

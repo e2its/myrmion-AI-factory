@@ -12,42 +12,13 @@ applicable_when:
 
 ---
 
-## 🔒 CONCURRENCY LOCK PROTOCOL (MANDATORY — ALL AGENTS)
+## 🔒 SESSION LOCK (hook — one branch, one clone)
 
-Before ANY agent command that modifies files, acquire an **exclusive lock** on that feature.
-
-**Lock scope:**
-- Feature-scoped: `.context/locks/feature-{FEATURE_ID}.lock`
-- Epic-scoped: `.context/locks/epic-{EPIC_ID}.lock` (when feature belongs to an epic)
-- Project-scoped (SETUP): `.setup.lock`
-- Project-scoped (CODESIGN --vision): `.context/locks/ux-vision.lock`
-- Global (AUDIT): `.context/locks/audit.lock`
-- Environment-scoped (DEVOPS): `.context/locks/env-{ENV}.lock`
-
-**Lock lifecycle:**
-```yaml
-acquire_lock(FEATURE_ID, epic_id=NULL):
-  IF epic_id IS NOT NULL:
-    lockfile = ".context/locks/epic-{epic_id}.lock"
-  ELSE:
-    lockfile = ".context/locks/feature-{FEATURE_ID}.lock"
-  IF EXISTS(lockfile):
-    ❌ BLOCK: "🛑 CONCURRENCY DETECTED — Lock active since {timestamp}. Wait, delete if orphaned, or verify."
-    STOP
-  ELSE:
-    WRITE lockfile: { feature_id, agent, command, timestamp, pid, branch }
-    ✅ Proceed
-
-release_lock(FEATURE_ID, epic_id=NULL):
-  DELETE lockfile (idempotent)
-```
-
-**Rules:**
-1. ALWAYS acquire lock BEFORE any file modification
-2. ALWAYS release lock AFTER command completes (success or error)
-3. Same feature_id = same lock, regardless of which agent
-4. NEVER skip lock acquisition, hold across pauses, or leave orphans
-5. If lock timestamp > 24 hours AND same user → auto-remove with warning
+`.claude/hooks/check-concurrency-lock.sh` (PreToolUse, every write) is the only lock. Agents acquire and release nothing by hand.
+- **Guards:** one branch in one clone, held by one Claude Code session. The hook writes `.context/locks/{branch}.lock`: the session process's PID, the time and the process name.
+- **Blocks:** another live session writing on the same branch in the same clone (exit 2).
+- **Reclaims:** a holder that is gone, or a PID now running another program, is stale and is overwritten. Every write also sweeps the other branches' stale locks and this session's own locks on branches it left (no sweep when `ps` is unusable).
+- **Does not guard:** other clones or machines. There, a feature's owner is its tracker's In Progress state (`gate.py tracker --start`). With tracker `none`, no record exists across clones; the person coordinates.
 
 ---
 
@@ -350,15 +321,11 @@ BRANCH NAMING (incremental):
   Parent: main (direct) — NOT a feature/{FEATURE_ID}-* umbrella branch
   Regex:  ^feature/[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*-inc-[0-9]+-[a-z0-9-]+$   # canonical: python3 scripts/gate.py branch-class
 
-CONCURRENCY (reuse of existing LOCK PROTOCOL):
-  # Only ONE increment branch per feature may be open simultaneously. This
-  # preserves the existing concurrency contract (one feature-lock per feature)
-  # while allowing the increments to ship serially. Opening a second branch
-  # while a prior increment branch is unmerged BLOCKS with:
-  #   "Increment {inc.id} branch already open. Merge it before
-  #    starting the next increment."
-  # Enforced via the same filesystem lock mechanism documented in § CONCURRENCY
-  # LOCK PROTOCOL — key is feature-level, not increment-level.
+CONCURRENCY:
+  # Only ONE increment branch per feature may be open at a time; the next one
+  # starts after the current one merges. Its record across clones is the
+  # increment's tracker In Progress state; the session lock (§ SESSION LOCK)
+  # guards only one branch in one clone.
 
 BRANCH OPEN TRIGGER (READY → BUILDING):
   # IMPLEMENT begins work on the increment whose depends_on predecessors are all

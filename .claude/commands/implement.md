@@ -89,7 +89,7 @@ All under `docs/spec/{ID}/`:
 
 IMPLEMENT is **strategy-aware**. The entry point reads `spec.feature.slicing_strategy`:
 
-- `incremental` (default): `--plan` emits `dev_plan.md` with one `## Increment INC-N` section per entry in `increment_plan.md`. Task tags follow `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` + `[INC-N.ACC.k]` for acceptance. `--build {ID} INC-N` executes one increment at a time; branch per increment is `feature/{FEATURE_ID}-inc-N-{slug}` (one open branch per feature, concurrency lock reused). The plan-level `IMPLEMENTED_AND_VERIFIED` only fires when every target increment closes; individual increments transition through `DRAFT → READY → BUILDING → MERGED` monotonically. MERGED is terminal for that increment — further scope change goes into a Follow-up Increment.
+- `incremental` (default): `--plan` emits `dev_plan.md` with one `## Increment INC-N` section per entry in `increment_plan.md`. Task tags follow `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` + `[INC-N.ACC.k]` for acceptance. `--build {ID} INC-N` executes one increment at a time; branch per increment is `feature/{FEATURE_ID}-inc-N-{slug}` (one open branch per feature; across clones its record is the tracker's In Progress state). The plan-level `IMPLEMENTED_AND_VERIFIED` only fires when every target increment closes; individual increments transition through `DRAFT → READY → BUILDING → MERGED` monotonically. MERGED is terminal for that increment — further scope change goes into a Follow-up Increment.
 - `monolithic` (Trivial-Heuristic escape, rare): legacy `[A.M]` / `[B.M]` / `[C.M]` task tagging, single feature branch `feature/{FEATURE_ID}-{slug}`, one PR.
 
 **Increment Plan Gate** at `--plan`: BLOCK if `increment_plan.md` status ≠ APPROVED. `--refine` respects per-increment lifecycle — only `DRAFT` / `READY` may be invalidated by cascade; `MERGED` anchors production and cascades to a Follow-up Increment instead.
@@ -118,5 +118,5 @@ See `.claude/instructions/Factory-implement-review-checks.instructions.md` for t
 
 ## Pre-Command Protocol (MANDATORY)
 - **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
-- This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking
+- This ensures correct branch checkout, cross-branch mismatch detection, and dependency checks (the session lock hook guards the branch in this clone)
 - **Tracker (EVOL-079):** after Step -1, before the first artefact write, `--plan` / `--build` / `--refine` / `--fix {ID}` run `python3 scripts/gate.py tracker --start --feature {ID} --phase implement` — the item to the in-progress column of `tracker.flow`. Red stops the command: new work on a Done item goes to its refinement item (`[{ID}] IMPLEMENT-R<k>:`, `--item`), or a ratified realignment passes `--aligns AC-{ID}-<N>`.

@@ -419,8 +419,6 @@ FUNCTION execute_governance_bound_operation(user_request):
     IF feature_id: Execute Auto-Branch Checkout Protocol
     ELSE: ❌ BLOCK "Protected branch (base branch or a train with declared sub-increments)" with options (specify feature, checkout branch, create new)
 
-  IF feature_id: acquire_feature_lock(feature_id)
-
   governance_loaded = FALSE
   IF FILE_EXISTS("docs/constitution.md"):
     Load constitution + applicable rules
@@ -450,7 +448,6 @@ FUNCTION execute_governance_bound_operation(user_request):
   # PHASE 3: POST-CHANGE GOVERNANCE
   # 3a: Worklog Entry (APPEND_TO_WORKLOG with phase: "Ad-Hoc", user_agent: "USER")
   # 3b: Commit Prompt (POST-COMMAND COMMIT PROMPT)
-  # 3c: Release Concurrency Lock
 ```
 
 ---

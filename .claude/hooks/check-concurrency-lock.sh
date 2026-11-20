@@ -3,15 +3,23 @@
 # ============================================================================
 # check-concurrency-lock.sh — PreToolUse hook: acquire per-branch session lock
 # ============================================================================
-# Prevents two concurrent Claude Code sessions from editing the same branch.
+# Prevents two concurrent Claude Code sessions from editing the same branch IN THIS CLONE.
+# Other clones and machines are not covered: there, a feature's owner is its tracker's
+# In Progress state (gate.py tracker --start). factory-branching-strategy § SESSION LOCK.
 # Lock file: .context/locks/{branch}.lock
-# Lock content: {PID}\n{timestamp}
+# Lock content: {PID}\n{timestamp}\n{process name}
 #
 # Behavior:
-#   - If no lock exists: create it with current PPID, allow tool execution.
-#   - If lock exists with same PID (or dead process): overwrite, allow.
-#   - If lock exists with different live PID: block (exit 2, message on stderr — the
-#     Claude Code blocking contract; exit 1 would not block. EVOL-043 hook audit).
+#   - Holder = the Claude Code process: the first ancestor that is not a shell wrapper
+#     (the hook runs under a transient `sh -c`, whose PID dies on return — #244).
+#   - A lock is stale when its PID is gone or now runs another program (name ≠ line 3).
+#   - No lock, own lock or stale lock: write it, allow.
+#   - Live foreign holder: block (exit 2, message on stderr — the Claude Code blocking
+#     contract; exit 1 would not block. EVOL-043 hook audit).
+#   - After acquiring: the sweep removes this session's locks on other branches and every
+#     stale lock; a file whose first line is not a PID (digits, no leading zero) is not this hook's and stays.
+#   - A symlinked .context, lock directory or lock file is never followed: the hook steps aside.
+#   - No usable `ps`: holder = $PPID, liveness by `kill -0`, no sweep (the pre-#244 behaviour).
 # ============================================================================
 
 set -euo pipefail
@@ -40,33 +48,75 @@ SAFE_BRANCH=$(echo "$BRANCH" | tr '/' '-' | tr -cd '[:alnum:]-_.')
 LOCK_DIR="$REPO_ROOT/.context/locks"
 LOCK_FILE="$LOCK_DIR/${SAFE_BRANCH}.lock"
 
+if [ -L "$REPO_ROOT/.context" ] || [ -L "$LOCK_DIR" ] || [ -L "$LOCK_FILE" ]; then
+  exit 0
+fi
 mkdir -p "$LOCK_DIR"
 
-# Session identifier: parent PID of this hook process (= the Claude Code process)
+# lock_field <lockfile> <n> → line n of the lock's first 512 bytes
+lock_field() { { head -c 512 "$1" 2>/dev/null || true; } | sed -n "${2}p"; }
+# proc_name <pid> → the process's command name (basename), empty when the PID is gone
+proc_name() { { ps -p "$1" -o comm= 2>/dev/null || true; } | sed 's|.*/||; s/^[[:space:]]*//; s/[[:space:]]*$//'; }
+PS_OK=0
+[ -n "$(proc_name $$)" ] && PS_OK=1
+# holder_alive <lockfile> → 0 when its holder is live and still the program it recorded
+holder_alive() {
+  local pid name live
+  pid=$(lock_field "$1" 1); name=$(lock_field "$1" 3)
+  case "$pid" in ''|0*|*[!0-9]*) return 1 ;; esac
+  if [ "$PS_OK" -eq 0 ]; then kill -0 "$pid" 2>/dev/null; return; fi
+  live=$(proc_name "$pid")
+  [ -n "$live" ] || return 1
+  [ -z "$name" ] || [ "$name" = "$live" ]
+}
+
+# Session holder: walk up past shell wrappers to the Claude Code process (at most 6 hops)
 SESSION_PID=${PPID:-$$}
+P=$SESSION_PID
+for _ in 1 2 3 4 5 6; do
+  [ "$PS_OK" -eq 1 ] || break
+  NAME=$(proc_name "$P")
+  case "$NAME" in
+    '') break ;;
+    sh|bash|dash|zsh|ksh|fish|env|timeout|nohup|-sh|-bash|-zsh) ;;
+    *) SESSION_PID=$P; break ;;
+  esac
+  PARENT=$({ ps -p "$P" -o ppid= 2>/dev/null || true; } | tr -d '[:space:]')
+  case "$PARENT" in ''|0|1|*[!0-9]*) break ;; esac
+  P=$PARENT
+done
+SESSION_NAME=$(proc_name "$SESSION_PID")
 
 if [ -f "$LOCK_FILE" ]; then
-  LOCK_PID=$(head -1 "$LOCK_FILE" 2>/dev/null || echo '')
-
-  # Check if the locking process is still alive
-  if [ -n "$LOCK_PID" ] && [ "$LOCK_PID" != "$SESSION_PID" ]; then
-    if kill -0 "$LOCK_PID" 2>/dev/null; then
-      LOCK_TIME=$(tail -1 "$LOCK_FILE" 2>/dev/null || echo 'unknown')
-      {
-        echo "BLOCKED: Branch '$BRANCH' is locked by another session (PID $LOCK_PID, since $LOCK_TIME)."
-        echo "  If that session is no longer active, remove the lock:"
-        echo "    rm '$LOCK_FILE'"
-      } >&2
-      exit 2
-    fi
-    # Process is dead — stale lock, fall through to overwrite
+  LOCK_PID=$(lock_field "$LOCK_FILE" 1)
+  if [ -n "$LOCK_PID" ] && [ "$LOCK_PID" != "$SESSION_PID" ] && holder_alive "$LOCK_FILE"; then
+    LOCK_TIME=$(lock_field "$LOCK_FILE" 2)
+    case "$LOCK_TIME" in ''|*[!0-9TZ:-]*) LOCK_TIME=unknown ;; esac
+    {
+      echo "BLOCKED: Branch '$BRANCH' is locked by another session (PID $LOCK_PID, since $LOCK_TIME)."
+      echo "  If that session is no longer active, remove the lock:"
+      echo "    rm '$LOCK_FILE'"
+      echo "  This lock covers this clone only; across clones the feature's owner is its tracker's In Progress state."
+    } >&2
+    exit 2
   fi
+  # Own, gone or reused holder — fall through to overwrite
 fi
 
 # Acquire or refresh lock
-if ! printf '%s\n%s\n' "$SESSION_PID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LOCK_FILE"; then
+if ! printf '%s\n%s\n%s\n' "$SESSION_PID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$SESSION_NAME" > "$LOCK_FILE"; then
   echo "BLOCKED: Failed to acquire lock at '$LOCK_FILE' (permission error or disk full)." >&2
   exit 2
+fi
+
+# Sweep: this session's locks on other branches and every stale lock go; anything else stays
+if [ "$PS_OK" -eq 1 ]; then
+  for f in "$LOCK_DIR"/*.lock; do
+    [ -f "$f" ] && [ ! -L "$f" ] && [ "$f" != "$LOCK_FILE" ] || continue
+    pid=$(lock_field "$f" 1)
+    case "$pid" in ''|0*|*[!0-9]*) continue ;; esac
+    if [ "$pid" = "$SESSION_PID" ] || ! holder_alive "$f"; then rm -f -- "$f" 2>/dev/null || true; fi
+  done
 fi
 
 exit 0

@@ -84,7 +84,7 @@ Conditional Scripts:
 Before ANY command, check `spec.feature` or `test_plan.md` frontmatter. If the status is terminal (`CANCELLED`, a status containing `SUPERSEDED`, or a legacy `DEPRECATED`) → BLOCK and STOP.
 
 ### Concurrency Lock
-Acquire `.context/locks/feature-{{FEATURE_ID}}.lock` before execution. Release on completion (success or error).
+The session lock hook guards the branch in this clone; nothing to acquire or release (`factory-branching-strategy` § SESSION LOCK).
 
 ### Branch Validation
 If branch `feature/{{FEATURE_ID}}-*` doesn't exist → BLOCK.
@@ -849,8 +849,6 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
     APPEND_TO_WORKLOG:
       {"timestamp":"YYYY-MM-DD","phase":"QA","user_agent":"QA","action":"--verify {{FEATURE_ID}}","result":"REJECTED","feature_id":"{{FEATURE_ID}}","observations":"qa_report generated — verdict: REJECTED — see blocking issues"}
 
-  # Release concurrency lock
-  release_feature_lock(FEATURE_ID)
   # Execute Smart Redirect Protocol
   state = compute_feature_state(FEATURE_ID)
   actions = compute_next_actions(state, FEATURE_ID)
@@ -870,7 +868,7 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
       "  - *Evidence: {blocker.evidence}*"
   ```
 - Route: bugs/regressions → `IMPLEMENT --fix` (must address all [FIX-N] items) | spec ambiguity → `CODESIGN --refine`
-- Release lock → run Smart Redirect inline as the final step (computes next steps from artifact state)
+- Run Smart Redirect inline as the final step (computes next steps from artifact state)
 - APPEND_TO_WORKLOG:
   ```json
   {"timestamp":"YYYY-MM-DD","phase":"QA","user_agent":"QA","action":"--reject {{FEATURE_ID}}","result":"REJECTED","feature_id":"{{FEATURE_ID}}","observations":"QA REJECTED — blockers: {{blocker_list}}"}
