@@ -53,6 +53,9 @@ All variables come from `docs/setup.md` frontmatter:
 - `{{SEMVER_ENABLED}}` → `semver_enabled: true`
 - `{{BACKEND_TOPOLOGY}}` → `backend_topology: Modular Monolith (Hexagonal)`
 
+### Never loaded at launch (EVOL-141)
+The shipped `.claude/settings.json` sets `claudeMdExcludes: ["**/.claude/rules/**"]`, so the harness loads no rule at session start. A rule body is read at the point of action: through its `Body:` pointer, the pre-edit delivery and the Roll-Call. The exclusion covers every file under `.claude/rules/`, `paths:` frontmatter included, and a user-level `~/.claude/rules/` too: the harness matches absolute paths. A project text that must be in context at launch lives outside `.claude/rules/` and is imported from `CLAUDE.md` with `@path`. `gate.py budget` counts it against `budgets.launch_context`.
+
 ---
 
 ## Modification Policy

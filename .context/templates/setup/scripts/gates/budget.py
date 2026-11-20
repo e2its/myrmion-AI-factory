@@ -15,6 +15,11 @@ against its worst-case input and measures what it emits. Not the file size — t
   notebook_precompact  EVOL-133: scripts/governance-oncompact.sh on a throw-away claimed notebook and a transcript with
                        every author delivered after it — the advisory for the summary
 
+  launch_context  EVOL-141: the memory files the harness loads at launch — root CLAUDE.md, .claude/CLAUDE.md, CLAUDE.local.md,
+                  their @imports (five hops, outside code, inside the project) and every .claude/rules/**/*.md with no `paths:`
+                  that claudeMdExcludes (project + local settings) does not match; the framework repo measures its templates
+                  as they land (manifest targets, the settings template's excludes)
+
   hook_output_cap  the harness cap on one hook's text (#240): every injection key above it is a RED row — over the
                    cap the harness swaps the text for a file path the model never reads
 
@@ -27,17 +32,18 @@ from __future__ import annotations
 import datetime
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 import uuid
 from pathlib import Path
 
-from .common import GateFault, any_glob, context, key
+from .common import _glob_regex, GateFault, any_glob, context, frontmatter_of, key
 from .corpus import catalog, laws, universe
 
 REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars", "hook_output_cap",
-            "notebook_reinject", "notebook_precompact")
+            "notebook_reinject", "notebook_precompact", "launch_context")
 MUST_EMIT = ("session_start", "prompt_submit", "pre_edit", "notebook_reinject", "notebook_precompact")   # an empty emission from these is a dead producer, never "within budget"
 
 
@@ -176,7 +182,104 @@ def measure(repo: Path) -> dict:
         if r["fault"] is None:
             r["ok"] = True
             r["warn"] = r["bytes"] is not None and r["bytes"] > r["budget"]
+    nbytes, where = launch_context(repo)
+    row("launch_context", nbytes, f"memory files loaded at launch ({where})")
     return rows
+
+
+LAUNCH_ROOTS = ("CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md")
+IMPORT_HOPS = 5                                     # the harness follows @imports to five hops
+_FENCE = re.compile(r"^\s*(```|~~~)")
+_IMPORT = re.compile(r"(?<![\w`@])@((?:[\w.~-]+/)*[\w.-]+)")
+
+
+def launch_context(repo: Path) -> tuple[int | None, str]:
+    """EVOL-141: bytes of the memory files the harness loads at launch, and where they were read. A project reads its
+    files on disk; the framework repo reads the templates at the paths they land on (the manifest's targets)."""
+    root = repo.resolve()
+    if context(repo) == "meta":
+        from .discovery import inside, load_manifest
+        tpl = ".context/templates/setup/"
+        try:
+            entries = load_manifest(repo).get("templates") or {}
+        except GateFault as e:
+            return None, f"n/a — {e}"
+        files = {e["target"]: repo / (tpl + k) for k, e in entries.items()
+                 if isinstance(e, dict) and inside(k) and inside(e.get("target"))}
+        where = "the templates as they land"
+    else:
+        files, where = None, "the project's files"
+
+    def raw(rel: str) -> bytes | None:
+        p = files.get(rel) if files is not None else repo / rel
+        try:
+            return p.read_bytes() if p is not None and p.is_file() else None
+        except OSError:
+            return None
+
+    def body(rel: str) -> str | None:
+        b = raw(rel)
+        return None if b is None else b.decode("utf-8", errors="replace")
+
+    excludes: list[str] = []
+    for s in (".claude/settings.json", ".claude/settings.local.json"):
+        try:
+            v = json.loads(body(s) or "{}").get("claudeMdExcludes")
+        except (ValueError, AttributeError):
+            v = None
+        excludes += [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
+
+    def excluded(rel: str) -> bool:   # the harness matches every pattern against the absolute path: a relative one matches nothing
+        a = (root / rel).as_posix()
+        return any(re.fullmatch(_glob_regex(x), a) for x in excludes)
+
+    seen: set[str] = set()
+    total = 0
+
+    def load(rel: str, hops: int) -> None:
+        nonlocal total
+        if rel in seen or excluded(rel):
+            return
+        b = raw(rel)
+        if b is None:
+            return
+        seen.add(rel)
+        total += len(b)
+        text = b.decode("utf-8", errors="replace")
+        if hops >= IMPORT_HOPS:
+            return
+        fenced = False
+        for line in text.splitlines():
+            if _FENCE.match(line):
+                fenced = not fenced
+                continue
+            if fenced:
+                continue
+            for m in _IMPORT.finditer(re.sub(r"`[^`]*`", "", line)):
+                t = (root / rel).parent / m.group(1)
+                try:
+                    t = t.resolve().relative_to(root).as_posix()
+                except (ValueError, OSError, RuntimeError):
+                    continue   # outside the project, a name too long, a symlink loop: never measured here
+                load(t, hops + 1)
+
+    for r in LAUNCH_ROOTS:
+        load(r, 0)
+    rules_loaded = 0
+    rules = sorted(k for k in files if k.startswith(".claude/rules/") and k.endswith(".md")) if files is not None else \
+        sorted(p.relative_to(repo).as_posix() for p in (repo / ".claude/rules").rglob("*.md") if p.is_file())
+    for r in rules:
+        text = body(r) or ""
+        try:
+            paths = frontmatter_of(text).get("paths")
+        except Exception:   # invalid frontmatter: the harness loads the rule as if it had no paths
+            paths = None
+        if not paths and r not in seen and not excluded(r):
+            rules_loaded += 1
+            load(r, IMPORT_HOPS)
+    if rules_loaded:   # a project list without the shipped entry (an upgrade keeps a present list whole): name the cure
+        where += f"; {rules_loaded} rule bodies load at launch — claudeMdExcludes lacks \"**/.claude/rules/**\""
+    return total, where
 
 
 def _notebook_rows(repo: Path, budgets: dict, produce) -> None:
