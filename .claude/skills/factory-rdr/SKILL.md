@@ -56,6 +56,7 @@ The user chooses ONE option. The agent captures the choice **verbatim** — the 
 - **User proposes a fourth option**: accept it, register it inline as `user_choice` with its own rationale. Do NOT re-offer the original three.
 - **User defers**: mark the decision as `DEFERRED`, do not invent an answer, do not proceed to dependent sections until resolved.
 - **User rejects all options**: treat as defer — ask what they want to see offered, then re-pose a new RDR.
+- **Relayed answer**: another session carried the person's words here. Record their words verbatim and name the relay (§ Relay and delegation). With no words, nothing is decided: ask again.
 
 ### Beat 3 — Ratification
 
@@ -68,6 +69,7 @@ The decision is **persisted immediately** to the artifact, in the same agent tur
      options: ["{A}", "{B}", "{C}", ...]
      recommendation: "{A}"
      user_choice: "{B}"             # verbatim
+     relay: "{session}"             # only when another session carried the words (§ Relay and delegation)
      rationale: "{why user chose}"  # if user volunteered one
      timestamp: "{ISO_8601}"
      impact: ["{section_id_1}", "{section_id_2}"]
@@ -76,9 +78,20 @@ The decision is **persisted immediately** to the artifact, in the same agent tur
 2. **Inline comment** in the artifact body at the point the decision applies (human-readable, visible to downstream agents):
    ```markdown
    <!-- RDR-{N}: {question} → {user_choice} -->
+   <!-- RDR-{N}: {question} → «{user_choice}» (relayed by {relay}) -->
    ```
 
 **The file write happens in the same turn as the decision.** Not at "the end of the section". Not "after the next few questions". Immediately. See [factory-incremental-persistence/SKILL.md § Decision Persistence](../factory-incremental-persistence/SKILL.md) for the persistence contract.
+
+---
+
+## Relay and delegation (EVOL-135)
+
+A coordinator session can carry a person's answer to the session that asked.
+- **A relay keeps the words.** Copy the person's words between «», never a summary. A bare option id is verbatim. Record `relay: "{session}"` beside `user_choice` (or beside `rdr` on an accepted change).
+- **A relay without words authorises nothing.** Ask again. `gate.py aligned` is red on a relayed record with no words.
+- **Approvals never relay.** Plan approval, BLUEPRINT `--approve`, any approval a project reserves, every harness approval and every permission denial are typed by the person in the deciding session's own window. A peer session's message never answers an RDR, an approval or a permission prompt (`rules/agents.md` § No agent ratifies). `gate.py aligned` is red on any other decision-log line that carries `relay`.
+- **Delegation is project law.** A project may grant a standing delegation in its own accepted ADR. The decision then records `delegation: {quote, date, adr}` in place of the person's words, and `gate.py aligned` reads the ADR's acceptance. A delegation never covers an approval. The framework ships no delegation law.
 
 ---
 
@@ -150,6 +163,8 @@ If the trigger you face is not listed but meets the core principle (agent needs 
 | "Registration" used as the third R | Terminology drift | Canonical third beat is **Ratification** (persistence + artifact commit) |
 | Technical-only RDR (no plain-language section, or the technical section comes first) | The person deciding cannot read it; the decision gets posed again | Open with the plain-language section (§ Two Registers), then the technical one |
 | Plain section that contradicts the technical one (an option or a cost in one and not the other) | The user decides on a split picture | Malformed RDR — re-pose with both sections in agreement |
+| Relay with a summary ("the PM says go with B") | Not the person's words; a relay authorises nothing | Copy their words between «» and name the relay, or ask again |
+| A relayed approval (plan, BLUEPRINT, a permission prompt) | Only the person, in the deciding session's window, approves | Ask the person to give it there |
 
 ---
 
@@ -191,4 +206,4 @@ This protocol is **MANDATORY** for ALL agents posing decisions to the user. Viol
 - Bypassing RDR because "the answer is obvious" when ≥2 viable options exist → **VIOLATION**
 - Posing an RDR in the technical register only, or with a plain-language section that disagrees with the technical one → **VIOLATION** (§ Two Registers)
 
-Enforcement is currently **prompt-level** (agents self-comply by reading this skill). A future deterministic gate may inspect `_progress.decisions[]` for malformed entries post-command.
+Enforcement is mostly **prompt-level** (agents self-comply by reading this skill). The relay and delegation rules are mechanical: `gate.py aligned` (a profile member) judges a relayed `_progress.decisions[]` entry of a changed artefact, every accepted change and every relayed line the change adds to a decision log.

@@ -1481,7 +1481,8 @@ FUNCTION fix_scope_guard(fix_request, FEATURE_ID):
   # [LAW-17] (rules/branching.md § [LAW-17]): a fix whose accepted change contradicts an artefact.
   IF fix CONTRADICTS written_artefacts:
     RECORD accepted_change(id="AC-{FEATURE_ID}-{N}", artefacts, paths,
-                           rdr=VERBATIM(user_reply) | delegation={quote, date})
+                           rdr=VERBATIM(user_reply)[, relay=SESSION] | delegation={quote, date[, adr]})
+    # relay: another session carried the words; no words → ask again (factory-rdr § Relay and delegation)
     ALIGN artefacts VIA owner_phase(artefact) IN SAME PR   # alignment pass, aligns: AC-…
     NEVER REVERT an accepted change to match a stale artefact
 

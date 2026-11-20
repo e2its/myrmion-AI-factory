@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.12.0",
+  "framework_version": "10.13.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-20",
   "governance_features": {
@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.26.0",
+      "version": "2.27.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -446,7 +446,7 @@
       "target": ".claude/hooks/check-push-preflight.sh"
     },
     "claude/CLAUDE.md": {
-      "version": "4.23.0",
+      "version": "4.24.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge"
@@ -906,7 +906,7 @@
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**)."
     },
     "scripts/gate.py": {
-      "version": "2.10.0",
+      "version": "2.10.1",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language.",
@@ -948,7 +948,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.48.0",
+      "version": "1.49.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -1015,7 +1015,7 @@
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes)."
     },
     "rules/agents.md": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "content_type": "universal",
       "target": ".claude/rules/agents.md",
       "role": "The one data home of the agent class policy (tools per class, budgets, families, per-spawn resolution, ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies. Read by gate.py agents."
@@ -1255,7 +1255,7 @@
       "target": "scripts/gates/frontmatter.py"
     },
     "scripts/gates/aligned.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/aligned.py"
@@ -1645,7 +1645,7 @@
       "path": ".claude/instructions/Factory-blueprint-refine.instructions.md"
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.14.1",
+      "version": "2.15.0",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md"
     },
     "instructions/Factory-codesign-feature.instructions.md": {
@@ -1665,7 +1665,7 @@
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md"
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.33.1",
+      "version": "2.33.2",
       "path": ".claude/instructions/Factory-implement-build.instructions.md"
     },
     "instructions/Factory-implement-plan.instructions.md": {
@@ -1717,7 +1717,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.40.0",
+      "version": "14.41.0",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
@@ -1758,7 +1758,7 @@
       "path": ".claude/skills/factory-commit-prompt/SKILL.md"
     },
     "skills/factory-worklog/SKILL.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "skill",
       "role": "Worklog v2.0.0 — per-feature JSONL audit trail, action registration, phase mapping, dispatcher enforcement.",
       "path": ".claude/skills/factory-worklog/SKILL.md"
@@ -1878,7 +1878,7 @@
       "path": ".claude/skills/factory-adversarial-reasoning/SKILL.md"
     },
     "skills/factory-rdr/SKILL.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "skill",
       "role": "RDR v1.0.0 — Recommendation → Decision → Ratification canonical protocol. Single source of truth for agent-posed decisions requiring user ratification. Enforces ≥3 options, justified recommendation, verbatim user choice, immediate persistence via IPP Decision Persistence (two locations: _progress.decisions[] frontmatter + inline RDR-N comment). Covers Sequential (L-03 one-at-a-time) and Batch (BIP tier-atomic) modes. Replaces previously-scattered RDR definitions across SETUP/CODESIGN/BLUEPRINT/AUDIT/DEVOPS instructions and fixes the Registration→Ratification terminology drift from upgrade_safety_protocol.md.",
       "path": ".claude/skills/factory-rdr/SKILL.md"
@@ -2336,7 +2336,7 @@
       "path": ".claude/hooks/deliver-governance.sh"
     },
     "scripts/gate.py": {
-      "version": "2.10.0",
+      "version": "2.10.1",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
@@ -2372,13 +2372,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.48.0",
+      "version": "1.49.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.44.0",
+      "version": "1.45.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2661,7 +2661,7 @@
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json"
     },
     "scripts/gates/aligned.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "path": "scripts/gates/aligned.py"
     },

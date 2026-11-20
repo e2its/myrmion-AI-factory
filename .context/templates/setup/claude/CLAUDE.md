@@ -18,7 +18,7 @@ This rule applies to every session turn — not just inside slash commands. Tone
 
 ## RDR Universal — MANDATORY
 
-Any question to the user with alternatives follows RDR ([Factory-rdr/SKILL.md](.claude/skills/factory-rdr/SKILL.md)): ≥3 options, recommendation justified with the main tradeoff, verbatim user choice, immediate persistence. No exceptions — free-form chat, debugging, scope clarification, implementation suggestions, branch-naming, scope cuts. Before sending "do you prefer A or B?", reformulate as RDR.
+Any question to the user with alternatives follows RDR ([Factory-rdr/SKILL.md](.claude/skills/factory-rdr/SKILL.md)): ≥3 options, recommendation justified with the main tradeoff, verbatim user choice, immediate persistence. No exceptions — free-form chat, debugging, scope clarification, implementation suggestions, branch-naming, scope cuts. Before sending "do you prefer A or B?", reformulate as RDR. A relayed answer counts only with the person's verbatim words and the relay named; approvals are never relayed; a project's own delegation, held in its accepted ADR, is honoured (factory-rdr § Relay and delegation).
 
 The only legitimate binary question without RDR is **factual** (asking for a datum, not a decision). Decisions need RDR; lookups don't.
 

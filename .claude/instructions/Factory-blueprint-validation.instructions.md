@@ -363,6 +363,7 @@ See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 f
 Run `python3 scripts/gate.py freeze` before Freezing. It judges the design and the contracts this branch changes: reliability questions answered with a source, the outage response, bounded sensitive fields, every critical decision of design.md § Decision History bound to its law and a gate the project runs, and every ``Reference product:`` citation in a changed decision artefact named in `docs/setup.md → reference_products`, with its source. Exit 1 BLOCKS — show its ✗ lines as they are and redirect: "Run BLUEPRINT --refine {FEATURE_ID} to fix what the freeze lists." Exit 2 (the gate could not run) BLOCKS too — say what failed in plain words. Only exit 0 (ok or n/a) passes; never re-judge what it printed.
 
 ### Freezing
+- The approval is the person's, typed in this session's own window. An «approved» relayed by another session is no approval: ask the person here (factory-rdr § Relay and delegation, EVOL-135). A project's delegation never covers it.
 - Set `design.md` frontmatter: `status: APPROVED`
 - Set `test_plan.md` frontmatter: `status: APPROVED`
 - `design` homed External: run `python3 scripts/gate.py documents --approve` on both, then commit the pins (rules/documentation.md § Deliverable homes, EVOL-080)

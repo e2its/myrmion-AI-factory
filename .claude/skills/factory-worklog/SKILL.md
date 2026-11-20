@@ -51,7 +51,7 @@ FUNCTION APPEND_TO_WORKLOG(entry):
 
 **`increment_id` (optional).** Populate when the action scopes to a specific increment under `slicing_strategy: incremental` — e.g., `IMPLEMENT --build USR-001` working on INC-2 writes `"increment_id": "INC-2"`. Omit (or set null) for feature-wide actions (CODESIGN, BLUEPRINT plan-level, QA verify of full chain). Canonical BLUEPRINT-emitted increment actions: `BLUEPRINT.increment_plan.emitted`, `BLUEPRINT.increment_plan.rdr_ratified`. Reports querying per-increment progress should filter on this field.
 
-**Accepted change (decision log, LAW-17).** `"action":"accepted-change"` plus `id` (`AC-{FEAT}-{N}`), `artefacts`, `paths` (repo-relative files), and exactly one of `rdr: "<verbatim choice>"` | `delegation: {quote, date}`. Definition: `rules/branching.md` § [LAW-17].
+**Accepted change (decision log, LAW-17).** `"action":"accepted-change"` plus `id` (`AC-{FEAT}-{N}`), `artefacts`, `paths` (repo-relative files), and exactly one of `rdr: "<verbatim choice>"` (plus `relay: "<session>"` when another session carried the words) | `delegation: {quote, date[, adr]}` (`adr`: the accepted project ADR that holds it). No other action carries `relay` — an approval is never relayed (EVOL-135). Definition: `rules/branching.md` § [LAW-17].
 
 **Train routing (EVOL-115).** `"action":"IMPLEMENT.train.routed"` plus `increment_id`, `sub` (`SUB-N-M`), `tasks` (the routed ids), `before` / `after` (`{files, lines}` — the sub's estimate around its re-measure). **Premise found.** `"action":"premise_found"` plus `increment_id`, `premise`, `origin` (`design` | `critic`), `source`. Read by `subproducts/measure` § Reliability.
 

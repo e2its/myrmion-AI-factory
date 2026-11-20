@@ -6791,6 +6791,74 @@ class Aligned(unittest.TestCase):
             out = aligned.render(aligned.check(repo, "main"))
             self.assertNotIn("\x1b", out); self.assertTrue(all(ch.isprintable() for ln in out.splitlines() for ch in ln), out)
 
+    # EVOL-135: a relay keeps the person's verbatim words and names itself; approvals never relay; a delegation names its law.
+    def test_a_relay_without_the_persons_words_authorises_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._aligned_change(repo)
+            dlg = {"quote": "fix copy without asking", "date": "2026-10-20"}
+            for line, needle in ((self._entry(rdr=None, relay="pm"), "authorises nothing"),
+                                 (self._entry(rdr=None, delegation=dlg, relay="pm"), "authorises nothing"),
+                                 (self._entry(rdr="  ", relay="pm"), "authorises nothing"),
+                                 (self._entry(relay=""), "name the session"),
+                                 (self._entry(relay=["pm"]), "name the session")):
+                self._log(repo, line)
+                r = aligned.check(repo, "main"); self.assertFalse(r["ok"], line); self.assertIn(needle, aligned.render(r), line)
+            self._log(repo, self._entry(relay="pm"))
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))
+            self._log(repo, self._entry())
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))   # no relay: a direct answer, as before
+
+    def test_an_approval_is_never_relayed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "src/app.py", "print(2)\n")
+            for action in ("--approve FEAT-001", "plan_exception", "plan-approval"):
+                self._log(repo, json.dumps({"ts": "2026-10-23T10:00:00Z", "action": action, "relay": "pm", "rdr": "«approved»"}))
+                r = aligned.check(repo, "main"); self.assertFalse(r["ok"], action); self.assertIn("never relayed", aligned.render(r), action)
+                self._log(repo, json.dumps({"ts": "2026-10-23T10:00:00Z", "action": action}))
+                r = aligned.check(repo, "main"); self.assertTrue(r["ok"], action); self.assertEqual(r["entries"], [], action)
+            self._log(repo, json.dumps({"action": "--approve FEAT-001", "relay": "pm"}))
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "c"], check=True, capture_output=True)
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "aligned", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr); self.assertIn("never relayed", r.stdout)
+
+    def test_a_relayed_rdr_record_keeps_the_words(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            fm = "---\nstatus: DRAFT\n_progress:\n  decisions:\n    - id: RDR-1\n{rest}---\nbody\n"
+            for rest, ok in (("      user_choice: \"\"\n      relay: pm\n", False),
+                             ("      relay: pm\n", False),
+                             ("      user_choice: \"«2» keep the queue\"\n      relay: \"\"\n", False),
+                             ("      user_choice: \"«2» keep the queue\"\n      relay: pm\n", True),
+                             ("      user_choice: \"\"\n", True)):   # no relay: not this check's
+                write(repo / self.ART, fm.format(rest=rest))
+                r = aligned.check(repo, "main"); self.assertEqual(r["ok"], ok, rest + aligned.render(r))
+                if not ok:
+                    self.assertIn("RDR-1", aligned.render(r), rest)
+
+    def test_a_delegation_names_an_accepted_project_adr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._aligned_change(repo)
+            adr = repo / "docs/project_log/adr/ADR-0042-delegation.md"
+            dlg = lambda a: self._entry(rdr=None, delegation={"quote": "the PM decides copy", "date": "2026-10-20", "adr": a})
+            for status, line, needle in ((None, dlg("ADR-0042"), "no docs/project_log/adr/ADR-0042-*.md"),
+                                         ("proposed", dlg("ADR-0042"), "`proposed`"),
+                                         ("accepted", dlg("FEAT-001/FDR-0001"), "project law"),
+                                         ("accepted", dlg(""), "project law"),
+                                         ("accepted", dlg("ADR-0042"), None),
+                                         (None, self._entry(rdr=None, delegation={"quote": "q", "date": "2026-10-20"}), None)):
+                if status:
+                    write(adr, f"---\nadr_number: \"0042\"\nstatus: {status}\n---\nThe PM session decides copy.\n")
+                elif adr.exists():
+                    adr.unlink()
+                self._log(repo, line)
+                r = aligned.check(repo, "main"); self.assertEqual(r["ok"], needle is None, line + aligned.render(r))
+                if needle:
+                    self.assertIn(needle, aligned.render(r), line)
+
 
 class Train(unittest.TestCase):
     """EVOL-104: a train stacks its changes by file — no stackable re-touch, no early gate, ledgers once per train."""
