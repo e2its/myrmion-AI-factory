@@ -605,6 +605,7 @@ sj.setdefault("permissions", {}).setdefault("allow", []).append("Bash(make test)
 (q / "scripts/view-worklog.sh").write_text((q / "scripts/view-worklog.sh").read_text() + "\n# local edit\n")
 PY
 cp "$Q/.claude/rules/architecture.md" "$Q.arch"; cp "$Q/CLAUDE.md" "$Q.claude"
+(cd "$Q" && stat -c '%a %n' .claude/settings.json config/quality.json .context/templates/setup/governance_versions.json scripts/view-worklog.sh) > "$Q.modes"
 OUT=$(cd "$Q" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q '.claude/skills/factory-rdr/SKILL.md' && printf '%s' "$OUT" | grep -q 'scripts/view-worklog.sh' && printf '%s' "$OUT" | grep -q 'migration owners (EVOL-136)' \
   && ! printf '%s' "$OUT" | grep -q 'architecture.md\|CLAUDE.md\|mine.md' \
@@ -625,6 +626,9 @@ q = pathlib.Path(sys.argv[1])
 bad = []
 if (q / ".claude/skills/factory-rdr/SKILL.md").read_bytes() != pathlib.Path(sys.argv[1] + ".skill").read_bytes(): bad.append("the framework skill is not restored")
 if (q / "scripts/view-worklog.sh").read_bytes() != pathlib.Path(sys.argv[1] + ".landed").read_bytes(): bad.append("the framework file SETUP landed is not refreshed")
+for f in (".claude/settings.json", "config/quality.json", ".context/templates/setup/governance_versions.json", "scripts/view-worklog.sh"):
+    want = int(dict(l.split(" ", 1)[::-1] for l in pathlib.Path(sys.argv[1] + ".modes").read_text().splitlines())[f], 8)
+    if (q / f).stat().st_mode & 0o777 != want: bad.append(f"{f} lost its mode ({oct((q / f).stat().st_mode & 0o777)} != {oct(want)})")
 cfg = json.loads((q / "config/quality.json").read_text())
 if cfg.get("x_project_key") != {"mine": 1}: bad.append("the project's own quality key is lost")
 if not isinstance(cfg["budgets"].get("notebook_reinject"), int): bad.append("the seam key the template carries is not added")
@@ -645,7 +649,7 @@ $OUT
 $(printf '%s' "$SYNC1" | tail -8)"
 OUT=$(bash "$ROOT/scripts/factory-sync.sh" "$Q" --preserve-local --force 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'retired' && ok "--preserve-local is retired: refused with its reason (EVOL-136)" || bad "--preserve-local still accepted (rc=$RC)" "$OUT"
-rm -rf "$Q" "$Q.arch" "$Q.claude" "$Q.mig.sh" "$Q.skill" "$Q.landed"
+rm -rf "$Q" "$Q.arch" "$Q.claude" "$Q.mig.sh" "$Q.skill" "$Q.landed" "$Q.modes"
 # EVOL-118: the manifest carries current state only — a reintroduced history key is red, named by its path; removed, green again
 if grep -rlq '^changelog:' "$P/.claude/rules"; then bad "a materialised rule carries a frontmatter changelog (EVOL-118)" "$(grep -rl '^changelog:' "$P/.claude/rules")"; else ok "no materialised rule carries a frontmatter changelog (EVOL-118)"; fi
 cp "$P/docs/project_log/governance_versions.json" "$P/manifest.keep"

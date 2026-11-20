@@ -96,7 +96,9 @@ def delivered(m: dict) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for sec in SECTIONS:
         for k, e in _entries(m, sec):
-            if sec != "framework_core" and inside(k):
+            if sec != "framework_core" and not inside(k):
+                continue   # a source outside its root is never read (owner_findings names it)
+            if sec != "framework_core":
                 src = coherence.ROOTS[sec] + k
                 out.setdefault(src, {"source": src, "owner": "framework", "entry": f"{sec}:{k}", "channel": "tree"})
             if e.get("delivery") not in SYNC:
@@ -131,8 +133,8 @@ def owner_findings(m: dict, where: str) -> list[dict]:
                 out.append({"path": where, "reason": f"{name}: a seam is merged by key — its target {target!r} is not JSON"})
             if o != "framework" and e.get("delivery") in SYNC:
                 out.append({"path": where, "reason": f"{name}: sync replaces what it ships — a {o}-owned file is never delivered by sync"})
-            if target is not None and not inside(target):
-                out.append({"path": where, "reason": f"{name}: lands at {target!r}, outside the project — a delivered path is relative, without `..`"})
+            if not inside(k) or (target is not None and not inside(target)):
+                out.append({"path": where, "reason": f"{name}: {k!r} → {target!r}: a path outside its root — a delivered path is relative, without `..` or a control character"})
             if isinstance(target, str) and target and (sec == "framework_core" or not target.startswith(".context/templates/")):
                 landed.setdefault(target, set()).add(o)
     out += [{"path": where, "reason": f"{t}: one landed file, owners {', '.join(sorted(os_))} — one owner per file"} for t, os_ in sorted(landed.items()) if len(os_) > 1]

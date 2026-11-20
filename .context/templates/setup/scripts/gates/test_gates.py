@@ -5808,8 +5808,8 @@ class Owners(unittest.TestCase):
             (lambda m: m["templates"]["claude/settings.json"].__setitem__("target", ".claude/settings.yaml"), "is not JSON"),
             (lambda m: m["templates"]["rules/r.md"].__setitem__("delivery", "sync"), "never delivered by sync"),
             (lambda m: m["templates"]["claude/settings.json"].__setitem__("delivery", "both"), "a seam-owned file is never delivered by sync"),
-            (lambda m: m["templates"]["scripts/tool.sh"].__setitem__("target", "../outside/tool.sh"), "outside the project"),
-            (lambda m: m["templates"]["scripts/tool.sh"].__setitem__("target", "/etc/tool.sh"), "outside the project"),
+            (lambda m: m["templates"]["scripts/tool.sh"].__setitem__("target", "../outside/tool.sh"), "outside its root"),
+            (lambda m: m["templates"]["scripts/tool.sh"].__setitem__("target", "/etc/tool.sh"), "outside its root"),
             (lambda m: m["templates"].__setitem__("claude/dup.md", {"version": "1.0.0", "content_type": "universal", "target": ".claude/newtree/n.md", "owner": "project"}), "one owner per file"),
         )
         for mutate, want in cases:
@@ -5827,12 +5827,15 @@ class Owners(unittest.TestCase):
 
     def test_paths_stay_inside_the_project(self):
         """A delivered path outside the project is never delivered and never merged — red at the owner rules instead."""
-        for bad in ("../x/tool.sh", "/abs/tool.sh", "a/../../tool.sh", "C:/tool.sh", "~/tool.sh", ""):
+        for bad in ("../x/tool.sh", "/abs/tool.sh", "a/../../tool.sh", "C:/tool.sh", "~/tool.sh", "", "a\n../b", "x/.. /y", "x/.../y", "a\x1b[0m"):
             with self.subTest(bad=bad):
                 self.assertFalse(discovery.inside(bad))
                 m = self._m(lambda m: m["templates"]["scripts/gates/x.py"].__setitem__("target", bad))
                 self.assertNotIn(bad, manifest.delivered(m))
-        self.assertTrue(discovery.inside(".claude/rules/r.md")); self.assertTrue(discovery.inside("a..b/c.md"))
+        self.assertTrue(discovery.inside(".claude/rules/r.md")); self.assertTrue(discovery.inside("a..b/c.md")); self.assertTrue(discovery.inside("./a/.hidden"))
+        f = manifest.owner_findings(self._m(lambda m: m["templates"].__setitem__("../../k.md", {"version": "1.0.0", "content_type": "universal", "target": "docs/k.md", "owner": "framework"})), "m")
+        self.assertTrue(any("outside its root" in x["reason"] for x in f), "a source key outside its root is red")
+        self.assertFalse(any(r["source"].endswith("k.md") for r in manifest.delivered(self._m(lambda m: m["templates"].__setitem__("../../k.md", {"version": "1.0.0", "target": "docs/k.md", "delivery": "sync", "owner": "framework"}))).values()))
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             write(repo / discovery.MANIFEST, json.dumps({"templates": {"claude/settings.json": {"version": "1.0.0", "target": "../settings.json", "owner": "seam"}}}))
@@ -6026,6 +6029,10 @@ class Seams(unittest.TestCase):
             self.assertEqual(m["planning"], {"paths": ["src/**"], "cmd": "go test"}, "tokens rendered from the answers"); self.assertNotIn("tool", m)
             r2 = discovery.seams_upgrade(repo, {"TOOL_CMD": "go test", "GOV": "src/**", "TOOL_N": 3})["config/quality.json"]
             self.assertEqual(r2["merged"]["tool"], {"cmd": "go test", "n": 3}, "an unquoted token takes its value's JSON type")
+
+    def test_render_is_one_pass(self):
+        """A filled value that holds a token's text is never filled again."""
+        self.assertEqual(discovery._render_seam('{"a": "%s", "b": %s}' % (_tok("A"), _tok("B")), {"A": _tok("B"), "B": 1}), {"a": _tok("B"), "b": 1})
 
     def test_absent_and_unreadable_seams(self):
         with tempfile.TemporaryDirectory() as tmp:

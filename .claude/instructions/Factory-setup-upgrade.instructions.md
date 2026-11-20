@@ -138,20 +138,30 @@ A `framework_core` entry without `delivery` is a file of the framework repo itse
 
 **Gate 0 — ADR Lock Check:** a FULL_LOCK file → SKIP (no modifications).
 
-1. **framework.** `factory-sync.sh` already replaced the sync channel. From `gate.py discovery --resolve --json`, list `templates_to_refresh` (a framework-owned landed file whose bytes differ from its delivered template), then copy each `.context/templates/setup/<key>` over its `target` with the script below (idempotent; the target keeps its mode). No diff review, no merge.
+1. **framework.** `factory-sync.sh` already replaced the sync channel. From `gate.py discovery --resolve --json`, list `templates_to_refresh` (a framework-owned landed file whose bytes differ from its delivered template), then copy each `.context/templates/setup/<key>` over its `target` with the script below (idempotent, atomic; the target keeps its mode; a symlinked target is refused). No diff review, no merge. Gate 0 holds for project and seam files; a framework-owned file is the framework's — a project that must differ keeps its change in a project-owned file.
 2. **project.** No write here. List each `templates_moved` entry in the upgrade report as «moved {from}→{to}, not written — a migration row carries what a project needs». `claude/CLAUDE.md` moves are owed to EVOL-137.
 3. **seam.** Step 8b.7.
 
 ```bash
 python3 -I - <<'PY'
-import json, pathlib, shutil, subprocess, sys
+import json, os, pathlib, shutil, subprocess, sys, tempfile
 sys.path.insert(0, "scripts")
 from gates import discovery
 r = json.loads(subprocess.run([sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"], capture_output=True, text=True, check=True).stdout)
 m = json.loads(pathlib.Path(discovery.MANIFEST).read_text(encoding="utf-8"))["templates"]
 for k in r.get("templates_to_refresh") or []:
-    shutil.copyfile(discovery.TEMPLATE_ROOT + k, m[k]["target"])
-    print(f"refreshed: {m[k]['target']}")
+    t = m[k]["target"]
+    if os.path.islink(t):
+        print(f"refused (a symlink): {t}"); continue
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(t) or ".")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(pathlib.Path(discovery.TEMPLATE_ROOT + k).read_bytes())
+        shutil.copymode(t, tmp); os.replace(tmp, t)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+    print(f"refreshed: {t}")
 PY
 ```
 

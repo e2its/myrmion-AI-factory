@@ -378,7 +378,7 @@ FOR EACH unresolved_placeholder:
 
 ### 3.3 Coherence of a seam merge (EVOL-136)
 
-No merged content exists to check: `seams_upgrade` adds only the keys a seam lacks, never compares or rewrites a value the project holds, and a project-owned file is never written. Its listing (added, replaced, unresolved) is shown before the write; each unresolved key is one RDR (Factory-setup-upgrade Step 8b.7).
+No merged content exists to check: `seams_upgrade` adds only the keys a seam lacks, never rewrites a value the project holds (except the declared superseded literals: a hook's bare command form, the #171 matcher), and a project-owned file is never written. Its listing (added, replaced, unresolved) is shown before the write; each unresolved key is one RDR (Factory-setup-upgrade Step 8b.7).
 
 ---
 

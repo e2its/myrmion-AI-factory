@@ -741,7 +741,7 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
         out["stop"] = " · ".join(stops)
     if project:
         ver = project_version(repo)
-        target = lambda k: templates[k].get("target") if inside(templates[k].get("target")) else None
+        target = lambda k: templates[k].get("target") if inside(k) and inside(templates[k].get("target")) else None
         out["project_version"] = ".".join(map(str, ver))
         out["migrations_owed"] = [{"id": m.get("id"), "since": m.get("since"), "apply": m.get("apply")} for m in (reg.get("migrations") or [])
                                   if isinstance(m, dict) and (m.get("detect") == "always"   # every upgrade, whatever its since
@@ -808,9 +808,11 @@ def gates_upgrade(repo: Path, conf: dict) -> dict:
 
 
 def inside(path) -> bool:
-    """A manifest path lands inside the project: relative, no `..` (EVOL-136 — one containment check for sync and the seams)."""
+    """A manifest path stays inside its root: relative, no control character, no segment of dots or spaces alone (`..`,
+    `.. ` — what a filesystem resolves upward) (EVOL-136 — one containment check: sync, the seams, the refresh)."""
     return isinstance(path, str) and bool(path) and not path.startswith(("/", "\\", "~")) and ":" not in path \
-        and ".." not in path.replace("\\", "/").split("/")
+        and not any(ord(c) < 32 or ord(c) == 127 for c in path) \
+        and not any(s not in ("", ".") and not s.strip(" .") for s in path.replace("\\", "/").split("/"))
 
 
 UNRESOLVED = "\x00unresolved:"   # a token no answer fills: the key it sits in is listed, never written
