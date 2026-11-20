@@ -11,7 +11,9 @@ bump    `--bump --entry <path> [--entry …] --level patch|minor|major [--framew
 new     `--new <path> [--target T]` adds an entry at 1.0.0 in the section the path belongs to (the framework repo only; the file
         must exist); a template's target and delivery follow its nearest sibling's convention, or --target names it.
 check   `--check --entry <path> …`: verifies without writing — advanced against the base, the frontmatter in parity, framework_version advanced when entries moved; every reason listed; a base that cannot be read
-        is a fault, never a green over nothing compared.
+        is a fault, never a green over nothing compared. With no --entry (EVOL-134, the profile's `versions` member): every
+        tracked file the change touched, against the merge-base, and framework_version wherever the manifest carries
+        framework_core — a version merged by hand at the base's number is red; the second branch to land re-runs --bump.
 
 The governance check reads state whoever wrote it: validate-governance.sh CHECK 1b (a changed file's entry advanced) and
 gate.py manifest-parity (the frontmatter in parity, no history key). The helper touches the manifest and the files' frontmatter `version:` lines, nothing else.
@@ -74,6 +76,35 @@ def core_file(key: str, e: dict) -> str:
     return e.get("path") or (key if key.startswith(".") else ".claude/" + key)
 
 
+def _hits(m: dict, rel: str) -> list[tuple[str, str]]:
+    """The entries a repo-relative file path names: framework_core by its file, templates and agent_templates by the key under
+    their root, a project's by its target (more than one target hit is the caller's fault to say)."""
+    for k, e in _entries(m, "framework_core"):
+        if core_file(k, e) == rel or k == rel:
+            return [("framework_core", k)]
+    for sec in ("templates", "agent_templates"):
+        root = coherence.ROOTS[sec]
+        if root and rel.startswith(root) and rel[len(root):] in (m.get(sec) or {}):
+            return [(sec, rel[len(root):])]
+    return [(sec, k) for sec in SECTIONS for k, e in _entries(m, sec) if e.get("target") == rel]
+
+
+def changed(repo: Path, m: dict, base: str | None) -> list[str]:
+    """Every file the change touched that an entry tracks (EVOL-134): the tree on disk against the merge-base, the seal's delta — no verification key needed. A file no
+    entry tracks, or gone from the tree, is no entry to advance; nor is a project's own data (`content_type: project_data`, reached
+    by its target — the board, the constitution, the backlog config): its entry versions the delivered template, never the project's
+    values, which `SETUP --upgrade` never modifies. In the framework repo a target names where a template lands, never a file the repo versions."""
+    from . import branch as branch_mod
+    from .seal import _delta, _reference, tree_entries
+
+    def counter(p: str) -> bool:
+        hits = _hits(m, p)   # `framework_core` is carried by the framework repo's manifest alone: the repo the target names a template's landing in
+        return bool(hits) and not all((m.get(s) or {}).get(k, {}).get("target") == p
+                                      and ("framework_core" in m or (m.get(s) or {}).get(k, {}).get("content_type") == "project_data") for s, k in hits)
+    ref = base or branch_mod.diff_base(repo)
+    return [p for p in _delta(tree_entries(repo), tree_entries(repo, _reference(repo, ref))) if (repo / p).is_file() and counter(p)]
+
+
 def resolve(repo: Path, m: dict, path: str) -> tuple[str, str]:
     """A repo-relative file path → (section, key). The framework repo: framework_core by the entry's file (path or `.claude/` + key),
     templates and agent_templates by the key under their root. A project: by the entry's materialisation `target` — one match, never
@@ -84,14 +115,7 @@ def resolve(repo: Path, m: dict, path: str) -> tuple[str, str]:
         if key in (m.get(sec) or {}):
             return sec, key
         raise GateFault(f"`{rel}`: no entry `{key}` in {sec}")
-    for k, e in _entries(m, "framework_core"):
-        if core_file(k, e) == rel or k == rel:
-            return "framework_core", k
-    for sec in ("templates", "agent_templates"):
-        root = coherence.ROOTS[sec]
-        if root and rel.startswith(root) and rel[len(root):] in (m.get(sec) or {}):
-            return sec, rel[len(root):]
-    hits = [(sec, k) for sec in SECTIONS for k, e in _entries(m, sec) if e.get("target") == rel]
+    hits = _hits(m, rel)
     if len(hits) == 1:
         return hits[0]
     if len(hits) > 1:
@@ -303,12 +327,16 @@ def bump(repo: Path, entries: list[str], level: str | None, framework: str | Non
 
 
 def check(repo: Path, entries: list[str], base: str | None = None, framework: bool = False, no_base: bool = False) -> list[str]:
-    if not entries:
-        raise GateFault("nothing to check: name at least one --entry <path>")
+    """No entry named: the entries the change touched, and the framework clause wherever the manifest carries framework_core —
+    what the second branch to land owes after its rebase (EVOL-134, the profile's `versions` member)."""
     if base and no_base:
         raise GateFault("--base and --no-base together say two things — pass one")
+    if not entries and no_base:
+        raise GateFault("nothing to check: name at least one --entry <path>, or a base to derive them from (the change against it)")
     p, m = load(repo)
     basem = base_manifest(repo, p, base, no_base)
+    if not entries:
+        entries, framework = changed(repo, m, base), "framework_core" in m
     problems: list[str] = []
     any_moved = False
     for path in entries:

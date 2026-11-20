@@ -43,6 +43,9 @@ judged. A path that resolves outside the repository is never read.
   journey   (with a base) a docs/spec/<F>/test_plan.md changed since the merge-base, whose feature has a user_journey.md,
             carries `### Journey coverage` (`| Paso | Operation |`): every `Paso N` of the journey a row, each cell an
             operationId of the tree or `none — <reason>`. The journey itself names no operation (LAW-16).
+  versions  (with a base, EVOL-134) a contract changed since the merge-base whose base copy carries `info.version`
+            carries another one, above it when both are dotted numbers: the branch that lands second re-derives the
+            counter after its rebase, never merges a number by hand. A contract new since the base owes nothing.
 An unreadable contract, catalog or baseline is red with its reason (LAW-08). Neither contract nor catalog → `contracts: n/a`.
 
 `parity(repo)` (`gate.py contracts --parity`, the verification-loop member `contract-parity`; it needs a build) runs two
@@ -108,6 +111,7 @@ PHRASES = {n.replace("_", ""): s.value for n, s in http.HTTPStatus.__members__.i
 CODE_SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".java", ".kt", ".rb", ".php", ".cs", ".scala", ".ex", ".exs")
 NOT_SOURCE = ("docs/", "config/", "contracts/", ".claude/", ".context/", "scripts/gates/", "node_modules/", "vendor/")
 TEST_PATH = re.compile(r"(?:^|/)(?:tests?|__tests__|e2e|spec)/|(?:^|/)test_[^/]*$|[._-](?:test|spec)\.[^/]+$|_test\.[^/]+$|Tests?\.[^/.]+$")
+DOTTED = re.compile(r"v?(\d{1,9}(?:\.\d{1,9}){0,9})")   # an info.version the counter rule can order (EVOL-134); any other only has to change
 LEAD_STATUS = re.compile(r"^\s*((?:[1-5]\d\d|[1-5]XX)(?:\s*[,/]\s*(?:[1-5]\d\d|[1-5]XX))*)\b")
 
 
@@ -670,6 +674,51 @@ def coverage(text: str, journey: str, names: set[str]) -> list[str]:
     return problems
 
 
+def _info_version(doc) -> str | None:
+    info = doc.get("info") if isinstance(doc, dict) else None
+    v = info.get("version") if isinstance(info, dict) else None
+    return v.strip() if isinstance(v, str) and v.strip() else None
+
+
+def _dotted(v: str) -> tuple[int, ...] | None:
+    m = DOTTED.fullmatch(v)
+    if not m:
+        return None
+    t = [int(x) for x in m.group(1).split(".")]
+    while len(t) > 1 and t[-1] == 0:   # 1.2 and 1.2.0 are one version
+        t.pop()
+    return tuple(t)
+
+
+def versions(repo: Path, ref: str, docs: dict, changed: set[str]) -> dict:
+    """The contract's counter re-derived against the merge-base (EVOL-134): a contract changed since then, whose base copy carries
+    info.version, carries another one — above it when both are dotted numbers. New since the base: no counter to re-derive."""
+    problems, n, unread = [], 0, 0
+    for f in sorted(set(docs) & changed):
+        text = _at(repo, ref, f)
+        if text is None:
+            continue
+        try:
+            before = _info_version(_parse(text, Path(f).suffix))
+        except (GateFault, RecursionError):
+            unread += 1   # the base copy is no document: nothing to compare against, said in the note
+            continue
+        if before is None:
+            continue
+        n += 1
+        now = _info_version(docs[f])
+        a, b = (_dotted(now) if now else None), _dotted(before)
+        cure = "the branch that lands second re-derives it after its rebase — never a number merged by hand; its registry row follows"
+        if now is None:
+            problems.append(f"`{f}` changed since the base and lost its info.version (the base's is {before}) — {cure}")
+        elif now == before or (a is not None and a == b):
+            problems.append(f"`{f}` changed since the base and is still at {now} — move info.version above the base's: {cure}")
+        elif a is not None and b is not None and a < b:
+            problems.append(f"`{f}` is at {now}, below the base's {before} — {cure}")
+    return {"id": "contract versions", "ok": not problems, "problems": problems,
+            "note": f"{n} changed contract(s), each info.version re-derived against the base" + (f"; {unread} base copy(ies) unreadable, not compared" if unread else "")}
+
+
 def _plan_rows(repo: Path, base: str | None, docs: dict) -> list[dict]:
     """The change-scoped clauses: one contract test per new operation, the journey coverage of a changed plan."""
     if base is None:
@@ -678,7 +727,8 @@ def _plan_rows(repo: Path, base: str | None, docs: dict) -> list[dict]:
         ref = _reference(repo, base)
         names = {n for d in docs.values() for n in operations(d)}
         new = names - _base_ops(repo, ref)
-        changed = documents.artefacts(sorted(_changed(repo, ref)))   # a changed pin is a changed plan (EVOL-080)
+        raw = _changed(repo, ref)
+        changed = documents.artefacts(sorted(raw))   # a changed pin is a changed plan (EVOL-080)
     except GateFault as e:
         return [{"id": "contract tests", "ok": False, "problems": [f"cannot read the base — {e}"], "note": ""}]
     planned, rows = _plan_ops(repo), []
@@ -690,6 +740,7 @@ def _plan_rows(repo: Path, base: str | None, docs: dict) -> list[dict]:
                  "one red contract test per operation before the build (CONTRACT-FREEZE)" for n in missing]
     rows.append({"id": "contract tests", "ok": not problems, "problems": problems,
                  "note": f"{len(new)} new operation(s), each named by a TC-API row"})
+    rows.append(versions(repo, ref, docs, raw))
     for f in sorted(p for p in changed if PLAN_RE.fullmatch(p)):
         j = f.replace("test_plan.md", "user_journey.md")
         if not all(documents.exists(repo, r) and _inside(repo, repo / r if (repo / r).is_file() else repo / (r + documents.PIN)) for r in (f, j)):

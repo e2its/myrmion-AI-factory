@@ -29,8 +29,8 @@ from .common import GateFault, key, read_frontmatter, rules_root
 PROTECTED_RE = re.compile(r"^(main|master|develop|release(/.+)?|hotfix)$")
 FEATURE_ID = r"[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*"          # stops before the lowercase `-inc-` / `-slug`
 INC_RE = re.compile(rf"^feature/(?P<id>{FEATURE_ID})-inc-(?P<n>\d+)-(?P<slug>[a-z0-9-]+?)(?:-sub-(?P<m>[1-9]\d*))?$")   # a slug never ends in -sub-<digits>
-FEATURE_RE = re.compile(rf"^feature/{FEATURE_ID}(?:-[a-z0-9._-]+)?$")
-EPIC_RE = re.compile(rf"^epic/{FEATURE_ID}(?:-[a-z0-9._-]+)?$")
+FEATURE_RE = re.compile(rf"^feature/(?P<id>{FEATURE_ID})(?:-[a-z0-9._-]+)?$")
+EPIC_RE = re.compile(rf"^epic/(?P<id>{FEATURE_ID})(?:-[a-z0-9._-]+)?$")
 SIMPLE_RE = re.compile(r"^(fix|bugfix|hotfix|docs|chore|feat|breaking)/[A-Za-z0-9._-]+$")   # the kinds CLAUDE.md INVARIANT 1 names
 SIMPLE_CLASS = {"fix": "fix", "bugfix": "fix", "hotfix": "fix", "docs": "docs", "chore": "chore", "feat": "feature", "breaking": "breaking"}
 ESCAPE_RE = re.compile(r"(?m)^Surface-Escape:[ \t]*([a-z0-9-]+)[ \t]*$")
@@ -97,8 +97,9 @@ def branch_class(repo: Path, branch: str | None = None) -> dict:
     if m:
         train = declares_sub_increments(repo, b)
         return {"branch": b, "class": "train" if train else "increment", "protected": train, "feature_id": m.group("id")}
-    if FEATURE_RE.match(b) or EPIC_RE.match(b):
-        return {"branch": b, "class": "epic" if b.startswith("epic/") else "feature", "protected": False}
+    fm = FEATURE_RE.match(b) or EPIC_RE.match(b)
+    if fm:
+        return {"branch": b, "class": "epic" if b.startswith("epic/") else "feature", "protected": False, "feature_id": fm.group("id")}   # the id a record born here takes (EVOL-134)
     sm = SIMPLE_RE.match(b)
     if sm:
         return {"branch": b, "class": SIMPLE_CLASS[sm.group(1)], "protected": False}

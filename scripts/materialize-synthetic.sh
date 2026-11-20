@@ -695,6 +695,51 @@ OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push 2>&1
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^profile: light' && printf '%s' "$OUT" | grep -q 'base origin/feature/FEAT-001-inc-1-x' && printf '%s' "$OUT" | grep -q 'skipped by the light profile' && printf '%s' "$OUT" | grep -q 'writes no seal' && ok "the light profile runs end to end on a sub-increment against its train: every no-build member green, the loop members skipped and named, no seal" || bad "light profile end to end (rc=$RC)" "$OUT"
 [ "$(git -C "$P" status --porcelain | wc -l)" = "$BEFORE" ] && ok "the light run wrote nothing (no seal, no marker)" || bad "the light run left files behind" "$(git -C "$P" status --porcelain)"
 git -C "$P" checkout -q feature/FEAT-001-smoke
+# EVOL-134 (#242): an id two branches minted is red after the second lands; a feature-born ADR collides with no other feature's; a version
+# merged by hand at main's number is red until the second to land re-derives it with the tool
+g134() { git -C "$P" -c user.name=t -c user.email=t@t "$@"; }
+g134 checkout -q -b feature/FEAT-002-ids
+python3 - "$P/config/quality.json" <<'PY'
+import json, sys; p = sys.argv[1]; q = json.load(open(p)); q["tracker"] = {"adapter": "none", "flow": ["Backlog", "Ready", "In Progress", "Done"]}; json.dump(q, open(p, "w"), indent=2)
+PY
+mkdir -p "$P/docs/backlog" "$P/docs/project_log/adr"
+BH=$'---\nboard_columns: ["Backlog", "Ready", "In Progress", "Done"]\n---\n# Backlog State\n\n| Local ID | Feature | Title | Status | Labels | Milestone | Parent | Body File |\n|---|---|---|---|---|---|---|---|\n| L-001 | FEAT-001 | [FEAT-001] CODESIGN: Spec — Smoke | Done | — | — | — | — |\n'
+printf '%s' "$BH" > "$SCRATCH/b134-base.md"; printf '%s' "$BH" > "$P/docs/backlog/state.md"
+printf '%s%s\n' "$BH" '| L-002 | FEAT-002 | [FEAT-002] CODESIGN: Spec — Login | Backlog | — | — | — | — |' > "$SCRATCH/b134-a.md"
+printf '%s%s\n' "$BH" '| L-002 | FEAT-002 | [FEAT-002] CODESIGN: Spec — Billing | Backlog | — | — | — | — |' > "$SCRATCH/b134-b.md"
+g134 add -A; g134 commit -qm "ids: local board"
+git merge-file --union "$SCRATCH/b134-b.md" "$SCRATCH/b134-base.md" "$SCRATCH/b134-a.md" >/dev/null 2>&1   # the second to land keeps both rows
+cp "$SCRATCH/b134-b.md" "$P/docs/backlog/state.md"
+OUT=$(cd "$P" && python3 scripts/gate.py tracker 2>&1); RC=$?
+[ "$RC" -eq 1 ] && grep -q '`L-002` is declared twice' <<<"$OUT" && grep -q '\[FEAT-002\] CODESIGN:` is 2 rows' <<<"$OUT" && ok "board: FEAT-002 minted on two branches, both rows kept at the merge → red (EVOL-134)" || bad "duplicate board ordinal not red (rc=$RC)" "$OUT"
+python3 - "$P/docs/backlog/state.md" <<'PY'
+import sys; p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = "| L-002 | FEAT-002 | [FEAT-002] CODESIGN: Spec — Billing"
+assert s.count(old) == 1; open(p, "w", encoding="utf-8").write(s.replace(old, "| L-003 | FEAT-003 | [FEAT-003] CODESIGN: Spec — Billing"))
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py tracker 2>&1); RC=$?
+[ "$RC" -eq 0 ] && grep -q '^board: ok' <<<"$OUT" && ok "board: the second to land takes the next free ids → green" || bad "renumbered board not green (rc=$RC)" "$OUT"
+adr134() { printf -- '---\nadr_number: "%s"\ntitle: t\nstatus: proposed\n---\n# ADR-%s\n' "$1" "$1" > "$P/docs/project_log/adr/ADR-$1-$2.md"; }
+g134 add -A; g134 commit -qm "ids: board renumbered"; g134 tag ids-root
+g134 checkout -q -b feature/FEAT-003-a; adr134 FEAT-001-1 cache; adr134 0031 audit-log; g134 add -A; g134 commit -qm "a: records"
+g134 checkout -q -b feature/FEAT-004-b ids-root; adr134 FEAT-002-1 cache; g134 add -A; g134 commit -qm "b: record"
+g134 merge -q --no-edit feature/FEAT-003-a
+OUT=$(cd "$P" && bash scripts/check-adr-constitution-sync.sh ids-root 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "adr-sync: ADR-FEAT-001-1 and ADR-FEAT-002-1, born on two branches, land side by side" || bad "branch-born ADRs judged red (rc=$RC)" "$OUT"
+adr134 0031 billing; g134 add -A; g134 commit -qm "b: a sequential record too"
+OUT=$(cd "$P" && bash scripts/check-adr-constitution-sync.sh ids-root 2>&1); RC=$?
+[ "$RC" -eq 1 ] && grep -q 'ADR-0031: ' <<<"$OUT" && ok "adr-sync: ADR-0031 minted on two branches → red" || bad "duplicate ADR id not red (rc=$RC)" "$OUT"
+g134 checkout -q -b feature/FEAT-005-main ids-root
+printf '\nmain: one more line.\n' >> "$P/.claude/rules/branching.md"
+OUT=$(cd "$P" && python3 scripts/gate.py manifest --bump --entry .claude/rules/branching.md --level minor --base ids-root 2>&1) || bad "manifest bump on main failed" "$OUT"
+g134 add -A; g134 commit -qm "main: the first branch landed, its entry bumped"
+g134 checkout -q -b feature/FEAT-006-c feature/FEAT-005-main
+printf '\nsecond branch: another line, rebased; its version kept by hand at main'"'"'s number.\n' >> "$P/.claude/rules/branching.md"
+OUT=$(cd "$P" && python3 scripts/gate.py manifest --check --base feature/FEAT-005-main 2>&1); RC=$?
+[ "$RC" -eq 1 ] && grep -q 'rules/branching.md' <<<"$OUT" && grep -q 'did not advance' <<<"$OUT" && ok "versions: an entry merged by hand at main's number → red" || bad "hand-merged version not red (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py manifest --bump --entry .claude/rules/branching.md --level minor --base feature/FEAT-005-main 2>&1 && python3 scripts/gate.py manifest --check --base feature/FEAT-005-main 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "versions: the second to land re-derives with the tool → green" || bad "re-derived version not green (rc=$RC)" "$OUT"
+g134 checkout -q -f feature/FEAT-001-smoke; git -C "$P" clean -qfd -- docs/backlog docs/project_log/adr
 # the deployment trigger (EVOL-047): a positive list, a parity gate, the branch rule untouched
 OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "runtime-surface parity: every path the materialised deploying workflow reads is on the list ($OUT)" || bad "runtime-surface parity red in the scratch (rc=$RC)" "$OUT"

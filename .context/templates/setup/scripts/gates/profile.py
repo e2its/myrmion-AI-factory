@@ -36,6 +36,7 @@ MEMBERS = [
     ("budget",           False, False, "gate.py",                 ["gate", "budget"], False),
     ("law-parity",       False, False, "gate.py",                 ["gate", "laws", "--parity"], False),
     ("manifest-parity",  False, False, "gate.py",                 ["gate", "manifest-parity"], False),
+    ("versions",         False, False, "gate.py",                 ["gate", "manifest", "--check", "--base", "{base}"], False),   # EVOL-134: the second to land re-derives every counter
     ("currency",         False, False, "gate.py",                 ["gate", "currency", "--base", "{base}"], False),
     ("frontmatter-lock", False, False, "gate.py",                 ["gate", "frontmatter-lock", "--base", "{base}"], False),
     ("surface",          False, False, "gate.py",                 ["gate", "surface", "--base", "{base}", "--branch", "{branch}"], False),
@@ -53,6 +54,7 @@ MEMBERS = [
     ("delivery",         False, False, "gate.py",                 ["gate", "delivery", "--check"], False),
     ("qa",               False, False, "gate.py",                 ["gate", "qa", "--check", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
     ("proof",            False, False, "gate.py",                 ["gate", "proof", "--check"], False),
+    ("board",            False, False, "gate.py",                 ["gate", "tracker"], False),   # EVOL-134: the local board's ordinals once each; n/a where the tracker mints the keys
     ("traceability",     False, False, "gate.py",                 ["gate", "traceability"], False),
     ("documents",        False, False, "gate.py",                 ["gate", "documents", "--base", "{base}", "--control-point", "{control_point}"], False),
     ("discovery",        False, False, "gate.py",                 ["gate", "discovery"], True),   # the SETUP question registry lives in the framework repo; a project consumes it in place

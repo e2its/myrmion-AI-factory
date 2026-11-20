@@ -2,12 +2,13 @@
 
 > Project-wide Architectural Decision Record. Used for cross-cutting decisions that change `docs/constitution.md`.
 > For feature-scoped decisions that should NOT amend the universal constitution, use `fdr_template.md` instead.
+> `{{NUMERO}}`: on a branch that names a feature, the feature's own `{FEAT}-{N}` (`ADR-FEAT-009-1`); on any other branch, the next sequential number (`factory-adr-management` § Propose, step 1 — EVOL-134).
 > Lifecycle: `status: proposed` (created here) → `status: accepted` (flipped by `factory-adr-management` Accept Procedure with mandatory constitution amendment).
 > CI gate `scripts/check-adr-constitution-sync.sh` blocks any PR where an ADR transitions to accepted without `docs/constitution.md` modified in the same diff (bypass: `[adr-backfill]` commit marker for one-shot historical migration).
 
 ```markdown
 ---
-adr_number: {{NUMERO}}
+adr_number: "{{NUMERO}}"
 title: {{TITULO}}
 date: {{FECHA}}
 status: proposed
@@ -76,7 +77,7 @@ amendment_kind: {{ADD|REPLACE|REMOVE}}
 
 ## Frontmatter contract
 
-- `adr_number` — sequential integer assigned by `factory-adr-management` Propose Procedure.
+- `adr_number` — assigned by `factory-adr-management` Propose Procedure (step 1): the feature's own `{FEAT}-{N}` on a branch that names a feature, else the next sequential number; quoted, so a leading zero survives.
 - `title` — operational title; SCREAMING_SNAKE-able for slug.
 - `date` — ISO date when proposed.
 - `status` — `proposed` at creation. Flipped to `accepted` ONLY by Accept Procedure (which runs the amendment + diff record atomically).

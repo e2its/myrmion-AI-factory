@@ -200,6 +200,11 @@ def parity(repo: Path) -> list[str]:
     tpl = repo / ".context/templates/setup/claude/CLAUDE.md"
     if context(repo) == "meta" and tpl.is_file():
         ids |= {l["id"] for l in _lenient(parse_law_list, tpl.read_text(encoding="utf-8", errors="replace"))}
+    count: dict[str, int] = {}
+    for l in allv["universal"] + allv["project"]:
+        count[l["id"]] = count.get(l["id"], 0) + 1
+    problems += [f"{i}: declared {'twice' if n == 2 else f'{n} times'} in the law index — one id, one law; the branch that landed second "
+                 "renumbers its own law (EVOL-134)" for i, n in sorted(count.items()) if n > 1]
     for l in allv["universal"] + allv["project"]:
         ids.add(l["id"])
         if l["body"] == "inline":

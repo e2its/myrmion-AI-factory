@@ -34,6 +34,7 @@ import re
 from pathlib import Path
 
 from . import corpus, documents, profile
+from .branch import FEATURE_ID
 from .common import GateFault, clean as _clean, key, parse_yaml, read_frontmatter, unfenced as _unfenced
 from .digests import changed_paths
 from .seal import DEFAULT_SEAL_DIR, RED, _norm_path, vcfg
@@ -48,7 +49,7 @@ WEIGHTS = ("security", "availability", "both", "none")   # closed (owner RDR «1
 WEIGHTED = ("security", "availability", "both")
 BLANK = re.compile(r"^(?:|—|-|–|tbd|todo|\?+|\{\{[^}]*\}\})$", re.I)
 DECISION_COLUMNS = ("decision", "law", "gate", "record")
-ADR_ID = re.compile(r"(?<![\w-])ADR-\d{1,12}(?!\w)")   # `ADR-7`, and `ADR-7` in a file name `ADR-7-slug.md`
+ADR_ID = re.compile(rf"(?<![\w-])ADR-(?:{FEATURE_ID}-)?\d{{1,12}}(?!\w)")   # `ADR-7`, a feature's own `ADR-FEAT-009-1` (EVOL-134), and either in a file name `ADR-7-slug.md`
 LAW_ID = re.compile(r"P?LAW-\d{2}")
 ADR_DIR = "docs/project_log/adr"
 LAW_MAKING = ("ADD", "REPLACE")
@@ -227,7 +228,7 @@ def decisions(repo: Path, text: str) -> tuple[list[str], int, str]:
         fm = None
         if not _blank(rec):
             if not ADR_ID.fullmatch(rec):
-                problems.append(f"{name}: record `{rec}` is not an ADR id — name the ADR (`ADR-N`) that records it")
+                problems.append(f"{name}: record `{rec}` is not an ADR id — name the ADR (`ADR-N`, or a feature's own, `ADR-FEAT-009-1`) that records it")
             else:
                 recorded.add(rec)
                 fm = _read_adr(repo, rec, problems)
