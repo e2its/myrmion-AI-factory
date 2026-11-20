@@ -103,6 +103,22 @@ OUT=$(CLAUDE_PROJECT_DIR="$SANDBOX/elsewhere" python3 "$M/measure.py" --repo "$P
 if [ "$RC" -eq 0 ] && python3 -c "import json,sys; r=json.load(open('$SANDBOX/real.json')); rt=r['returns']; sys.exit(0 if rt['checked']=={'parsed':6,'refused':2} and rt['unchecked']==1 and rt['uncollected']==1 and rt['by_class']['work-critic']['refused']==2 and rt['by_class']['worker']['parsed']==1 else 1)"; then
   ok "returns parsed / refused by the project's REAL return reader on its REAL roster (a critic return without its governance block refused — the real reader has no fault path for the fixture's fault text; a worker's and a critic's with it parsed)"; else bad "real return reader join (rc=$RC)" "$OUT $(head -c 1200 "$SANDBOX/real.json" 2>/dev/null)"; fi
 rm -rf "$PROJ/scripts" "$PROJ/.claude" "$PROJ/config"
+# EVOL-140: the compression counter — unavailable with the materialised default, every signal with the key filled
+CDIR=$(python3 - "$M" "$FIX" <<'PY'
+import sys, pathlib
+sys.path.insert(0, sys.argv[1])
+import measure
+print(measure._fixture_compression(pathlib.Path(sys.argv[2])))
+PY
+) || { echo "test-measure: could not emit the compression fixture" >&2; exit 2; }
+expect_exit 0 "compression: the materialised default names no tool — unavailable, never a silent 0" "no compression tool configured" \
+  python3 "$M/measure.py" --repo "$REPO" --transcripts "$CDIR" --until 2026-09-30 --window-days 30
+python3 -c "import json,sys; c=json.load(open('$M/measure.config.json')); c['compression'].update(compress=['mcp__zip__compress'], retrieve=['mcp__zip__retrieve']); json.dump(c, open('$SANDBOX/cmp.config.json','w'))" || exit 2
+python3 "$M/measure.py" --config "$SANDBOX/cmp.config.json" --repo "$REPO" --transcripts "$CDIR" --until 2026-09-30 --window-days 30 --json --out "$SANDBOX/cmp.json" >/dev/null 2>&1
+if python3 -c "import json,sys; c=json.load(open('$SANDBOX/cmp.json'))['compression']; sys.exit(0 if c['calls']=={'compress':8,'retrieve':1} and c['retrieve_per_compress']==0.125 and c['sessions_with_compress_share']==0.5 and c['bytes_in']>c['bytes_out']>0 and c['payload_audit']['by_source']=={'evidence':3,'work-input:Bash':1,'work-input:Grep':1,'work-input:Read':2,'work-input:authored':1} else 1)" 2>/dev/null; then
+  ok "compression: calls, retrieve ratio, share, bytes and the payload audit with the shipped evidence default (EVOL-140)"; else bad "compression signals from the materialised reader (EVOL-140)" "$(head -c 600 "$SANDBOX/cmp.json" 2>/dev/null)"; fi
+expect_exit 0 "compression: the payload audit is in the before/after table" "compression.payload_audit.work_input_calls" \
+  python3 "$M/measure.py" --config "$SANDBOX/cmp.config.json" --repo "$REPO" --transcripts "$CDIR" --until 2026-09-30 --window-days 30 --compare "$SANDBOX/cmp.json"
 expect_exit 0 "before/after table from a baseline file" "## Before → after" \
   python3 "$M/measure.py" --repo "$REPO" --transcripts "$TR" --until 2026-09-30 --window-days 30 --compare "$SANDBOX/before.json"
 
@@ -135,7 +151,7 @@ for flag in $(grep -oE '(^|[[:space:]`])--[a-z-]+' "$SRC/RUNBOOK.md" | grep -oE 
   printf '%s' "$HELP" | grep -q -- "$flag" || MISSING="$MISSING $flag"
 done
 if [ -z "$MISSING" ]; then ok "every flag the runbook cites exists in the real argument parser"; else bad "runbook cites flags the parser does not have:$MISSING"; fi
-for key in retention_days report_interval_days idle_cap_s governance_paths corpus_files rework_commit_types review_patterns review_agent_patterns prices; do
+for key in retention_days report_interval_days idle_cap_s governance_paths corpus_files rework_commit_types review_patterns review_agent_patterns prices compression; do
   grep -q "\"$key\"" "$SRC/measure.config.json" || MISSING="$MISSING $key"
 done
 if [ -z "$MISSING" ]; then ok "every config key the runbook documents exists in the config template"; else bad "runbook documents keys the config template lacks:$MISSING"; fi
