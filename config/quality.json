@@ -55,6 +55,11 @@
   },
   "retired_terms": [
     {
+      "term": "--preserve-local",
+      "record": "ADR-EVOL-136 — factory-sync replaces what the framework owns and never writes what the project owns; a project keeps its change in a project-owned file",
+      "exempt": ["scripts/factory-sync.sh", "scripts/test-materialization-surface.sh", "scripts/materialize-synthetic.sh", ".claude/instructions/Factory-setup-upgrade.instructions.md"]
+    },
+    {
       "term": "resolve_verification_commands",
       "record": "ADR-EVOL-067 — the loop reads config/quality.json → verification.gates; nothing derives commands from the stack",
       "exempt": []

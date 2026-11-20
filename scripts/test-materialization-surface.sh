@@ -227,8 +227,19 @@ for f in CLAUDE.md "$TPL_ROOT/claude/CLAUDE.md"; do
 done
 echo ""
 
+echo "8. sync delivers what the manifest declares (EVOL-136)"
+# a delivered tree named in sync's code is a second list beside the manifest; --preserve-local survives only as its refusal
+TREES=$(grep -v '^[[:space:]]*#' scripts/factory-sync.sh | grep -nE '\.claude/(commands|instructions|skills|hooks|agents)' || true)
+PRESERVE=$(grep -v '^[[:space:]]*#' scripts/factory-sync.sh | grep -n 'preserve-local' | grep -v 'is retired' || true)
+if [ -z "$TREES" ] && [ -z "$PRESERVE" ] && grep -q 'manifest\.delivered\|delivered(' scripts/factory-sync.sh; then
+  ok "factory-sync.sh reads the delivered set from manifest.delivered(), names no tree and only refuses --preserve-local"
+else
+  bad "factory-sync.sh keeps its own delivery list or accepts --preserve-local: ${TREES}${PRESERVE}"
+fi
+echo ""
+
 if [ "$failures" -eq 0 ]; then
-  echo "T3: ok — materialization surface closed (7 assertion groups)."
+  echo "T3: ok — materialization surface closed (8 assertion groups)."
   exit 0
 else
   echo "T3: FAIL — $failures assertion(s) failed." >&2

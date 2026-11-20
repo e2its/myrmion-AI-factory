@@ -87,10 +87,10 @@ for k, e in m["templates"].items():   # the delivered tree: every landing templa
     src = root / ".context/templates/setup" / k
     if e.get("target") and src.is_file() and not k.startswith("security/sast/") and holds(e):
         (out / e["target"]).parent.mkdir(parents=True, exist_ok=True); shutil.copy(src, out / e["target"])
-for e in [*m["framework_core"].values(), *(m.get("agent_templates") or {}).values()]:   # and every file factory-sync delivers
-    t = isinstance(e, dict) and e.get("delivery") in ("sync", "both") and (e.get("path") or e.get("target"))
-    if t and (root / t).is_file() and not t.startswith("scripts/fixtures/"):
-        (out / t).parent.mkdir(parents=True, exist_ok=True); shutil.copy(root / t, out / t)
+from gates import manifest
+for t, r in manifest.delivered(m).items():   # and every file factory-sync delivers, read from the one reader (EVOL-136)
+    if r["channel"] == "sync" and (root / r["source"]).is_file() and not t.startswith("scripts/fixtures/"):
+        (out / t).parent.mkdir(parents=True, exist_ok=True); shutil.copy(root / r["source"], out / t)
 row = discovery.resolve(root, a)["configures"].get("verification.gates", {}).get("sast")
 print((row or {}).get("command", ""))
 print(" ".join(Path(p).stem for p in packs))

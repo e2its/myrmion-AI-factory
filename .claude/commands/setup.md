@@ -55,11 +55,9 @@ Upgrade governance artifacts to latest framework templates. PREREQUISITE: `mater
 
 **Full protocol:** See `.claude/instructions/Factory-setup-upgrade.instructions.md`
 - Pre-Upgrade Inventory Audit (6 phases)
-- Unified Smart Additive Merge (format-aware: JSON/Markdown/YAML)
-- Script Semantic Merge (block-based with KEEP/TAKE/MERGE/APPEND)
+- Apply by owner (EVOL-136): framework files replaced, project files written only by answers and migration rows, seams merged by key
 - Smart Discovery Cascade + RDR Protocol
-- Semantic Coherence Check + Zero-TODO Enforcement
-- Post-Merge Script Validation (syntax, shebang, permissions, smoke test)
+- Zero-TODO Enforcement
 
 ### `--rollback-upgrade`
 Revert failed/unwanted upgrade to previous state. Atomic rollback with checksum verification.

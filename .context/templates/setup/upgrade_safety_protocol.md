@@ -247,7 +247,7 @@ Step 6.4: User decides on ADR-protected files
 
 ## 3. Smart Placeholder Discovery & RDR Resolution Protocol
 
-**Applies to:** ALL governance files during `/SETUP --upgrade` — both existing file upgrades (Smart Additive Merge) and new file handling.
+**Applies to:** `/SETUP --upgrade` — new files and the keys a seam lacks; every delivered file is applied by its owner (EVOL-136).
 
 **CRITICAL:** This protocol replaces the old "mini-discovery" approach. No TODOs, no defaults invented by the agent, no assumptions.
 
@@ -385,7 +385,7 @@ FOR EACH unresolved_placeholder:
 
 **After building merged content but BEFORE showing diff to user, detect contradictions between new additions and existing content.**
 
-**Why this matters:** Smart Additive Merge is *structurally* safe (never overwrites, never deletes) but NOT *semantically* safe. Adding new content that contradicts existing content produces incoherent governance files.
+**Why this matters:** an add-only seam merge or a migration row never overwrites, but it is not *semantically* safe. Adding content that contradicts existing content produces incoherent governance files.
 
 **Categories of Incoherence Detected:**
 
@@ -554,7 +554,7 @@ FOR EACH file_to_upgrade IN upgrade_plan.upgrades:
     "materialized_at": NOW,
     "backup_location": "{{BACKUP_DIR}}/files/{{target_path}}",
     "user_customized": {{boolean}},
-    "upgrade_strategy": {{strategy_used}},
+    "owner": {{owner}},
     "validation_passed": true
   }
   
@@ -633,7 +633,7 @@ Read it for a post-mortem of the upgrade.
           "from_version": "1.0.0",
           "to_version": "1.2.3",
           "date": "2026-02-10",
-          "strategy": "Smart Additive Merge",
+          "owner": "framework",
           "status": "COMPLETED",
           "customization_detected": false
         }
@@ -792,8 +792,8 @@ upgrade_settings:
 | **Phantom File** | File in .claude/rules/ not registered in governance_versions.json |
 | **Template Drift** | Checksum mismatch in .context/templates/setup/ (external modification) |
 | **Checkpoint** | Saved state at transaction boundary |
-| **Smart Additive Merge** | Unified upgrade strategy for ALL files: structural diff → add new content → preserve existing → resolve placeholders |
-| **Content Type: universal** | No placeholders. New sections/keys merged additively |
-| **Content Type: stack_configured** | Contains {{PLACEHOLDER}} tokens. Additions resolved via Smart Discovery + RDR |
-| **Content Type: project_data** | Project-specific values. Additions with defaults, existing values never modified |
+| **Owner (EVOL-136)** | Who writes a delivered file: `framework` (replaced wholesale), `project` (written only by an answer or a migration row), `seam` (keyed JSON, merged add-only by script) |
+| **Content Type: universal** | No placeholders |
+| **Content Type: stack_configured** | Contains {{PLACEHOLDER}} tokens, resolved via Smart Discovery + RDR |
+| **Content Type: project_data** | Project-specific values |
 

@@ -265,14 +265,16 @@ def manifest_parity(repo: Path) -> tuple[list[dict], dict]:
             findings += _history_findings(repo, inv, json.loads(inv.read_text(encoding="utf-8")))
         except (OSError, ValueError) as e:   # ValueError: JSONDecodeError and a non-UTF-8 file alike
             findings.append({"path": INVENTORY, "reason": f"not readable JSON ({e}) — its history keys cannot be verified"})
+    from . import manifest as manifest_mod   # one owner per delivered file (EVOL-136): its rules in the framework repo, its drift in a project
+    findings += manifest_mod.owner_findings(m, str(mp.relative_to(repo))) if "framework_core" in m else manifest_mod.project_findings(repo, m)
     stats = {"compared": 0, "no_version": 0, "absent": 0}
     for section, root in ROOTS.items():
         for k, e in (m.get(section) or {}).items():
             if k.startswith("_") or not isinstance(e, dict) or "version" not in e:
                 continue
             p = repo / (e.get("path") or (root + k)) if section != "templates" else repo / (root + k)
-            if section == "templates" and not p.is_file():
-                p = repo / (e.get("target") or "")   # downstream: the materialised target
+            if section == "templates" and ("framework_core" not in m or not p.is_file()):
+                p = repo / (e.get("target") or "")   # downstream: the materialised target, never the source copy beside it (EVOL-136)
             if not p.is_file() or p.suffix != ".md":
                 stats["absent"] += 1
                 continue

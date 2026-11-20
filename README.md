@@ -339,7 +339,7 @@ Role: Architect / Governance. Defines constitution, rules, and initial scaffoldi
 | `/setup --generate` | — | Only with `phase: COMPLETED`. Materializes tripartite scaffolding (Backend / Frontend / Integration ACL). Includes IaC foundation scaffolding. Creates `MATERIALIZATION_REPORT.md` with a 60–80 task checklist. |
 | `/setup --generate --resume` | — | Continues an interrupted materialization. Requires `MATERIALIZATION_REPORT.md`. Reads the checklist and resumes from the last pending task. |
 | `/setup --migrate-legacy-setup` 🧪 | — | **EXPERIMENTAL.** Auto-migrates a legacy `setup.md` to the tripartite format. Requires a score > 85%. |
-| `/setup --upgrade` | — | Upgrades governance artifacts to the latest framework version. 6 safety layers. Smart Additive Merge. |
+| `/setup --upgrade` | — | Upgrades governance artifacts to the latest framework version. 6 safety layers. Each delivered file applied by its owner (EVOL-136): the framework's replaced, the project's never overwritten, the seams merged by key. |
 | `/setup --rollback-upgrade {TIMESTAMP}` | Backup timestamp | Recovers the project from a failed upgrade. |
 | `/setup --reconcile-inventory` | — | Reconciles `config/codebase_inventory.json` against the tree (the CIP inventory drift and freshness checks). |
 

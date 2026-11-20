@@ -285,6 +285,8 @@ if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(o
   mkdir -p "$P/docs/project_log" "$P/.context/templates/setup/setup"
   cp "$T/setup/discovery_registry.json" "$P/.context/templates/setup/setup/discovery_registry.json"
   cp "$MANIFEST" "$P/.context/templates/setup/governance_versions.json"
+  mkdir -p "$P/.context/templates/setup/claude" "$P/.context/templates/setup/config"   # the seams' templates (EVOL-136), delivered as factory-sync does
+  cp "$T/claude/settings.json" "$P/.context/templates/setup/claude/settings.json"; cp "$T/config/quality.json" "$P/.context/templates/setup/config/quality.json"
   # the catalog delta (EVOL-066): the template catalog delivered as factory-sync does; the project's predates DC-32..35,
   # holds its own DC-31 (another class) and the template DC-18 its answers no longer select
   mkdir -p "$P/.context/templates/setup/rules"
@@ -487,16 +489,11 @@ if [ "$IS_DEFAULT" != "1" ]; then
   echo; echo "materialize-synthetic: $PASS passed, $FAIL failed (selection of $(basename "$ANSWERS"))"; [ "$FAIL" -eq 0 ]; exit
 fi
 
-# framework tree as factory-sync delivers it (skills / instructions / commands / hooks / gate reader)
-mkdir -p "$P/.claude" "$P/scripts"
-cp -R "$ROOT/.claude/skills" "$P/.claude/skills"; cp -R "$ROOT/.claude/instructions" "$P/.claude/instructions"; cp -R "$ROOT/.claude/commands" "$P/.claude/commands"
-[ -d "$P/.claude/hooks" ] || cp -R "$T/claude/hooks" "$P/.claude/hooks"
+# the framework tree, delivered by factory-sync itself (EVOL-136: what the manifest delivers, with each source's sha256)
+OUT=$(bash "$ROOT/scripts/factory-sync.sh" "$P" --force 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "factory-sync delivers the framework tree from the manifest" || bad "factory-sync failed on the materialised project (rc=$RC)" "$(printf '%s' "$OUT" | tail -15)"
 [ -f "$P/.claude/settings.json" ] || cp "$T/claude/settings.json" "$P/.claude/settings.json"
 [ -f "$P/CLAUDE.md" ] || cp "$T/claude/CLAUDE.md" "$P/CLAUDE.md"
-for s in gate.py generate-governance-snapshot.sh validate-governance.sh governance-onprompt.sh governance-onedit.sh governance-oncompact.sh check-adr-constitution-sync.sh; do
-  [ -f "$P/scripts/$s" ] || cp "$T/scripts/$s" "$P/scripts/$s" 2>/dev/null || true
-done
-[ -d "$P/scripts/gates" ] || cp -R "$T/scripts/gates" "$P/scripts/gates"
 mkdir -p "$P/config"; [ -f "$P/config/coherence-context.json" ] || cp "$T/config/coherence-context.json" "$P/config/coherence-context.json"
 git -C "$P" init -q && git -C "$P" add -A && git -C "$P" -c user.name=t -c user.email=t@t commit -qm scratch
 for f in config/quality.json config/coherence-context.json config/protected-paths.json; do
@@ -577,7 +574,8 @@ python3 - "$MANIFEST" "$P/docs/project_log/governance_versions.json" <<'PY'
 import json, sys, pathlib
 m = json.load(open(sys.argv[1])); out = {"framework_version": m["framework_version"], "delivery_mode": "development", "templates": {}}   # Q32 sample
 for k, e in m["templates"].items():
-    if isinstance(e, dict) and e.get("target"): out["templates"][k] = {"version": e["version"], "target": e["target"]}
+    if isinstance(e, dict) and e.get("target"): out["templates"][k] = {"version": e["version"], "target": e["target"], "owner": e["owner"]}
+out["governance_features"] = {"owners_v1": True}   # EVOL-136: materialisation stamps each owner
 p = pathlib.Path(sys.argv[2]); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps(out, indent=1))
 PY
 OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
@@ -587,6 +585,65 @@ sed -i '0,/^version: /s//version: 9.9.9\nx_drift: /' "$P/.claude/rules/architect
 OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'architecture.md' && ok "RED: an injected frontmatter drift is caught in the scratch project" || bad "injected drift not caught (rc=$RC)" "$OUT"
 sed -i '/^x_drift: /d; 0,/^version: 9.9.9/s//version: '"$(cd "$P" && python3 -c "import json;print(json.load(open('docs/project_log/governance_versions.json'))['templates']['rules/architecture.md']['version'])")"'/' "$P/.claude/rules/architecture.md"
+# EVOL-136: one owner per delivered file — an aged project with its own work and one framework edit: parity names the
+# framework edit; sync + the owners and seams anchors restore what the framework owns, keep what the project owns, add the
+# seams' missing keys; a second run changes nothing; --preserve-local is retired
+Q="$SCRATCH/h136"; cp -a "$P" "$Q"; cp "$Q/.claude/skills/factory-rdr/SKILL.md" "$Q.skill"
+python3 - "$Q" <<'PY'
+import json, pathlib, sys
+q = pathlib.Path(sys.argv[1])
+m = q / "docs/project_log/governance_versions.json"; d = json.loads(m.read_text())
+[e.pop("owner", None) for e in d["templates"].values()]; d.pop("governance_features", None); m.write_text(json.dumps(d, indent=1))
+c = q / "config/quality.json"; cfg = json.loads(c.read_text()); cfg["budgets"].pop("notebook_reinject", None); cfg["x_project_key"] = {"mine": 1}; c.write_text(json.dumps(cfg, indent=2))
+st = q / ".claude/settings.json"; sj = json.loads(st.read_text()); h = sj["hooks"]
+h["UserPromptSubmit"] = [e for e in h["UserPromptSubmit"] if not any("gate.py notebook" in x.get("command", "") for x in e.get("hooks", []))]
+sj.setdefault("permissions", {}).setdefault("allow", []).append("Bash(make test)"); st.write_text(json.dumps(sj, indent=2))
+(q / ".claude/rules/architecture.md").write_text((q / ".claude/rules/architecture.md").read_text() + "\n## Our own section\n")
+(q / "CLAUDE.md").write_text((q / "CLAUDE.md").read_text() + "\n## Project notes\n")
+(q / ".claude/commands/mine.md").write_text("# our own command\n")
+(q / ".claude/skills/factory-rdr/SKILL.md").write_text((q / ".claude/skills/factory-rdr/SKILL.md").read_text() + "\nlocal edit\n")
+PY
+cp "$Q/.claude/rules/architecture.md" "$Q.arch"; cp "$Q/CLAUDE.md" "$Q.claude"
+OUT=$(cd "$Q" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q '.claude/skills/factory-rdr/SKILL.md' && printf '%s' "$OUT" | grep -q 'migration owners (EVOL-136)' \
+  && ! printf '%s' "$OUT" | grep -q 'architecture.md\|CLAUDE.md\|mine.md' \
+  && ok "RED: parity names the framework file the project edited and the owners it owes — never the project's own files (EVOL-136)" || bad "the drift of a framework file not named (rc=$RC)" "$OUT"
+python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$Q.mig.sh" <<'PY'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read()
+for mark in ("**owners (EVOL-136).**", "7. **Seams (EVOL-136), every upgrade.**"):
+    print(re.search(r"```bash\n(.*?)```", s[s.index(mark):], re.S).group(1))
+PY
+up136() { bash "$ROOT/scripts/factory-sync.sh" "$Q" --force 2>&1 && (cd "$Q" && bash "$Q.mig.sh") 2>&1; }
+SYNC1=$(up136); RC1=$?
+SUM1=$(cd "$Q" && find . -path ./.git -prune -o -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)
+SYNC2=$(up136); SUM2=$(cd "$Q" && find . -path ./.git -prune -o -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)
+OUT=$(cd "$Q" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
+CHK=$(python3 - "$Q" <<'PY'
+import json, pathlib, sys
+q = pathlib.Path(sys.argv[1])
+bad = []
+if (q / ".claude/skills/factory-rdr/SKILL.md").read_bytes() != pathlib.Path(sys.argv[1] + ".skill").read_bytes(): bad.append("the framework skill is not restored")
+cfg = json.loads((q / "config/quality.json").read_text())
+if cfg.get("x_project_key") != {"mine": 1}: bad.append("the project's own quality key is lost")
+if not isinstance(cfg["budgets"].get("notebook_reinject"), int): bad.append("the seam key the template carries is not added")
+sj = json.loads((q / ".claude/settings.json").read_text())
+if "Bash(make test)" not in sj.get("permissions", {}).get("allow", []): bad.append("the project's permission is lost")
+if not any("gate.py notebook" in x.get("command", "") for e in sj["hooks"]["UserPromptSubmit"] for x in e.get("hooks", [])): bad.append("the framework hook is not added back")
+if not (q / ".claude/commands/mine.md").is_file(): bad.append("the project's own command is gone")
+snap = json.loads((q / "docs/project_log/governance_versions.json").read_text())
+if not snap.get("governance_features", {}).get("owners_v1") or any("owner" not in e for e in snap["templates"].values()): bad.append("owners not stamped")
+print("; ".join(bad))
+PY
+)
+[ "$RC1" -eq 0 ] && [ "$RC" -eq 0 ] && [ -z "$CHK" ] && [ "$SUM1" = "$SUM2" ] && cmp -s "$Q/.claude/rules/architecture.md" "$Q.arch" && cmp -s "$Q/CLAUDE.md" "$Q.claude" \
+  && ! printf '%s' "$SYNC1" | grep -q 'mine.md' \
+  && ok "sync + the owners and seams anchors: the framework's file restored, the project's rule, CLAUDE.md, command, permission and key kept, the seams' missing key and hook added, owners stamped, parity green, a second run changes nothing (EVOL-136)" \
+  || bad "the upgrade by owner (sync rc=$RC1, parity rc=$RC, idempotent=$([ "$SUM1" = "$SUM2" ] && echo y || echo n))" "$CHK
+$OUT
+$(printf '%s' "$SYNC1" | tail -8)"
+OUT=$(bash "$ROOT/scripts/factory-sync.sh" "$Q" --preserve-local --force 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'retired' && ok "--preserve-local is retired: refused with its reason (EVOL-136)" || bad "--preserve-local still accepted (rc=$RC)" "$OUT"
+rm -rf "$Q" "$Q.arch" "$Q.claude" "$Q.mig.sh" "$Q.skill"
 # EVOL-118: the manifest carries current state only — a reintroduced history key is red, named by its path; removed, green again
 if grep -rlq '^changelog:' "$P/.claude/rules"; then bad "a materialised rule carries a frontmatter changelog (EVOL-118)" "$(grep -rl '^changelog:' "$P/.claude/rules")"; else ok "no materialised rule carries a frontmatter changelog (EVOL-118)"; fi
 cp "$P/docs/project_log/governance_versions.json" "$P/manifest.keep"
