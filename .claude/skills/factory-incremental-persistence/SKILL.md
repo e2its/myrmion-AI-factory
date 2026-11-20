@@ -168,6 +168,7 @@ FUNCTION persist_decision(artifact_path, decision):
     recommendation: "{agent recommendation}",
     user_choice: "{what user decided}",   # verbatim
     relay: "{session}",                   # only when another session carried the words (factory-rdr § Relay and delegation)
+    delegation: {quote, date, adr},       # only under a project's own delegation; never with relay
     rationale: "{why}",
     timestamp: "{ISO_8601}",
     impact: "{which sections affected}"

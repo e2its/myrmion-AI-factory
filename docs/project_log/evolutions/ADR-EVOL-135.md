@@ -40,7 +40,7 @@ This ADR plans issue #243 (epic #112, wave 5, destination S). It is follow-up C 
 4. **A project's delegation law is read, never shipped.**
    - `delegation` may name the accepted project ADR that grants it: `delegation: {quote, date, adr}`, on an accepted change (in place of `rdr`) or on an RDR record (beside the option taken, `user_choice`).
    - `gate.py aligned` reads that ADR through `data._accepted()` when the record is added. It is red when the ADR is missing or not accepted, and red when `adr` is not a project ADR id (a feature's FDR), because delegation is project law.
-   - A record an earlier change added was judged at its own push: `_backed()` and the tracker's `--aligns` re-read its `adr` for its shape only. A delegation ADR superseded later never un-ratifies the decisions taken under it.
+   - A record an earlier change added was judged at its own push: `_backed()`, the tracker's `--aligns` and an unchanged `_progress.decisions[]` entry already at the base re-read its `adr` for its shape only. A delegation ADR superseded later never un-ratifies the decisions taken under it.
    - A `delegation` with no `adr` stays valid as before.
    - The mirrored «RDR Universal» clause of both `CLAUDE.md` files gains one sentence: a relayed answer counts only with the person's verbatim words and the relay named; a project's accepted delegation ADR is honoured; approvals are never relayed. So no project edits a framework-shipped file to delegate.
 5. **No new command, flag, member or permission hook.** The checks live in the existing `aligned` member. The harness keeps its prompts in its own window, and the text states that limit.
@@ -65,7 +65,8 @@ This ADR plans issue #243 (epic #112, wave 5, destination S). It is follow-up C 
   - a relayed approval line (`--approve` and a project's plan exception), a delegated approval line, a non-JSON relayed line;
   - a relayed RDR record, in `_progress.decisions[]` and on a decision-log line, a bare numeric option id included;
   - `delegation.adr`: missing, proposed, accepted, FDR, absent; on an RDR decision too;
-  - an earlier delegated entry keeps backing its claims once its ADR is superseded; the tracker's `--aligns` judges the `adr` shape.
+  - an earlier delegated entry keeps backing its claims once its ADR is superseded, and an earlier delegated decision is not re-judged when its artefact changes; the tracker's `--aligns` judges the `adr` shape;
+  - a record named after a device (a FIFO) is never opened.
 - **Synthetic materialisation with `--answers`:**
   - a relayed record without words is red;
   - a relayed approval is red;

@@ -270,14 +270,23 @@ def _frontmatters(repo: Path, changed: set[str]):
             continue
 
 
-def relayed_decisions(repo: Path, changed: set[str]) -> list[dict]:
-    """Clauses (f) and (h) on a changed artefact's `_progress.decisions[]` entries (red rows only)."""
+def _decisions(fm) -> list:
+    prog = fm.get("_progress") if isinstance(fm, dict) else None
+    decs = prog.get("decisions") if isinstance(prog, dict) else None
+    return decs if isinstance(decs, list) else []
+
+
+def relayed_decisions(repo: Path, ref: str, changed: set[str]) -> list[dict]:
+    """Clauses (f) and (h) on a changed artefact's `_progress.decisions[]` entries (red rows only). An entry already
+    at the base, unchanged, was judged at its own push: its delegation is re-read for its shape only."""
     rows = []
     for art, fm in _frontmatters(repo, changed):
-        prog = fm.get("_progress") if isinstance(fm, dict) else None
-        decs = prog.get("decisions") if isinstance(prog, dict) else None
-        for d in decs if isinstance(decs, list) else []:
-            problems = rdr_record(d, repo) if isinstance(d, dict) else []
+        try:
+            before = _decisions(frontmatter_of(_at(repo, ref, art) or ""))
+        except GateFault:
+            before = []
+        for d in _decisions(fm):
+            problems = rdr_record(d, None if d in before else repo) if isinstance(d, dict) else []
             if problems:
                 rows.append({"id": _clean(f"{art} {d.get('id') or '(decision)'}"), "ok": False, "problems": problems})
     return rows
@@ -327,7 +336,7 @@ def check(repo: Path, base: str, branch: str | None = None, control_point: str =
                     problems.append(f"{', '.join(dropped)} lost APPROVED on a registration-only realignment — an iteration of only accepted_change changes keeps APPROVED")
             rows.append({"id": _clean(e.get("id") or "(no id)"), "ok": not problems, "problems": problems})
         rows += log_records(repo, ref, log)
-    rows += claims(repo, changed) + relayed_decisions(repo, changed)
+    rows += claims(repo, changed) + relayed_decisions(repo, ref, changed)
     if not rows:
         why = "the change adds no accepted change to its decision log(s)" if logs else "no decision log in the change (docs/project_log/features/*.log.jsonl), no unbacked registration-only claim"
         return {"ok": True, "logs": logs, "entries": [], "reason": f"{why} — nothing to judge"}

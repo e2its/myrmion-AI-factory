@@ -6883,6 +6883,33 @@ class Aligned(unittest.TestCase):
             write(repo / self.ART, self.ALIGNED_FM)
             r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))
 
+    def test_an_earlier_delegated_decision_is_not_re_judged_when_its_artefact_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dec = "_progress:\n  decisions:\n    - id: RDR-1\n      user_choice: alt-2\n      delegation: {quote: q, date: \"2026-11-20\", adr: ADR-0042}\n"
+            repo = fixture_repo(Path(tmp))
+            write(repo / self.ART, "---\nstatus: DRAFT\n" + dec + "---\nbody\n")
+            write(repo / "docs/project_log/adr/ADR-0042-delegation.md", "---\nstatus: accepted\n---\nd\n")
+            for c in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], ["branch", "-M", "main"], ["checkout", "-qb", "feature/FEAT-001-x"]):
+                subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+            write(repo / "docs/project_log/adr/ADR-0042-delegation.md", "---\nstatus: superseded\n---\nd\n")
+            write(repo / self.ART, "---\nstatus: DRAFT\n" + dec + "---\nbody, refined\n")
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))   # judged at the push that added it
+            write(repo / self.ART, "---\nstatus: DRAFT\n" + dec + dec.split("decisions:\n")[1].replace("RDR-1", "RDR-2") + "---\nbody, refined\n")
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("RDR-2", aligned.render(r)); self.assertNotIn("RDR-1", aligned.render(r))
+            write(repo / self.ART, "---\nstatus: DRAFT\n" + dec.replace("adr: ADR-0042", "adr: FEAT-001/FDR-1") + "---\nbody\n")
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("project law", aligned.render(r))   # a changed entry: new
+
+    def test_a_record_named_after_a_device_is_never_opened(self):
+        import threading
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp); (repo / data.ADR_DIR).mkdir(parents=True)
+            os.mkfifo(repo / data.ADR_DIR / "ADR-0042-x.md")
+            out = []
+            t = threading.Thread(target=lambda: out.append(data._accepted(repo, "ADR-0042", {}, "a delegated decision")), daemon=True)
+            t.start(); t.join(10)
+            self.assertFalse(t.is_alive(), "the read blocked on a FIFO")
+            self.assertIn("no docs/project_log/adr/ADR-0042-*.md", out[0])
+
     def test_a_delegation_names_an_accepted_project_adr(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
