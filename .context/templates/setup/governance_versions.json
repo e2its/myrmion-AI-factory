@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.11.0",
+  "framework_version": "10.12.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-20",
   "governance_features": {
@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.25.1",
+      "version": "2.26.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -446,7 +446,7 @@
       "target": ".claude/hooks/check-push-preflight.sh"
     },
     "claude/CLAUDE.md": {
-      "version": "4.22.0",
+      "version": "4.23.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge"
@@ -670,7 +670,7 @@
       "role": "GitHub Actions blocking CI gate that runs the freshness check on every PR touching src, the inventory, the freshness script, or this workflow itself. Materialised at SETUP --generate as `.github/workflows/inventory-drift.yml`."
     },
     "scripts/check-adr-constitution-sync.sh": {
-      "version": "1.3.1",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": "scripts/check-adr-constitution-sync.sh",
       "role": "SETUP-delivery copy of check-adr-constitution-sync.sh (byte-mirror of the meta script, meta_template_mirror pair). CI-invoked in materialised projects — a fresh SETUP --generate must deliver it or the first PR fails CI (CVP CRITICAL 9-10 class).",
@@ -882,7 +882,7 @@
       "role": "Body home of [PLAW-10] Dependency Management and Allowlist (moved from the constitution template; allowlist.json stays the data)."
     },
     "rules/documentation.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "universal",
       "target": ".claude/rules/documentation.md",
       "role": "Body home of [PLAW-09] Documentation Standards and of universal [LAW-06] Traceability."
@@ -906,7 +906,7 @@
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**)."
     },
     "scripts/gate.py": {
-      "version": "2.9.0",
+      "version": "2.10.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language.",
@@ -927,7 +927,7 @@
       "delivery": "both"
     },
     "scripts/gates/corpus.py": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "content_type": "universal",
       "target": "scripts/gates/corpus.py",
       "role": "gates: law index parser (CLAUDE.md list form + constitution H2 form), body_section parity lookup, rule/instruction/skill universe, defect catalog (families + classes), the applicability resolver (AND across axes, OR within), roll-call renderer, digest within budget.",
@@ -948,7 +948,7 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.47.0",
+      "version": "1.48.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -962,14 +962,14 @@
       "role": "gates: coherence gates — `certify` (the certification hash a verdict embeds: diff = the factory-code-review content hash, tree = sha256 over tracked blobs under paths), `currency` (a terminal verdict artefact still certifies the current build; stale/missing/unreadable = red), `manifest_parity` (frontmatter version == manifest version; manifest is the source of truth)."
     },
     "scripts/gates/branch.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/gates/branch.py",
       "delivery": "both",
       "role": "gates: branch classes, the ONE diff-base resolver and the per-PR surface ceiling (EVOL-045) — `branch_class` (protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown; a train = per-increment branch whose increment plan declares sub-increments, protected), `diff_base` (sub-increment → its train, else the default base branch; unknown name → red, fail-closed), `surface` (files + lines of base...HEAD vs surface.ceiling_*, Surface-Escape trailer from the closed surface.escapes list)."
     },
     "scripts/gates/profile.py": {
-      "version": "1.18.0",
+      "version": "1.19.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
@@ -1194,7 +1194,7 @@
       "role": "The lens canary (EVOL-059): the synthetic fixture with planted defects per lens (encoded at rest), the expected findings, the judge, the record of the model each lens last ran on and was last judged on, the plan that owes a lens when its resolved model moved."
     },
     "scripts/gates/manifest.py": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "content_type": "universal",
       "target": "scripts/gates/manifest.py",
       "delivery": "both",
@@ -1267,7 +1267,7 @@
       "target": "scripts/gates/train.py"
     },
     "scripts/gates/freeze.py": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/freeze.py"
@@ -1364,7 +1364,7 @@
       "role": "Client-bounds pack (EVOL-106) for Rust: our own Semgrep rules naming each external client's bound, read by `gate.py bounds`; lands only for a function-hosted backend in the language."
     },
     "scripts/gates/contracts.py": {
-      "version": "1.3.1",
+      "version": "1.4.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/contracts.py"
@@ -1420,7 +1420,7 @@
       "target": "scripts/gates/proof.py"
     },
     "scripts/gates/tracker.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/tracker.py"
@@ -1454,7 +1454,7 @@
     "_description": "Per-role agent templates consumed by CODESIGN, BLUEPRINT (architect), DEVELOP, PO, QA, SECURITY, UX, and PEER REVIEW agents at feature time. Synced to materialised projects by factory-sync.sh under the same `.context/templates/{role}/` path. Tracked here so SETUP --upgrade can apply Smart Additive Merge with version awareness instead of factory-sync.sh's blind overwrite. Placeholders ({{FEATURE_ID}}, {{TIMESTAMP}}, etc.) are runtime-resolved by agents when generating per-feature artefacts — they are part of the template contract, not setup-time variables. Hence content_type: universal across the board.",
     "_architecture": "Each entry's target is the same `.context/templates/{role}/{file}` path in the materialised project. SETUP --upgrade walks this section under Step 2 (Unified Smart Additive Merge) + Step 3 (New File Handling). EVOL-027 fase 1 — keystone for fase 5 (parser-canonical user_journey reaches materialised projects via --upgrade).",
     "architect/adr_template.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".context/templates/architect/adr_template.md"
     },
@@ -1717,7 +1717,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.39.1",
+      "version": "14.40.0",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
@@ -2063,11 +2063,11 @@
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`)."
     },
     "skills/factory-adr-management/SKILL.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "path": ".claude/skills/factory-adr-management/SKILL.md"
     },
     "scripts/check-adr-constitution-sync.sh": {
-      "version": "1.4.1",
+      "version": "1.5.0",
       "path": "scripts/check-adr-constitution-sync.sh",
       "delivery": "both"
     },
@@ -2084,7 +2084,7 @@
       "path": "scripts/test-adr-accept.sh"
     },
     "scripts/test-check-adr-constitution-sync.sh": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "path": "scripts/test-check-adr-constitution-sync.sh"
     },
     "skills/factory-pr-review/scripts/check_docs_sync.py": {
@@ -2336,7 +2336,7 @@
       "path": ".claude/hooks/deliver-governance.sh"
     },
     "scripts/gate.py": {
-      "version": "2.9.0",
+      "version": "2.10.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
@@ -2354,7 +2354,7 @@
       "path": "scripts/gates/common.py"
     },
     "scripts/gates/corpus.py": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "type": "script",
       "role": "gates: law index parser (CLAUDE.md list form + constitution H2 form), body_section parity lookup, rule/instruction/skill universe, defect catalog (families + classes), the applicability resolver (AND across axes, OR within), roll-call renderer, digest within budget. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/corpus.py"
@@ -2372,13 +2372,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.47.0",
+      "version": "1.48.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.43.0",
+      "version": "1.44.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2402,13 +2402,13 @@
       "path": "scripts/gates/coherence.py"
     },
     "scripts/gates/branch.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "gates: branch classes, the ONE diff-base resolver and the per-PR surface ceiling (EVOL-045) — `branch_class` (protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown; a train = per-increment branch whose increment plan declares sub-increments, protected), `diff_base` (sub-increment → its train, else the default base branch; unknown name → red, fail-closed), `surface` (files + lines of base...HEAD vs surface.ceiling_*, Surface-Escape trailer from the closed surface.escapes list). Meta copy (lock-step pair).",
       "path": "scripts/gates/branch.py"
     },
     "scripts/gates/profile.py": {
-      "version": "1.18.0",
+      "version": "1.19.0",
       "type": "script",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
       "path": "scripts/gates/profile.py"
@@ -2576,7 +2576,7 @@
       "role": "Meta copy (lock-step pair) of the lens canary module — see the templates entry."
     },
     "scripts/gates/manifest.py": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "path": "scripts/gates/manifest.py",
       "role": "The manifest bump helper (EVOL-061): one command moves the entry, the file's frontmatter and framework_version — state only (EVOL-118); --check verifies. Meta copy (lock-step pair).",
       "type": "script"
@@ -2671,7 +2671,7 @@
       "path": "scripts/gates/train.py"
     },
     "scripts/gates/freeze.py": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "type": "script",
       "path": "scripts/gates/freeze.py"
     },
@@ -2891,7 +2891,7 @@
       "role": "META-ONLY recorded tracker response (GitHub GraphQL, Jira REST or the local state.md) read by the Tracker tests (EVOL-079)."
     },
     "scripts/gates/contracts.py": {
-      "version": "1.3.1",
+      "version": "1.4.0",
       "type": "script",
       "path": "scripts/gates/contracts.py"
     },
@@ -2950,7 +2950,7 @@
       "path": "scripts/gates/proof.py"
     },
     "scripts/gates/tracker.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "path": "scripts/gates/tracker.py"
     },

@@ -2,7 +2,7 @@
 description: "Documentation standards — docstring conventions per language, minimum API documentation, architecture docs (C4, ADRs, module READMEs), comment policy, deliverable homes (approve / read / pull a pinned artefact)."
 applicable_when:
   always: true
-version: 1.2.0
+version: 1.2.1
 date: 2026-10-07
 ---
 
@@ -31,7 +31,7 @@ date: 2026-10-07
 
 ### Architecture Docs
 - **C4 Diagrams:** Mermaid in `docs/spec/{FEATURE_ID}/design.md`.
-- **ADRs:** `docs/project_log/adr/ADR-NNNN-title.md` for architectural decisions.
+- **ADRs:** `docs/project_log/adr/ADR-NNNN-title.md` for architectural decisions — `ADR-{FEAT}-{N}-title.md` when born on a feature branch (EVOL-134).
 - **README per Module:** Purpose, dependencies, how to run tests.
 
 ### Comment Policy

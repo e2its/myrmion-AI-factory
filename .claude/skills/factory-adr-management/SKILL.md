@@ -48,7 +48,7 @@ Creates a new record in `status: proposed`. Triggered by any agent or free-form 
 
 **Steps:**
 
-1. **Resolve number.** `N = max(existing_numbers) + 1` per scope (ADR + DIVERGENCE scope = `docs/project_log/adr/`; FDR scope = `docs/spec/{FEAT-ID}/fdr/`). Format as zero-padded — width matches local convention (detect max width of existing files in scope; fallback 4-digit if scope is empty): e.g. `ADR-0030`, `FDR-014`.
+1. **Resolve number.** A record born on a branch that names a feature (`python3 scripts/gate.py branch-class` → `feature_id`; the tracker key when a tracker exists) takes the feature's own number: `{FEAT}-{N}`, `N = max + 1` over that feature's ADRs, so its id `ADR-{FEAT}-{N}` (`adr_number: {FEAT}-{N}`) is one only that feature's own branches can mint — sibling increments of one feature still collide, red at the push (EVOL-134). On any other branch, and for an FDR, `N = max(existing_numbers) + 1` per scope (ADR + DIVERGENCE scope = `docs/project_log/adr/`; FDR scope = `docs/spec/{FEAT-ID}/fdr/`), zero-padded — width matches local convention (detect max width of existing files in scope; fallback 4-digit if scope is empty): e.g. `ADR-0030`, `FDR-014`. Shipped ids keep their shape; every reader takes both.
 2. **Validate inputs.**
    - `operational_rule` non-empty (whitespace-only fails).
    - For ADR: `target_section` non-empty AND `amendment_kind` ∈ {ADD, REPLACE, REMOVE}.
@@ -64,7 +64,7 @@ Creates a new record in `status: proposed`. Triggered by any agent or free-form 
 
 **Failure modes:**
 
-- Number collision (concurrent proposal in same scope) → retry with `N+1` once, then fail.
+- Number collision (concurrent proposal in same scope) → retry with `N+1` once, then fail. A collision with another branch is invisible here: it is red at the push — one id declared by two records (`adr-sync`), a `PLAW-NN` declared twice (`law-parity`) — and the branch that lands second renumbers its own record or law (EVOL-134).
 - Target section verification fails → return error `target_section_not_found` with the section the caller named; caller must escalate to user (typically via RDR with corrected sections).
 - Template missing → fatal; SETUP --upgrade required.
 

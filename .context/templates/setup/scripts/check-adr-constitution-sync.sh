@@ -41,6 +41,12 @@
 # ADR-EVOL-N also by the bare EVOL-N. Every accepted orphan already in the tree
 # is listed as a NOTICE, never red. Same [adr-backfill] bypass.
 #
+# Direction D (EVOL-134, one id per record): an ADR the diff adds whose id — the
+# frontmatter `id`, else `ADR-<adr_number>`, else the filename up to its number —
+# another record at HEAD declares too is red; a duplicate shipped before stays as
+# shipped. A record born on a feature branch takes the feature's own id
+# (`ADR-{FEAT}-{N}`). Same [adr-backfill] bypass.
+#
 # Inputs:
 #   $1 (optional) — base ref to compare against. Defaults to:
 #                   $GITHUB_BASE_REF (GitHub Actions PR context),
@@ -138,7 +144,7 @@ read_frontmatter_value() {
 # when the amendment ships universal law to downstream.
 # ────────────────────────────────────────────────────────────────────────────
 constitution_in_diff="no"
-diff_files=$(git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null || true)
+diff_files=$(git -c core.quotePath=false diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null || true)   # an accented file name read as written, never quoted (EVOL-134)
 # in_lines <newline-separated list> <item>: exact-line membership in pure bash — no `echo | grep -q` (DC-13: the reader's
 # early exit closes the pipe under `pipefail` and a present line reads as absent; the intermittent red of this gate).
 in_lines() { case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0 ;; *) return 1 ;; esac; }
@@ -199,7 +205,7 @@ while IFS= read -r path; do
       esac
       ;;
   esac
-done < <(git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null | grep -E "^docs/project_log/(adr/ADR-|evolutions/ADR-EVOL-).*\.md$" || true)
+done < <(printf '%s\n' "$diff_files" | grep -E "^docs/project_log/(adr/ADR-|evolutions/ADR-EVOL-).*\.md$" || true)   # the unquoted list (EVOL-134)
 
 # ────────────────────────────────────────────────────────────────────────────
 # Direction B: a law SENTENCE changed without an accepted ADR in the diff.
@@ -256,6 +262,52 @@ if [ "$sentence_diff" = "yes" ]; then
 fi
 
 # ────────────────────────────────────────────────────────────────────────────
+# Direction D: one ADR id, one record (EVOL-134). Two branches that each mint the
+# next sequential number land two files with one id; git merges both. A record
+# the diff adds whose id another file at HEAD declares too is red. A record born on
+# a feature branch takes the feature's own id (ADR-{FEAT}-{N}): only a sibling
+# branch of the same feature can mint it again.
+# ────────────────────────────────────────────────────────────────────────────
+adr_id() {  # adr_id <path> <content> → the one id a record declares: frontmatter id, else ADR-<adr_number>, else the filename up to its number
+  local id n stem
+  id=$(read_frontmatter_value "$2" id)
+  if [ -n "$id" ]; then printf '%s\n' "$id"; return 0; fi
+  n=$(read_frontmatter_value "$2" adr_number)
+  if [ -n "$n" ]; then printf 'ADR-%s\n' "${n#ADR-}"; return 0; fi
+  stem=$(basename "$1" .md)
+  if [[ "$stem" =~ ^(ADR-(EVOL-)?[0-9]+) ]]; then printf '%s\n' "${BASH_REMATCH[1]}"; fi
+  return 0
+}
+adr_index=""   # "id<TAB>path" per record at HEAD — a newline list, bash 3.2-safe (no associative array)
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  case "$path" in docs/project_log/adr/ADR-*.md|docs/project_log/evolutions/ADR-EVOL-*.md) ;; *) continue ;; esac
+  i=$(adr_id "$path" "$(git show "HEAD:$path")")
+  [ -n "$i" ] && adr_index+="$i"$'\t'"$path"$'\n'
+done < <(git -c core.quotePath=false ls-tree -r --name-only HEAD -- docs/project_log/adr docs/project_log/evolutions 2>/dev/null || true)
+dups=()
+dup_ids=""
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  case "$path" in docs/project_log/adr/ADR-*.md|docs/project_log/evolutions/ADR-EVOL-*.md) ;; *) continue ;; esac
+  git cat-file -e "HEAD:$path" 2>/dev/null || continue
+  i=$(adr_id "$path" "$(git show "HEAD:$path")")
+  [ -n "$i" ] || continue
+  in_lines "$dup_ids" "$i" && continue
+  owners=""; n=0
+  while IFS=$'\t' read -r oid opath; do
+    if [ "$oid" = "$i" ]; then n=$((n + 1)); owners="${owners:+$owners, }$opath"; fi
+  done <<< "$adr_index"
+  [ "$n" -gt 1 ] || continue
+  dup_ids+="$i"$'\n'; dups+=("$i: $owners")
+done < <(git -c core.quotePath=false diff --no-renames --name-only --diff-filter=A "$MERGE_BASE..HEAD" 2>/dev/null || true)   # a record the change adds; one shipped before stays as shipped
+if [ ${#dups[@]} -gt 0 ]; then
+  echo "check-adr-constitution-sync: FAIL — one decision record id is declared by two records:" >&2
+  for d in "${dups[@]}"; do echo "  - $d" >&2; done
+  echo "Resolution: the branch that landed second renumbers its own record (file name, adr_number or id, and every place that names it). A record born on a feature branch takes the feature's own id, ADR-{FEAT}-{N}, which only that feature's own branches can mint (EVOL-134)." >&2
+fi
+
+# ────────────────────────────────────────────────────────────────────────────
 # Direction C: an accepted ADR is named by the record that uses it (EVOL-069).
 # ────────────────────────────────────────────────────────────────────────────
 adr_ids() {  # adr_ids <path> <content> → the ids another file may name it by, one per line
@@ -267,6 +319,8 @@ adr_ids() {  # adr_ids <path> <content> → the ids another file may name it by,
   fi
   id=$(read_frontmatter_value "$2" id)
   [ -n "$id" ] && printf '%s\n' "$id"
+  id=$(read_frontmatter_value "$2" adr_number)   # a feature's own ADR-{FEAT}-{N} (EVOL-134): the filename's slug may start with a digit
+  [ -n "$id" ] && printf 'ADR-%s\n' "${id#ADR-}"
   return 0
 }
 adr_named() {  # adr_named <path> <content>: exit 0 when another tracked file names one of its ids (word-bounded)
@@ -293,7 +347,7 @@ while IFS= read -r path; do
   content=$(cat "$path" 2>/dev/null || true)
   [ "$(read_frontmatter_value "$content" status)" = "accepted" ] || continue
   adr_named "$path" "$content" || echo "check-adr-constitution-sync: NOTICE — $path is accepted but named by no other tracked file (history; never red)."
-done < <(git ls-files -- 'docs/project_log/adr/ADR-*.md' 'docs/project_log/evolutions/ADR-EVOL-*.md' 2>/dev/null || true)
+done < <(git -c core.quotePath=false ls-files -- 'docs/project_log/adr/ADR-*.md' 'docs/project_log/evolutions/ADR-EVOL-*.md' 2>/dev/null || true)
 if [ ${#orphans[@]} -gt 0 ]; then
   echo "check-adr-constitution-sync: FAIL — an accepted decision record is named by no other tracked file, so nothing that applies the decision points back to it:" >&2
   for f in "${orphans[@]}"; do echo "  - $f" >&2; done
@@ -305,7 +359,8 @@ fi
 # Report.
 # ────────────────────────────────────────────────────────────────────────────
 if [ ${#offenders[@]} -eq 0 ]; then
-  echo "check-adr-constitution-sync: ok — no ADR transitions to accepted without constitution diff."
+  [ ${#dups[@]} -gt 0 ] && exit 1
+  echo "check-adr-constitution-sync: ok — no ADR transitions to accepted without constitution diff, no record id declared twice."
   exit 0
 fi
 

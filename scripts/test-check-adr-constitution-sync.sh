@@ -28,6 +28,16 @@
 #      file names → expect FAIL.
 #  15. An accepted ADR-EVOL-N in the diff named elsewhere as bare EVOL-N, and an
 #      accepted orphan already at the base → PASS with a NOTICE for the orphan.
+#  16. (EVOL-134 direction D) Two branches each minted ADR-0031: the second file
+#      in the diff → expect FAIL.
+#  17. Two branch-born ADRs, ADR-FEAT-001-1 and ADR-FEAT-002-1 → PASS.
+#  18. An accepted ADR-FEAT-001-1 whose slug starts with a digit, named by its
+#      adr_number → PASS (not an orphan).
+#  19. ADR-0031 twice, one slug accented (a path git would quote) → FAIL.
+#  20. Two sibling branches of one feature mint ADR-FEAT-001-1 → FAIL.
+#  21. A duplicate shipped before the gate, one of its files edited → PASS.
+#  22. An accented ADR accepted with no constitution diff (direction A) → FAIL.
+#  23. A record deleted and a near-copy added under a taken id (a rename to git) → FAIL.
 #
 # Exit codes:
 #   0 = ok
@@ -307,11 +317,81 @@ EXPECT_OUT="NOTICE" run_scenario "scenario 15: ADR-EVOL named as EVOL-N passes; 
   git add -A && git commit -q -m "accept EVOL-015"
 '
 
+# ─── Scenario 16: one sequential id minted on two branches → FAIL (EVOL-134 direction D) ───
+EXPECT_OUT="declared by two records" run_scenario "scenario 16: ADR-0031 minted on two branches → FAIL" 1 bash -c '
+  '"$(declare -f write_adr_proposed)"'
+  write_adr_proposed 0031
+  git add -A && git commit -q -m "main: ADR-0031" && git tag -f base >/dev/null
+  printf -- "---\nadr_number: \"0031\"\ntitle: other\nstatus: proposed\n---\n# ADR-0031: other\n" > docs/project_log/adr/ADR-0031-other.md
+  git add -A && git commit -q -m "branch: ADR-0031 too"
+'
+
+# ─── Scenario 17: two branch-born ids never collide → PASS ───
+run_scenario "scenario 17: ADR-FEAT-001-1 and ADR-FEAT-002-1 → PASS" 0 bash -c '
+  printf -- "---\nadr_number: \"FEAT-001-1\"\ntitle: a\nstatus: proposed\n---\n# ADR-FEAT-001-1\n" > docs/project_log/adr/ADR-FEAT-001-1-cache.md
+  git add -A && git commit -q -m "main: FEAT-001 record" && git tag -f base >/dev/null
+  printf -- "---\nadr_number: \"FEAT-002-1\"\ntitle: b\nstatus: proposed\n---\n# ADR-FEAT-002-1\n" > docs/project_log/adr/ADR-FEAT-002-1-cache.md
+  git add -A && git commit -q -m "branch: FEAT-002 record"
+'
+
+# ─── Scenario 18: a qualified accepted ADR is named by its adr_number → PASS ───
+run_scenario "scenario 18: accepted ADR-FEAT-001-1 (slug 2fa-…) named by adr_number → PASS" 0 bash -c '
+  printf -- "---\nadr_number: \"FEAT-001-1\"\ntitle: t\nstatus: accepted\n---\n# ADR-FEAT-001-1\n" > docs/project_log/adr/ADR-FEAT-001-1-2fa-login.md
+  printf "\n## [PLAW-02] Two factors\n> Every login takes a second factor.\nBody: \`rules/auth.md\` · Records: \`ADR-FEAT-001-1\`\n" >> docs/constitution.md
+  git add -A && git commit -q -m "accept ADR-FEAT-001-1"
+'
+
+# ─── Scenario 19: a duplicate whose file name git would quote (an accented slug) → FAIL ───
+EXPECT_OUT="declared by two records" run_scenario "scenario 19: ADR-0031 twice, one slug accented → FAIL" 1 bash -c '
+  '"$(declare -f write_adr_proposed)"'
+  write_adr_proposed 0031
+  git add -A && git commit -q -m "main: ADR-0031" && git tag -f base >/dev/null
+  printf -- "---\nadr_number: \"0031\"\ntitle: other\nstatus: proposed\n---\n# ADR-0031: sesión\n" > "docs/project_log/adr/ADR-0031-sesión.md"
+  git add -A && git commit -q -m "branch: ADR-0031 too, accented"
+'
+
+# ─── Scenario 20: two sibling branches of one feature mint one qualified id → FAIL (adr_number read) ───
+EXPECT_OUT="declared by two records" run_scenario "scenario 20: ADR-FEAT-001-1 minted twice → FAIL" 1 bash -c '
+  printf -- "---\nadr_number: \"FEAT-001-1\"\ntitle: a\nstatus: proposed\n---\n# a\n" > docs/project_log/adr/ADR-FEAT-001-1-cache.md
+  git add -A && git commit -q -m "main: FEAT-001 record" && git tag -f base >/dev/null
+  printf -- "---\nadr_number: \"FEAT-001-1\"\ntitle: b\nstatus: proposed\n---\n# b\n" > docs/project_log/adr/ADR-FEAT-001-1-queue.md
+  git add -A && git commit -q -m "branch: FEAT-001 record too"
+'
+
+# ─── Scenario 21: a duplicate shipped before the gate, one of its files edited → PASS (a shipped id is never renamed) ───
+run_scenario "scenario 21: legacy ADR-0031 twice, one edited → PASS" 0 bash -c '
+  '"$(declare -f write_adr_proposed)"'
+  write_adr_proposed 0031
+  printf -- "---\nadr_number: \"0031\"\ntitle: other\nstatus: proposed\n---\n# ADR-0031: other\n" > docs/project_log/adr/ADR-0031-other.md
+  git add -A && git commit -q -m "legacy: ADR-0031 twice" && git tag -f base >/dev/null
+  printf "typo fixed\n" >> docs/project_log/adr/ADR-0031-other.md
+  git add -A && git commit -q -m "edit a legacy record"
+'
+
+# ─── Scenario 22: an accented ADR accepted with no constitution diff → FAIL (direction A reads it as written) ───
+run_scenario "scenario 22: ADR-0040-sesión accepted without constitution diff → FAIL" 1 bash -c '
+  printf -- "---\nadr_number: \"0040\"\ntitle: s\nstatus: proposed\n---\n# ADR-0040\n" > "docs/project_log/adr/ADR-0040-sesión.md"
+  git add -A && git commit -q -m "propose ADR-0040"
+  printf -- "---\nadr_number: \"0040\"\ntitle: s\nstatus: accepted\n---\n# ADR-0040\n" > "docs/project_log/adr/ADR-0040-sesión.md"
+  git add -A && git commit -q -m "accept ADR-0040 (forgot the constitution)"
+'
+
+# ─── Scenario 23: a record deleted and a near-copy added under a taken id → FAIL (no rename pairing) ───
+EXPECT_OUT="declared by two records" run_scenario "scenario 23: ADR-0029 removed, ADR-0031 near-copy added → FAIL" 1 bash -c '
+  '"$(declare -f write_adr_proposed)"'
+  write_adr_proposed 0029
+  write_adr_proposed 0031
+  git add -A && git commit -q -m "main: ADR-0029 and ADR-0031" && git tag -f base >/dev/null
+  sed "s/0029/0031/g" docs/project_log/adr/ADR-0029-test.md > docs/project_log/adr/ADR-0031-copy.md
+  git rm -q docs/project_log/adr/ADR-0029-test.md
+  git add -A && git commit -q -m "branch: renumber 0029 into a taken id"
+'
+
 echo
 
 # ─── Summary ────────────────────────────────────────────────────────────────
 if [ "$failures" -eq 0 ]; then
-  echo "L5: ok — gate behaviour verified across 15 scenarios."
+  echo "L5: ok — gate behaviour verified across 23 scenarios."
   exit 0
 else
   echo "L5: FAIL — $failures scenario(s) produced unexpected outcome." >&2

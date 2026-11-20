@@ -1198,6 +1198,9 @@ class Branch(unittest.TestCase):
                 self.assertEqual((info["class"], info["protected"]), (cls, prot), name)
             self.assertEqual(branch.branch_class(repo, "feature/F-001-inc-1-a-sub-2")["train"], "feature/F-001-inc-1-a")
             self.assertEqual(branch.branch_class(repo, "feature/F-001-inc-1-a-sub-2")["feature_id"], "F-001", "the id stops before -inc-")
+            self.assertEqual(branch.branch_class(repo, "feature/FEAT-009-login")["feature_id"], "FEAT-009", "a plain feature branch names its id: a record born there takes it (EVOL-134)")
+            self.assertEqual(branch.branch_class(repo, "epic/PROJ-12-billing")["feature_id"], "PROJ-12")
+            self.assertNotIn("feature_id", branch.branch_class(repo, "fix/typo"), "a fix names no feature: the sequential mint")
             self.assertEqual(branch.train_of("feature/F-001-inc-1-a"), None)
             self.assertNotEqual(branch.branch_class(repo, "feature/F-001-inc-1-a-sub-0")["class"], "sub-increment", "M starts at 1")
             # the template's own example line must be read as a declaration (the regex is tested against the shape BLUEPRINT copies)
@@ -3263,7 +3266,7 @@ class Manifest(unittest.TestCase):
             with self.assertRaisesRegex(GateFault, "cannot be read"):
                 manifest.check(repo, ["CLAUDE.md"], base="nope-ref")
             with self.assertRaisesRegex(GateFault, "nothing to check"):
-                manifest.check(repo, [], base="main")
+                manifest.check(repo, [], no_base=True)
             with self.assertRaisesRegex(GateFault, "two things"):
                 manifest.bump(repo, ["CLAUDE.md"], "patch", base="main", no_base=True)
             r = manifest.bump(repo, ["CLAUDE.md", "framework_core:CLAUDE.md"], "patch", base="main")
@@ -7884,7 +7887,7 @@ class Contracts(unittest.TestCase):
             write(repo / self.API, json.dumps(new)); write(repo / bl, json.dumps({"undeclared": seed + [f"{self.API}#GET /users/me"]})); git(repo, "add", bl)
             r = contracts.check(repo, "feature/F-1-x"); out = contracts.render(r)
             self.assertFalse(r["ok"], out); self.assertIn("is new since the base", out, "new debt never enters the baseline")
-            write(repo / self.API, self._api({("post", "/auth/login"): {"x-crud-exception": "a session is no resource"}, ("get", "/orders/{id}"): {}}))
+            write(repo / self.API, self._api({("post", "/auth/login"): {"x-crud-exception": "a session is no resource"}, ("get", "/orders/{id}"): {}}).replace('"version": "1"', '"version": "2"'))   # a changed contract moves its info.version (EVOL-134)
             write(repo / bl, json.dumps({"undeclared": seed})); git(repo, "add", bl)
             r = contracts.check(repo, "feature/F-1-x"); out = contracts.render(r)
             self.assertFalse(r["ok"], out); self.assertIn("POST /auth/login` is no longer found", out, "a paid debt leaves the list")
@@ -12964,3 +12967,153 @@ class StoreDownCli(unittest.TestCase):
                 rc, err = self._main("--repo", str(repo), "data", "--base", "HEAD")
             self.assertEqual(rc, 2, err)
             self.assertEqual(profile.classify("data", rc, err)[0], "n/a", err)
+
+
+
+class ScopedIds(unittest.TestCase):
+    """EVOL-134 (#242): a record born on a feature branch collides with no other feature's, an ordinal kept in one shared file is
+    red on a duplicate before merge, and the second branch to land re-derives every version counter against main."""
+
+    def _git(self, repo, *c):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)
+
+    # ── (a) a feature-qualified ADR id, read by every reader; the numeric shape kept ──
+    def test_the_adr_reader_takes_both_shapes(self):
+        for rid in ("ADR-FEAT-009-1", "ADR-PROJ-123-12", "ADR-0007", "ADR-7"):
+            self.assertTrue(freeze.ADR_ID.fullmatch(rid), rid)
+        for bad in ("ADR-EVOL-140", "ADR-feat-009-1", "ADR-FEAT-1x", "ADR-FEAT-009-"):
+            self.assertFalse(freeze.ADR_ID.fullmatch(bad), bad)
+        self.assertEqual(freeze.ADR_ID.findall("see docs/project_log/adr/ADR-FEAT-009-1-2fa-login.md and ADR-0030-cache.md"),
+                         ["ADR-FEAT-009-1", "ADR-0030"], "a slug that starts with a digit is no part of the id")
+
+    def test_a_decision_recorded_by_a_qualified_adr_is_bound(self):
+        fd = FreezeDecisions()
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fd._repo(tmp, loop=["contract-parity"]); fd._adr(repo, "ADR-FEAT-009-1", "ADD", "NEW: Stateless sessions")
+            r, out = fd._check(repo, fd._design([("Sessions live in the shared cache", "`new`", "contract-parity", "ADR-FEAT-009-1")]))
+            self.assertTrue(r["ok"], out)
+            r, out = fd._check(repo, fd._design([("Sessions live in the shared cache", "`new`", "contract-parity", "ADR-FEAT-009-2")]))
+            self.assertIn("record `ADR-FEAT-009-2` has no readable file", out)
+
+    # ── (b) a duplicate ordinal is red in the one reader ──
+    def test_a_law_declared_twice_is_red_in_parity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            dup = lambda ps: [p for p in ps if "declared twice" in p]
+            self.assertEqual(dup(corpus.parity(repo)), [])
+            write(repo / "docs/constitution.md", CONSTITUTION + "\n## [PLAW-02] Cache\n> Sessions live in the shared cache.\nBody: `rules/stateless.md` · Records: `ADR-FEAT-009-1`\n")
+            self.assertTrue(any(p.startswith("PLAW-02") for p in dup(corpus.parity(repo))), corpus.parity(repo))
+            write(repo / "docs/constitution.md", CONSTITUTION)
+            write(repo / "CLAUDE.md", CLAUDE_MD.replace("\n## Other", "4. **[LAW-07] Again** — A second sentence. Body: `inline`. Records: `ADR-EVOL-040`.\n\n## Other"))
+            self.assertTrue(any(p.startswith("LAW-07") for p in dup(corpus.parity(repo))), corpus.parity(repo))
+
+    def test_a_project_defect_class_declared_twice_stays_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp)); cat = repo / ".claude/rules/defect-prevention.md"
+            row = "| PDC-1 | `data` | The project's own class. | `—` | `**/migrations/**` | IMPLEMENT | WARNING |\n"
+            cat.write_text(cat.read_text() + row + row.replace("own class", "other class"), encoding="utf-8")
+            with self.assertRaisesRegex(GateFault, "PDC-1 is declared twice"):
+                corpus.catalog(repo)
+
+    def _board(self, tmp, rows=(), adapter="none", state=True):
+        repo = Path(tmp)
+        write(repo / "config/quality.json", json.dumps({"tracker": {"adapter": adapter, "flow": Tracker.FLOW}}))
+        write(repo / "docs/setup.md", "---\nproject_tracking:\n  feature_phases: full-sdlc\n---\n")
+        if state:
+            text = (TRACKER_FX / "state.md").read_text()
+            write(repo / tracker.STATE, text.replace("\n\n## Next Action", "\n" + "".join(rows) + "\n## Next Action"))
+        return repo
+
+    def test_the_board_check_is_red_on_a_duplicate_ordinal(self):
+        row = lambda lid, feat, title: f"| {lid} | {feat} | {title} | Backlog | — | — | — | — |\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            r = tracker.check(self._board(tmp)); self.assertTrue(r["ok"], tracker.render(r)); self.assertFalse(r.get("na"))
+        with tempfile.TemporaryDirectory() as tmp:
+            r = tracker.check(self._board(tmp, [row("L-003", "FEAT-002", "[FEAT-002] CODESIGN: Spec — Billing")]))
+            self.assertFalse(r["ok"]); self.assertIn("L-003", tracker.render(r)); self.assertIn("twice", tracker.render(r))
+        with tempfile.TemporaryDirectory() as tmp:   # two branches each minted FEAT-001: two CODESIGN items for one feature
+            r = tracker.check(self._board(tmp, [row("L-004", "FEAT-001", "[FEAT-001] CODESIGN: Spec BDD + UX Mock — Billing")]))
+            self.assertFalse(r["ok"]); self.assertIn("[FEAT-001] CODESIGN:", tracker.render(r)); self.assertIn("L-001", tracker.render(r)); self.assertIn("L-004", tracker.render(r))
+        with tempfile.TemporaryDirectory() as tmp:   # many components per feature are no duplicate
+            r = tracker.check(self._board(tmp, [row("L-004", "FEAT-001", "[FEAT-001] COMPONENT: Button"), row("L-005", "FEAT-001", "[FEAT-001] COMPONENT: Card")]))
+            self.assertTrue(r["ok"], tracker.render(r))
+
+    def test_the_board_check_is_na_where_the_tracker_mints_the_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = tracker.check(self._board(tmp, adapter="github", state=False)); self.assertTrue(r["ok"] and r["na"]); self.assertTrue(tracker.render(r).startswith("board: n/a"))
+        with tempfile.TemporaryDirectory() as tmp:
+            r = tracker.check(self._board(tmp, state=False)); self.assertTrue(r["ok"] and r["na"], "no local board yet")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._board(tmp); write(repo / "config/quality.json", "{}")
+            r = tracker.check(repo); self.assertTrue(r["ok"] and r["na"], "no tracker configured")
+        self.assertEqual(profile.classify("board", 0, "board: n/a — the tracker mints the keys")[0], "n/a")
+        self.assertIn("board", [m[0] for m in profile.MEMBERS]); row = next(m for m in profile.MEMBERS if m[0] == "board")
+        self.assertEqual((row[1], row[2], row[4], row[5]), (False, False, ["gate", "tracker"], False), "light, offline, every project")
+
+    def test_the_board_check_through_the_cli(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._board(tmp, ["| L-003 | FEAT-002 | [FEAT-002] CODESIGN: x | Backlog | — | — | — | — |\n"])
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "tracker"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 1, res.stdout + res.stderr); self.assertTrue(res.stdout.startswith("board: RED"), res.stdout)
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "tracker", "--to", "done"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 2, "a lone --to still says what it goes with")
+
+    # ── (c) the second to land re-derives every counter ──
+    def test_the_manifest_check_derives_its_entries_from_the_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, mp = Manifest()._repo(tmp, project=True)
+            self.assertEqual(manifest.check(repo, [], base="main"), [], "nothing governed changed: nothing owed")
+            write(repo / ".claude/rules/x.md", "---\nversion: \"2.1.0\"\n---\n# rule, changed on two branches; the number kept by hand\n")
+            write(repo / "src/app.py", "x\n")
+            problems = manifest.check(repo, [], base="main")
+            self.assertTrue(any(p.startswith("templates:rules/x.md") and "did not advance" in p for p in problems), problems)
+            self.assertEqual(len(problems), 1, "a file no entry tracks is no entry")
+            manifest.bump(repo, [".claude/rules/x.md"], "minor", base="main")
+            self.assertEqual(manifest.check(repo, [], base="main"), [], "re-derived by the tool: green")
+            for kind, owed in (("project_data", 0), ("universal", 1)):   # the entry at the base; the board moves on the branch
+                m = json.loads(mp.read_text()); m["templates"]["backlog/state.md"] = {"version": "1.0.0", "content_type": kind, "target": "docs/backlog/state.md"}
+                mp.write_text(json.dumps(m)); write(repo / "docs/backlog/state.md", f"| L-001 | {kind} |\n")
+                self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", kind); self._git(repo, "branch", "-f", "main")
+                write(repo / "docs/backlog/state.md", f"| L-001 | {kind}, moved |\n")
+                self.assertEqual(len(manifest.check(repo, [], base="main")), owed,
+                                 "a project's own data moves with no counter (its entry versions the template); a governed file at a target owes one")
+            self._git(repo, "checkout", "--", "docs/backlog/state.md")
+            with self.assertRaisesRegex(GateFault, "nothing to check"):
+                manifest.check(repo, [], no_base=True)
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "manifest", "--check", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            row = next(m for m in profile.MEMBERS if m[0] == "versions")
+            self.assertEqual((row[1], row[2], row[4], row[5]), (False, False, ["gate", "manifest", "--check", "--base", "{base}"], False))
+
+    def test_the_framework_version_moves_with_any_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, mp = Manifest()._repo(tmp)
+            write(repo / "CLAUDE.md", "# x, changed\n")
+            manifest.bump(repo, ["CLAUDE.md"], "patch", base="main")
+            self.assertTrue(any("framework_version 1.2.0 did not advance" in p for p in manifest.check(repo, [], base="main")))
+            manifest.bump(repo, ["CLAUDE.md"], "patch", framework="patch", base="main")
+            self.assertEqual(manifest.check(repo, [], base="main"), [])
+            (repo / "scripts/gates/seal.py").unlink()
+            self.assertEqual(manifest.check(repo, [], base="main"), [], "a deleted file is no entry to advance")
+        with tempfile.TemporaryDirectory() as tmp:   # the framework repo: a template's delivery target is no counter of the repo's own file
+            repo, mp = Manifest()._repo(tmp)
+            m = json.loads(mp.read_text()); m["templates"]["setup/gitignore.hbs"] = {"version": "1.0.0", "content_type": "stack_configured", "target": ".gitignore"}
+            mp.write_text(json.dumps(m)); self._git(repo, "commit", "-qam", "entry"); self._git(repo, "branch", "-f", "main")
+            write(repo / ".gitignore", "*.tmp\n")
+            self.assertEqual(manifest.check(repo, [], base="main"), [], "the meta .gitignore owes no template bump")
+
+    def test_a_changed_contract_re_derives_its_version(self):
+        api = ContractPlans.API
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp)); write(repo / api, ContractPlans._api({("get", "/orders/{id}"): "getOrder"}))
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base"); self._git(repo, "branch", "base")
+            row = lambda: next((e for e in contracts.check(repo, "base")["entries"] if e["id"] == "contract versions"), None)
+            self.assertTrue(row()["ok"], "an unchanged contract owes nothing")
+            changed = lambda v: write(repo / api, ContractPlans._api({("get", "/orders/{id}"): "getOrder"}, v).replace('"title": "t"', '"title": "t2"'))
+            changed("1.2.0"); self.assertFalse(row()["ok"]); self.assertIn("still at 1.2.0", " ".join(row()["problems"]))
+            changed("1.1.9"); self.assertIn("below the base's 1.2.0", " ".join(row()["problems"]))
+            changed("1.10.0"); self.assertTrue(row()["ok"], row())
+            changed("2026-02"); self.assertTrue(row()["ok"], "a version that is no dotted number only has to change")
+            changed("9" * 10000); self.assertTrue(row()["ok"], "a huge number is no number to order: it only has to change, never a traceback")
+            write(repo / "contracts/openapi/billing/v1.yaml", ContractPlans._api({("get", "/bills/{id}"): "getBill"}))
+            changed("1.10.0"); self.assertTrue(row()["ok"], "a contract new since the base has no counter to re-derive")

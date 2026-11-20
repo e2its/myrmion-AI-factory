@@ -18,7 +18,8 @@ planner  pure — `plan_move` / `plan_ensure` return the requests (`move`, `crea
 commands `gate.py tracker --start --feature F --phase P | --item IDENT [--aligns AC-F-N]` — the item In Progress before
          the work (a Done item stays Done only for a ratified realignment); `--move IDENT --to STATE`; `--ensure FILE |
          --sub-increments F [--dry-run]` — missing items created in their state's column, a parentless child linked,
-         nothing else touched.
+         nothing else touched; with no action, read only: the local board's ordinals once each (EVOL-134), n/a where the
+         tracker mints the keys.
 transport github `gh api graphql` (the pre-authenticated CLI; the Status field and its options by name, no id stored) ·
          jira REST over urllib — a site under atlassian.net is Cloud (api/3, search/jql with token paging, Basic
          email:token, ADF), any other is Data Center (api/2, search with startAt paging, Bearer personal token);
@@ -847,7 +848,39 @@ def ensure(repo: Path, rows: list, dry_run: bool = False, **inject) -> dict:
     return _result(c, ident, red=left, requests=reqs, did=[] if left else [f"{made} created, {len(reqs) - made} linked or placed"])
 
 
+def check(repo: Path) -> dict:
+    """The local board's ordinals (EVOL-134): no `Local ID` on two rows, no lifecycle item — the ident `start` and `move` resolve
+    per phase and preset — matched by two rows. A tracker that mints the keys (github, jira) owes nothing here; no tracker, or no
+    local board yet: n/a. Read only."""
+    na = lambda why: {"board": True, "ok": True, "na": True, "reason": why, "red": []}
+    if not isinstance(key(repo, "tracker", default=None), dict):
+        return na("no tracker configured (config/quality.json → tracker)")
+    c = cfg(repo)
+    if c["adapter"] != "none":
+        return na(f"the {c['adapter']} tracker mints the keys")
+    if not (repo / STATE).is_file():
+        return na(f"no local board yet ({STATE} — `BACKLOG --init-board` creates it)")
+    board = Local(repo).read()
+    count: dict[str, int] = {}
+    for i in board["items"]:
+        count[i["key"]] = count.get(i["key"], 0) + 1
+    red = [f"`{k}` is declared {'twice' if n == 2 else f'{n} times'} — one Local ID, one row: the branch that landed second renumbers its row to the board's next id"
+           for k, n in count.items() if n > 1]
+    kind = preset(repo)
+    feats = dict.fromkeys(m.group(1) for i in board["items"] if (m := re.match(r"^\[([^\]]+)\]", str(i["title"]).strip())) and FEATURE_RE.match(m.group(1)))
+    for f in feats:
+        for ident in dict.fromkeys(phase_ident(f, p, kind) for p in PHASES):
+            hits = find(board, ident)
+            if len(hits) > 1:
+                red.append(f"`{ident}` is {len(hits)} rows ({', '.join(h['key'] for h in hits)}) — two branches minted one feature id: "
+                           "the branch that landed second takes the next free id")
+    return {"board": True, "ok": not red, "na": False, "red": red,
+            "reason": f"{len(red)} duplicate(s) on {STATE}" if red else f"{len(board['items'])} row(s), {len(feats)} feature(s), every id once"}
+
+
 def render(r: dict) -> str:
+    if r.get("board"):
+        return "\n".join([f"board: {'n/a' if r['na'] else 'ok' if r['ok'] else 'RED'} — {r['reason']}"] + [f"  ✗ {x}" for x in r["red"]])
     head_ = f"tracker ({r['adapter']}): {'GREEN' if r['ok'] else 'RED'} — {r['ident']}"
     lines = [head_] + [f"  {d}" for d in r["did"]] + [f"  ✗ {x}" for x in r["red"]]
     if r["requests"] and (not r["ok"] or not r["did"]):
