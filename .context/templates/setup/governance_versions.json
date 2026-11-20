@@ -1,9 +1,9 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.10.0",
+  "framework_version": "10.10.1",
   "delivery_mode": "development",
-  "last_updated": "2026-11-19",
+  "last_updated": "2026-11-20",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -102,7 +102,7 @@
       "target": ".claude/rules/architecture.md"
     },
     "rules/branching.md": {
-      "version": "2.25.0",
+      "version": "2.25.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md"
     },
@@ -426,7 +426,7 @@
       "target": ".claude/hooks/check-completion-gate.sh"
     },
     "claude/hooks/check-concurrency-lock.sh": {
-      "version": "2.1.0",
+      "version": "2.1.1",
       "content_type": "universal",
       "target": ".claude/hooks/check-concurrency-lock.sh"
     },
@@ -556,7 +556,7 @@
       "target": "docs/project_log/adr/ADR-SETUP.md"
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.10.1",
+      "version": "1.10.2",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md"
     },
@@ -1206,7 +1206,7 @@
       "target": ".claude/hooks/session-handoff.sh"
     },
     "rules/vertical-slicing.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "universal",
       "target": ".claude/rules/vertical-slicing.md"
     },
@@ -1593,11 +1593,11 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.33.2",
+      "version": "2.33.3",
       "path": "README.md"
     },
     "commands/audit.md": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "path": ".claude/commands/audit.md"
     },
     "commands/backlog.md": {
@@ -1605,31 +1605,31 @@
       "path": ".claude/commands/backlog.md"
     },
     "commands/blueprint.md": {
-      "version": "1.12.0",
+      "version": "1.12.1",
       "path": ".claude/commands/blueprint.md"
     },
     "commands/codesign.md": {
-      "version": "1.13.0",
+      "version": "1.13.1",
       "path": ".claude/commands/codesign.md"
     },
     "commands/devops.md": {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "path": ".claude/commands/devops.md"
     },
     "commands/implement.md": {
-      "version": "1.10.0",
+      "version": "1.10.1",
       "path": ".claude/commands/implement.md"
     },
     "commands/qa.md": {
-      "version": "1.8.0",
+      "version": "1.8.1",
       "path": ".claude/commands/qa.md"
     },
     "commands/setup.md": {
-      "version": "1.5.1",
+      "version": "1.5.2",
       "path": ".claude/commands/setup.md"
     },
     "instructions/Factory-audit-checklist.instructions.md": {
-      "version": "2.9.0",
+      "version": "2.9.1",
       "path": ".claude/instructions/Factory-audit-checklist.instructions.md"
     },
     "instructions/Factory-audit-complexity.instructions.md": {
@@ -1637,7 +1637,7 @@
       "path": ".claude/instructions/Factory-audit-complexity.instructions.md"
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.27.0",
+      "version": "3.27.1",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md"
     },
     "instructions/Factory-blueprint-refine.instructions.md": {
@@ -1653,11 +1653,11 @@
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md"
     },
     "instructions/Factory-codesign-vision.instructions.md": {
-      "version": "2.10.0",
+      "version": "2.10.1",
       "path": ".claude/instructions/Factory-codesign-vision.instructions.md"
     },
     "instructions/Factory-devops-configure.instructions.md": {
-      "version": "3.3.0",
+      "version": "3.3.1",
       "path": ".claude/instructions/Factory-devops-configure.instructions.md"
     },
     "instructions/Factory-devops-provision-deploy.instructions.md": {
@@ -1665,7 +1665,7 @@
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md"
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.33.0",
+      "version": "2.33.1",
       "path": ".claude/instructions/Factory-implement-build.instructions.md"
     },
     "instructions/Factory-implement-plan.instructions.md": {
@@ -1673,11 +1673,11 @@
       "path": ".claude/instructions/Factory-implement-plan.instructions.md"
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.26.0",
+      "version": "2.26.1",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md"
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.16.0",
+      "version": "3.16.1",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md"
     },
     "instructions/Factory-backlog-operations.instructions.md": {
@@ -1713,7 +1713,7 @@
       "path": ".claude/instructions/Factory-protocol-cwd-discipline.instructions.md"
     },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
-      "version": "2.15.0",
+      "version": "2.15.1",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
@@ -1746,7 +1746,7 @@
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
     "skills/factory-branching-strategy/SKILL.md": {
-      "version": "1.12.0",
+      "version": "1.12.1",
       "type": "skill",
       "role": "SCM protocol — branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse, per-increment branching.",
       "path": ".claude/skills/factory-branching-strategy/SKILL.md"
@@ -2021,10 +2021,10 @@
       "role": "PreToolUse hook (Edit|Write) — blocks a terminal dev_plan.md (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED) with unchecked items, and an approved qa_report*.md the computed verdict refuses (gate.py qa --verdict)."
     },
     "hooks/check-concurrency-lock.sh": {
-      "version": "2.1.0",
+      "version": "2.1.1",
       "type": "hook",
       "path": ".claude/hooks/check-concurrency-lock.sh",
-      "role": "PreToolUse hook (Edit/Write) — acquires per-branch session lock at .context/locks/{branch}.lock; blocks if another live session holds the lock."
+      "role": "PreToolUse hook (writes) — per-branch session lock in this clone at .context/locks/{branch}.lock, held by the Claude Code process (first non-shell ancestor, #244) with its name; blocks another live session on the branch; reclaims a gone or reused holder; sweeps every other stale lock and the session's own locks on branches it left, never a non-PID file; steps aside on a symlinked lock path; no ps: $PPID + kill -0, no sweep. Across clones the record is the tracker's In Progress state."
     },
     "hooks/check-governance-drift.sh": {
       "version": "2.0.0",
@@ -2390,7 +2390,7 @@
       "path": "scripts/test-gates.sh"
     },
     "scripts/test-hooks.sh": {
-      "version": "1.14.0",
+      "version": "1.14.1",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh"

@@ -19,17 +19,7 @@ applicable_when:
 
 ## Guardrail -1: Concurrency Prevention
 
-```yaml
-BEFORE any command:
-  feature_lock = ".context/locks/feature-{FEATURE_ID}.lock"
-  env_lock = ".context/locks/env-{ENV}.lock"
-  
-  IF feature-scoped command: CHECK feature_lock
-  IF env-scoped command: CHECK env_lock
-  IF lock exists: ❌ BLOCK (show lock content, suggest orphan check if >24h)
-  ELSE: CREATE lock → proceed
-  ON completion: DELETE lock (always, even on error)
-```
+The session lock hook guards the branch in this clone; nothing to acquire or release (`factory-branching-strategy` § SESSION LOCK). Deployments run in the pipeline through the one executor (`gate.py delivery`).
 
 ## Guardrail 0: Governance Loading (MANDATORY)
 

@@ -576,7 +576,7 @@ FUNCTION determine_build_scope(FEATURE_ID):
   # Incremental — locate the single increment in BUILDING status.
   # BUILDING is set by factory-branching-strategy.SKILL.md § Per-Increment Branching
   # when the increment branch is opened. Only one increment per feature may be BUILDING
-  # at a time (concurrency lock).
+  # at a time (checked below; across clones the record is the tracker's In Progress state).
   building = FILTER(dev_plan.frontmatter.increments, inc.status == "BUILDING")
   IF building.length == 0:
     # Detect the "limbo" state: every increment closed (per-entry IMPLEMENTED_AND_VERIFIED)

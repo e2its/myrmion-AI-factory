@@ -90,4 +90,4 @@ Reconcile `config/codebase_inventory.json` with actual codebase state. Run when 
 
 ## Pre-Command Protocol (MANDATORY)
 - **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
-- This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking
+- This ensures correct branch checkout, cross-branch mismatch detection, and dependency checks (the session lock hook guards the branch in this clone)

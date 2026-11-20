@@ -395,7 +395,6 @@ If materialization was interrupted:
 - ✅ Detects drift (setup.md changed since last materialization)
 - ✅ Creates automatic backup before resume (`.backups/{{TIMESTAMP}}/`)
 - ✅ Updates checklist after EACH task (state always recoverable)
-- ✅ Lockfile prevents concurrent executions (`.setup.lock`)
 
 ---
 

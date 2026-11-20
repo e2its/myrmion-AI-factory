@@ -166,8 +166,7 @@ See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 f
 - If `design.md` or `test_plan.md` has a terminal status (`CANCELLED`, a status containing `SUPERSEDED`, or a legacy `DEPRECATED`) → HARD BLOCK
 
 ### Feature Concurrency Prevention
-- Lock: `.context/locks/feature-{{FEATURE_ID}}.lock`
-- BLOCK if lock exists (another agent working on this feature)
+- The session lock hook guards the branch in this clone; across clones the feature's owner is its tracker In Progress state (`factory-branching-strategy` § SESSION LOCK).
 
 ### Mandatory Branching
 - Must be on `feature/{{FEATURE_ID}}-*` branch. BLOCK if on protected branch.

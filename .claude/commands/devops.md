@@ -67,7 +67,6 @@ Display current infrastructure and deployment status.
 ## Key Principles
 - Dynamic environments: Read from `.claude/rules/ci-cd.md` `environments[]` (NEVER hardcoded)
 - MERGE always before production deployment (deploy prod from main/tag)
-- Environment-scoped locks: `.context/locks/env-{ENV}.lock`
 - **Worklog Attribution:** `APPEND_TO_WORKLOG` with `user_agent: "DEVOPS"` — always the actual agent name.
 - **User Communication:** Follow Agent Communication Protocol (`.claude/skills/factory-agent-communication/SKILL.md`) — entry announcement, phase milestones, completion summary.
 - `APPEND_TO_WORKLOG` after each completed task
@@ -75,5 +74,5 @@ Display current infrastructure and deployment status.
 
 ## Pre-Command Protocol (MANDATORY)
 - **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
-- This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking
+- This ensures correct branch checkout, cross-branch mismatch detection, and dependency checks (the session lock hook guards the branch in this clone)
 - **Tracker (EVOL-079):** after Step -1, before the first artefact write, `--configure` / `--refine {ID}` run `python3 scripts/gate.py tracker --start --feature {ID} --phase devops` — the item to the in-progress column of `tracker.flow`. Red stops the command: new work on a Done item goes to its refinement item (`[{ID}] DEVOPS-R<k>:`, `--item`), or a ratified realignment passes `--aligns AC-{ID}-<N>`.

@@ -3,7 +3,7 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.25.0
+version: 2.25.1
 date: 2026-10-20
 ---
 
@@ -61,7 +61,7 @@ Examples:
   feature/USR-001-inc-3-policy-check
 ```
 
-**Concurrency.** Only ONE increment branch per feature may be open at a time (feature-level concurrency lock). The next increment starts only after the current one merges.
+**Concurrency.** Only ONE increment branch per feature may be open at a time. The next increment starts only after the current one merges. Across clones its record is the increment's tracker In Progress state (`gate.py tracker --start`); the session lock hook guards one branch in one clone (`factory-branching-strategy` § SESSION LOCK).
 
 **Lifecycle.** Branch open triggers the increment's status to flip `READY → BUILDING` in `increment_plan.md § 1`. Merge to `main` (via PR) triggers the post-merge hook to flip `BUILDING → MERGED` and stamp `Merged at:`. See `.claude/skills/factory-branching-strategy/SKILL.md § Per-Increment Branching`.
 
