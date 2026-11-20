@@ -392,7 +392,7 @@ def _accepted(repo: Path, adr: str, cache: dict, what: str = "a destructive step
     rel = FDR_GLOB.format(feature=feature) if feature else ADR_DIR
     d = repo / rel
     named = re.compile(re.escape(rid) + r"(?:[-_].*)?\.md")
-    hits = sorted(p for p in d.glob(f"{rid}*.md") if named.fullmatch(p.name)) if d.is_dir() else []
+    hits = sorted(p for p in d.glob(f"{rid}*.md") if named.fullmatch(p.name) and p.is_file()) if d.is_dir() else []   # never a device
     pinned = set()
     if feature and d.is_dir():   # an FDR is a design artefact: it may live in the store, its pin in the tree (EVOL-080)
         pinned = {d / p.name[:-len(documents.PIN)] for p in d.glob(f"{rid}*.md{documents.PIN}")

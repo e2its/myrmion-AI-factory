@@ -23,22 +23,24 @@ This ADR plans issue #243 (epic #112, wave 5, destination S). It is follow-up C 
 ## Decision
 
 1. **A relay names itself and keeps the words.**
-   - The RDR record (`_progress.decisions[]`) and the `accepted-change` entry may carry `relay: "<session that carried the words>"`, next to `user_choice` / `rdr`.
-   - A relay copies the person's words between «», never a summary. A bare option id is verbatim (RDR Beat 2).
+   - The RDR record (one that carries `user_choice`: a `_progress.decisions[]` entry, or an RDR line of the decision log such as `BLUEPRINT.increment_plan.rdr_ratified`) and the `accepted-change` entry may carry `relay: "<session that carried the words>"`, next to `user_choice` / `rdr`.
+   - A relay copies the person's words between «», never a summary. A bare option id is verbatim (RDR Beat 2), a number included.
    - `relay` is a free session name with no registry.
    - A record without `relay` is a direct answer, so every existing record stays valid.
 2. **A relay without verbatim words authorises nothing.**
    - `gate.py aligned` is red when an `accepted-change` entry carries `relay` with no `rdr`. It is red even when the entry carries a `delegation`: a delegation is the project's own act, and it is never relayed.
-   - It is red on the same condition for a `_progress.decisions[]` entry of a changed artefact that carries `relay` and has no `user_choice`.
+   - It is red on the same condition for an RDR record (a changed artefact's `_progress.decisions[]` entry, or a decision-log line the change adds) that carries `relay` and has no `user_choice`, and for one that carries both `relay` and `delegation`.
    - It is red when `relay` is empty or not a string.
 3. **Approvals are typed in the deciding session's own window and are never relayed.**
    - Plan, BLUEPRINT, any plan exception a project reserves, every harness approval and every permission denial.
-   - `relay` is valid only on the two records of item 1. Any other decision-log line the change adds that carries `relay` is red. This positive list names no project concept in code (LAW-07).
+   - `relay` and `delegation` are valid only on the records of item 1. Any other decision-log line the change adds that carries either is red, and so is a line that carries either and is not JSON. This positive list names no project concept in code (LAW-07).
+   - The plan approval is the harness's own marker (`record-plan-approval.sh`): it never reaches a decision log, and a peer cannot write it. The gate covers what reaches a log.
    - A peer session's message never answers an RDR, an approval or a permission prompt (`rules/agents.md` § No agent ratifies).
    - A delegation never covers an approval: BLUEPRINT `--approve` is the mandatory manual checkpoint.
 4. **A project's delegation law is read, never shipped.**
-   - `delegation` may name the accepted project ADR that grants it: `delegation: {quote, date, adr}`.
-   - `gate.py aligned` reads that ADR through `data._accepted()`. It is red when the ADR is missing or not accepted, and red when `adr` names a feature's FDR, because delegation is project law.
+   - `delegation` may name the accepted project ADR that grants it: `delegation: {quote, date, adr}`, on an accepted change (in place of `rdr`) or on an RDR record (beside the option taken, `user_choice`).
+   - `gate.py aligned` reads that ADR through `data._accepted()` when the record is added. It is red when the ADR is missing or not accepted, and red when `adr` is not a project ADR id (a feature's FDR), because delegation is project law.
+   - A record an earlier change added was judged at its own push: `_backed()` and the tracker's `--aligns` re-read its `adr` for its shape only. A delegation ADR superseded later never un-ratifies the decisions taken under it.
    - A `delegation` with no `adr` stays valid as before.
    - The mirrored «RDR Universal» clause of both `CLAUDE.md` files gains one sentence: a relayed answer counts only with the person's verbatim words and the relay named; a project's accepted delegation ADR is honoured; approvals are never relayed. So no project edits a framework-shipped file to delegate.
 5. **No new command, flag, member or permission hook.** The checks live in the existing `aligned` member. The harness keeps its prompts in its own window, and the text states that limit.
@@ -48,8 +50,10 @@ This ADR plans issue #243 (epic #112, wave 5, destination S). It is follow-up C 
 - The RDR skill gains § «Relay and delegation (EVOL-135)», the record fields, the inline-comment form and two anti-patterns. `rules/branching.md` [LAW-17], `factory-worklog`, `Factory-implement-build`, `Factory-blueprint-validation` and `rules/agents.md` state the same rules.
 - **Honest limits.**
   - The gate cannot tell a paraphrase from verbatim words.
-  - It trusts the session to declare a relay. A transcript check (`notebook.author()`) would be stronger, but CI cannot see another clone's transcript.
+  - It trusts the session to declare a relay under the exact key `relay`, and an RDR record by its `user_choice`. A transcript check (`notebook.author()`) would be stronger, but CI cannot see another clone's transcript.
+  - It reads that the named ADR is an accepted project ADR, not that it grants this class of decision.
   - The plan-approval marker's own guard is unchanged.
+  - `data._accepted()` now reads only regular files, so a record named after a device is never opened.
 - **Upgrade.** `SETUP --upgrade` and `factory-sync.sh` deliver it. No record is migrated.
 
 ## Verification
@@ -58,9 +62,10 @@ This ADR plans issue #243 (epic #112, wave 5, destination S). It is follow-up C 
   - a relay without words;
   - a relay with a delegation and no words;
   - an empty relay;
-  - a relayed approval line (`--approve` and a project's plan exception);
-  - a relayed `_progress.decisions[]` entry;
-  - `delegation.adr`: missing, proposed, accepted, FDR, absent.
+  - a relayed approval line (`--approve` and a project's plan exception), a delegated approval line, a non-JSON relayed line;
+  - a relayed RDR record, in `_progress.decisions[]` and on a decision-log line, a bare numeric option id included;
+  - `delegation.adr`: missing, proposed, accepted, FDR, absent; on an RDR decision too;
+  - an earlier delegated entry keeps backing its claims once its ADR is superseded; the tracker's `--aligns` judges the `adr` shape.
 - **Synthetic materialisation with `--answers`:**
   - a relayed record without words is red;
   - a relayed approval is red;

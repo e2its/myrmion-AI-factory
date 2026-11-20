@@ -744,7 +744,7 @@ g134 checkout -q -f feature/FEAT-001-smoke; git -C "$P" clean -qfd -- docs/backl
 # accepted ADR — and the framework-shipped files stay byte-identical
 g135() { git -C "$P" -c user.name=t -c user.email=t@t "$@"; }
 F135=(.claude/skills/factory-rdr/SKILL.md .claude/rules/branching.md scripts/gates/aligned.py CLAUDE.md)
-H135=$(cd "$P" && sha256sum "${F135[@]}" 2>&1)
+H135=$(cd "$P" && sha256sum "${F135[@]}") && [ -n "$H135" ] || bad "a framework-shipped file is missing from the materialised tree" "${F135[*]}"
 g135 checkout -q -b feature/FEAT-007-relay; g135 tag relay-root
 mkdir -p "$P/docs/project_log/features" "$P/docs/project_log/adr" "$P/docs/spec/FEAT-007"
 printf 'print(7)\n' > "$P/src/app.py"; printf -- '---\nstatus: DRAFT\n---\nthe copy, aligned\n' > "$P/docs/spec/FEAT-007/design.md"
@@ -764,7 +764,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py aligned --base relay-root 2>&1); RC=$?
 adr135 proposed
 OUT=$(cd "$P" && python3 scripts/gate.py aligned --base relay-root 2>&1); RC=$?
 [ "$RC" -eq 1 ] && grep -q '`proposed`' <<<"$OUT" && ok "aligned: the same delegation once its ADR is only proposed → red (EVOL-135)" || bad "proposed delegation ADR not red (rc=$RC)" "$OUT"
-[ "$(cd "$P" && sha256sum "${F135[@]}" 2>&1)" = "$H135" ] && ok "the framework-shipped files stay byte-identical: the delegation lives in the project's own ADR (EVOL-135)" || bad "a framework-shipped file changed" "$H135"
+[ "$(cd "$P" && sha256sum "${F135[@]}")" = "$H135" ] && ok "the framework-shipped files stay byte-identical: the delegation lives in the project's own ADR (EVOL-135)" || bad "a framework-shipped file changed" "$H135"
 g135 checkout -q -f feature/FEAT-001-smoke; git -C "$P" clean -qfd -- docs/project_log/features docs/project_log/adr docs/spec/FEAT-007
 # the deployment trigger (EVOL-047): a positive list, a parity gate, the branch rule untouched
 OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?

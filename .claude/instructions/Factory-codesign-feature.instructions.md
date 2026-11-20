@@ -1183,8 +1183,9 @@ FUNCTION codesign_resume_check(FEATURE_ID, command):
 **Decision Persistence (on every RDR):**
 ```yaml
 # Every RDR answer is persisted IMMEDIATELY to the artifact where it applies
-FUNCTION persist_rdr_decision(artifact_path, question, recommendation, user_choice):
+FUNCTION persist_rdr_decision(artifact_path, question, recommendation, user_choice, relay=None):
   decision = { id: "RDR-{seq}", question, recommendation, user_choice, timestamp: "{ISO_8601}" }
+  IF relay: decision.relay = relay   # another session carried the words, verbatim (factory-rdr § Relay and delegation)
   UPDATE_FRONTMATTER(artifact_path, "_progress.decisions", APPEND(decision))
   # Also inline: <!-- RDR-{N}: {question} → {user_choice} -->
   SAVE(artifact_path)  # IMMEDIATE

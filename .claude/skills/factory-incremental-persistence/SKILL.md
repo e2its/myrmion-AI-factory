@@ -166,7 +166,8 @@ FUNCTION persist_decision(artifact_path, decision):
     id: "RDR-{sequential}",
     question: "{what was asked}",
     recommendation: "{agent recommendation}",
-    user_choice: "{what user decided}",
+    user_choice: "{what user decided}",   # verbatim
+    relay: "{session}",                   # only when another session carried the words (factory-rdr § Relay and delegation)
     rationale: "{why}",
     timestamp: "{ISO_8601}",
     impact: "{which sections affected}"
@@ -180,6 +181,7 @@ FUNCTION persist_decision(artifact_path, decision):
   # 2. Inline in the artifact body where the decision applies
   #    (for human readability and downstream agent reference)
   #    Format: <!-- RDR-{N}: {question} → {choice} -->
+  #    Relayed: <!-- RDR-{N}: {question} → «{choice}» (relayed by {relay}) -->
   
   SAVE(artifact_path)  # IMMEDIATE
   LOG: "Decision persisted: {decision_entry.id} → {decision_entry.user_choice}"
