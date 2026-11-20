@@ -1717,7 +1717,7 @@
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md"
     },
     "CLAUDE.md": {
-      "version": "14.39.0",
+      "version": "14.39.1",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {

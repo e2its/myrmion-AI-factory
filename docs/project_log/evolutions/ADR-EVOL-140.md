@@ -46,7 +46,7 @@ This ADR plans issue #253 (epic #112, wave 5, destination S). It is follow-up A 
    - work-input calls.
 5. **Runbook.** One Signals row and one Config row. Upgrade note: `measure.config.json` is the project's own file and is never overwritten. A project adds the key when it wires a tool, and the section stays `unavailable` until then.
 
-Nothing else ships: no command, no flag, no SETUP question, no registry row, no gate reading the subproduct. No baseline is claimed from this repository.
+`CLAUDE.md` names this record in its subproducts paragraph. Nothing else ships: no command, no flag, no SETUP question, no registry row, no gate reading the subproduct. No baseline is claimed from this repository.
 
 ## Consequences
 
