@@ -1,5 +1,6 @@
 {
   "autoCompactWindow": 300000,
+  "claudeMdExcludes": ["**/.claude/rules/**"],
   "hooks": {
     "SessionStart": [
       {

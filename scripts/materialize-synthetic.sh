@@ -594,8 +594,8 @@ import json, pathlib, sys
 q = pathlib.Path(sys.argv[1])
 m = q / "docs/project_log/governance_versions.json"; d = json.loads(m.read_text())
 [e.pop("owner", None) for e in d["templates"].values()]; d.pop("governance_features", None); m.write_text(json.dumps(d, indent=1))
-c = q / "config/quality.json"; cfg = json.loads(c.read_text()); cfg["budgets"].pop("notebook_reinject", None); cfg["x_project_key"] = {"mine": 1}; c.write_text(json.dumps(cfg, indent=2))
-st = q / ".claude/settings.json"; sj = json.loads(st.read_text()); h = sj["hooks"]
+c = q / "config/quality.json"; cfg = json.loads(c.read_text()); cfg["budgets"].pop("notebook_reinject", None); cfg["budgets"].pop("launch_context", None); cfg["x_project_key"] = {"mine": 1}; c.write_text(json.dumps(cfg, indent=2))
+st = q / ".claude/settings.json"; sj = json.loads(st.read_text()); h = sj["hooks"]; sj.pop("claudeMdExcludes", None)
 h["UserPromptSubmit"] = [e for e in h["UserPromptSubmit"] if not any("gate.py notebook" in x.get("command", "") for x in e.get("hooks", []))]
 sj.setdefault("permissions", {}).setdefault("allow", []).append("Bash(make test)"); st.write_text(json.dumps(sj, indent=2))
 (q / ".claude/rules/architecture.md").write_text((q / ".claude/rules/architecture.md").read_text() + "\n## Our own section\n")
@@ -632,8 +632,10 @@ for f in (".claude/settings.json", "config/quality.json", ".context/templates/se
 cfg = json.loads((q / "config/quality.json").read_text())
 if cfg.get("x_project_key") != {"mine": 1}: bad.append("the project's own quality key is lost")
 if not isinstance(cfg["budgets"].get("notebook_reinject"), int): bad.append("the seam key the template carries is not added")
+if not isinstance(cfg["budgets"].get("launch_context"), int): bad.append("budgets.launch_context is not added (EVOL-141)")
 sj = json.loads((q / ".claude/settings.json").read_text())
 if "Bash(make test)" not in sj.get("permissions", {}).get("allow", []): bad.append("the project's permission is lost")
+if sj.get("claudeMdExcludes") != ["**/.claude/rules/**"]: bad.append("claudeMdExcludes is not added (EVOL-141)")
 if not any("gate.py notebook" in x.get("command", "") for e in sj["hooks"]["UserPromptSubmit"] for x in e.get("hooks", [])): bad.append("the framework hook is not added back")
 if not (q / ".claude/commands/mine.md").is_file(): bad.append("the project's own command is gone")
 snap = json.loads((q / "docs/project_log/governance_versions.json").read_text())
@@ -1077,6 +1079,17 @@ print(' '.join(t for t in scripts if not (os.path.isfile(t) and os.access(t, os.
 # EVOL-063 — the compaction window ships with the settings
 OUT=$(cd "$P" && python3 -c "import json; v=json.load(open('.claude/settings.json')).get('autoCompactWindow'); print(type(v).__name__, v)" 2>&1)
 [ "$OUT" = "int 300000" ] && ok "settings.json ships the compaction window (autoCompactWindow 300000)" || bad "autoCompactWindow not shipped" "$OUT"
+# EVOL-141: no rule loads at launch; the budget row holds the floor — green as delivered, red when the exclusion is dropped
+L="$SCRATCH/l141"; cp -a "$P" "$L"
+OUT1=$(cd "$L" && python3 scripts/gate.py budget 2>&1); RC1=$?
+python3 -c 'import json,sys; p=sys.argv[1]; s=json.load(open(p)); s.pop("claudeMdExcludes"); json.dump(s, open(p, "w"), indent=2)' "$L/.claude/settings.json"
+OUT2=$(cd "$L" && python3 scripts/gate.py budget 2>&1); RC2=$?
+[ "$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('claudeMdExcludes'))" "$P/.claude/settings.json")" = "['**/.claude/rules/**']" ] \
+  && [ "$RC1" -eq 0 ] && printf '%s' "$OUT1" | grep -q '| launch_context | 36000 |.*| ok |' \
+  && [ "$RC2" -eq 1 ] && printf '%s' "$OUT2" | grep -q 'RED at launch_context' \
+  && ok "the rules stay out of the launch context: the exclusion ships, the launch floor is within budgets.launch_context, red without it (EVOL-141)" \
+  || bad "the launch floor (rc=$RC1/$RC2)" "$(printf '%s\n%s' "$OUT1" "$OUT2" | grep -E 'launch_context|budget:')"
+rm -rf "$L"
 # EVOL-064 — the vertical-slicing body left CLAUDE.md: the rule lands and binds where increments are planned
 OUT=$(cd "$P" && python3 scripts/gate.py applicable --paths docs/spec/FEAT-1/increment_plan.md --format json 2>&1 | python3 -c "import json,sys; print(' '.join(r['name'] for r in json.load(sys.stdin)['active']['rules']))" 2>&1)
 [ -f "$P/.claude/rules/vertical-slicing.md" ] && [[ " $OUT " == *" vertical-slicing.md "* ]] && ok "rules/vertical-slicing.md lands and applies to an increment plan" || bad "vertical-slicing rule not delivered or not applicable" "$OUT"

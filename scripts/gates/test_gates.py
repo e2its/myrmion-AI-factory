@@ -101,7 +101,7 @@ def fixture_repo(root: Path, context_: str = "downstream") -> Path:
     write(repo / "config/quality.json", json.dumps({
         "budgets": {"session_start": 2000, "prompt_submit": 10000, "pre_edit": 6000, "snapshot": 16000,
                     "law_sentence_max_chars": 240, "dc_invariant_max_chars": 160, "hook_output_cap": 10000,
-                    "notebook_reinject": 9000, "notebook_precompact": 1000},
+                    "notebook_reinject": 9000, "notebook_precompact": 1000, "launch_context": 36000},
         "retired_terms": [{"term": RETIRED, "record": "ADR-EVOL-043", "exempt": ["docs/legacy/**"]}]}))
     write(repo / "CLAUDE.md", CLAUDE_MD)
     write(repo / "docs/constitution.md", CONSTITUTION)
@@ -849,6 +849,78 @@ class Budget(unittest.TestCase):
             (repo / "config/quality.json").write_text(json.dumps({"budgets": {"session_start": 1}}), encoding="utf-8")
             rows = budget.measure(repo)
             self.assertFalse(rows["pre_edit"]["ok"]); self.assertIn("key budgets.pre_edit missing", rows["pre_edit"]["fault"])
+
+    def test_launch_context(self):
+        """EVOL-141: the memory files the harness loads at launch — CLAUDE.md, its imports, every rule with no `paths:` that
+        claudeMdExcludes does not match — measured against budgets.launch_context; the framework repo measures its templates."""
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            cfg = json.loads((repo / "config/quality.json").read_text(encoding="utf-8"))
+            cfg["budgets"]["launch_context"] = 1000
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            shutil.rmtree(repo / ".claude/rules")   # the fixture's own rules: this case names every file it measures
+            write(repo / "CLAUDE.md", "a" * 100 + "\nsee @docs/a.md and `@docs/span.md`\n```\n@docs/fenced.md\n```\n")
+            write(repo / "docs/a.md", "b" * 50 + "\n@b.md\n@../../outside.md\n")   # relative to the importing file
+            write(repo / "docs/b.md", "c" * 10 + "\r\n")   # bytes on disk: a CRLF counts two
+            write(repo / "docs/span.md", "x" * 5000)
+            write(repo / "docs/fenced.md", "x" * 5000)
+            write(Path(tmp) / "outside.md", "x" * 5000)
+            write(repo / ".claude/rules/always.md", "---\ndescription: x\n---\n" + "r" * 200)
+            write(repo / ".claude/rules/sub/scoped.md", "---\npaths:\n  - \"src/**\"\n---\n" + "x" * 5000)
+            write(repo / ".claude/rules/bad.md", "---\npaths: [unclosed\n---\n" + "y" * 30)
+            base = sum(len((repo / f).read_bytes()) for f in ("CLAUDE.md", "docs/a.md", "docs/b.md"))
+            always = len((repo / ".claude/rules/always.md").read_bytes())
+            rules = len((repo / ".claude/rules/always.md").read_bytes()) + len((repo / ".claude/rules/bad.md").read_bytes())
+            r = budget.measure(repo)["launch_context"]
+            self.assertEqual(r["bytes"], base + rules, "imports followed outside code; a scoped rule waits; invalid frontmatter loads")
+            self.assertTrue(r["ok"])
+            self.assertIn("2 rule bodies load at launch", r["producer"], "a rule loaded at launch names the missing exclusion")
+            write(repo / ".claude/rules/big.md", "z" * 2000)
+            r = budget.measure(repo)["launch_context"]
+            self.assertFalse(r["ok"], "over the key is red")
+            write(repo / ".claude/settings.json", json.dumps({"claudeMdExcludes": ["**/.claude/rules/**"]}))
+            r = budget.measure(repo)["launch_context"]
+            self.assertEqual(r["bytes"], base, "an excluded rule never loads")
+            self.assertNotIn("rule bodies load", r["producer"])
+            write(repo / ".claude/settings.json", json.dumps({"claudeMdExcludes": [str(repo.resolve() / ".claude/rules/big.md")]}))
+            write(repo / ".claude/settings.local.json", json.dumps({"claudeMdExcludes": ["**/rules/bad.md"]}))
+            r = budget.measure(repo)["launch_context"]
+            self.assertEqual(r["bytes"], base + always, "an absolute pattern and the local settings' list both exclude")
+            self.assertIn("1 rule bodies load at launch", r["producer"], "a project's own list without the shipped entry names the cure")
+            write(repo / ".claude/settings.local.json", json.dumps({"claudeMdExcludes": ["rules/bad.md", ".claude/rules/**"]}))
+            self.assertEqual(budget.measure(repo)["launch_context"]["bytes"], base + rules,
+                             "a relative pattern matches no absolute path: the harness still loads the rule")
+            write(repo / ".claude/settings.local.json", json.dumps({"claudeMdExcludes": ["**/rules/bad.md"]}))
+            for n in range(5):
+                write(repo / f"docs/h{n}.md", f"@h{n + 1}.md\n" + ("k" * 300 if n == 4 else ""))
+            write(repo / "docs/h5.md", "x" * 5000)
+            write(repo / "CLAUDE.local.md", "@docs/h0.md\n@docs/h0.md\n")
+            chain = sum(len((repo / f).read_bytes()) for f in ["CLAUDE.local.md"] + [f"docs/h{n}.md" for n in range(5)])
+            r = budget.measure(repo)["launch_context"]
+            self.assertEqual(r["bytes"], base + always + chain, "the fifth hop loads, the sixth never; a file counts once")
+            del cfg["budgets"]["launch_context"]
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            self.assertIn("key budgets.launch_context missing", budget.measure(repo)["launch_context"]["fault"])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp), "meta")
+            cfg = json.loads((repo / "config/quality.json").read_text(encoding="utf-8"))
+            cfg["budgets"]["launch_context"] = 1000
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            t = repo / ".context/templates/setup"
+            write(t / "governance_versions.json", json.dumps({"templates": {
+                "claude/CLAUDE.md": {"version": "1.0.0", "target": "CLAUDE.md"},
+                "claude/settings.json": {"version": "1.0.0", "target": ".claude/settings.json"},
+                "rules/a.md": {"version": "1.0.0", "target": ".claude/rules/a.md"},
+                "rules/b.md": {"version": "1.0.0", "target": "docs/b.md"}}}))
+            write(t / "claude/CLAUDE.md", "m" * 300)
+            write(t / "claude/settings.json", "{}")
+            write(t / "rules/a.md", "r" * 400)
+            write(t / "rules/b.md", "x" * 5000)
+            write(repo / "CLAUDE.md", "x" * 5000)   # the framework's own CLAUDE.md is not what a project loads
+            self.assertEqual(budget.measure(repo)["launch_context"]["bytes"], 700, "the templates as they land")
+            write(t / "claude/settings.json", json.dumps({"claudeMdExcludes": ["**/.claude/rules/**"]}))
+            self.assertEqual(budget.measure(repo)["launch_context"]["bytes"], 300, "the settings template's excludes apply")
 
     def test_injection_key_over_the_hook_cap_is_red(self):
         """#240: the harness swaps hook text over its cap for a file path — an injection key above budgets.hook_output_cap is red."""
