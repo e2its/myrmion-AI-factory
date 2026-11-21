@@ -74,7 +74,7 @@ printf '{"answers": {"backend.runtime": "Ruby", "frontend.framework": "None", "s
 for ans in "$ROOT"/scripts/fixtures/synthetic-answers/*.json "$WORK/no-pack.json"; do
   name=$(basename "$ans" .json)
   P="$WORK/$name"; mkdir -p "$P/security/sast" "$P/src"
-  plan=$(python3 -I "$ROOT/scripts/delivered-tree.py" "$ROOT" "$ans" "$P" --skip security/sast/ | python3 -I -c '
+  plan=$(python3 -I "$ROOT/scripts/delivered-tree.py" "$ROOT" "$ans" "$P" --skip security/sast/ --skip scripts/fixtures/ | python3 -I -c '
 import json, sys
 from pathlib import Path
 r = json.loads(sys.stdin.read())

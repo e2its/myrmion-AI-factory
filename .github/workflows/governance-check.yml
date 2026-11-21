@@ -198,9 +198,11 @@ jobs:
         env:
           RUFF: python3 -m ruff
           ESLINT_VERSION: 9.39.1
-          GITLEAKS: docker run --rm -v /tmp:/tmp zricethezav/gitleaks:v8.30.0
-          TRUFFLEHOG: docker run --rm -v /tmp:/tmp --entrypoint trufflehog trufflesecurity/trufflehog:3.99.3
+          TMPDIR: /tmp/delivered-clean
+          GITLEAKS: docker run --rm -v /tmp/delivered-clean:/tmp/delivered-clean zricethezav/gitleaks:v8.30.0
+          TRUFFLEHOG: docker run --rm -v /tmp/delivered-clean:/tmp/delivered-clean --entrypoint trufflehog trufflesecurity/trufflehog:3.99.3
         run: |
+          mkdir -p /tmp/delivered-clean
           python3 -m pip install --quiet ruff==0.17.4
           bash scripts/test-delivered-clean.sh >/tmp/t 2>&1; r=$?; cat /tmp/t; [ "$r" -eq 0 ] && grep -q "^test-delivered-clean: OK$" /tmp/t
 

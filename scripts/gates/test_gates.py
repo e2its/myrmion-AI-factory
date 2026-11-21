@@ -5528,14 +5528,22 @@ class Discovery(unittest.TestCase):
     def test_lint_excluded_semantics(self):
         """#261: the pattern subset ruff and eslint agree on — a bare name anywhere, a slashed path from the root."""
         ex = discovery.lint_excluded
-        self.assertTrue(ex("a/subproducts/m.py", ["subproducts"]), "a bare name is a directory anywhere")
-        self.assertTrue(ex("scripts/gates/x.py", ["scripts/gates"]), "a slashed path names a directory above the file")
-        self.assertFalse(ex("scripts/gates/x.py", ["scripts/gate.py"]), "a file pattern never names a sibling directory")
-        self.assertTrue(ex("scripts/gate.py", ["scripts/gate.py"]))
-        self.assertFalse(ex("src/scripts/gates/x.py", ["scripts/gates"]), "a slashed path is anchored at the root")
-        self.assertTrue(ex(".context/t/e.ts", ["./.context/"]), "`./` and a trailing `/` are the same path")
-        self.assertTrue(ex("scripts/a.py", ["scripts/*.py"]), "a glob as fnmatch")
-        self.assertFalse(ex("src/app.py", []))
+        self.assertTrue(ex("a/subproducts/m.py", ["subproducts"], "ruff"), "a ruff bare name matches at any depth")
+        self.assertFalse(ex("a/subproducts/m.py", ["./subproducts"], "ruff"), "`./` anchors it at the root")
+        self.assertTrue(ex("subproducts/m.py", ["./subproducts"], "ruff"))
+        self.assertFalse(ex("src/.context/m.ts", [".context/"], "eslint"), "an eslint pattern is anchored at the root")
+        self.assertTrue(ex("src/.context/m.ts", ["**/.context/"], "eslint"), "except from `**/`")
+        self.assertTrue(ex("src/a/b/m.ts", ["**/a/b"], "eslint"), "an any-depth path of two parts")
+        self.assertTrue(ex("scripts/gates/x.py", ["scripts/gates"], "ruff"), "a slashed path names a directory above the file")
+        self.assertFalse(ex("scripts/gates/x.py", ["scripts/gate.py"], "ruff"), "a file pattern never names a sibling directory")
+        self.assertTrue(ex("scripts/gate.py", ["scripts/gate.py"], "ruff"))
+        self.assertFalse(ex("src/scripts/gates/x.py", ["scripts/gates"], "ruff"), "a slashed path is anchored at the root")
+        self.assertTrue(ex(".context/t/e.ts", ["./.context/"], "eslint"), "`./` and a trailing `/` are the same path")
+        self.assertFalse(ex("subproducts/m.py", ["/subproducts"], "ruff"), "a leading `/` names nothing")
+        self.assertTrue(ex("scripts/a.py", ["scripts/*.py"], "ruff"), "a glob")
+        self.assertFalse(ex("scripts/gates/x.py", ["scripts/*.py"], "ruff"), "`*` never crosses `/`")
+        self.assertTrue(ex("scripts/gates/x.py", ["scripts/**/*.py"], "ruff"), "`**` does")
+        self.assertFalse(ex("src/app.py", [], "ruff"))
         self.assertEqual(discovery.lint_excludes("ruff check . --extend-exclude=a,b --exclude c"), ("ruff", ["a", "b", "c"]))
         self.assertEqual(discovery.lint_excludes("npx eslint . --ignore-pattern x/ --ignore-pattern y.ts"), ("eslint", ["x/", "y.ts"]))
         self.assertEqual(discovery.lint_excludes("ruff 'unclosed"), (None, []), "an unparseable command names no tool")
@@ -5552,7 +5560,7 @@ class Discovery(unittest.TestCase):
             self._reg(repo, lambda r: self._q(r, "Q5")["keys"]["backend.runtime"].__setitem__(
                 "configures", {lit: {"verification.gates": {"lint": {"command": c}}} for lit, c in lint.items()}))
             return self._rule(discovery.validate(repo), "V15")
-        clean = {"Python": "ruff check . --extend-exclude .context,scripts/gates",
+        clean = {"Python": "ruff check . --extend-exclude ./.context,scripts/gates",
                  "Node.js": "npx eslint . --ignore-pattern .context/ --ignore-pattern tests/e2e/support/clauses.ts"}
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(arrange(disc_repo(tmp), clean), [], "every framework file of each language excluded, the project's read")
@@ -5566,6 +5574,12 @@ class Discovery(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             v = arrange(disc_repo(tmp), {**clean, "Node.js": clean["Node.js"] + " --ignore-pattern playwright.config.ts"})
             self.assertTrue(any("excludes project-owned `playwright.config.ts`" in f for f in v), v)
+        with tempfile.TemporaryDirectory() as tmp:
+            v = arrange(disc_repo(tmp), {**clean, "Python": "ruff check . --extend-exclude .context,scripts/gates",
+                                         "Node.js": clean["Node.js"] + " --ignore-pattern **/fw/"})
+            self.assertTrue(any("exclusion `.context` matches at any depth" in f for f in v), v)
+            self.assertTrue(any("exclusion `**/fw/` matches at any depth" in f for f in v), v)
+            self.assertFalse(any("`.context/`" in f for f in v), "an eslint `.context/` is anchored")
         with tempfile.TemporaryDirectory() as tmp:
             v = arrange(disc_repo(tmp), {**clean, "None": "golangci-lint run ./..."})
             self.assertTrue(any("framework-owned `scripts/tool.go`" in f for f in v), "a lint row with no exclusions reads a delivered framework file")

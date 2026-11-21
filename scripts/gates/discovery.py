@@ -48,7 +48,7 @@ validate    V1 schema · V2 a single option not derived (a one-literal row its d
             configured id a row, a row no option configures names no STACK_LABEL_KEYS label.
             V14 (EVOL-080) the asked deliverable homes (`deliverables.<category>.home`) are the documents reader's asked categories.
             V15 (#261) a shipped `lint` row excludes every framework-owned delivered file of its tool's language (LINT_READS)
-            and no project-owned one.
+            and no project-owned one, each exclusion anchored at the project root.
 any answer  EVOL-131 — an open key's answer that is none of its literals is `unmodelled`: {key, answer, owes, templates} —
             owes = the config pointers the key's shipped rows set, templates = the manifest entries naming the key that this
             answer skips. Each owed pointer is declared in docs/setup.md under the pointer itself, in a shipped row's shape
@@ -1871,16 +1871,27 @@ def lint_excludes(command: str) -> tuple[str | None, list[str]]:
     return (Path(words[0]).name if words else None), pats
 
 
-def lint_excluded(path: str, pats: list[str]) -> bool:
-    """The subset ruff and eslint agree on: a pattern with no inner `/` names a directory or file anywhere; one with a `/`
-    names that path from the project root, or a directory above the file. Globs as fnmatch."""
+def lint_anywhere(pat: str, tool: str | None) -> bool:
+    """#261, probed (ruff 0.17.4, eslint 9.39.1): a ruff pattern with no `/` matches at any depth; an eslint pattern
+    matches at any depth only from `**/`. Every other form names a path from the project root."""
+    return pat.startswith("**/") if tool == "eslint" else "/" not in pat
+
+
+def lint_excluded(path: str, pats: list[str], tool: str | None = None) -> bool:
+    """Whether `tool` skips the project-relative `path` under the exclusion patterns: a root-anchored pattern names that
+    path or a directory above it; an any-depth one names it from any directory. A leading `/` names nothing. `*` and `?`
+    never cross `/`, `**` does."""
     parts = path.split("/")
     for p in pats:
-        p = p.removeprefix("./").strip("/")
-        if "/" not in p:
-            if any(fnmatch.fnmatchcase(c, p) for c in parts):
-                return True
-        elif any(fnmatch.fnmatchcase("/".join(parts[:n]), p) for n in range(1, len(parts) + 1)):
+        if p.startswith("/"):
+            continue
+        q = p.removeprefix("**/").removeprefix("./").strip("/")
+        if not q:
+            continue
+        starts = range(len(parts)) if lint_anywhere(p, tool) else (0,)
+        rx = re.compile("".join(".*" if t == "**" else "[^/]*" if t == "*" else "[^/]" if t == "?" else re.escape(t)
+                                for t in re.split(r"(\*\*|\*|\?)", q)))
+        if any(rx.fullmatch("/".join(parts[i:n])) for i in starts for n in range(i + 1, len(parts) + 1)):
             return True
     return False
 
@@ -1909,12 +1920,14 @@ def _v15(reg: dict, manifest: dict) -> list[str]:
         tool, pats = lint_excludes(lint["command"])
         if tool not in LINT_READS:
             out.append(f"V15 · {where}: lint tool `{tool}` is not in LINT_READS — name the files it reads"); continue
+        out += [f"V15 · {where}: exclusion `{p}` matches at any depth — anchor it at the project root (`./{p}`), or it skips "
+                f"the project's own `{p}`" for p in pats if lint_anywhere(p, tool)]
         for p, o in sorted(owners.items()):
             if not p.endswith(LINT_READS[tool]):
                 continue
-            if o == "framework" and not lint_excluded(p, pats):
+            if o == "framework" and not lint_excluded(p, pats, tool):
                 out.append(f"V15 · {where}: lint reads framework-owned `{p}` — exclude it in the command (a project cannot cure it)")
-            elif o == "project" and lint_excluded(p, pats):
+            elif o == "project" and lint_excluded(p, pats, tool):
                 out.append(f"V15 · {where}: lint excludes project-owned `{p}` — the gate reads the project's code")
     return out
 

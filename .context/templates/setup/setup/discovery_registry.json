@@ -230,7 +230,7 @@
          "report": "coverage/lcov.info"
         },
         "lint": {
-         "command": "ruff check . --extend-exclude .claude,.context,subproducts,scripts/gates,scripts/gate.py,scripts/project_summarization.py,scripts/check-inventory-freshness.py,scripts/reconcile_inventory.py,scripts/check-command-flags.py,scripts/check-design-sections.py,tests/conftest_traceability.py",
+         "command": "ruff check . --extend-exclude ./.claude,./.context,./subproducts,scripts/gates,scripts/gate.py,scripts/project_summarization.py,scripts/check-inventory-freshness.py,scripts/reconcile_inventory.py,scripts/check-command-flags.py,scripts/check-design-sections.py,tests/conftest_traceability.py",
          "was": {
           "command": [
            "ruff check ."

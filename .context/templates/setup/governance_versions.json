@@ -472,7 +472,7 @@
       "owner": "framework"
     },
     "scripts/hooks/pre-push": {
-      "version": "2.7.2",
+      "version": "2.7.3",
       "type": "script",
       "role": "Git hook — force-push protection, gitleaks secret scan across pushed range, the gate profile (`gate.py profile --run`, EVOL-046). Honors the actual push remote ($1) instead of hardcoding origin.",
       "target": "scripts/hooks/pre-push",
@@ -1424,7 +1424,7 @@
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/discovery.py",
-      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V14 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132).",
+      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V15 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132).",
       "owner": "framework"
     },
     "setup/discovery_registry.json": {
@@ -2694,7 +2694,7 @@
       "owner": "framework"
     },
     "scripts/hooks/pre-push": {
-      "version": "1.7.2",
+      "version": "1.7.3",
       "type": "config",
       "role": "Meta copy of the pre-push git hook (protected-branch force-push block + secrets scan + governance validation + factory-pr-review sentinel block). Extensionless.",
       "path": "scripts/hooks/pre-push",
@@ -3136,7 +3136,7 @@
       "version": "2.5.1",
       "type": "script",
       "path": "scripts/gates/discovery.py",
-      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V14 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132)."
+      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V15 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132)."
     },
     "scripts/gates/writes.py": {
       "version": "2.0.0",

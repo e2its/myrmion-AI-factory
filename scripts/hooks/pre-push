@@ -212,22 +212,29 @@ if [[ "${FACTORY_PR_REVIEW_SKIP:-}" != "1" ]]; then
     # the push triggers a CI round-trip. Uses `find -print -quit` (DC-13)
     # rather than `find | grep -q`, which dies on SIGPIPE under pipefail
     # and silently skips the gate.
-    if command -v ruff >/dev/null 2>&1; then
-        if [[ -n "$(find "$REPO_ROOT_FPR/src/backend" "$REPO_ROOT_FPR/tests" -name '*.py' -print -quit 2>/dev/null)" ]]; then
+    # Only the folders that exist are read (a missing one is ruff's E902), and never the framework-owned Python a project
+    # cannot cure (EVOL-136, #261): FPR_RUFF_X lists it, anchored at the root; scripts/test-delivered-clean.sh holds the
+    # list to the manifest's owners.
+    # >>> push ruff >>>
+    FPR_RUFF_X="./tests/conftest_traceability.py"
+    FPR_PY=(); for d in src/backend tests; do [ -d "$REPO_ROOT_FPR/$d" ] && FPR_PY+=("$d"); done
+    if command -v ruff >/dev/null 2>&1 && [ "${#FPR_PY[@]}" -gt 0 ]; then
+        if [[ -n "$(cd "$REPO_ROOT_FPR" && find "${FPR_PY[@]}" -name '*.py' ! -path "${FPR_RUFF_X#./}" -print -quit 2>/dev/null)" ]]; then
             echo "🧹 factory-pr-review ruff check ..."
-            if ! ruff check "$REPO_ROOT_FPR/src/backend" "$REPO_ROOT_FPR/tests"; then
-                echo "❌ ruff check failed — push blocked. Fix with: ruff check --fix src/backend tests"
+            if ! ( cd "$REPO_ROOT_FPR" && ruff check --extend-exclude "$FPR_RUFF_X" "${FPR_PY[@]}" ); then
+                echo "❌ ruff check failed — push blocked. Fix with: ruff check --fix ${FPR_PY[*]}"
                 exit 1
             fi
             echo "✅ ruff check pass."
             echo "🧹 factory-pr-review ruff format check ..."
-            if ! ruff format --check "$REPO_ROOT_FPR/src/backend" "$REPO_ROOT_FPR/tests"; then
-                echo "❌ ruff format drift — push blocked. Fix with: ruff format src/backend tests"
+            if ! ( cd "$REPO_ROOT_FPR" && ruff format --check --extend-exclude "$FPR_RUFF_X" "${FPR_PY[@]}" ); then
+                echo "❌ ruff format drift — push blocked. Fix with: ruff format ${FPR_PY[*]}"
                 exit 1
             fi
             echo "✅ ruff format check pass."
         fi
     fi
+    # <<< push ruff <<<
     # Mirror CI's `Lint & Format` frontend gates locally (eslint + prettier)
     # so a clean local push is a clean CI Lint & Format job. Closes the gap
     # surfaced by FEAT-001 iter 7 PR #3 (#321) where two CI rounds were lost
