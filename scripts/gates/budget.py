@@ -40,7 +40,7 @@ import uuid
 from pathlib import Path
 
 from .common import _glob_regex, GateFault, any_glob, context, frontmatter_of, key
-from .corpus import catalog, laws, universe
+from .corpus import IMPORT_HOPS, catalog, expand, import_targets, landed, laws, universe
 
 REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars", "hook_output_cap",
             "notebook_reinject", "notebook_precompact", "launch_context")
@@ -173,11 +173,16 @@ def measure(repo: Path) -> dict:
         "longest law sentence in the index")
     row("dc_invariant_max_chars", max((len(d["invariant"]) for d in cat["dcs"]), default=0), "longest defect-class invariant")
     if "claude_md_advisory" in budgets:   # EVOL-064: advisory — over the key warns, never blocks; an absent key is no row
-        # the framework repo measures the template it ships; a project its own file (a synced template tree is not its CLAUDE.md)
-        cmd = repo / (".context/templates/setup/claude/CLAUDE.md" if context(repo) == "meta" else "CLAUDE.md")
-        name = str(cmd.relative_to(repo))
-        row("claude_md_advisory", cmd.stat().st_size if cmd.is_file() else None,
-            f"{name} (re-read every turn; advisory)" if cmd.is_file() else f"{name} (absent — n/a here)")
+        # CLAUDE.md and every file it imports (EVOL-137): the framework repo measures the templates as they land, a project
+        # its own files (a synced template tree is not its CLAUDE.md)
+        try:
+            read, _ = landed(repo)
+            got = expand(repo, "CLAUDE.md", read)
+        except GateFault:
+            got = []
+        name = " + ".join(r for r, _ in got) or "CLAUDE.md"
+        row("claude_md_advisory", sum(len(t.encode("utf-8")) for _, t in got) if got else None,
+            f"{name} (re-read every turn; advisory)" if got else f"{name} (absent — n/a here)")
         r = rows["claude_md_advisory"]
         if r["fault"] is None:
             r["ok"] = True
@@ -188,34 +193,17 @@ def measure(repo: Path) -> dict:
 
 
 LAUNCH_ROOTS = ("CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md")
-IMPORT_HOPS = 5                                     # the harness follows @imports to five hops
-_FENCE = re.compile(r"^\s*(```|~~~)")
-_IMPORT = re.compile(r"(?<![\w`@])@((?:[\w.~-]+/)*[\w.-]+)")
 
 
 def launch_context(repo: Path) -> tuple[int | None, str]:
     """EVOL-141: bytes of the memory files the harness loads at launch, and where they were read. A project reads its
     files on disk; the framework repo reads the templates at the paths they land on (the manifest's targets)."""
     root = repo.resolve()
-    if context(repo) == "meta":
-        from .discovery import inside, load_manifest
-        tpl = ".context/templates/setup/"
-        try:
-            entries = load_manifest(repo).get("templates") or {}
-        except GateFault as e:
-            return None, f"n/a — {e}"
-        files = {e["target"]: repo / (tpl + k) for k, e in entries.items()
-                 if isinstance(e, dict) and inside(k) and inside(e.get("target"))}
-        where = "the templates as they land"
-    else:
-        files, where = None, "the project's files"
-
-    def raw(rel: str) -> bytes | None:
-        p = files.get(rel) if files is not None else repo / rel
-        try:
-            return p.read_bytes() if p is not None and p.is_file() else None
-        except OSError:
-            return None
+    try:
+        raw, files = landed(repo)
+    except GateFault as e:
+        return None, f"n/a — {e}"
+    where = "the templates as they land" if files is not None else "the project's files"
 
     def body(rel: str) -> str | None:
         b = raw(rel)
@@ -248,20 +236,8 @@ def launch_context(repo: Path) -> tuple[int | None, str]:
         text = b.decode("utf-8", errors="replace")
         if hops >= IMPORT_HOPS:
             return
-        fenced = False
-        for line in text.splitlines():
-            if _FENCE.match(line):
-                fenced = not fenced
-                continue
-            if fenced:
-                continue
-            for m in _IMPORT.finditer(re.sub(r"`[^`]*`", "", line)):
-                t = (root / rel).parent / m.group(1)
-                try:
-                    t = t.resolve().relative_to(root).as_posix()
-                except (ValueError, OSError, RuntimeError):
-                    continue   # outside the project, a name too long, a symlink loop: never measured here
-                load(t, hops + 1)
+        for t in import_targets(root, rel, text):   # outside the project, a name too long, a symlink loop: never followed
+            load(t, hops + 1)
 
     for r in LAUNCH_ROOTS:
         load(r, 0)

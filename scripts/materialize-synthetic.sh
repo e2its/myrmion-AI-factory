@@ -494,6 +494,9 @@ OUT=$(bash "$ROOT/scripts/factory-sync.sh" "$P" --force 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "factory-sync delivers the framework tree from the manifest" || bad "factory-sync failed on the materialised project (rc=$RC)" "$(printf '%s' "$OUT" | tail -15)"
 [ -f "$P/.claude/settings.json" ] || cp "$T/claude/settings.json" "$P/.claude/settings.json"
 [ -f "$P/CLAUDE.md" ] || cp "$T/claude/CLAUDE.md" "$P/CLAUDE.md"
+cmp -s "$P/.claude/framework.md" "$T/claude/framework.md" && grep -qx '@.claude/framework.md' "$P/CLAUDE.md" \
+  && ok "the root CLAUDE.md imports .claude/framework.md, which sync delivers byte-identical (EVOL-137)" \
+  || bad "the root CLAUDE.md or its framework file did not land as the split (EVOL-137)"
 mkdir -p "$P/config"; [ -f "$P/config/coherence-context.json" ] || cp "$T/config/coherence-context.json" "$P/config/coherence-context.json"
 git -C "$P" init -q && git -C "$P" add -A && git -C "$P" -c user.name=t -c user.email=t@t commit -qm scratch
 for f in config/quality.json config/coherence-context.json config/protected-paths.json; do
@@ -575,7 +578,7 @@ import json, sys, pathlib
 m = json.load(open(sys.argv[1])); out = {"framework_version": m["framework_version"], "delivery_mode": "development", "templates": {}}   # Q32 sample
 for k, e in m["templates"].items():
     if isinstance(e, dict) and e.get("target"): out["templates"][k] = {"version": e["version"], "target": e["target"], "owner": e["owner"]}
-out["governance_features"] = {"owners_v1": True}   # EVOL-136: materialisation stamps each owner
+out["governance_features"] = {"owners_v1": True, "claude_split_v1": True}   # EVOL-136: each owner stamped; EVOL-137: the root lands split
 p = pathlib.Path(sys.argv[2]); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps(out, indent=1))
 PY
 OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
@@ -652,6 +655,54 @@ $(printf '%s' "$SYNC1" | tail -8)"
 OUT=$(bash "$ROOT/scripts/factory-sync.sh" "$Q" --preserve-local --force 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'retired' && ok "--preserve-local is retired: refused with its reason (EVOL-136)" || bad "--preserve-local still accepted (rc=$RC)" "$OUT"
 rm -rf "$Q" "$Q.arch" "$Q.claude" "$Q.mig.sh" "$Q.skill" "$Q.landed" "$Q.modes"
+# EVOL-137: an installed monolith split — the last CLAUDE.md monolith plus a project section and one edited universal
+# section: exactly that section is one RDR and nothing is written; taken, the root is the template plus the project's
+# section, the laws arrive through the import, the feature is stamped; a second run changes nothing
+Q="$SCRATCH/h137"; cp -a "$P" "$Q"
+FROM=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['from'])" "$T/claude/sections.json")
+if git -C "$ROOT" show "$FROM:.context/templates/setup/claude/CLAUDE.md" > "$Q/CLAUDE.md" 2>/dev/null; then
+  python3 - "$Q" <<'PY'
+import json, pathlib, sys
+q = pathlib.Path(sys.argv[1])
+c = q / "CLAUDE.md"; t = c.read_text(encoding="utf-8")
+assert "\n## Post-Action\n" in t
+c.write_text(t.replace("\n## Post-Action\n", "\n## Post-Action\n\nOur own step.\n", 1) + "\n## Project notes\n\nours\n", encoding="utf-8")
+m = q / "docs/project_log/governance_versions.json"; d = json.loads(m.read_text()); d["governance_features"].pop("claude_split_v1"); m.write_text(json.dumps(d, indent=1))
+PY
+  python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$Q.split.sh" <<'PY'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read()
+print(re.search(r"```bash\n(.*?)```", s[s.index("**claude-md split (EVOL-137).**"):], re.S).group(1))
+PY
+  cp "$Q/CLAUDE.md" "$Q.mono"
+  OUT=$(cd "$Q" && bash "$Q.split.sh" 2>&1); RC=$?
+  UNR=$(printf '%s' "$OUT" | python3 -c "import json,sys; t=sys.stdin.read(); print(json.loads(t[:t.rindex('}')+1])['unresolved'])" 2>/dev/null)
+  [ "$RC" -ne 0 ] && [ "$UNR" = "['## Post-Action']" ] && cmp -s "$Q/CLAUDE.md" "$Q.mono" \
+    && ok "RED: the edited universal section is the one RDR, and nothing is written while it stands (EVOL-137)" || bad "the split's unresolved section (rc=$RC, unresolved=$UNR)" "$OUT"
+  python3 - "$Q/CLAUDE.md" <<'PY'
+import pathlib, sys
+c = pathlib.Path(sys.argv[1]); t = c.read_text(encoding="utf-8")
+head, rest = t.split("\n## Post-Action\n", 1)
+c.write_text(head + "\n" + rest[rest.index("\n## "):], encoding="utf-8")   # the RDR's «take the framework's text»
+PY
+  OUT=$(cd "$Q" && bash "$Q.split.sh" 2>&1); RC1=$?
+  SUM1=$(cd "$Q" && sha256sum CLAUDE.md docs/project_log/governance_versions.json)
+  OUT2=$(cd "$Q" && bash "$Q.split.sh" 2>&1); RC2=$?
+  SUM2=$(cd "$Q" && sha256sum CLAUDE.md docs/project_log/governance_versions.json)
+  WANT=$(cat "$T/claude/CLAUDE.md"; printf '\n## Project notes\n\nours\n')
+  STAMP=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['governance_features'].get('claude_split_v1'))" "$Q/docs/project_log/governance_versions.json")
+  [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$(cat "$Q/CLAUDE.md")" = "$WANT" ] && [ "$STAMP" = "True" ] && [ "$SUM1" = "$SUM2" ] \
+    && ok "the split: the root is the template plus the project's section, the feature stamped, a second run changes nothing (EVOL-137)" \
+    || bad "the split (rc=$RC1/$RC2, stamp=$STAMP, idempotent=$([ "$SUM1" = "$SUM2" ] && echo y || echo n))" "$OUT
+$(diff <(printf '%s\n' "$WANT") "$Q/CLAUDE.md" | head -20)"
+  OUT=$(cd "$Q" && python3 scripts/gate.py applicable --phase IMPLEMENT --command implement --change-type feature --format rollcall 2>&1)
+  LAWS=$(printf '%s' "$OUT" | grep -oE 'ACTIVE LAWS \([0-9]+\)' | grep -oE '[0-9]+')
+  OUT=$(cd "$Q" && python3 scripts/gate.py laws --parity 2>&1); RC=$?
+  [ "${LAWS:-0}" -ge 26 ] && [ "$RC" -eq 0 ] && ok "after the split the roll-call ($LAWS laws) and law parity read the universal laws through the import (EVOL-137)" \
+    || bad "the laws after the split (laws=$LAWS, parity rc=$RC)" "$OUT"
+else
+  bad "the last CLAUDE.md monolith ($FROM) is not in this clone's history — the split proof needs it (fetch the full history)"
+fi
+rm -rf "$Q" "$Q.split.sh" "$Q.mono"
 # EVOL-118: the manifest carries current state only — a reintroduced history key is red, named by its path; removed, green again
 if grep -rlq '^changelog:' "$P/.claude/rules"; then bad "a materialised rule carries a frontmatter changelog (EVOL-118)" "$(grep -rl '^changelog:' "$P/.claude/rules")"; else ok "no materialised rule carries a frontmatter changelog (EVOL-118)"; fi
 cp "$P/docs/project_log/governance_versions.json" "$P/manifest.keep"

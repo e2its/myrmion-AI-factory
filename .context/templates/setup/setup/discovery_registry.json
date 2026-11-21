@@ -3168,6 +3168,12 @@
    "since": "10.14.0",
    "detect": "docs/project_log/governance_versions.json#/governance_features/owners_v1",
    "apply": "owners (EVOL-136)"
+  },
+  {
+   "id": "claude-md split (EVOL-137)",
+   "since": "10.16.0",
+   "detect": "docs/project_log/governance_versions.json#/governance_features/claude_split_v1",
+   "apply": "claude-md split (EVOL-137)"
   }
  ]
 }

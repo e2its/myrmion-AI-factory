@@ -1010,7 +1010,8 @@ Deliverable-generation tooling: imported by no product or framework module, outs
 
 1. `.context/templates/setup/claude/CLAUDE.md` → `CLAUDE.md` (project root)
    - Project-owned (EVOL-136): if `CLAUDE.md` already exists at the target, it is never written; on fresh `--generate`, target will not exist → write the template as-is.
-   - This is the **materialized-project variant** of `CLAUDE.md`. The framework repo itself uses a different `CLAUDE.md` (meta-maintenance variant) that is NOT synced to downstream projects.
+   - It holds only the project's text: one import of `.claude/framework.md` and the sections the project writes below it (EVOL-137).
+   - `.context/templates/setup/claude/framework.md` → `.claude/framework.md`: the universal instructions of the **materialized-project variant**, framework-owned, delivered by sync. The framework repo itself uses a different `CLAUDE.md` (meta-maintenance variant) that is NOT synced to downstream projects.
 
 2. `.context/templates/setup/claude/settings.json` → `.claude/settings.json`
    - A seam (EVOL-136): the project owns `permissions`, `model`, `env` and its own hook entries; the framework's hook wiring and `autoCompactWindow` (EVOL-063) arrive by key, add-only, through `discovery.seams_upgrade` (Factory-setup-upgrade Step 8b.7) — a framework hook is known by the script it runs; an existing target is never rewritten wholesale.
@@ -1175,7 +1176,7 @@ This ensures that even operations outside the slash command are blocked from com
 **Governance Versions Snapshot (5 steps):**
 1. Read `.context/templates/setup/governance_versions.json` (framework reference)
 2. For each file in snapshot, compute MD5 of the materialized version
-3. Create `docs/project_log/governance_versions.json` — the project manifest. Shape (declared, EVOL-044): `framework_version` (the framework version materialised), `delivery_mode` ← `docs/setup.md` frontmatter `delivery.mode` (Q32 — `development` | `production`, EVOL-046; the one key `python3 scripts/gate.py profile` reads, fail-closed to `production` when absent — so a forgotten key silently makes every push owe the full profile, never less), `templates` (the framework manifest's `templates` map, key → `{version, target, content_type, stack_conditional, owner}`, filtered to the entries that landed; `governance_features.owners_v1: true` — EVOL-136 — the source of truth every governed file's frontmatter `version:` must equal; `gate.py manifest-parity` reads it) and `files` (target → `{template_source, checksum}`, what `validate-upgrade-integrity.sh` compares at upgrade).
+3. Create `docs/project_log/governance_versions.json` — the project manifest. Shape (declared, EVOL-044): `framework_version` (the framework version materialised), `delivery_mode` ← `docs/setup.md` frontmatter `delivery.mode` (Q32 — `development` | `production`, EVOL-046; the one key `python3 scripts/gate.py profile` reads, fail-closed to `production` when absent — so a forgotten key silently makes every push owe the full profile, never less), `templates` (the framework manifest's `templates` map, key → `{version, target, content_type, stack_conditional, owner}`, filtered to the entries that landed; `governance_features.owners_v1: true` — EVOL-136 — and `claude_split_v1: true` — EVOL-137, the root `CLAUDE.md` lands already split — the source of truth every governed file's frontmatter `version:` must equal; `gate.py manifest-parity` reads it) and `files` (target → `{template_source, checksum}`, what `validate-upgrade-integrity.sh` compares at upgrade).
 4. Record framework version, materialization timestamp
 5. This snapshot enables future `--upgrade` to detect drift vs customization
 

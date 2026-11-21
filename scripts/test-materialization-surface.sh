@@ -77,7 +77,7 @@ echo ""
 echo "2. template CLAUDE.md ref resolution (delivery map)"
 MISSING=$(python3 - <<'PY'
 import json, os, re
-txt = open('.context/templates/setup/claude/CLAUDE.md', errors='replace').read()
+txt = open('.context/templates/setup/claude/framework.md', errors='replace').read()
 manifest = json.load(open('.context/templates/setup/governance_versions.json'))
 # runtime-synthesised artefacts + the manifest itself are exempt from the
 # template-source requirement (loop invariants — computed once)
@@ -218,7 +218,7 @@ fi
 echo ""
 
 echo "7. RDR vocabulary (EVOL-069): auto mode never answers a decision"
-for f in CLAUDE.md "$TPL_ROOT/claude/CLAUDE.md"; do
+for f in CLAUDE.md "$TPL_ROOT/claude/framework.md"; do
   if grep -qF "Auto mode runs execution; a decision is still posed as RDR" "$f"; then
     ok "$f states that auto mode runs execution and a decision is still an RDR"
   else

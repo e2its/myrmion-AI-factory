@@ -71,6 +71,7 @@ configures  EVOL-067 — a key spec's `configures {<option literal>: {<config po
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import json
 import re
 import shlex
@@ -936,6 +937,66 @@ def seams_upgrade(repo: Path, fills: dict) -> dict:
         out[e["target"]] = {"merged": mine, "added": added, "replaced": replaced, "unresolved": unresolved}
     return out
 
+
+
+SPLIT_KNOWN = TEMPLATE_ROOT + "claude/sections.json"
+SPLIT_ROOT = TEMPLATE_ROOT + "claude/CLAUDE.md"
+_SPLIT_FENCE = re.compile(r"^\s*(```|~~~)")
+
+
+def claude_parts(text: str) -> list[tuple[str | None, str]]:
+    """EVOL-137: a CLAUDE.md cut into its preamble (heading None) and its H2 sections, in order; a `## ` inside a fence is no
+    heading. Each part normalised — LF, trailing spaces and leading/trailing blank lines dropped — the form its hash reads."""
+    parts: list[list] = [[None, []]]
+    fenced = False
+    for ln in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if _SPLIT_FENCE.match(ln):
+            fenced = not fenced
+        elif not fenced and ln.startswith("## "):
+            parts.append([ln.rstrip(), []])
+        parts[-1][1].append(ln.rstrip())
+    out = []
+    for h, ls in parts:
+        while ls and not ls[-1]:
+            ls.pop()
+        while ls and not ls[0]:
+            ls.pop(0)
+        if ls:
+            out.append((h, "\n".join(ls)))
+    return out
+
+
+def part_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def claude_split(text: str, known: dict, root: str) -> dict:
+    """EVOL-137: an installed CLAUDE.md split against the known monolith parts. A part whose hash a monolith carried goes to
+    the framework file; a section whose heading no monolith had is the project's and stays, in order, under the root template;
+    a known heading with other content — and a preamble that is neither a monolith's nor the root template's — is unresolved:
+    one RDR each, decided by editing the project file, then the split runs again. {text: the new root, or None while anything
+    is unresolved; framework, kept, unresolved: headings}. A root already split is returned unchanged: a second run is a no-op."""
+    sections, headings = set(known.get("sections") or ()), set(known.get("headings") or ())
+    if not sections or not headings:
+        raise GateFault(f"{SPLIT_KNOWN} lists no known part — run factory-sync.sh")
+    tpl = claude_parts(root)
+    if len(tpl) != 1 or tpl[0][0] is not None:
+        raise GateFault(f"{SPLIT_ROOT} is not a preamble alone — the delivered root template is damaged; run factory-sync.sh")
+    framework, kept, unresolved, body = [], [], [], []
+    for h, t in claude_parts(text):
+        label = h or "(preamble)"
+        if part_hash(t) in sections:
+            framework.append(label)
+        elif h is None:
+            if t != tpl[0][1]:
+                unresolved.append(label)
+        elif h in headings:
+            unresolved.append(label)
+        else:
+            kept.append(label)
+            body.append(t)
+    new = "\n\n".join([tpl[0][1]] + body) + "\n"
+    return {"text": None if unresolved else new, "framework": framework, "kept": kept, "unresolved": unresolved}
 
 def _tool_bound(reg: dict) -> dict[str, list[str]]:
     """Every class id an option's `configures` names (a tool-bound row: it lands only where its tool is), or a derived row

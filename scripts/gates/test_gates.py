@@ -296,6 +296,31 @@ class Corpus(unittest.TestCase):
             (repo / "docs/setup.md").unlink()
             self.assertIn("# (no stack keys in the docs/setup.md frontmatter)", stack(), "the framework repo: no answer home")
 
+    def test_laws_follow_the_import(self):
+        """EVOL-137: the universal laws a project's CLAUDE.md imports are its laws — the root and every file it imports, read
+        as the harness does (never inside backticks or a fence, never outside the repository)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            write(repo / "CLAUDE.md", "# Project\n\nSee `@docs/span.md`.\n\n@.claude/framework.md\n\n## Project notes\n\nours\n")
+            write(repo / ".claude/framework.md", CLAUDE_MD)
+            write(repo / "docs/span.md", CLAUDE_MD.replace("LAW-07", "LAW-09"))
+            ids = [l["id"] for l in corpus.laws(repo)["universal"]]
+            self.assertEqual(ids, ["LAW-01", "LAW-02", "LAW-07"], "the imported file's laws, once; a backticked path is no import")
+            self.assertEqual([r for r, _ in corpus.expand(repo, "CLAUDE.md")], ["CLAUDE.md", ".claude/framework.md"])
+            write(repo / "CLAUDE.md", "# Project\n\n```\n@.claude/framework.md\n```\n")
+            self.assertEqual(corpus.laws(repo)["universal"], [], "a fenced import loads nothing")
+            write(repo / "CLAUDE.md", "@../outside.md\n")
+            write(Path(tmp) / "outside.md", CLAUDE_MD)
+            self.assertEqual(corpus.laws(repo)["universal"], [], "an import outside the repository is never read")
+            write(repo / "CLAUDE.md", "@a.md\n"); write(repo / "a.md", "@CLAUDE.md\n@.claude/framework.md\n")
+            self.assertEqual(len(corpus.laws(repo)["universal"]), 3, "a cycle reads each file once")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp), "meta")
+            write(repo / ".context/templates/setup/claude/framework.md", CLAUDE_MD.replace("LAW-07] Templates", "LAW-14] Scaffolding"))
+            write(repo / ".context/templates/setup/claude/CLAUDE.md", "# Project\n\n@.claude/framework.md\n")
+            self.assertNotIn("LAW-14", " ".join(corpus.parity(repo)),
+                             "in the framework repo the ids of the template the project imports are not orphans")
+
     def test_law_index_parses_both_shapes(self):
         laws = corpus.laws(self.repo)
         u = {l["id"]: l for l in laws["universal"]}
@@ -1015,6 +1040,12 @@ class Budget(unittest.TestCase):
             self.assertEqual(r["bytes"], len(CLAUDE_MD.encode()), "a project that holds the synced template tree still measures its own CLAUDE.md")
             self.assertTrue(r["warn"])
             self.assertIn("WARN claude_md_advisory", budget.summary({"claude_md_advisory": r}), "the summary line names the warning, so a passing member can carry it")
+            write(repo / "CLAUDE.md", "# P\n\n@.claude/framework.md\n")
+            write(repo / ".claude/framework.md", CLAUDE_MD)
+            r = budget.measure(repo)["claude_md_advisory"]
+            self.assertEqual(r["bytes"], len("# P\n\n@.claude/framework.md\n".encode()) + len(CLAUDE_MD.encode()),
+                             "EVOL-137: the root and the file it imports, re-read every turn together")
+            self.assertTrue(r["producer"].startswith("CLAUDE.md + .claude/framework.md"))
             (repo / "CLAUDE.md").unlink()
             r = budget.measure(repo)["claude_md_advisory"]
             self.assertIsNone(r["bytes"]); self.assertTrue(r["ok"]); self.assertFalse(r["warn"])
@@ -1024,9 +1055,18 @@ class Budget(unittest.TestCase):
             cfg = json.loads((repo / "config/quality.json").read_text(encoding="utf-8"))
             cfg["budgets"]["claude_md_advisory"] = 10
             (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            write(repo / ".context/templates/setup/governance_versions.json", json.dumps({"templates": {
+                "claude/CLAUDE.md": {"version": "1.0.0", "target": "CLAUDE.md"},
+                "claude/framework.md": {"version": "1.0.0", "target": ".claude/framework.md"}}}))
             write(repo / ".context/templates/setup/claude/CLAUDE.md", "x" * 5)
+            write(repo / ".claude/framework.md", "y" * 5000)   # the framework repo's own file is not what a project loads
             r = budget.measure(repo)["claude_md_advisory"]
             self.assertEqual(r["bytes"], 5, "in the framework repo the template is what is measured")
+            write(repo / ".context/templates/setup/claude/CLAUDE.md", "@.claude/framework.md\n")
+            write(repo / ".context/templates/setup/claude/framework.md", "z" * 7)
+            self.assertEqual(budget.measure(repo)["claude_md_advisory"]["bytes"], len("@.claude/framework.md\n") + 7,
+                             "EVOL-137: the import read at the template that lands on it")
+            write(repo / ".context/templates/setup/claude/CLAUDE.md", "x" * 5)
             self.assertFalse(r["warn"]); self.assertTrue(r["ok"])
             cfg["budgets"]["claude_md_advisory"] = 5
             (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
@@ -2864,7 +2904,7 @@ class HonestTests(unittest.TestCase):
         real = HERE.parent.parent
         if not (real / ".context/templates/setup").is_dir():
             self.skipTest("not the framework repo")
-        for rel in ("CLAUDE.md", ".context/templates/setup/claude/CLAUDE.md"):
+        for rel in ("CLAUDE.md", ".context/templates/setup/claude/framework.md"):
             law = {l["id"]: l for l in corpus.parse_law_list((real / rel).read_text(encoding="utf-8"), source=rel)}["LAW-05"]
             self.assertEqual(law["sentence"], self.SENTENCE, rel); self.assertIn("ADR-EVOL-068", law["records"], rel)
         body = (real / ".context/templates/setup/rules/testing.md").read_text(encoding="utf-8")
@@ -6102,6 +6142,81 @@ SEAM_MINE = {"permissions": {"allow": ["Bash(ls)"]}, "model": "x", "hooks": {
     "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "bash my-own.sh"}]}]}}
 SEAM_QUALITY = ('{"budgets": {"x": 1, "y": 2}, "tool": {"cmd": "%s", "n": %s}, "list": ["a", "b"], "planning": {"paths": ["%s"], "cmd": "%s"}}\n'
                 % (_tok("TOOL_CMD"), _tok("TOOL_N"), _tok("GOV"), _tok("TOOL_CMD")))   # tokens built at run time: this file is a template too
+
+
+class ClaudeSplit(unittest.TestCase):
+    """EVOL-137: an installed CLAUDE.md monolith split against the known parts — a known part leaves the root, a project
+    section stays under the root template, a known heading with other content is one RDR; a second run is a no-op."""
+
+    MONO = "# Factory\n\nYou are an orchestrator.\n\n## Communication Style\n\nWrite short.\n\n## Governance Rules\n\n1. **[LAW-01] X** — y.\n"
+    ROOT = "# Project instructions\n\nThe framework's instructions load below.\n\n@.claude/framework.md\n"
+
+    def known(self, *texts):
+        parts = [p for t in texts for p in discovery.claude_parts(t)]
+        return {"sections": sorted({discovery.part_hash(t) for _, t in parts}), "headings": sorted({h for h, _ in parts if h})}
+
+    def test_parts_are_normalised_and_fence_aware(self):
+        got = discovery.claude_parts("\r\n# T  \r\n\r\n## A\nx \n```\n## not a heading\n```\n\n\n## B\n")
+        self.assertEqual(got, [(None, "# T"), ("## A", "## A\nx\n```\n## not a heading\n```"), ("## B", "## B")])
+        self.assertEqual(discovery.claude_parts(""), [])
+
+    def test_split(self):
+        k = self.known(self.MONO)
+        r = discovery.claude_split(self.MONO, k, self.ROOT)
+        self.assertEqual(r["text"], self.ROOT, "a pure monolith leaves the root template alone")
+        self.assertEqual(r["framework"], ["(preamble)", "## Communication Style", "## Governance Rules"])
+        mine = self.MONO + "\n## Project notes\n\nours  \n\n## Deploy\n\nby hand\n"
+        r = discovery.claude_split(mine, k, self.ROOT)
+        self.assertEqual(r["kept"], ["## Project notes", "## Deploy"])
+        self.assertEqual(r["text"], self.ROOT.rstrip("\n") + "\n\n## Project notes\n\nours\n\n## Deploy\n\nby hand\n")
+        again = discovery.claude_split(r["text"], k, self.ROOT)
+        self.assertEqual(again["text"], r["text"], "a split root is unchanged: the second run is a no-op")
+        self.assertEqual((again["framework"], again["unresolved"]), ([], []))
+        older = self.MONO.replace("Write short.", "Write shorter.")
+        r = discovery.claude_split(older, self.known(self.MONO, older), self.ROOT)
+        self.assertEqual(r["text"], self.ROOT, "any version a monolith shipped is known, not only the last")
+
+    def test_unresolved_until_the_project_file_decides(self):
+        k = self.known(self.MONO)
+        edited = self.MONO.replace("Write short.", "Write short. Our tweak.") + "\n## Project notes\n\nours\n"
+        r = discovery.claude_split(edited, k, self.ROOT)
+        self.assertIsNone(r["text"], "nothing is written while a section is unresolved")
+        self.assertEqual(r["unresolved"], ["## Communication Style"]); self.assertEqual(r["kept"], ["## Project notes"])
+        kept = edited.replace("## Communication Style", "## Project — Communication Style")
+        r = discovery.claude_split(kept, k, self.ROOT)
+        self.assertIn("## Project — Communication Style\n\nWrite short. Our tweak.", r["text"], "keep: renamed, never law")
+        taken = edited.replace("## Communication Style\n\nWrite short. Our tweak.\n\n", "")
+        self.assertNotIn("Our tweak", discovery.claude_split(taken, k, self.ROOT)["text"], "take: the section deleted")
+        own = self.MONO.replace("You are an orchestrator.", "You are our bot.")
+        self.assertEqual(discovery.claude_split(own, k, self.ROOT)["unresolved"], ["(preamble)"], "a preamble of its own is one RDR")
+        self.assertEqual(discovery.claude_split("## Ours\n\nx\n", k, self.ROOT)["kept"], ["## Ours"],
+                         "a CLAUDE.md the project wrote from scratch keeps every section and gains the import")
+
+    def test_refuses_a_damaged_delivery(self):
+        with self.assertRaises(GateFault):
+            discovery.claude_split(self.MONO, {"sections": [], "headings": []}, self.ROOT)
+        with self.assertRaises(GateFault):
+            discovery.claude_split(self.MONO, self.known(self.MONO), self.ROOT + "\n## Notes\n")
+
+    def test_shipped_data(self):
+        t = HERE.parent.parent / ".context/templates/setup/claude"
+        if not (t / "sections.json").is_file():
+            self.skipTest("no template copies on this tree: the shipped data is checked where it lands")
+        known = json.loads((t / "sections.json").read_text(encoding="utf-8"))
+        self.assertTrue(known["sections"] and all(re.fullmatch(r"[0-9a-f]{64}", h) for h in known["sections"]))
+        self.assertTrue(known["headings"] and all(h.startswith("## ") for h in known["headings"]))
+        self.assertEqual(known["sections"], sorted(known["sections"]))
+        root = (t / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertEqual([h for h, _ in discovery.claude_parts(root)], [None], "the root template is a preamble alone")
+        self.assertIn("@.claude/framework.md", root)
+        r = discovery.claude_split(root, known, root)
+        self.assertEqual(r["text"], root, "a freshly materialised root is already split")
+        last = subprocess.run(["git", "-C", str(HERE.parent.parent), "show", f"{known['from']}:.context/templates/setup/claude/CLAUDE.md"],
+                              capture_output=True, text=True)
+        if last.returncode != 0:
+            self.skipTest("the framework's history is not here (a project): the shipped data alone is checked")
+        r = discovery.claude_split(last.stdout + "\n## Project notes\n\nours\n", known, root)
+        self.assertEqual((r["unresolved"], r["kept"]), ([], ["## Project notes"]), "every part of the last monolith is known")
 
 
 class Seams(unittest.TestCase):

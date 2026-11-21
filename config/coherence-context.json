@@ -124,7 +124,7 @@
         "type": "law_corpus_mirror",
         "doc": "Governance Rules corpus (EVOL-040, RDR-1): stable [LAW-NN] IDs, single namespace across the pair. Universal LAW bodies byte-identical after stripping the cosmetic list ordinal. LAW-01 carries a declared per-context addendum (lines from the first '*…application:*' marker onward exempt). Context Preservation INVARIANTS 2/4/5 diverge by design (meta: framework manifest/branch-state; template: project manifest/feature-state) — governed by CLAUDE.md § What Lives Where, not part of this corpus. LAW-15 (ADP vocabulary) lives outside § Governance Rules and is verified by reference coherence, not by this pair.",
         "left": "CLAUDE.md",
-        "right": ".context/templates/setup/claude/CLAUDE.md",
+        "right": ".context/templates/setup/claude/framework.md",
         "law_section": "## Governance Rules",
         "meta_only": [
           "LAW-07",
@@ -141,7 +141,7 @@
         "type": "universal_clause_mirror",
         "doc": "Universal CLAUDE.md clauses that must be byte-identical between root CLAUDE.md (meta) and the template counterpart. Verified by check-lockstep-pairs.sh which extracts each section listed in universal_sections (content between the H2 heading and the next H2 heading or EOF) and diffs both sides. Sections with legitimate context-specific divergence (Governance Scope wording, Pre-Action Gate steps, Core Protocols table, Generation Standards manifest path, Mandatory Law #1 addendum, Triage default, INVARIANT 4 manifest path, Workflow / Hard Gates / Living Catalogs in template only) are intentionally NOT listed here — they are governed by CLAUDE.md § What Lives Where and verified during human review (factory-pr-review Phase 0 Detector 16-meta operates on whole-file lock-step pairs, not section-level here).",
         "left": "CLAUDE.md",
-        "right": ".context/templates/setup/claude/CLAUDE.md",
+        "right": ".context/templates/setup/claude/framework.md",
         "universal_sections": [
           "## Communication Style — MANDATORY",
           "## RDR Universal — MANDATORY",
