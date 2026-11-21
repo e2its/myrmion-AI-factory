@@ -302,8 +302,8 @@ import glob, re, sys
 sys.path.insert(0, "scripts"); from gates.common import load_yaml
 MACRO = re.compile(r"\$\([A-Za-z_][\w.]*\)")                   # Azure: $(name) or $(A.B), a macro whatever the name
 SUBST = re.compile(r"(?<!\$)\$(?!\$)\{?[A-Za-z_]")              # Cloud Build: a single-$ substitution
-GSTRING = re.compile(r'\b(sh|bat|powershell|pwsh)\b\s*\(?\s*(script\s*:\s*)?"')   # Groovy: a double-quoted script
-AZ_KEYS = ("script", "bash", "pwsh", "powershell", "inlineScript", "Inline", "inline")
+GSTRING = re.compile(r'\b(sh|bat|powershell|pwsh)\b\s*\(?\s*(?:\w+\s*:\s*[^,)]*,\s*)*(?:script\s*:\s*)?"')   # Groovy: a double-quoted script, any argument order
+AZ_KEYS = ("script", "bash", "pwsh", "powershell", "inlineScript", "Inline", "inline", "arguments", "scriptArguments")
 ENV_ONLY = (".gitlab-ci.yml", ".bitbucket.yml", ".aws-codebuild.yml")
 
 
@@ -376,18 +376,21 @@ else
   printf 'steps:\n  - script: |\n      echo "$(System.PullRequest.SourceBranch)"\n' > "$PLANT/c.azure-devops.yml"
   printf 'steps:\n  - task: AzureCLI@2\n    inputs:\n      inlineScript: echo "$(SRC)"\n' > "$PLANT/d.azure-devops.yml"
   printf 'steps:\n  - bash: echo "${{ variables.src }}"\n' > "$PLANT/e.azure-devops.yml"
+  printf 'steps:\n  - task: Bash@3\n    inputs:\n      filePath: x.sh\n      arguments: --branch $(System.PullRequest.SourceBranch)\n' > "$PLANT/l.azure-devops.yml"
   printf 'steps:\n  - name: x\n    args: ["-c", "echo $BRANCH_NAME"]\n' > "$PLANT/f.gcp-cloudbuild.yaml"
   printf 'steps:\n  - name: x\n    args: ["-c", "echo ${_BASE_BRANCH}"]\n' > "$PLANT/g.gcp-cloudbuild.yaml"
   printf 'pipeline { stages { stage("x") { steps { sh """\n echo ${CHANGE_BRANCH}\n""" } } } }\n' > "$PLANT/h.jenkins.groovy"
   printf 'node { sh "git fetch origin ${env.CHANGE_TARGET}" }\n' > "$PLANT/i.jenkins.groovy"
   printf 'node { sh(script: """echo ${env.CHANGE_BRANCH}""") }\n' > "$PLANT/j.jenkins.groovy"
+  printf 'node { def o = sh(returnStdout: true, script: "echo ${env.CHANGE_BRANCH}") }\n' > "$PLANT/m.jenkins.groovy"
+  printf 'node { sh label: "x", script: """echo ${env.CHANGE_BRANCH}""" }\n' > "$PLANT/n.jenkins.groovy"
   printf 'steps:\n  - run: echo hi\n' > "$PLANT/k.tekton.yml"
   PLANT_OUT=$(python3 -c "$UNTRUSTED_PY" "$PLANT"/* 2>&1) || true
   missed=""
-  for p in a.github-actions.yml b.github-actions.yml c.azure-devops.yml d.azure-devops.yml e.azure-devops.yml f.gcp-cloudbuild.yaml g.gcp-cloudbuild.yaml h.jenkins.groovy i.jenkins.groovy j.jenkins.groovy k.tekton.yml; do
+  for p in a.github-actions.yml b.github-actions.yml c.azure-devops.yml d.azure-devops.yml e.azure-devops.yml f.gcp-cloudbuild.yaml g.gcp-cloudbuild.yaml h.jenkins.groovy i.jenkins.groovy j.jenkins.groovy k.tekton.yml l.azure-devops.yml m.jenkins.groovy n.jenkins.groovy; do
     case "$PLANT_OUT" in *"$PLANT/$p: "*) ;; *) missed="$missed $p" ;; esac
   done
-  printf 'node { sh \x27\x27\x27\n git fetch origin "$CHANGE_TARGET"\n\x27\x27\x27 }\n' > "$PLANT/ok.jenkins.groovy"
+  printf 'node { sh \x27\x27\x27\n git fetch origin "$CHANGE_TARGET"\n\x27\x27\x27\n def t = sh(script: \x27git describe\x27, returnStdout: true) }\n' > "$PLANT/ok.jenkins.groovy"
   printf 'steps:\n  - script: |\n      out=$(git log -1)\n    env:\n      SRC: $(System.PullRequest.SourceBranch)\n' > "$PLANT/ok.azure-devops.yml"
   printf 'steps:\n  - name: x\n    env: ["B=$BRANCH_NAME"]\n    args: ["-c", "echo \\"$$B\\" $(date)"]\n' > "$PLANT/ok.gcp-cloudbuild.yaml"
   python3 -c "$UNTRUSTED_PY" "$PLANT"/ok.* >/dev/null 2>&1 || missed="$missed (a safe form read as red)"
