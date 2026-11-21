@@ -90,8 +90,8 @@ Evidence (external, beat 0, the docs reader):
    - A second key, `inventory.siblings_token` (`free: vault_name`), asks for the vault entry's name. It is owed only `when: "inventory.siblings exists"`.
    - Both carry `since: 10.18.0`. `SETUP --upgrade` asks them through Step 8b with no clause of their own.
    - The answers live where every answer lives, the `docs/setup.md` frontmatter. No config key repeats them.
-2. **The reader — `python3 scripts/gate.py inventory --siblings`.** Owner RDR, 2026-11-21, on how the agent calls it (CLAUDE.md Generation Standards §4). Three options were posed: a dedicated subcommand, a flag on an existing reader, or a snippet in the CIP skill. The owner's choice, verbatim: **«1»**.
-   - The candidates `[{name, type, module}]` come on stdin. It prints JSON `{matches: [{source, sha, criterion, entry}], warnings: [...]}` and always exits 0.
+2. **The reader — `python3 scripts/gate.py inventory --siblings`.** Owner RDR, 2026-11-21, on how the agent calls it (CLAUDE.md Generation Standards §4). Three options were posed: a dedicated subcommand, a flag on an existing reader, or a snippet in the CIP skill. The owner's choice, verbatim: **«1»**. The do-less pass (DC-29) weighed the flag and the snippet: the subcommand builds no more than either, and only a script keeps the token out of the agent's context and the matching testable.
+   - The candidates `[{name, type, module}]` come on stdin. It prints JSON `{matches: [{source, sha, criterion, entry}], warnings: [...]}`. It exits 0 whatever a sibling answers, and 2 on a bad call (no `--siblings`, candidates not JSON or malformed).
    - It reads `inventory.siblings` from `docs/setup.md`. With none declared, it reads nothing and says so.
    - Each sibling is parsed by `scm.remote(repo, url)`. Its platform comes from `scm.KNOWN_HOSTS`, or else from the project's `scm.platform` answer (a self-hosted host).
    - The calls go through `rest.call`, which a test can replace. Per sibling, in order:
@@ -100,20 +100,21 @@ Evidence (external, beat 0, the docs reader):
      3. the raw `config/codebase_inventory.json` at that commit.
      Nothing is cached and nothing is written.
    - The token is read from the environment variable `INVENTORY_SIBLINGS_TOKEN`. Its absence is a warning that names `docs/setup.md → inventory.siblings_token`.
-   - Criteria 1, 2 and 4 are computed against each sibling's entries. Only the matching entries return, whole and unchanged, so an element id #154 adds later rides along.
+   - Criteria 1, 2 and 4 are computed against each sibling's entries. Only the matching entries return, whole, so an element id #154 adds later rides along. Every string in them is cleaned (no control or bidi character) and capped: another repository's data, never an instruction.
+   - Every value that lands in a URL is encoded; a commit id must be hex and a GitLab project id digits.
    - Criterion 3 (semantic) stays local: it would need the whole sibling inventory in the agent's context.
-3. **Fail-open, named (LAW-08).** Each sibling that yields nothing returns one plain warning naming its URL, and the remaining siblings are still read:
+3. **Fail-open, named (LAW-08).** No token: one warning, nothing read. Otherwise each sibling that yields nothing returns one plain warning naming its URL, and the remaining siblings are still read:
+   - a URL carrying a credential (refused unread; the warning shows the URL without it);
    - an unsupported platform;
-   - no token;
    - refused (401/403);
    - unreachable (network, 5xx, a redirect never followed);
    - no inventory at the main commit or no access (404 — GitHub and GitLab do not tell the two apart);
-   - not an inventory (not JSON, no `artifacts` list).
+   - not an inventory (not JSON, not an object, no `artifacts` list).
    No message carries the token.
 4. **The consultation.**
-   - `cip_consultation_gate` gains one step. When `inventory.siblings` is declared, it pipes the artefacts it is about to create into the reader. Each match enters the same RDR, REUSE / EXTEND / CREATE_NEW, tagged `{source}@{sha}`.
+   - `cip_consultation_gate` gains one step, always run: it pipes the artefacts it is about to create into the reader; none declared → a note. Each match enters the same RDR, REUSE / EXTEND / CREATE_NEW, tagged `{source}@{sha}`. REUSE of a sibling's component records the pin and never writes `feature_ids` on a foreign entry.
    - The design's § Reuse Analysis records that pin.
-   - The phases that call the gate (codesign 0.5, blueprint −2, implement-plan survey, implement-build 0d) reference it unchanged. Any phase restating the algorithm gains the same line.
+   - BLUEPRINT (−2c, the refine re-check) and IMPLEMENT (plan S.2, build 0d) consult siblings. CODESIGN 0.5 stays local: its domain check is business-only (LAW-16).
 5. **Not a gate.** The reader is no profile member, no CI step and no workflow.
 
 ## Rejected
@@ -131,6 +132,7 @@ Evidence (external, beat 0, the docs reader):
   - On GitHub and GitLab, a missing inventory and a token that cannot see the repository give the same 404, so the warning names both.
   - Rate limits were not measured (ADR-EVOL-087).
   - A sibling that was never materialised has no inventory and is named as such.
+  - An entry's strings are capped at 300 characters; a longer description is cut.
 
 ## Verification
 

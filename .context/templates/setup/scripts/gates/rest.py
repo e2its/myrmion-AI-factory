@@ -5,7 +5,8 @@ call(service, site_hint, auth_hint, method, url, headers, body=None) → (status
   - A redirect is answered, never followed: the credential is sent to the configured site only.
   - A 429 waits its Retry-After once (an ASCII decimal, at most 60 s; anything else waits 5 s); a second 429 is a fault.
   - `Unreachable` (a GateFault) is the transport class: no connection, a body that is not JSON, a 5xx, a repeated 429,
-    401/403 (`Refused`, its subclass: the credential is missing, expired or not allowed). Every other answer (a redirect, a 4xx) is a plain GateFault naming the status and the server's reason.
+    401/403 (`Refused`, its subclass: the credential is missing, expired or not allowed). A 404 is `NotFound` (a plain
+    GateFault subclass). Every other answer (a redirect, a 4xx) is a plain GateFault naming the status and the server's reason.
   - No message carries the URL's query or a header value — the credential never reaches a message.
   - An answer larger than MAX_BODY is a fault: nothing holds the gate on an endless body.
 """
@@ -41,6 +42,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 _OPEN = urllib.request.build_opener(_NoRedirect).open
 MAX_BODY = 16 * 1024 * 1024
+REASON_MAX = 64 * 1024
 
 
 def ascii_int(v) -> bool:
@@ -51,7 +53,7 @@ def ascii_int(v) -> bool:
 
 def _reason(e: urllib.error.HTTPError) -> str:
     try:
-        msg = json.loads(e.read().decode("utf-8") or "{}")
+        msg = json.loads(e.read(REASON_MAX).decode("utf-8") or "{}")   # an error body is read bounded, like an answer
     except (ValueError, OSError, AttributeError):
         return ""
     if not isinstance(msg, dict):

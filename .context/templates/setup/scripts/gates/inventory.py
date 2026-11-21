@@ -8,8 +8,10 @@ read     per sibling, three calls through `rest.call` (a redirect never followed
          nothing written — never a copy of a sibling's inventory.
 match    CIP criteria 1 (EXACT: name, case-insensitive, and type), 2 (SAME_DOMAIN: module and type) and 4 (NAME_SIMILAR:
          Levenshtein < 3 and type); the best per entry. Criterion 3 (semantic) stays local: it would need the whole
-         sibling inventory in the agent's context. A match carries the entry whole and unchanged, with {source, sha}.
-faults   fail-open: each sibling that yields nothing is one plain warning naming its URL; the others are still read.
+         sibling inventory in the agent's context. A match carries the entry whole — every string cleaned and capped: another
+         repository's data, never an instruction — with {source, sha}.
+faults   fail-open: each sibling that yields nothing is one plain warning naming its URL (never a credential); the others
+         are still read. A URL carrying a credential is refused, unread.
          Not a gate: no profile member, no CI step.
 """
 from __future__ import annotations
@@ -17,18 +19,20 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import urllib.parse
 from pathlib import Path
 
 from . import discovery, rest, scm
-from .common import GateFault, read_frontmatter
+from .common import GateFault, clean, read_frontmatter
 
 SIBLINGS_KEY = "inventory.siblings"
 TOKEN_KEY = "inventory.siblings_token"
 TOKEN_ENV = "INVENTORY_SIBLINGS_TOKEN"
 INVENTORY = "config/codebase_inventory.json"
 SERVICE = "the sibling's SCM"
-CRITERIA = (("EXACT_MATCH", 1), ("SAME_DOMAIN", 2), ("NAME_SIMILAR", 4))
+ENTRY_TEXT_MAX = 300   # each string of a sibling's entry: another repository's bytes, cleaned and capped before the agent reads them
+SHA = re.compile(r"[0-9a-fA-F]{7,64}")
 
 
 def _lev(a: str, b: str) -> int:
@@ -50,7 +54,7 @@ def match(candidate: dict, entry: dict) -> str | None:
         return "EXACT_MATCH"
     if candidate.get("module") and str(candidate["module"]).lower() == str(entry.get("module", "")).lower():
         return "SAME_DOMAIN"
-    if name and other and _lev(name, other) < 3:
+    if name and other and abs(len(name) - len(other)) < 3 and _lev(name, other) < 3:   # the length gap bounds the distance
         return "NAME_SIMILAR"
     return None
 
@@ -67,44 +71,45 @@ def candidates_of(v) -> list[dict]:
 def _github(rm: dict, tok: str, call) -> tuple[str, object]:
     h = {"Authorization": f"Bearer {tok}", "X-GitHub-Api-Version": "2022-11-28"}
     api = "https://api.github.com" if rm["host"] == "github.com" else f"https://{rm['host']}/api/v3"
-    base = f"{api}/repos/{rm['owner']}/{rm['repo']}"
-    branch = (_get(call, base, h) or {}).get("default_branch")
-    sha = ((_get(call, f"{base}/branches/{urllib.parse.quote(_must(branch, 'default_branch'), safe='')}", h) or {}).get("commit") or {}).get("sha")
-    inv = _get(call, f"{base}/contents/{INVENTORY}?ref={_must(sha, 'commit.sha')}", {**h, "Accept": "application/vnd.github.raw+json"})
-    return sha, inv
+    base = f"{api}/repos/{_q(rm['owner'])}/{_q(rm['repo'])}"
+    branch = _must(_obj(_get(call, base, h)).get("default_branch"), "default_branch")
+    sha = _sha(_obj(_obj(_get(call, f"{base}/branches/{_q(branch)}", h)).get("commit")).get("sha"), "commit.sha")
+    return sha, _get(call, f"{base}/contents/{INVENTORY}?ref={sha}", {**h, "Accept": "application/vnd.github.raw+json"})
 
 
 def _gitlab(rm: dict, tok: str, call) -> tuple[str, object]:
     h = {"PRIVATE-TOKEN": tok}
     api = "https://gitlab.com/api/v4" if rm["host"] == "gitlab.com" else f"https://{rm['host']}/api/v4"
-    proj = _get(call, f"{api}/projects/{urllib.parse.quote(rm['owner'] + '/' + rm['repo'], safe='')}", h) or {}
-    pid, branch = proj.get("id"), proj.get("default_branch")
-    base = f"{api}/projects/{_must(pid, 'id')}/repository"
-    sha = ((_get(call, f"{base}/branches/{urllib.parse.quote(_must(branch, 'default_branch'), safe='')}", h) or {}).get("commit") or {}).get("id")
-    inv = _get(call, f"{base}/files/{urllib.parse.quote(INVENTORY, safe='')}/raw?ref={_must(sha, 'commit.id')}", h)
-    return sha, inv
+    proj = _obj(_get(call, f"{api}/projects/{_q(rm['owner'] + '/' + rm['repo'])}", h))
+    pid, branch = _must(proj.get("id"), "id"), _must(proj.get("default_branch"), "default_branch")
+    if not pid.isdigit():
+        raise _Shape("its answer carries no numeric `id`")
+    base = f"{api}/projects/{pid}/repository"
+    sha = _sha(_obj(_obj(_get(call, f"{base}/branches/{_q(branch)}", h)).get("commit")).get("id"), "commit.id")
+    return sha, _get(call, f"{base}/files/{_q(INVENTORY)}/raw?ref={sha}", h)
 
 
 def _bitbucket(rm: dict, tok: str, call) -> tuple[str, object]:
     h = {"Authorization": "Basic " + base64.b64encode(tok.encode()).decode()} if ":" in tok else {"Authorization": f"Bearer {tok}"}
-    base = f"https://api.bitbucket.org/2.0/repositories/{rm['owner']}/{rm['repo']}"
-    branch = ((_get(call, base, h) or {}).get("mainbranch") or {}).get("name")
-    sha = ((_get(call, f"{base}/refs/branches/{urllib.parse.quote(_must(branch, 'mainbranch.name'), safe='')}", h) or {}).get("target") or {}).get("hash")
-    inv = _get(call, f"{base}/src/{_must(sha, 'target.hash')}/{INVENTORY}", h)
-    return sha, inv
+    base = f"https://api.bitbucket.org/2.0/repositories/{_q(rm['owner'])}/{_q(rm['repo'])}"
+    branch = _must(_obj(_obj(_get(call, base, h)).get("mainbranch")).get("name"), "mainbranch.name")
+    sha = _sha(_obj(_obj(_get(call, f"{base}/refs/branches/{_q(branch)}", h)).get("target")).get("hash"), "target.hash")
+    return sha, _get(call, f"{base}/src/{sha}/{INVENTORY}", h)
 
 
 def _azure(rm: dict, tok: str, call) -> tuple[str, object]:
+    if not rm.get("project"):
+        raise _Shape("its URL names no Azure DevOps project (org/project/_git/repo)")
     h = {"Authorization": "Basic " + base64.b64encode(f":{tok}".encode()).decode()}
-    repo = (f"https://dev.azure.com/{urllib.parse.quote(rm['owner'], safe='')}/{urllib.parse.quote(rm['project'], safe='')}"
-            f"/_apis/git/repositories/{urllib.parse.quote(rm['repo'], safe='')}")
-    ref = _must((_get(call, f"{repo}?api-version=7.1", h) or {}).get("defaultBranch"), "defaultBranch")
+    repo = f"https://dev.azure.com/{_q(rm['owner'])}/{_q(rm['project'])}/_apis/git/repositories/{_q(rm['repo'])}"
+    ref = _must(_obj(_get(call, f"{repo}?api-version=7.1", h)).get("defaultBranch"), "defaultBranch")
     name = ref.removeprefix("refs/heads/")
-    refs = (_get(call, f"{repo}/refs?filter={urllib.parse.quote('heads/' + name, safe='/')}&api-version=7.1", h) or {}).get("value") or []
-    sha = next((r.get("objectId") for r in refs if isinstance(r, dict) and r.get("name") == f"refs/heads/{name}"), None)   # the filter is starts-with
-    item = _get(call, f"{repo}/items?path={urllib.parse.quote('/' + INVENTORY, safe='')}&versionDescriptor.version={_must(sha, 'objectId')}"
-                f"&versionDescriptor.versionType=commit&includeContent=true&api-version=7.1", h) or {}
-    content = item.get("content") if isinstance(item, dict) else None
+    refs = _obj(_get(call, f"{repo}/refs?filter={urllib.parse.quote('heads/' + name, safe='/')}&api-version=7.1", h)).get("value")
+    refs = refs if isinstance(refs, list) else []
+    sha = _sha(next((r.get("objectId") for r in refs if isinstance(r, dict) and r.get("name") == f"refs/heads/{name}"), None), "objectId")   # the filter is starts-with
+    item = _obj(_get(call, f"{repo}/items?path={_q('/' + INVENTORY)}&versionDescriptor.version={sha}"
+                         f"&versionDescriptor.versionType=commit&includeContent=true&api-version=7.1", h))
+    content = item.get("content")
     try:
         return sha, json.loads(content) if isinstance(content, str) else None
     except (ValueError, RecursionError):
@@ -122,6 +127,43 @@ def _must(v, field: str):
     if not isinstance(v, (str, int)) or isinstance(v, bool) or not str(v).strip():
         raise _Shape(f"its answer carries no `{field}`")
     return str(v)
+
+
+def _sha(v, field: str) -> str:
+    """A commit id: hex only — it lands in a URL path and in the committed pin."""
+    s = _must(v, field)
+    if not SHA.fullmatch(s):
+        raise _Shape(f"its `{field}` is not a commit id")
+    return s
+
+
+def _obj(v) -> dict:
+    """A JSON object, or the plain fault: a proxy answering 200 with a list or a string never escapes the fail-open."""
+    if v is None:
+        return {}
+    if not isinstance(v, dict):
+        raise _Shape("its answer is not a JSON object")
+    return v
+
+
+def _q(s: str) -> str:
+    return urllib.parse.quote(s, safe="")
+
+
+def _clean_entry(v):
+    """Another repository's entry, shape kept: every string cleaned (no control or bidi byte) and capped."""
+    if isinstance(v, dict):
+        return {clean(k, ENTRY_TEXT_MAX): _clean_entry(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_clean_entry(x) for x in v]
+    return clean(v, ENTRY_TEXT_MAX) if isinstance(v, str) else v
+
+
+def _shown(p: urllib.parse.SplitResult, url: str) -> str:
+    """The sibling as messages and pins name it: an https URL's user part dropped."""
+    if p.scheme in ("http", "https") and "@" in p.netloc:
+        return urllib.parse.urlunsplit((p.scheme, p.netloc.rsplit("@", 1)[1], p.path, "", ""))
+    return clean(url, ENTRY_TEXT_MAX)
 
 
 def _get(call, url: str, headers: dict):
@@ -161,27 +203,40 @@ def siblings(repo, candidates: list[dict], env: dict | None = None, call=rest.ca
                                f"from the vault entry named in docs/setup.md → {TOKEN_KEY}; no sibling was read")
         return out
     for url in urls:
-        out["siblings"] += 1
+        try:
+            parts = urllib.parse.urlsplit(url)
+            parts.port   # a malformed port raises here, not later
+        except ValueError:
+            out["warnings"].append(f"sibling {clean(url, ENTRY_TEXT_MAX)}: not a clone URL — fix it in docs/setup.md → {SIBLINGS_KEY}; not read")
+            continue
+        shown = _shown(parts, url)
+        if parts.password is not None:
+            out["warnings"].append(f"sibling {shown}: its URL carries a credential — remove it from docs/setup.md → {SIBLINGS_KEY}; "
+                                   f"the token comes from the vault ({TOKEN_ENV}); not read")
+            continue
         try:
             rm = scm.remote(repo, url)
             platform = _platform(rm, answers)
             if platform is None:
-                raise GateFault("its platform is not one this reader can read (GitHub, GitLab, Bitbucket, Azure DevOps)")
+                raise GateFault("its platform is not one this reader can read (GitHub, GitLab, Bitbucket, Azure DevOps) — "
+                                "answer docs/setup.md → scm.platform for a self-hosted server, or remove the sibling")
             sha, inv = READERS[platform](rm, tok, call)
             arts = inv.get("artifacts") if isinstance(inv, dict) else None
             if not isinstance(arts, list):
                 raise _Shape(f"{INVENTORY} at its main commit is not an inventory (no `artifacts` list)")
         except rest.NotFound:
-            out["warnings"].append(f"sibling {url}: no {INVENTORY} at its main commit, or the token cannot see the repository "
+            out["warnings"].append(f"sibling {shown}: no {INVENTORY} at its main commit, or the token cannot see the repository "
                                    "(the server answers both the same way) — reuse is checked without it")
             continue
         except GateFault as e:
-            out["warnings"].append(f"sibling {url}: {e} — reuse is checked without it")
+            moved = " — if it moved, update its URL in docs/setup.md → " + SIBLINGS_KEY if "redirect" in str(e) else ""
+            out["warnings"].append(f"sibling {shown}: {str(e).replace(url, shown)}{moved} — reuse is checked without it")
             continue
+        out["siblings"] += 1   # read: its inventory answered
         for c in candidates:
             for entry in arts:
                 crit = match(c, entry)
                 if crit:
-                    out["matches"].append({"candidate": c["name"], "source": url, "sha": sha, "criterion": crit, "entry": entry})
+                    out["matches"].append({"candidate": c["name"], "source": shown, "sha": sha, "criterion": crit, "entry": _clean_entry(entry)})
     out["warnings"] = [w.replace(tok, "***") for w in out["warnings"]]   # defence: no message carries the token
     return out

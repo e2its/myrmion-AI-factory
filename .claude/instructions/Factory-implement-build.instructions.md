@@ -525,6 +525,7 @@ ELSE:
       IF SAME_DOMAIN found:
         ⚠️ FLAG: "Similar component '{match.name}' in same domain — verify not duplicate"
         RDR: REUSE / EXTEND / CREATE_NEW
+    # Siblings (EVOL-139): the same RDR per match of gate.py inventory --siblings (factory-codebase-inventory § Siblings)
     LOG: "CIP Gate: {N} artifacts checked, {M} reuse decisions resolved"
 ```
 

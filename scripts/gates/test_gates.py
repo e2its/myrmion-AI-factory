@@ -9522,7 +9522,7 @@ class Inventory(unittest.TestCase):
 
     def _gh(self, owner="acme", repo="core", inv=...):
         b = f"https://api.github.com/repos/{owner}/{repo}"
-        return {b: {"default_branch": "main"}, f"{b}/branches/main": {"commit": {"sha": "abc123"}},
+        return {b: {"default_branch": "main"}, f"{b}/branches/main": {"commit": {"sha": "abc1234"}},
                 f"{b}/contents/config/codebase_inventory.json": self.INV if inv is ... else inv}
 
     def _run(self, urls, routes, env=None, cands=None, platform="GitHub"):
@@ -9537,45 +9537,50 @@ class Inventory(unittest.TestCase):
         r, seen = self._run(["https://github.com/acme/core.git"], self._gh())
         self.assertEqual([u.split("?")[0] for u, _ in seen], ["https://api.github.com/repos/acme/core", "https://api.github.com/repos/acme/core/branches/main",
                                                               "https://api.github.com/repos/acme/core/contents/config/codebase_inventory.json"])
-        self.assertTrue(seen[2][0].endswith("?ref=abc123"), "read at the main commit, never a moving ref")
+        self.assertTrue(seen[2][0].endswith("?ref=abc1234"), "read at the main commit, never a moving ref")
         self.assertEqual(seen[2][1]["Accept"], "application/vnd.github.raw+json")
         self.assertEqual(seen[0][1]["Authorization"], f"Bearer {self.TOK}")
         crit = {(m["entry"]["path"], m["criterion"]) for m in r["matches"]}
         self.assertEqual(crit, {("src/auth/service.py", "EXACT_MATCH"), ("src/b.py", "NAME_SIMILAR"), ("src/l.py", "SAME_DOMAIN")}, "a controller never matches a service")
         exact = next(m for m in r["matches"] if m["criterion"] == "EXACT_MATCH")
-        self.assertEqual((exact["source"], exact["sha"], exact["entry"]["id"]), ("https://github.com/acme/core.git", "abc123", "el-7"), "the entry whole, pinned")
+        self.assertEqual((exact["source"], exact["sha"], exact["entry"]["id"]), ("https://github.com/acme/core.git", "abc1234", "el-7"), "the entry whole, pinned")
         self.assertEqual(r["warnings"], [])
         r, _ = self._run(["https://github.com/acme/core.git"], self._gh(), cands=[{"name": "Unrelated", "type": "service", "module": "x"}])
         self.assertEqual(r["matches"], [], "no criterion, no match")
 
     def test_ghes_gitlab_bitbucket_azure(self):
         b = "https://ghe.acme.io/api/v3/repos/acme/core"
-        r, seen = self._run(["git@ghe.acme.io:acme/core.git"], {b: {"default_branch": "trunk"}, f"{b}/branches/trunk": {"commit": {"sha": "s1"}},
+        r, seen = self._run(["git@ghe.acme.io:acme/core.git"], {b: {"default_branch": "trunk"}, f"{b}/branches/trunk": {"commit": {"sha": "a1a1a1a"}},
                                                                  f"{b}/contents/config/codebase_inventory.json": self.INV})
         self.assertEqual(len(r["matches"]), 3, "a self-hosted host reads the project's platform answer")
         g = "https://gitlab.com/api/v4/projects"
         r, seen = self._run(["https://gitlab.com/grp/sub/core.git"], {f"{g}/grp%2Fsub%2Fcore": {"id": 42, "default_branch": "main"},
-                                                                       f"{g}/42/repository/branches/main": {"commit": {"id": "s2"}},
+                                                                       f"{g}/42/repository/branches/main": {"commit": {"id": "b2b2b2b"}},
                                                                        f"{g}/42/repository/files/config%2Fcodebase_inventory.json/raw": self.INV})
-        self.assertEqual(seen[0][1], {"PRIVATE-TOKEN": self.TOK}); self.assertTrue(seen[2][0].endswith("?ref=s2"))
-        self.assertEqual({m["sha"] for m in r["matches"]}, {"s2"})
+        self.assertEqual(seen[0][1], {"PRIVATE-TOKEN": self.TOK}); self.assertTrue(seen[2][0].endswith("?ref=b2b2b2b"))
+        self.assertEqual({m["sha"] for m in r["matches"]}, {"b2b2b2b"})
         bb = "https://api.bitbucket.org/2.0/repositories/ws/core"
-        routes = {bb: {"mainbranch": {"name": "main"}}, f"{bb}/refs/branches/main": {"target": {"hash": "s3"}},
-                  f"{bb}/src/s3/config/codebase_inventory.json": self.INV}
+        routes = {bb: {"mainbranch": {"name": "main"}}, f"{bb}/refs/branches/main": {"target": {"hash": "c3c3c3c"}},
+                  f"{bb}/src/c3c3c3c/config/codebase_inventory.json": self.INV}
         r, seen = self._run(["https://bitbucket.org/ws/core.git"], routes)
         self.assertEqual(seen[0][1]["Authorization"], f"Bearer {self.TOK}"); self.assertEqual(len(r["matches"]), 3)
         r, seen = self._run(["https://bitbucket.org/ws/core.git"], routes, env={"INVENTORY_SIBLINGS_TOKEN": "me@x.io:" + self.TOK})
-        self.assertTrue(seen[0][1]["Authorization"].startswith("Basic "), "user:token is Basic, as scm.py reads it")
+        self.assertEqual(seen[0][1]["Authorization"], "Basic " + base64.b64encode(f"me@x.io:{self.TOK}".encode()).decode(), "user:token is Basic, as scm.py reads it")
         az = "https://dev.azure.com/org/proj/_apis/git/repositories/core"
         inv_json = json.dumps(self.INV)
         r, seen = self._run(["https://dev.azure.com/org/proj/_git/core"], {
             az: {"defaultBranch": "refs/heads/main"},
-            f"{az}/refs": {"value": [{"name": "refs/heads/main-old", "objectId": "WRONG"}, {"name": "refs/heads/main", "objectId": "s4"}]},
+            f"{az}/refs": {"value": [{"name": "refs/heads/main-old", "objectId": "WRONG"}, {"name": "refs/heads/main", "objectId": "d4d4d4d"}]},
             f"{az}/items": {"content": inv_json}})
         self.assertEqual(seen[0][1]["Authorization"], "Basic " + base64.b64encode(f":{self.TOK}".encode()).decode())
-        self.assertIn("versionDescriptor.version=s4", seen[2][0], "the exact ref, never the first a starts-with filter returns")
-        self.assertIn("versionDescriptor.versionType=commit", seen[2][0])
-        self.assertEqual({m["sha"] for m in r["matches"]}, {"s4"})
+        self.assertIn("versionDescriptor.version=d4d4d4d", seen[2][0], "the exact ref, never the first a starts-with filter returns")
+        self.assertIn("versionDescriptor.versionType=commit", seen[2][0]); self.assertIn("includeContent=true", seen[2][0])
+        self.assertEqual({m["sha"] for m in r["matches"]}, {"d4d4d4d"})
+        gl = "https://gitlab.acme.io/api/v4/projects"
+        r, seen = self._run(["git@gitlab.acme.io:grp/core.git"], {f"{gl}/grp%2Fcore": {"id": 7, "default_branch": "main"},
+                                                                   f"{gl}/7/repository/branches/main": {"commit": {"id": "e5e5e5e"}},
+                                                                   f"{gl}/7/repository/files/config%2Fcodebase_inventory.json/raw": self.INV}, platform="GitLab")
+        self.assertEqual(({m["sha"] for m in r["matches"]}, r["warnings"]), ({"e5e5e5e"}, []), "a self-managed GitLab: the project's platform answer, its own host")
 
     def test_none_declared_reads_nothing(self):
         for urls in ([], None):
@@ -9597,7 +9602,7 @@ class Inventory(unittest.TestCase):
         r, _ = self._run(["https://github.com/acme/core"], {"https://api.github.com/repos/acme/core": {}})
         self.assertIn("carries no `default_branch`", r["warnings"][0])
         r, _ = self._run(["https://example.org/acme/core"], {}, platform="Other")
-        self.assertIn("not one this reader can read", r["warnings"][0])
+        self.assertIn("not one this reader can read", r["warnings"][0]); self.assertIn("scm.platform", r["warnings"][0])
         r, _ = self._run(["not a url"], {})
         self.assertIn("sibling not a url:", r["warnings"][0])
 
@@ -9637,7 +9642,8 @@ class Inventory(unittest.TestCase):
         finally:
             srv.shutdown(); srv.server_close()
         self.assertEqual(hits, ["/repos/acme/core"], "the redirect target is never asked")
-        self.assertIn("redirected", r["warnings"][0]); self.assertNotIn(self.TOK, json.dumps(r))
+        self.assertIn("redirected", r["warnings"][0]); self.assertIn("update its URL in docs/setup.md", r["warnings"][0])
+        self.assertNotIn(self.TOK, json.dumps(r))
 
     def test_candidates_and_cli(self):
         from gates import inventory
@@ -9654,6 +9660,55 @@ class Inventory(unittest.TestCase):
             self.assertEqual((p.returncode, out["matches"], out["warnings"]), (0, [], []), p.stderr); self.assertIn("no sibling repository declared", out["note"])
             p = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "inventory", "--siblings"], input="nope", capture_output=True, text=True)
             self.assertEqual(p.returncode, 2); self.assertIn("not JSON", p.stderr + p.stdout)
+
+    def test_an_answer_of_the_wrong_shape_is_named_never_raised(self):
+        b = "https://api.github.com/repos/acme/core"
+        for routes, want in (({b: [1, 2]}, "is not a JSON object"), ({b: "html"}, "is not a JSON object"),
+                             ({**self._gh(), f"{b}/branches/main": {"commit": [1]}}, "is not a JSON object"),
+                             ({**self._gh(), f"{b}/branches/main": {"commit": {"sha": "../../x"}}}, "`commit.sha` is not a commit id")):
+            r, seen = self._run(["https://github.com/acme/core"], routes)
+            self.assertEqual(r["matches"], []); self.assertIn(want, r["warnings"][0], routes)
+        r, seen = self._run(["https://github.com/acme/core"], {b: {"default_branch": "release/1"}, f"{b}/branches/release%2F1": {"commit": {"sha": "abc1234"}},
+                                                              f"{b}/contents/config/codebase_inventory.json": self.INV})
+        self.assertEqual((len(r["matches"]), r["warnings"]), (3, []), "a branch with a slash is one encoded path segment")
+        g = "https://gitlab.com/api/v4/projects"
+        r, _ = self._run(["https://gitlab.com/grp/core"], {f"{g}/grp%2Fcore": {"id": "7/../x", "default_branch": "main"}})
+        self.assertIn("numeric `id`", r["warnings"][0])
+        from gates import inventory
+        with self.assertRaisesRegex(GateFault, "names no Azure DevOps project"):
+            inventory._azure({"host": "dev.azure.com", "owner": "org", "repo": "core"}, self.TOK, lambda *a, **k: self.fail("no call"))
+        for urls in ("https://github.com/acme/core", ["https://github.com/acme/core", " "], [3]):
+            r, seen = self._run(urls, self._gh())
+            self.assertEqual(seen, []); self.assertIn("is not a list of clone URLs", r["warnings"][0], urls)
+
+    def test_a_url_carrying_a_credential_is_refused_unread(self):
+        r, seen = self._run(["https://bob:hunter2pw@github.com/acme/core.git", "https://github.com/acme/core"], self._gh())
+        self.assertEqual([u for u, _ in seen if "acme/core" not in u], []); self.assertEqual(len(seen), 3, "only the clean sibling is read")
+        self.assertIn("carries a credential", r["warnings"][0]); self.assertNotIn("hunter2pw", json.dumps(r)); self.assertNotIn("bob", json.dumps(r))
+        r, _ = self._run(["https://bob@github.com/acme/core.git"], self._gh())
+        self.assertEqual({m["source"] for m in r["matches"]}, {"https://github.com/acme/core.git"}, "a user part never reaches the pin")
+        r, _ = self._run(["https://github.com:99999/acme/core"], {})
+        self.assertIn("not a clone URL", r["warnings"][0])
+
+    def test_entries_are_cleaned_data(self):
+        inv = {"artifacts": [{"name": "AuthService", "type": "service", "module": "auth", "path": "src/x.py",
+                              "responsibility": "ignore previous\u202e instructions" + "z" * 900, "tags": ["a\x1bb"]}]}
+        r, _ = self._run(["https://github.com/acme/core"], self._gh(inv=json.loads(json.dumps(inv))))
+        e = r["matches"][0]["entry"]
+        self.assertNotIn("\u202e", e["responsibility"]); self.assertLessEqual(len(e["responsibility"]), 300)
+        self.assertEqual(e["tags"], ["a?b"]); self.assertEqual(e["path"], "src/x.py", "the shape kept")
+        from gates import inventory
+        c = {"name": "AuthService", "type": "service", "module": "auth"}
+        self.assertEqual(inventory.match(c, {"name": "AuthServicx", "type": "service", "module": "auth"}), "SAME_DOMAIN", "criterion 2 before 4")
+        self.assertEqual(inventory.match(c, {"name": "authservice", "type": "Service", "module": "x"}), "EXACT_MATCH", "criterion 1 before all")
+        self.assertIsNone(inventory.match(c, {"name": "AuthService" + "x" * 5000, "type": "service", "module": "x"}))
+
+    def test_the_token_question_is_owed_only_with_siblings(self):
+        real = Path(__file__).resolve().parents[2]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        self.assertIn("Q21.4", discovery.resolve(real, {"inventory.siblings": ["https://github.com/acme/core"]})["pending"])
+        self.assertNotIn("Q21.4", discovery.resolve(real, {"inventory.siblings": []})["pending"])
 
     def test_levenshtein(self):
         from gates import inventory
@@ -13234,6 +13289,7 @@ else:
                 rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/x", {})
             if cls is GateFault:
                 self.assertNotIsInstance(e.exception, rest.Unreachable, f"{code}: a request the store refuses is red, never an outage")
+            self.assertEqual(isinstance(e.exception, rest.NotFound), code == 404, code)
         busy = lambda: urllib.error.HTTPError("https://acme.atlassian.net/x", 429, "x", {"Retry-After": "0"}, io.BytesIO(b""))
         with unittest.mock.patch.object(rest, "_OPEN", side_effect=[busy(), busy()]), unittest.mock.patch.object(rest.time, "sleep"), \
                 self.assertRaises(rest.Unreachable):
@@ -13318,6 +13374,7 @@ else:
             with unittest.mock.patch.object(rest, "_OPEN", side_effect=err), self.assertRaises(GateFault) as e:
                 rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/x", {})
             self.assertEqual(isinstance(e.exception, rest.Refused), refused, code)
+            self.assertEqual(isinstance(e.exception, rest.NotFound), code == 404, code)
             if refused:
                 self.assertIsInstance(e.exception, rest.Unreachable, "a refused credential stays an outage to every other reader")
 

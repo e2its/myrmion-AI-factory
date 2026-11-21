@@ -1987,7 +1987,7 @@
       "owner": "framework"
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.34.0",
+      "version": "2.35.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "delivery": "sync",
       "owner": "framework"
