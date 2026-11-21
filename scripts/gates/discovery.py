@@ -71,6 +71,8 @@ configures  EVOL-067 — a key spec's `configures {<option literal>: {<config po
 from __future__ import annotations
 
 import fnmatch
+import difflib
+import hashlib
 import json
 import re
 import shlex
@@ -936,6 +938,75 @@ def seams_upgrade(repo: Path, fills: dict) -> dict:
         out[e["target"]] = {"merged": mine, "added": added, "replaced": replaced, "unresolved": unresolved}
     return out
 
+
+
+SPLIT_KNOWN = TEMPLATE_ROOT + "claude/sections.json"
+SPLIT_ROOT = TEMPLATE_ROOT + "claude/CLAUDE.md"
+_SPLIT_FENCE = re.compile(r"^\s*(```|~~~)")
+
+
+def _split_parts(text: str) -> list[tuple[str | None, str, str]]:
+    """(heading, normalised, raw) per part: raw keeps each line as written (LF line ends), outer blank lines dropped."""
+    parts: list[list] = [[None, []]]
+    fenced = False
+    for ln in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if _SPLIT_FENCE.match(ln):
+            fenced = not fenced
+        elif not fenced and ln.startswith("## "):
+            parts.append([ln.rstrip(), []])
+        parts[-1][1].append(ln)
+    out = []
+    for h, ls in parts:
+        while ls and not ls[-1].strip():
+            ls.pop()
+        while ls and not ls[0].strip():
+            ls.pop(0)
+        if ls:
+            out.append((h, "\n".join(x.rstrip() for x in ls), "\n".join(ls)))
+    return out
+
+
+def claude_parts(text: str) -> list[tuple[str | None, str]]:
+    """EVOL-137: a CLAUDE.md cut into its preamble (heading None) and its H2 sections, in order; a `## ` inside a fence is no
+    heading. Each part normalised — LF, trailing spaces and leading/trailing blank lines dropped — the form its hash reads."""
+    return [(h, t) for h, t, _ in _split_parts(text)]
+
+
+def part_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def claude_split(text: str, known: dict, root: str, current: str = "") -> dict:
+    """EVOL-137: an installed CLAUDE.md split against the known monolith parts. A part whose hash a monolith carried goes to
+    the framework file; a section whose heading no monolith had is the project's and stays, in order, under the root template;
+    a known heading with other content — and a preamble that is neither a monolith's nor the root template's — is unresolved:
+    one RDR each, decided by editing the project file, then the split runs again. {text: the new root, or None while anything
+    is unresolved; framework, kept, unresolved: headings; differs: per unresolved part, the lines it adds (+) or lacks (-)
+    against the same part of `current`, the delivered framework file}. A kept section is carried as written. A root already
+    split is returned unchanged: a second run is a no-op."""
+    sections, headings = set(known.get("sections") or ()), set(known.get("headings") or ())
+    if not sections or not headings:
+        raise GateFault(f"{SPLIT_KNOWN} lists no known part — run factory-sync.sh")
+    tpl = claude_parts(root)
+    if len(tpl) != 1 or tpl[0][0] is not None:
+        raise GateFault(f"{SPLIT_ROOT} is not a preamble alone — the delivered root template is damaged; run factory-sync.sh")
+    cur = dict(claude_parts(current))
+    framework, kept, unresolved, body, differs = [], [], [], [], {}
+    for h, t, raw in _split_parts(text):
+        label = h or "(preamble)"
+        if part_hash(t) in sections or (h is None and t == tpl[0][1]):
+            if h is not None or t != tpl[0][1]:
+                framework.append(label)
+        elif h is not None and h not in headings:
+            kept.append(label)
+            body.append(raw)
+        else:
+            unresolved.append(label)
+            differs[label] = [x for x in difflib.unified_diff(cur.get(h, "").split("\n"), t.split("\n"), lineterm="", n=0)
+                              if x[:1] in "+-" and x not in ("+", "-") and not x.startswith(("+++", "---"))]
+    new = "\n\n".join([tpl[0][1]] + body) + "\n"
+    return {"text": None if unresolved else new, "framework": framework, "kept": kept, "unresolved": unresolved,
+            "differs": differs}
 
 def _tool_bound(reg: dict) -> dict[str, list[str]]:
     """Every class id an option's `configures` names (a tool-bound row: it lands only where its tool is), or a derived row

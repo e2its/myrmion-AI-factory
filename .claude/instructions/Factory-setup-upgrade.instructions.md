@@ -114,7 +114,7 @@ For each ADR in `docs/project_log/adr/`:
 
 | Owner | Landed files | Upgrade |
 |-------|--------------|---------|
-| `framework` | `.claude/{commands,instructions,skills,hooks,agents}/**`, the framework scripts, `.context/templates/**`, the universal templates the framework alone writes | Replaced wholesale: `factory-sync.sh` (sync channel); `templates_to_refresh` copied by script (Step 2). An edit in the project is red in `gate.py manifest-parity`. |
+| `framework` | `.claude/{commands,instructions,skills,hooks,agents}/**`, `.claude/framework.md` (the universal instructions the root `CLAUDE.md` imports, EVOL-137), the framework scripts, `.context/templates/**`, the universal templates the framework alone writes | Replaced wholesale: `factory-sync.sh` (sync channel); `templates_to_refresh` copied by script (Step 2). An edit in the project is red in `gate.py manifest-parity`. |
 | `project` | `.claude/rules/**`, the CI workflows, root `CLAUDE.md`, `docs/**`, every `stack_configured` / `project_data` template | Written only by an answer (Step 8b.3), a migration row (Step 8b.4) or as a new file (Step 3). `templates_moved` is listed, never written. |
 | `seam` | `.claude/settings.json`, `config/quality.json` | Merged by key, add-only, by script (Step 8b.7). |
 
@@ -139,7 +139,7 @@ A `framework_core` entry without `delivery` is a file of the framework repo itse
 **Gate 0 — ADR Lock Check:** a FULL_LOCK file → SKIP (no modifications).
 
 1. **framework.** `factory-sync.sh` already replaced the sync channel. From `gate.py discovery --resolve --json`, list `templates_to_refresh` (a framework-owned landed file whose bytes differ from its delivered template), then copy each `.context/templates/setup/<key>` over its `target` with the script below (idempotent, atomic; the target keeps its mode; a symlinked target is refused). No diff review, no merge. Gate 0 holds for project and seam files; a framework-owned file is the framework's — a project that must differ keeps its change in a project-owned file.
-2. **project.** No write here. List each `templates_moved` entry in the upgrade report as «moved {from}→{to}, not written — a migration row carries what a project needs». `claude/CLAUDE.md` moves are owed to EVOL-137.
+2. **project.** No write here. List each `templates_moved` entry in the upgrade report as «moved {from}→{to}, not written — a migration row carries what a project needs». The universal instructions are not the root `CLAUDE.md`'s: they arrive in `.claude/framework.md` (framework-owned, sync) and the root imports them; the row `claude-md split (EVOL-137)` splits an installed monolith.
 3. **seam.** Step 8b.7.
 
 ```bash
@@ -521,6 +521,63 @@ print(f"owners stamped: {n}")
 PY
 ```
 
+**claude-md split (EVOL-137).** Splits the installed root `CLAUDE.md` against the known monolith parts (`.context/templates/setup/claude/sections.json`). A part a monolith carried leaves the root — `.claude/framework.md`, delivered by sync and imported by the root, carries it now. A section no monolith had is the project's and stays, in order, under the root template's import line. Each `unresolved` heading — a universal section the project edited, or a preamble of its own — is one RDR. Its evidence is `differs`: the lines that part adds (`+`) or lacks (`-`) against `.claude/framework.md`; a `+` line no framework version wrote is the project's — notes appended after the last section fold into it. A part from an older monolith also shows that version's own wording as `+` and today's as `-`: judge each `+` line; the root as it stood is kept aside before any write:
+1. take the framework's text (recommended — universal law has one home): move every `+` line of the project's own into a `## Project — <heading>` section, then delete the part from `CLAUDE.md`;
+2. keep it as the project's: rename its heading `## Project — <heading>`, never parsed as law (a preamble: `## Project — introduction`);
+3. set it aside: move it into the upgrade report, for a change through its owner phase.
+
+Apply each choice to `CLAUDE.md`, then run the block again. It writes only when nothing is unresolved: the root's bytes as they stood are kept first at `.context/claude-md.pre-split.md` (ignored, never overwritten), every kept section as written (LF line ends); it sets `governance_features.claude_split_v1` (idempotent: a split root is unchanged). Name the kept sections in the upgrade report, and the `.gitignore` line it prints when the installed IP block does not ignore `.claude/framework.md` (the project's file, never written here):
+
+```bash
+python3 -I - <<'PY'
+import json, os, pathlib, shutil, sys, tempfile
+sys.path.insert(0, "scripts")
+from gates import discovery
+root_p, snap_p = pathlib.Path("CLAUDE.md"), pathlib.Path(discovery.PROJECT_MANIFEST)
+if not pathlib.Path(".claude/framework.md").is_file():
+    sys.exit("refused: .claude/framework.md is not delivered — run factory-sync.sh first; the root would import nothing")
+bak = pathlib.Path(".context/claude-md.pre-split.md")
+for p in (root_p, bak):
+    if p.is_symlink():
+        sys.exit(f"refused (a symlink): {p} — replace it with a regular file, then run this block again")
+if not (pathlib.Path(discovery.SPLIT_KNOWN).is_file() and pathlib.Path(discovery.SPLIT_ROOT).is_file()):
+    sys.exit("refused: the known monolith parts or the root template are not delivered — run factory-sync.sh first")
+try:
+    tpl = pathlib.Path(discovery.SPLIT_ROOT).read_text(encoding="utf-8")
+    known = json.loads(pathlib.Path(discovery.SPLIT_KNOWN).read_text(encoding="utf-8"))
+    raw = root_p.read_bytes() if root_p.is_file() else None
+    cur = raw.decode("utf-8-sig") if raw is not None else tpl
+    r = discovery.claude_split(cur, known, tpl, pathlib.Path(".claude/framework.md").read_text(encoding="utf-8"))
+except (discovery.GateFault, ValueError, OSError) as e:
+    sys.exit(f"refused: {e} — CLAUDE.md must be UTF-8 and the delivered files intact (run factory-sync.sh)")
+print(json.dumps({k: r[k] for k in ("framework", "kept", "unresolved", "differs")}, indent=1, ensure_ascii=False))
+if r["text"] is None:
+    sys.exit("unresolved: one RDR per heading above — apply each choice to CLAUDE.md, then run this block again")
+if not root_p.is_file() or r["text"] != cur:
+    if raw is not None and not bak.exists():
+        bak.parent.mkdir(parents=True, exist_ok=True)
+        bak.write_bytes(raw)
+    fd, tmp = tempfile.mkstemp(dir=".", prefix=".claude-md-split-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(r["text"])
+        shutil.copymode(root_p, tmp) if root_p.is_file() else os.chmod(tmp, 0o644)
+        os.replace(tmp, root_p)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+    print("CLAUDE.md split: the root imports .claude/framework.md")
+gi = pathlib.Path(".gitignore")
+if gi.is_file() and ".claude/framework.md" not in gi.read_text(encoding="utf-8", errors="replace").splitlines():
+    print("report: .gitignore — add `.claude/framework.md` to its IP block (beside CLAUDE.md), or the universal text can be committed")
+snap = json.loads(snap_p.read_text(encoding="utf-8"))
+feats = snap.setdefault("governance_features", {})
+if not feats.get("claude_split_v1"):
+    feats["claude_split_v1"] = True
+    snap_p.write_text(json.dumps(snap, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+```
+
 ---
 
 ### Step 3: New File Handling (4.4.3)
@@ -531,7 +588,7 @@ Files that exist in framework but not in project:
 4. Write new file
 5. Register in `governance_versions.json`
 
-**Special case — `claude/CLAUDE.md`, `claude/settings.json`, `config/quality.json`:** root `CLAUDE.md` is project-owned — present, it is never written here (its template moves are owed to EVOL-137); absent, it lands as a new file. `.claude/settings.json` and `config/quality.json` are seams (Step 8b.7): a missing one lands from its template, the rest is keyed add-only. The `planning` block of `config/quality.json` and the framework hook entries land in the **same** run — a wired gate with no `planning` key blocks every write except the one that adds the key.
+**Special case — `claude/CLAUDE.md`, `claude/settings.json`, `config/quality.json`:** root `CLAUDE.md` is project-owned — present, it is never written here (the row `claude-md split (EVOL-137)` splits a monolith); absent, it lands as a new file: the root template, one import of `.claude/framework.md`. `.claude/settings.json` and `config/quality.json` are seams (Step 8b.7): a missing one lands from its template, the rest is keyed add-only. The `planning` block of `config/quality.json` and the framework hook entries land in the **same** run — a wired gate with no `planning` key blocks every write except the one that adds the key.
 
 **Git hooks:** installed hooks are copies. After `scripts/hooks/**` is refreshed, run `bash scripts/install-hooks.sh --force` — a hook added since the last install (`pre-merge-commit`, EVOL-065) lands only this way.
 

@@ -122,7 +122,7 @@ Read: docs/constitution.md   # the INDEX of project law (EVOL-043): per law, one
                               # one `> sentence`, one `Body:` pointer into .claude/rules/, its Records.
 IF the file is missing OR has no `## [PLAW-` entry:
   ❌ BLOCK: "Run `SETUP --generate` first"
-Universal law: CLAUDE.md § Governance Rules — one `N. **[LAW-NN] Title** — sentence. Body: … Records: …` per law.
+Universal law: CLAUDE.md § Governance Rules, read with its @imports (a project's sits in `.claude/framework.md`, EVOL-137) — one `N. **[LAW-NN] Title** — sentence. Body: … Records: …` per law.
 Bodies are NOT loaded here. They are read at the point of action: the pre-edit hook delivers the families
 and defect classes that govern the file being written; a body is opened only when the sentence is not enough.
 ```

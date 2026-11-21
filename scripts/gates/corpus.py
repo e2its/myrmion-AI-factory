@@ -136,13 +136,86 @@ def _lenient(parser, text):
         return out
 
 
+IMPORT_HOPS = 5                                     # the harness follows @imports to five hops
+FENCE = re.compile(r"^\s*(```|~~~)")
+_IMPORT = re.compile(r"(?<![\w`@])@((?:[\w.~-]+/)*[\w.-]+)")
+
+
+def import_targets(root: Path, rel: str, text: str) -> list[str]:
+    """EVOL-137: the @imports of one memory file as the harness reads them, in order — never inside a fence or backticks,
+    never outside the repository (a name too long or a symlink loop is never followed)."""
+    out, fenced = [], False
+    for line in text.splitlines():
+        if FENCE.match(line):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        for m in _IMPORT.finditer(re.sub(r"`[^`]*`", "", line)):
+            try:
+                out.append(((root / rel).parent / m.group(1)).resolve().relative_to(root).as_posix())
+            except (ValueError, OSError, RuntimeError):
+                continue
+    return out
+
+
+def landed(repo: Path):
+    """EVOL-137: (read, targets) — `read(rel)` returns the bytes of the file a project holds at `rel`, or None. A project reads
+    its disk (targets None); the framework repo reads each template at the path it lands on, the manifest's targets, and
+    nothing else."""
+    files = None
+    if context(repo) == "meta":
+        from .discovery import inside, load_manifest
+        entries = load_manifest(repo).get("templates") or {}
+        files = {e["target"]: repo / (".context/templates/setup/" + k) for k, e in entries.items()
+                 if isinstance(e, dict) and inside(k) and inside(e.get("target"))}
+
+    def read(rel: str) -> bytes | None:
+        p = files.get(rel) if files is not None else repo / rel
+        try:
+            return p.read_bytes() if p is not None and p.is_file() else None
+        except OSError:
+            return None
+    return read, (set(files) if files is not None else None)
+
+
+def expand(repo: Path, rel: str, read=None) -> list[tuple[str, str]]:
+    """EVOL-137: (path, text) of a memory root and of every file it imports, in load order, each once, to IMPORT_HOPS hops.
+    `read` defaults to the disk."""
+    root = repo.resolve()
+    if read is None:
+        def read(r: str) -> bytes | None:
+            p = repo / r
+            try:
+                return p.read_bytes() if p.is_file() else None
+            except OSError:
+                return None
+    seen: set[str] = set()
+    out: list[tuple[str, str]] = []
+
+    def go(r: str, hops: int) -> None:
+        if r in seen:
+            return
+        b = read(r)
+        if b is None:
+            return
+        seen.add(r)
+        text = b.decode("utf-8", errors="replace")
+        out.append((r, text))
+        if hops < IMPORT_HOPS:
+            for t in import_targets(root, r, text):
+                go(t, hops + 1)
+    go(rel, 0)
+    return out
+
+
 def laws(repo: Path) -> dict:
-    """{"universal": from CLAUDE.md § Governance Rules, "project": from docs/constitution.md downstream and
-    from the constitution template in meta (its shape is validated the same way)}."""
+    """{"universal": from CLAUDE.md § Governance Rules — the root and the files it imports (EVOL-137) —, "project": from
+    docs/constitution.md downstream and from the constitution template in meta (its shape is validated the same way)}."""
     out = {"universal": [], "project": []}
-    claude = repo / "CLAUDE.md"
-    if claude.is_file():
-        out["universal"] = parse_law_list(claude.read_text(encoding="utf-8", errors="replace"))
+    texts = [t for _, t in expand(repo, "CLAUDE.md")]
+    if texts:
+        out["universal"] = parse_law_list("\n".join(texts))
     const = constitution_path(repo)
     if const:
         out["project"] = parse_law_index(const.read_text(encoding="utf-8", errors="replace"), str(const.relative_to(repo)))
@@ -195,9 +268,9 @@ def parity(repo: Path) -> list[str]:
     allv = laws(repo)
     problems: list[str] = []
     ids: set[str] = set()
-    # in the framework repo the project-only universal laws (e.g. LAW-14) are indexed in the TEMPLATE CLAUDE.md,
-    # while their body lives in a shipped instruction: those ids are not orphans here
-    tpl = repo / ".context/templates/setup/claude/CLAUDE.md"
+    # in the framework repo the project-only universal laws (e.g. LAW-14) are indexed in the template the project's
+    # CLAUDE.md imports (EVOL-137), while their body lives in a shipped instruction: those ids are not orphans here
+    tpl = repo / ".context/templates/setup/claude/framework.md"
     if context(repo) == "meta" and tpl.is_file():
         ids |= {l["id"] for l in _lenient(parse_law_list, tpl.read_text(encoding="utf-8", errors="replace"))}
     count: dict[str, int] = {}
@@ -536,7 +609,7 @@ def snapshot_sections(repo: Path, profile: str = "lite") -> str:
             "| Rule File | Applies When |", "|-----------|--------------|"]
     out += [f"| {r['name']} | {('unreadable: ' + r['error']) if r['error'] else json.dumps(r['applicable_when'], ensure_ascii=False)} |" for r in uni["rules"]] \
         or ["| (no rule files) | — |"]
-    out += ["", "## Law Index", f"> Source: {src} (project laws) — one sentence, one body, its records. Universal laws live in CLAUDE.md § Governance Rules.", ""]
+    out += ["", "## Law Index", f"> Source: {src} (project laws) — one sentence, one body, its records. Universal laws live in CLAUDE.md § Governance Rules, read with the files it imports.", ""]
     for l in law["project"]:
         out += [f"### [{l['id']}] {l['title']}", f"> {l['sentence']}", f"Body: `{l['body']}` · Records: {', '.join('`' + r + '`' for r in l['records']) or '—'}", ""]
     if not law["project"]:
