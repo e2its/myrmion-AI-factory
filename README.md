@@ -169,7 +169,7 @@ CLAUDE.md                              # root governance, always loaded
 └── settings.json                      # hook wiring
 .context/
 ├── templates/                         # what SETUP --generate materialises, by role
-│   └── setup/                         # claude/ (CLAUDE.md, agents, hooks) · rules/ · config/
+│   └── setup/                         # claude/ (CLAUDE.md, framework.md, agents, hooks) · rules/ · config/
 │                                      # scripts/ · workflows/ (7 CI platforms) · scm/
 │                                      # subproducts/ (po-package, measure)
 │                                      # governance_versions.json (the manifest)
@@ -1011,7 +1011,7 @@ Complements governance always-on with a **behavioural** rule: every user request
 
 The rule lives in two places depending on context (framework/project split):
 
-- [.context/templates/setup/claude/CLAUDE.md § SDLC-First Triage](.context/templates/setup/claude/CLAUDE.md) — the materialized-project variant (SDLC-first is the default; carve-outs for read-only, docs-only change, trivial edits).
+- [.context/templates/setup/claude/framework.md § SDLC-First Triage](.context/templates/setup/claude/framework.md) — the materialized-project variant, landed at `.claude/framework.md` and imported by the project's root `CLAUDE.md` (EVOL-137) (SDLC-first is the default; carve-outs for read-only, docs-only change, trivial edits).
 - [CLAUDE.md § Meta-Framework Triage](CLAUDE.md) — the framework-repo variant (meta-maintenance is the default; SDLC routing is the rare exception).
 - [.claude/instructions/Factory-protocol-iop-intent-map.instructions.md](.claude/instructions/Factory-protocol-iop-intent-map.instructions.md) — the canonical technical classifier (IOP) that both variants point at.
 
@@ -1110,7 +1110,7 @@ The framework ships 23 protocols reusable by every command and agent (`.claude/s
 
 **The manifest.** `.context/templates/setup/governance_versions.json` (`framework_version`, one entry per framework-core file and per template, `delivery_mode`) — every touch of a tracked file bumps its entry in the same commit (Generation Standards §2); `validate-governance.sh` and `manifest-parity` hold it. A materialised project carries its own copy at `docs/project_log/governance_versions.json`.
 
-**Lock-step pairs** `[LAW-12]`: meta scripts, hooks and agents and their template counterparts stay byte-identical per pair (`config/coherence-context.json → audit.lock_step_pairs`, `scripts/check-lockstep-pairs.sh`, `lockstep-check.yml` on every PR); the universal clauses and the universal law bodies of the two `CLAUDE.md` files are mirrored the same way.
+**Lock-step pairs** `[LAW-12]`: meta scripts, hooks and agents and their template counterparts stay byte-identical per pair (`config/coherence-context.json → audit.lock_step_pairs`, `scripts/check-lockstep-pairs.sh`, `lockstep-check.yml` on every PR); the universal clauses and the universal law bodies of the meta `CLAUDE.md` and the project's `claude/framework.md` are mirrored the same way.
 
 **CI.** `governance-check.yml` (the gate profile at `ci`, `one-definition`, the T2 suites `scripts/test-*.sh`, the synthetic materialisation, the inventory and iteration-id checks), `lockstep-check.yml`, `auto-tag.yml` (a tag and a release when a merge touched the runtime surface). Seven platform templates ship the governance workflow to projects (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps, AWS CodeBuild, GCP Cloud Build, Jenkins).
 
@@ -1178,8 +1178,9 @@ See `.claude/rules/immutability_policy.md` for the full rules.
 ### Project Structure (after `/setup --generate`)
 
 ```
-CLAUDE.md                          # root governance (SDLC-first triage)
+CLAUDE.md                          # the project's own sections; imports .claude/framework.md (EVOL-137)
 .claude/
+├── framework.md                   # the universal instructions (SDLC-first triage, the law index), synced
 ├── commands/ · instructions/ · skills/   # the framework, delivered
 ├── agents/                        # the 15 role agents
 ├── rules/                         # one body per law, applicable_when per rule

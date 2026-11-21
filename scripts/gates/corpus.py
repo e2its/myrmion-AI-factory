@@ -609,7 +609,7 @@ def snapshot_sections(repo: Path, profile: str = "lite") -> str:
             "| Rule File | Applies When |", "|-----------|--------------|"]
     out += [f"| {r['name']} | {('unreadable: ' + r['error']) if r['error'] else json.dumps(r['applicable_when'], ensure_ascii=False)} |" for r in uni["rules"]] \
         or ["| (no rule files) | — |"]
-    out += ["", "## Law Index", f"> Source: {src} (project laws) — one sentence, one body, its records. Universal laws live in CLAUDE.md § Governance Rules.", ""]
+    out += ["", "## Law Index", f"> Source: {src} (project laws) — one sentence, one body, its records. Universal laws live in CLAUDE.md § Governance Rules, read with the files it imports.", ""]
     for l in law["project"]:
         out += [f"### [{l['id']}] {l['title']}", f"> {l['sentence']}", f"Body: `{l['body']}` · Records: {', '.join('`' + r + '`' for r in l['records']) or '—'}", ""]
     if not law["project"]:

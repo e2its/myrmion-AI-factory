@@ -13,7 +13,7 @@
   },
   "review_patterns": ["preflight\\.sh", "code_review", "pr-review"],
   "review_agent_patterns": ["critic", "review"],
-  "governance_paths": ["CLAUDE.md", "docs/constitution.md", "docs/setup.md", ".context/governance_snapshot.md", ".claude/rules/", ".claude/instructions/", ".claude/skills/", ".claude/commands/", ".claude/agents/", "docs/project_log/adr/"],
+  "governance_paths": ["CLAUDE.md", ".claude/framework.md", "docs/constitution.md", "docs/setup.md", ".context/governance_snapshot.md", ".claude/rules/", ".claude/instructions/", ".claude/skills/", ".claude/commands/", ".claude/agents/", "docs/project_log/adr/"],
   "corpus_files": ["CLAUDE.md", ".claude/framework.md", "docs/constitution.md", ".claude/rules/defect-prevention.md"],
   "rework_commit_types": ["fix", "revert"],
   "compression": {"compress": [], "retrieve": [], "evidence": ["(^|[/\\s])loop-[^/\\s]*\\.log\\b"]},

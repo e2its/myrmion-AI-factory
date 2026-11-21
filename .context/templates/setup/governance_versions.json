@@ -731,7 +731,7 @@
       "owner": "framework"
     },
     "setup/gitignore.hbs": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "content_type": "stack_configured",
       "target": ".gitignore",
       "role": "Gitignore handlebars template — rendered at materialization.",
@@ -1867,7 +1867,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.33.4",
+      "version": "2.33.5",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -2045,7 +2045,7 @@
       "owner": "framework"
     },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
-      "version": "2.15.1",
+      "version": "2.15.2",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md",
       "delivery": "sync",
       "owner": "framework"
@@ -2055,7 +2055,7 @@
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
-      "version": "2.13.2",
+      "version": "2.13.3",
       "type": "skill",
       "path": ".claude/skills/factory-governance-loading/SKILL.md",
       "delivery": "sync",

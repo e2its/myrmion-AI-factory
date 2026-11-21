@@ -74,7 +74,7 @@ else
 fi
 echo ""
 
-echo "2. template CLAUDE.md ref resolution (delivery map)"
+echo "2. template framework.md (the root CLAUDE.md imports it) ref resolution (delivery map)"
 MISSING=$(python3 - <<'PY'
 import json, os, re
 txt = open('.context/templates/setup/claude/framework.md', errors='replace').read()

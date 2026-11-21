@@ -521,12 +521,12 @@ print(f"owners stamped: {n}")
 PY
 ```
 
-**claude-md split (EVOL-137).** Splits the installed root `CLAUDE.md` against the known monolith parts (`.context/templates/setup/claude/sections.json`). A part a monolith carried leaves the root — `.claude/framework.md`, delivered by sync and imported by the root, carries it now. A section no monolith had is the project's and stays, in order, under the root template's import line. Each `unresolved` heading — a universal section the project edited, or a preamble of its own — is one RDR:
-1. take the framework's text (recommended — universal law has one home): delete that section from `CLAUDE.md`;
+**claude-md split (EVOL-137).** Splits the installed root `CLAUDE.md` against the known monolith parts (`.context/templates/setup/claude/sections.json`). A part a monolith carried leaves the root — `.claude/framework.md`, delivered by sync and imported by the root, carries it now. A section no monolith had is the project's and stays, in order, under the root template's import line. Each `unresolved` heading — a universal section the project edited, or a preamble of its own — is one RDR. Its evidence is `differs`: the lines that part adds (`+`) or lacks (`-`) against `.claude/framework.md`; a `+` line no framework version wrote is the project's — notes appended after the last section fold into it:
+1. take the framework's text (recommended — universal law has one home): move every `+` line of the project's own into a `## Project — <heading>` section, then delete the part from `CLAUDE.md`;
 2. keep it as the project's: rename its heading `## Project — <heading>`, never parsed as law (a preamble: `## Project — introduction`);
 3. set it aside: move it into the upgrade report, for a change through its owner phase.
 
-Apply each choice to `CLAUDE.md`, then run the block again. It writes only when nothing is unresolved, and sets `governance_features.claude_split_v1` (idempotent: a split root is unchanged). Name the kept sections in the upgrade report:
+Apply each choice to `CLAUDE.md`, then run the block again. It writes only when nothing is unresolved: the root as it stood is kept first at `.context/claude-md.pre-split.md` (ignored, never overwritten), every kept section byte for byte; it sets `governance_features.claude_split_v1` (idempotent: a split root is unchanged). Name the kept sections in the upgrade report:
 
 ```bash
 python3 -I - <<'PY'
@@ -538,15 +538,24 @@ if not pathlib.Path(".claude/framework.md").is_file():
     sys.exit("refused: .claude/framework.md is not delivered — run factory-sync.sh first; the root would import nothing")
 if root_p.is_symlink():
     sys.exit("refused (a symlink): CLAUDE.md")
+if not (pathlib.Path(discovery.SPLIT_KNOWN).is_file() and pathlib.Path(discovery.SPLIT_ROOT).is_file()):
+    sys.exit("refused: the known monolith parts or the root template are not delivered — run factory-sync.sh first")
 tpl = pathlib.Path(discovery.SPLIT_ROOT).read_text(encoding="utf-8")
 known = json.loads(pathlib.Path(discovery.SPLIT_KNOWN).read_text(encoding="utf-8"))
-cur = root_p.read_text(encoding="utf-8") if root_p.is_file() else tpl
-r = discovery.claude_split(cur, known, tpl)
-print(json.dumps({k: r[k] for k in ("framework", "kept", "unresolved")}, indent=1, ensure_ascii=False))
+cur = root_p.read_text(encoding="utf-8-sig") if root_p.is_file() else tpl
+try:
+    r = discovery.claude_split(cur, known, tpl, pathlib.Path(".claude/framework.md").read_text(encoding="utf-8"))
+except discovery.GateFault as e:
+    sys.exit(f"refused: {e}")
+print(json.dumps({k: r[k] for k in ("framework", "kept", "unresolved", "differs")}, indent=1, ensure_ascii=False))
 if r["text"] is None:
     sys.exit("unresolved: one RDR per heading above — apply each choice to CLAUDE.md, then run this block again")
 if not root_p.is_file() or r["text"] != cur:
-    fd, tmp = tempfile.mkstemp(dir=".")
+    bak = pathlib.Path(".context/claude-md.pre-split.md")
+    if root_p.is_file() and not bak.exists():
+        bak.parent.mkdir(parents=True, exist_ok=True)
+        bak.write_text(cur, encoding="utf-8")
+    fd, tmp = tempfile.mkstemp(dir=".", prefix=".claude-md-split-")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(r["text"])

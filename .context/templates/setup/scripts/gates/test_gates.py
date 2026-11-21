@@ -314,12 +314,20 @@ class Corpus(unittest.TestCase):
             self.assertEqual(corpus.laws(repo)["universal"], [], "an import outside the repository is never read")
             write(repo / "CLAUDE.md", "@a.md\n"); write(repo / "a.md", "@CLAUDE.md\n@.claude/framework.md\n")
             self.assertEqual(len(corpus.laws(repo)["universal"]), 3, "a cycle reads each file once")
+            write(repo / "CLAUDE.md", "@h1.md\n")
+            for i in range(1, 8):
+                write(repo / f"h{i}.md", f"@h{i + 1}.md\n")
+            self.assertEqual([r for r, _ in corpus.expand(repo, "CLAUDE.md")], ["CLAUDE.md"] + [f"h{i}.md" for i in range(1, 6)],
+                             "the root and five hops of imports, as the harness loads them — never a sixth")
         with tempfile.TemporaryDirectory() as tmp:
             repo = fixture_repo(Path(tmp), "meta")
             write(repo / ".context/templates/setup/claude/framework.md", CLAUDE_MD.replace("LAW-07] Templates", "LAW-14] Scaffolding"))
             write(repo / ".context/templates/setup/claude/CLAUDE.md", "# Project\n\n@.claude/framework.md\n")
+            write(repo / ".claude/instructions/Factory-scaffold.instructions.md", "# S\n\n## [LAW-14] Scaffolding\n\n> s.\n")
             self.assertNotIn("LAW-14", " ".join(corpus.parity(repo)),
                              "in the framework repo the ids of the template the project imports are not orphans")
+            (repo / ".context/templates/setup/claude/framework.md").unlink()
+            self.assertIn("LAW-14: body section", " ".join(corpus.parity(repo)), "the orphan scan reads the imported template")
 
     def test_law_index_parses_both_shapes(self):
         laws = corpus.laws(self.repo)
@@ -6047,6 +6055,20 @@ class Owners(unittest.TestCase):
             write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {}, "governance_features": {"owners_v1": True}}))
             self.assertTrue(discovery._detected(repo, row["detect"]))
 
+    def test_claude_split_row_owed_then_not(self):
+        """EVOL-137: the shipped split row's detect pointer — owed before the anchor stamps it, not after."""
+        reg = Path(__file__).resolve().parents[2] / ".context/templates/setup/setup/discovery_registry.json"
+        if not reg.is_file():
+            self.skipTest("no registry")
+        row = next(r for r in json.loads(reg.read_text(encoding="utf-8"))["migrations"] if r.get("id") == "claude-md split (EVOL-137)")
+        self.assertEqual(row["apply"], row["id"])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {}, "governance_features": {"owners_v1": True}}))
+            self.assertFalse(discovery._detected(repo, row["detect"]))
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {}, "governance_features": {"owners_v1": True, "claude_split_v1": True}}))
+            self.assertTrue(discovery._detected(repo, row["detect"]))
+
     def test_new_entry_copies_the_sibling_owner(self):
         self.assertEqual(manifest._sibling_fields(self._m(), "templates", "rules/q.md").get("owner"), "project")
 
@@ -6168,7 +6190,8 @@ class ClaudeSplit(unittest.TestCase):
         mine = self.MONO + "\n## Project notes\n\nours  \n\n## Deploy\n\nby hand\n"
         r = discovery.claude_split(mine, k, self.ROOT)
         self.assertEqual(r["kept"], ["## Project notes", "## Deploy"])
-        self.assertEqual(r["text"], self.ROOT.rstrip("\n") + "\n\n## Project notes\n\nours\n\n## Deploy\n\nby hand\n")
+        self.assertEqual(r["text"], self.ROOT.rstrip("\n") + "\n\n## Project notes\n\nours  \n\n## Deploy\n\nby hand\n",
+                         "a kept section carried as written — a markdown hard break is the project's text")
         again = discovery.claude_split(r["text"], k, self.ROOT)
         self.assertEqual(again["text"], r["text"], "a split root is unchanged: the second run is a no-op")
         self.assertEqual((again["framework"], again["unresolved"]), ([], []))
@@ -6191,6 +6214,18 @@ class ClaudeSplit(unittest.TestCase):
         self.assertEqual(discovery.claude_split(own, k, self.ROOT)["unresolved"], ["(preamble)"], "a preamble of its own is one RDR")
         self.assertEqual(discovery.claude_split("## Ours\n\nx\n", k, self.ROOT)["kept"], ["## Ours"],
                          "a CLAUDE.md the project wrote from scratch keeps every section and gains the import")
+
+    def test_appended_project_text_is_shown_never_dropped(self):
+        """Notes a project appended after the last universal section fold into it: that part is unresolved, and its
+        evidence names the project's lines, so the recommended «take» moves them before the part goes."""
+        k = self.known(self.MONO)
+        r = discovery.claude_split(self.MONO + "\nOur deploy notes.\n", k, self.ROOT, self.MONO)
+        self.assertEqual(r["unresolved"], ["## Governance Rules"]); self.assertIsNone(r["text"])
+        self.assertIn("+Our deploy notes.", r["differs"]["## Governance Rules"])
+        self.assertFalse([x for x in r["differs"]["## Governance Rules"] if x.startswith("-")], "nothing of the framework's is lacking")
+        r = discovery.claude_split(self.MONO.replace("You are an orchestrator.", "You are our bot."), k, self.ROOT, self.MONO)
+        self.assertEqual(r["differs"]["(preamble)"], ["-You are an orchestrator.", "+You are our bot."])
+        self.assertEqual(discovery.claude_split(self.MONO, k, self.ROOT, self.MONO)["differs"], {})
 
     def test_refuses_a_damaged_delivery(self):
         with self.assertRaises(GateFault):

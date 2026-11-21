@@ -691,7 +691,8 @@ PY
   WANT=$(cat "$T/claude/CLAUDE.md"; printf '\n## Project notes\n\nours\n')
   STAMP=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['governance_features'].get('claude_split_v1'))" "$Q/docs/project_log/governance_versions.json")
   [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ "$(cat "$Q/CLAUDE.md")" = "$WANT" ] && [ "$STAMP" = "True" ] && [ "$SUM1" = "$SUM2" ] \
-    && ok "the split: the root is the template plus the project's section, the feature stamped, a second run changes nothing (EVOL-137)" \
+    && grep -q '^## Governance Rules$' "$Q/.context/claude-md.pre-split.md" && grep -q '^## Project notes$' "$Q/.context/claude-md.pre-split.md" \
+    && ok "the split: the root is the template plus the project's section, the root as it stood kept aside, the feature stamped, a second run changes nothing (EVOL-137)" \
     || bad "the split (rc=$RC1/$RC2, stamp=$STAMP, idempotent=$([ "$SUM1" = "$SUM2" ] && echo y || echo n))" "$OUT
 $(diff <(printf '%s\n' "$WANT") "$Q/CLAUDE.md" | head -20)"
   OUT=$(cd "$Q" && python3 scripts/gate.py applicable --phase IMPLEMENT --command implement --change-type feature --format rollcall 2>&1)

@@ -30,25 +30,25 @@ This ADR plans issue #248 (epic #112, wave 5, destination S), follow-up F2 of sp
    - The root template `claude/CLAUDE.md` stays owner `project`. It holds a title, one sentence and the line `@.claude/framework.md`. The project writes its own sections below it.
    - The landed name is not `CLAUDE.md`, so the harness never loads it as nested memory. It sits outside `.claude/rules/`, so `claudeMdExcludes` (EVOL-141) never drops it.
 2. **One import follower.**
-   - `corpus.expand(repo, path)` returns the files the harness loads from a root: `@` imports to five hops, never inside a fence or backticks, never outside the repository. In the framework repository it maps a template's target back to the template.
+   - `corpus.expand(repo, path, read)` returns the files the harness loads from a root: `@` imports to five hops, never inside a fence or backticks, never outside the repository. `read` defaults to the disk; in the framework repository `corpus.landed` maps a template's target back to the template.
    - `corpus.laws` reads Governance Rules over the root and its imports. The meta branch of law parity reads `claude/framework.md`.
-   - `budget.claude_md_advisory` measures the sum of the root and its imports. `budget.launch_context` reads the same follower. Its behaviour is unchanged.
-   - The snapshot and the banner follow the import through `corpus.laws`. Nothing else in them reads `CLAUDE.md` in a project.
+   - `budget.claude_md_advisory` measures the sum of the root and its imports. `budget.launch_context` shares the import reader (`corpus.import_targets`). Its behaviour is unchanged.
+   - The snapshot's universal-law reads go through `corpus.laws`. The banner counts the snapshot's laws and hashes the constitution, so nothing in it reads `CLAUDE.md` in a project.
 3. **The lock-step pairs** compare the meta `CLAUDE.md` with `.context/templates/setup/claude/framework.md`. Their sections, meta-only and project-only ids and addendum are unchanged.
 4. **The migration (EVOL-136 registry path).**
    - **Registry row:** `claude-md split (EVOL-137)`, `since` 10.16.0, detected by `governance_features.claude_split_v1`, run by its anchor in `Factory-setup-upgrade.instructions.md`.
    - **The split is one pure function**, `discovery.claude_split(text, known, root)` — `root` is the root template.
-     - It cuts the text into a preamble and H2 sections. A `## ` inside a fence is not a heading. Each part is normalised: LF line ends, trailing spaces and trailing blank lines dropped.
+     - It cuts the text into a preamble and H2 sections. A `## ` inside a fence is not a heading. Each part's hash reads it normalised: LF line ends, trailing spaces and leading or trailing blank lines dropped. A kept section is carried as written.
      - A part whose hash is a known monolith part goes to the framework file and leaves the root.
      - A part whose heading no monolith ever had is the project's, and it stays in order.
-     - A known heading with other content is unresolved.
+     - A known heading with other content is unresolved, and so is a preamble that is neither a monolith's nor the root template's. Each unresolved part carries its evidence: the lines it adds or lacks against `.claude/framework.md`. Text a project appended after the last section folds into that part and shows there.
      - It writes only when nothing is unresolved. A root that already imports the framework file and holds no known part is unchanged, so a second run is a no-op.
    - **The known parts** are in `templates["claude/sections.json"]`, owner `framework`, landed on the tree only: the sha256 of every part, and every heading, of the 73 monolith versions. `scripts/claude-md-sections.py` (META-ONLY) generates it from git history. It is frozen at the split, because no monolith exists after it.
    - **An unresolved part is one RDR.** The options are:
-     1. take the framework's text (recommended: universal law has one home);
+     1. take the framework's text (recommended: universal law has one home), after moving every line of the project's own into a `## Project — <heading>` section;
      2. keep it as a project section under `## Project — <heading>`, which is never parsed as law;
      3. set it aside in the upgrade report, for a change through its owner phase.
-     Each choice is applied to the project's `CLAUDE.md` and the anchor runs again; the root is written only when nothing is unresolved.
+     Each choice is applied to the project's `CLAUDE.md` and the anchor runs again; the root is written only when nothing is unresolved, after the root as it stood is kept at `.context/claude-md.pre-split.md`.
    - **The anchor stamps `claude_split_v1`.** Materialisation stamps it beside `owners_v1`.
 
 ## Consequences
@@ -61,7 +61,8 @@ This ADR plans issue #248 (epic #112, wave 5, destination S), follow-up F2 of sp
 - **Upgrade:** the registry row splits an installed monolith. A project section is never lost or moved without an RDR, and a second run changes nothing.
 - **One copy of universal law:** the framework file. The root never carries a law section after the split.
 - **Honest limits:**
-  - The project `.gitignore` still ignores the root `CLAUDE.md` (the IP block of `setup/gitignore.hbs`), so a project's sections are not versioned. This is today's behaviour, unchanged here.
+  - The project `.gitignore` still ignores the root `CLAUDE.md` (the IP block of `setup/gitignore.hbs`), so a project's sections are not versioned. This is today's behaviour, unchanged here. The block gains `.claude/framework.md`, so the universal text stays out of a new project's history as it did in the root; an installed `.gitignore` is the project's and is never written — the upgrade report names the line.
+  - An installed `subproducts/measure/measure.config.json` is the project's: its `corpus_files` and `governance_paths` gain `.claude/framework.md` only by the project's hand, so until then the measurement counts no universal law (the subproduct is neutral in every gate).
   - A monolith edited by hand before EVOL-136 shows every edited universal section as one RDR.
 
 ## Verification

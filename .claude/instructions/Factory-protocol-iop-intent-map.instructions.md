@@ -27,7 +27,7 @@ applicable_when:
 - `Direct: trivial edit (typo / config / memory)` — when the change has no SDLC surface.
 - `Direct: <reason>` — any other non-SDLC path must state its reason in one line.
 
-Silence is a governance-scope violation. This parallels CLAUDE.md § SDLC-First Triage — both state the same rule; this file is the technical classifier, CLAUDE.md is the behavioural contract.
+Silence is a governance-scope violation. This parallels CLAUDE.md § SDLC-First Triage (a project's, imported from `.claude/framework.md`) — both state the same rule; this file is the technical classifier, CLAUDE.md is the behavioural contract.
 
 **One planning stage (EVOL-048) — never zero, never two.** A command that owns a planning phase (CODESIGN, BLUEPRINT, IMPLEMENT `--plan`, DEVOPS `--configure`, SETUP `--init`) never enters the harness's plan mode — the PreToolUse hook `check-plan-mode.sh` (`gate.py plan --enter`) refuses it on a branch class a phase already plans. A branch class with no framework planning phase (`fix/*`, `chore/*`, `docs/*`, `breaking/*`, an unrecognised name — `config/quality.json → planning.exempt_classes` lists the exempt ones) needs an approved plan before any write to a governed path: enter plan mode, the user approves, the approval writes the marker; the pre-write hook (`gate.py plan --path`) blocks otherwise and the prompt advisory says so first. Documentation targets need no plan; gate inputs always do.
 
