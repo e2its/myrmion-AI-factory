@@ -451,6 +451,7 @@ fi
 # of the project's own: both keys, the notebook entry and the Bash matcher land, the project's hook is kept; twice, the second a no-op
 if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(open(sys.argv[1])) else 1)' "$ANSWERS"; then
   H="$SCRATCH/h133"; Q="$H/q"; mkdir -p "$Q/config" "$Q/.claude"
+  cp -R "$ROOT/scripts" "$Q/scripts"   # the migration is a function of the delivered discovery module (#227)
   python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY2'
 import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**session-notebook (EVOL-133).**")
 print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))

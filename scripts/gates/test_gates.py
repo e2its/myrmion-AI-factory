@@ -4535,6 +4535,58 @@ class Discovery(unittest.TestCase):
     def _green(self, repo):
         return [f for f in discovery.validate(repo) if not f.startswith("V8 ")]   # V8 reads the meta repo's consumer files, absent here
 
+    # ── the upgrade's write steps (#227): functions the guide calls, never programs it improvises ──────
+    def _in(self, d, fn, resolved):
+        out, here = io.StringIO(), os.getcwd()
+        run = unittest.mock.Mock(return_value=unittest.mock.Mock(stdout=json.dumps(resolved)))
+        os.chdir(d)
+        try:
+            with unittest.mock.patch.object(discovery.subprocess, "run", run), contextlib.redirect_stdout(out):
+                fn()
+        finally:
+            os.chdir(here)
+        return out.getvalue()
+
+    def test_upgrade_guide_calls_functions_that_exist(self):
+        guide = (Path(__file__).resolve().parents[2] / discovery.UPGRADE).read_text(encoding="utf-8")
+        calls = re.findall(r"from gates import discovery; discovery\.(\w+)\(\)", guide)
+        self.assertEqual(len(calls), 6, calls)
+        for name in calls:
+            self.assertTrue(callable(getattr(discovery, name, None)), name)
+        self.assertNotIn("<<'PY'\nimport json, os, pathlib, shutil", guide, "an inline write program the guard cannot read")
+
+    def test_refresh_templates_atomic_mode_kept_symlink_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            write(root / discovery.MANIFEST, json.dumps({"templates": {"rules/a.md": {"target": ".claude/rules/a.md"},
+                                                                       "rules/b.md": {"target": ".claude/rules/b.md"}}}))
+            write(root / (discovery.TEMPLATE_ROOT + "rules/a.md"), "new a\n")
+            write(root / (discovery.TEMPLATE_ROOT + "rules/b.md"), "new b\n")
+            write(root / ".claude/rules/a.md", "old a\n"); os.chmod(root / ".claude/rules/a.md", 0o750)
+            write(root / "elsewhere.md", "theirs\n"); os.symlink(root / "elsewhere.md", root / ".claude/rules/b.md")
+            out = self._in(d, discovery.refresh_templates, {"templates_to_refresh": ["rules/a.md", "rules/b.md"]})
+            self.assertEqual((root / ".claude/rules/a.md").read_text(), "new a\n")
+            self.assertEqual(os.stat(root / ".claude/rules/a.md").st_mode & 0o777, 0o750)
+            self.assertEqual((root / "elsewhere.md").read_text(), "theirs\n", "a symlinked target is never written through")
+            self.assertEqual(out.splitlines(), ["refreshed: .claude/rules/a.md", "refused (a symlink): .claude/rules/b.md"])
+            self.assertEqual(sorted(os.listdir(root / ".claude/rules")), ["a.md", "b.md"], "no temporary file left")
+
+    def test_write_seams_writes_only_what_changed(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            write(root / "config/quality.json", "{}\n"); os.chmod(root / "config/quality.json", 0o640)
+            seams = {"config/quality.json": {"added": ["a"], "replaced": [], "unresolved": [], "merged": {"a": 1}},
+                     ".claude/settings.json": {"added": [], "replaced": [], "unresolved": ["K"], "merged": {"x": 1}},
+                     "new/dir/s.json": {"added": [], "replaced": ["b"], "unresolved": [], "merged": {"b": 2}}}
+            with unittest.mock.patch.object(discovery, "seams_upgrade", return_value=seams) as up:
+                out = self._in(d, discovery.write_seams, {"placeholders": {"P": "v"}})
+            self.assertEqual(up.call_args.args[1], {"P": "v"})
+            self.assertEqual(json.loads((root / "config/quality.json").read_text()), {"a": 1})
+            self.assertEqual(os.stat(root / "config/quality.json").st_mode & 0o777, 0o640)
+            self.assertFalse((root / ".claude/settings.json").exists(), "an unresolved-only seam is not written")
+            self.assertEqual(json.loads((root / "new/dir/s.json").read_text()), {"b": 2})
+            self.assertEqual(out.splitlines(), ["config/quality.json added: a", ".claude/settings.json unresolved: K", "new/dir/s.json replaced: b"])
+
     # ── grammar + evaluator ──────────────────────────────────────────────────────
     def test_grammar_each_operator(self):
         a = {"backend.runtime": "Python", "n": 3, "flag": True, "db.engine": None}
