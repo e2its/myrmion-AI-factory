@@ -379,12 +379,13 @@ candidates = find_inventory_matches(planned_artifact, topology):
 #   python3 scripts/gate.py inventory --siblings <<'JSON'
 #   <planned artifacts as [{name, type, module}]>
 #   JSON
-# each match → the same -2d RDR, pinned {source}@{sha} in § Reuse Analysis; warnings shown, never blocking
+# each match → the same -2d decision, pinned {source}@{sha} in § Reuse Analysis; warnings shown, never blocking
 ```
 
-**Sub-step -2d: RDR per Reuse Candidate (1-to-1, NEVER batch)**
-- For SHARED / same-domain matches: REUSE / EXTEND / CREATE_NEW (with mandatory ADR)
+**Sub-step -2d: Reuse Decision per Candidate (the architect decides — factory-codebase-inventory § Reuse Decision)**
+- For SHARED / same-domain matches: REUSE / EXTEND / CREATE_NEW (CREATE_NEW despite an EXACT_MATCH: ADR)
 - For CROSS_DOMAIN_COLLISION: RENAME / SHARED_KERNEL (with ADR) / KEEP_BOTH (with ADR)
+- No user question per candidate; the user reviews the decisions at --approve
 
 **Sub-step -2e: Summary**
 - Log all decisions in `design.md § Reuse Analysis`
@@ -404,8 +405,8 @@ candidates = find_inventory_matches(planned_artifact, topology):
 - Match by: path pattern, operation semantics, data schema overlap
 - For each needed capability: REUSE / EXTEND / NEW_ENDPOINT assessment
 
-**Sub-step -1c: Reuse Decision (RDR per candidate)**
-- Each candidate gets individual RDR decision
+**Sub-step -1c: Reuse Decision (the architect decides, per candidate)**
+- Each candidate decided from the evidence, as in -2d — no user question per candidate
 - Document in design.md
 
 **Sub-step -1d: Inventory Summary**
