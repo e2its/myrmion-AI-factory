@@ -66,7 +66,7 @@ jobs:
                    scripts/test-hooks.sh \
                    scripts/test-gates.sh
           set -e
-          python3 -m pip install --quiet pytest   # the EVOL-053 collection plugin test runs here, never skipped in CI
+          python3 -m pip install --quiet pytest pyyaml==6.0.3   # the EVOL-053 collection plugin test runs here, never skipped in CI; the untrusted-value check reads YAML
           for t in scripts/test-templates-static.sh \
                    scripts/test-snapshot-extraction.sh \
                    scripts/test-adr-accept.sh \
@@ -112,8 +112,9 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body "## 🛑 Governance Check Failed
+          gh pr comment "$PR_NUMBER" --body "## 🛑 Governance Check Failed
 
           One or more governance gates failed. Common causes:
 
@@ -158,7 +159,9 @@ jobs:
           persist-credentials: false   # the fixtures install from public registries; no token left in .git/config
 
       - name: Red proven per file (${{ matrix.stack }})
-        run: bash scripts/test-red-stacks.sh "${{ matrix.stack }}"
+        env:
+          STACK: ${{ matrix.stack }}
+        run: bash scripts/test-red-stacks.sh "$STACK"
 
   sast-packs:
     # EVOL-074: the SAST base packs proven in the pinned engine — every rule both ways, semgrep --test never vacuous, and

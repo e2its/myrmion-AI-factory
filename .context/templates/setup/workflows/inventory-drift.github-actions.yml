@@ -52,8 +52,10 @@ jobs:
 
       - name: Surface result
         if: always()
+        env:
+          OUTCOME: ${{ steps.check.outcome }}
         run: |
-          if [ "${{ steps.check.outcome }}" = "success" ]; then
+          if [ "$OUTCOME" = "success" ]; then
             echo "::notice::Inventory clean — no drift detected."
           else
             echo "::error::Inventory drift detected. See log above. Run \`SETUP --reconcile-inventory\` locally (or update config/codebase_inventory.json directly), then re-push."

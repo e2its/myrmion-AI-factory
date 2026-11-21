@@ -66,8 +66,10 @@ jobs:
 
       - name: Surface result
         if: always()
+        env:
+          OUTCOME: ${{ steps.rebuild.outcome }}
         run: |
-          if [ "${{ steps.rebuild.outcome }}" = "success" ]; then
+          if [ "$OUTCOME" = "success" ]; then
             echo "::notice::Design-system bundle rebuilt. Read the drift lines in the step above; publish the mirror with /design-sync when you want it refreshed."
           else
             echo "::warning::The design-system rebuild did not complete. See subproducts/po-package/RUNBOOK.md section 9. This job is advisory."

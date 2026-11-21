@@ -22,21 +22,26 @@ steps:
   - name: 'gcr.io/cloud-builders/git'
     id: 'fetch-base'
     entrypoint: 'bash'
+    env:
+      - 'BASE_BRANCH=${_BASE_BRANCH}'   # a substitution enters through env (a value, never script); bash reads $$VAR
     args:
       - '-c'
       - |
         set -e
-        git fetch origin "${_BASE_BRANCH}"
-        git rev-parse "origin/${_BASE_BRANCH}" >/dev/null
+        git fetch origin "$$BASE_BRANCH"
+        git rev-parse "origin/$$BASE_BRANCH" >/dev/null
 
   - name: 'gcr.io/cloud-builders/git'
     id: 'governance-check'
     entrypoint: 'bash'
+    env:
+      - 'BASE_BRANCH=${_BASE_BRANCH}'
+      - 'HEAD_BRANCH=$BRANCH_NAME'   # the PR's branch name is author data: env only
     args:
       - '-c'
       - |
         set -e
-        python3 scripts/gate.py profile --run --control-point ci --base "origin/${_BASE_BRANCH}" --branch "$BRANCH_NAME"
+        python3 scripts/gate.py profile --run --control-point ci --base "origin/$$BASE_BRANCH" --branch "$$HEAD_BRANCH"
         python3 scripts/gate.py one-definition
 # EVOL-080: when config/quality.json → documents names a store, the documents member reads the approved artefacts kept outside the repo with a read-only service-account credential — CONFLUENCE_API_TOKEN (and CONFLUENCE_USER_EMAIL on Cloud), or each name in documents.credentials for a built store; missing or refused at the ci control point is a RED wiring finding, unless documents.verify: local (declared at SETUP) — from Secret Manager: add `secretEnv: ['CONFLUENCE_API_TOKEN', 'CONFLUENCE_USER_EMAIL']` to the governance-check step and
 # availableSecrets:

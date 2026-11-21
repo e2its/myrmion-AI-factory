@@ -141,15 +141,19 @@ jobs:
         with:
           fetch-depth: 0
       - name: Check docs sync
+        env:
+          BASE_REF: ${{ github.base_ref }}   # a ref name is author data: env, never inlined into the script
         run: |
-          python .claude/skills/pr-review/scripts/check_docs_sync.py \
-            --git-range origin/${{ github.base_ref }}..HEAD \
+          python .claude/skills/factory-pr-review/scripts/check_docs_sync.py \
+            --git-range "origin/$BASE_REF..HEAD" \
             --json > docs-findings.json
       - name: Check OpenAPI breaking changes
         if: hashFiles('openapi.yaml') != ''
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          .claude/skills/pr-review/scripts/check_openapi_diff.sh \
-            origin/${{ github.base_ref }} openapi.yaml
+          .claude/skills/factory-pr-review/scripts/check_openapi_diff.sh \
+            "origin/$BASE_REF" openapi.yaml
 ```
 
 This turns the skill into a guardian that blocks PRs with documentary drift even if no one explicitly asks for review.

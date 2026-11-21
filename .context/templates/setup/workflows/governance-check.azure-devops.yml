@@ -34,11 +34,11 @@ stages:
             fetchDepth: 0
 
           - script: |
-              git fetch origin "$(System.PullRequest.TargetBranch)"
+              git fetch origin "${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}"   # the runner's env var, never the $(…) macro (expanded as text into the script)
             displayName: 'Fetch base branch'
 
           - script: |
-              python3 scripts/gate.py profile --run --control-point ci --base "origin/$(System.PullRequest.TargetBranch)" --branch "$(echo "$(System.PullRequest.SourceBranch)" | sed "s#^refs/heads/##")"
+              python3 scripts/gate.py profile --run --control-point ci --base "origin/${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}" --branch "${SYSTEM_PULLREQUEST_SOURCEBRANCH#refs/heads/}"
               python3 scripts/gate.py one-definition
             displayName: 'Gate profile (one definition) + one-definition'
             env:

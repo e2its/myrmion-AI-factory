@@ -36,8 +36,10 @@ jobs:
 
       - name: "Runtime surface touched? (EVOL-047: the positive list in config/quality.json decides; the branch rule is untouched)"
         id: runtime_surface
+        env:
+          BEFORE: ${{ github.event.before }}   # a CI value reaches a script only through env, never inlined
         run: |
-          BASE="${{ github.event.before }}"; case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="HEAD^1";; esac   # the previous main tip — merge, squash and fast-forward alike
+          BASE="$BEFORE"; case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="HEAD^1";; esac   # the previous main tip — merge, squash and fast-forward alike
           set +e; python3 scripts/gate.py runtime-surface --changed --base "$BASE"; rc=$?; set -e
           case "$rc" in
             0) echo "touched=true" >> "$GITHUB_OUTPUT" ;;
@@ -61,8 +63,8 @@ jobs:
         if: steps.tag.outputs.new_tag != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_TAG: ${{ steps.tag.outputs.new_tag }}
         run: |
-          NEW_TAG="${{ steps.tag.outputs.new_tag }}"
           # Generate release notes from commits
           LAST_TAG=$(git describe --tags --abbrev=0 "${NEW_TAG}^" 2>/dev/null || echo "")
           if [ -z "$LAST_TAG" ]; then

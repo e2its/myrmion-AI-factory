@@ -57,8 +57,9 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body "## 🛑 Governance Check Failed
+          gh pr comment "$PR_NUMBER" --body "## 🛑 Governance Check Failed
 
           One or more governance gates failed. See the workflow logs for the offending file(s).
 
