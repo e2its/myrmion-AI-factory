@@ -54,7 +54,8 @@ This ADR plans issue #248 (epic #112, wave 5, destination S), follow-up F2 of sp
 ## Consequences
 
 - **What lands in a project:**
-  - `.claude/framework.md`, kept current by sync;
+  - `.claude/framework.md`, kept current by sync, and ignored by a new project's `.gitignore` IP block;
+  - the measure config template's `corpus_files` and `governance_paths` naming it;
   - the template copies `claude/framework.md` and `claude/sections.json`;
   - a root `CLAUDE.md` that is one import line plus the project's sections.
 - **Which answer selects it:** none; this is framework core.
@@ -64,18 +65,20 @@ This ADR plans issue #248 (epic #112, wave 5, destination S), follow-up F2 of sp
   - The project `.gitignore` still ignores the root `CLAUDE.md` (the IP block of `setup/gitignore.hbs`), so a project's sections are not versioned. This is today's behaviour, unchanged here. The block gains `.claude/framework.md`, so the universal text stays out of a new project's history as it did in the root; an installed `.gitignore` is the project's and is never written — the upgrade report names the line.
   - An installed `subproducts/measure/measure.config.json` is the project's: its `corpus_files` and `governance_paths` gain `.claude/framework.md` only by the project's hand, so until then the measurement counts no universal law (the subproduct is neutral in every gate).
   - A monolith edited by hand before EVOL-136 shows every edited universal section as one RDR.
+  - `sections.json` holds hashes, not texts, so an unresolved part's evidence compares it with today's framework file: a part from an older monolith shows that version's wording too, and the agent judges each line. The kept-aside root is the safety net.
 
 ## Verification
 
 - **Unit, red first:**
   - laws found through an import;
   - the advisory sums the imports;
-  - the split's cases: known, project, edited, preamble, fenced heading, every decision, already split, and the second run;
+  - the follower's bounds: backticks, a fence, outside the repository, a cycle, five hops and never a sixth; the orphan scan reads the imported template;
+  - the split's cases: known, project, edited, preamble, fenced heading, every decision, already split, the second run, a kept section carried as written, and notes appended after the last section shown as the project's lines;
   - every part of the 10.15.1 monolith is known;
-  - the registry row and its anchor.
+  - the registry row: owed before the anchor stamps it, not after.
 - **Synthetic:** `default`, `bitbucket`, `upgrade-8.12` and `upgrade-8.12-api` with `--answers`. On the default fixture, the upgrade proof starts from the 10.15.1 monolith plus a project section and one edited universal section:
   - exactly that section is unresolved;
-  - with `take`, the root is the new template plus the project section;
+  - with `take`, the root is the new template plus the project section, and the root as it stood is kept at `.context/claude-md.pre-split.md`;
   - the roll-call and `laws --parity` are green through the import;
   - a second run leaves the bytes unchanged.
 - **Gates:** lock-step, `manifest --check`, `manifest-parity`, `gate.py discovery`, `budget`, `profile --run`.

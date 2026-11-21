@@ -1003,7 +1003,7 @@ def claude_split(text: str, known: dict, root: str, current: str = "") -> dict:
         else:
             unresolved.append(label)
             differs[label] = [x for x in difflib.unified_diff(cur.get(h, "").split("\n"), t.split("\n"), lineterm="", n=0)
-                              if x[:1] in "+-" and not x.startswith(("+++", "---"))]
+                              if x[:1] in "+-" and x not in ("+", "-") and not x.startswith(("+++", "---"))]
     new = "\n\n".join([tpl[0][1]] + body) + "\n"
     return {"text": None if unresolved else new, "framework": framework, "kept": kept, "unresolved": unresolved,
             "differs": differs}

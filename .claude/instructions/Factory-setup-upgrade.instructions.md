@@ -521,12 +521,12 @@ print(f"owners stamped: {n}")
 PY
 ```
 
-**claude-md split (EVOL-137).** Splits the installed root `CLAUDE.md` against the known monolith parts (`.context/templates/setup/claude/sections.json`). A part a monolith carried leaves the root — `.claude/framework.md`, delivered by sync and imported by the root, carries it now. A section no monolith had is the project's and stays, in order, under the root template's import line. Each `unresolved` heading — a universal section the project edited, or a preamble of its own — is one RDR. Its evidence is `differs`: the lines that part adds (`+`) or lacks (`-`) against `.claude/framework.md`; a `+` line no framework version wrote is the project's — notes appended after the last section fold into it:
+**claude-md split (EVOL-137).** Splits the installed root `CLAUDE.md` against the known monolith parts (`.context/templates/setup/claude/sections.json`). A part a monolith carried leaves the root — `.claude/framework.md`, delivered by sync and imported by the root, carries it now. A section no monolith had is the project's and stays, in order, under the root template's import line. Each `unresolved` heading — a universal section the project edited, or a preamble of its own — is one RDR. Its evidence is `differs`: the lines that part adds (`+`) or lacks (`-`) against `.claude/framework.md`; a `+` line no framework version wrote is the project's — notes appended after the last section fold into it. A part from an older monolith also shows that version's own wording as `+` and today's as `-`: judge each `+` line; the root as it stood is kept aside before any write:
 1. take the framework's text (recommended — universal law has one home): move every `+` line of the project's own into a `## Project — <heading>` section, then delete the part from `CLAUDE.md`;
 2. keep it as the project's: rename its heading `## Project — <heading>`, never parsed as law (a preamble: `## Project — introduction`);
 3. set it aside: move it into the upgrade report, for a change through its owner phase.
 
-Apply each choice to `CLAUDE.md`, then run the block again. It writes only when nothing is unresolved: the root as it stood is kept first at `.context/claude-md.pre-split.md` (ignored, never overwritten), every kept section byte for byte; it sets `governance_features.claude_split_v1` (idempotent: a split root is unchanged). Name the kept sections in the upgrade report:
+Apply each choice to `CLAUDE.md`, then run the block again. It writes only when nothing is unresolved: the root's bytes as they stood are kept first at `.context/claude-md.pre-split.md` (ignored, never overwritten), every kept section as written (LF line ends); it sets `governance_features.claude_split_v1` (idempotent: a split root is unchanged). Name the kept sections in the upgrade report, and the `.gitignore` line it prints when the installed IP block does not ignore `.claude/framework.md` (the project's file, never written here):
 
 ```bash
 python3 -I - <<'PY'
@@ -536,25 +536,27 @@ from gates import discovery
 root_p, snap_p = pathlib.Path("CLAUDE.md"), pathlib.Path(discovery.PROJECT_MANIFEST)
 if not pathlib.Path(".claude/framework.md").is_file():
     sys.exit("refused: .claude/framework.md is not delivered — run factory-sync.sh first; the root would import nothing")
-if root_p.is_symlink():
-    sys.exit("refused (a symlink): CLAUDE.md")
+bak = pathlib.Path(".context/claude-md.pre-split.md")
+for p in (root_p, bak):
+    if p.is_symlink():
+        sys.exit(f"refused (a symlink): {p} — replace it with a regular file, then run this block again")
 if not (pathlib.Path(discovery.SPLIT_KNOWN).is_file() and pathlib.Path(discovery.SPLIT_ROOT).is_file()):
     sys.exit("refused: the known monolith parts or the root template are not delivered — run factory-sync.sh first")
-tpl = pathlib.Path(discovery.SPLIT_ROOT).read_text(encoding="utf-8")
-known = json.loads(pathlib.Path(discovery.SPLIT_KNOWN).read_text(encoding="utf-8"))
-cur = root_p.read_text(encoding="utf-8-sig") if root_p.is_file() else tpl
 try:
+    tpl = pathlib.Path(discovery.SPLIT_ROOT).read_text(encoding="utf-8")
+    known = json.loads(pathlib.Path(discovery.SPLIT_KNOWN).read_text(encoding="utf-8"))
+    raw = root_p.read_bytes() if root_p.is_file() else None
+    cur = raw.decode("utf-8-sig") if raw is not None else tpl
     r = discovery.claude_split(cur, known, tpl, pathlib.Path(".claude/framework.md").read_text(encoding="utf-8"))
-except discovery.GateFault as e:
-    sys.exit(f"refused: {e}")
+except (discovery.GateFault, ValueError, OSError) as e:
+    sys.exit(f"refused: {e} — CLAUDE.md must be UTF-8 and the delivered files intact (run factory-sync.sh)")
 print(json.dumps({k: r[k] for k in ("framework", "kept", "unresolved", "differs")}, indent=1, ensure_ascii=False))
 if r["text"] is None:
     sys.exit("unresolved: one RDR per heading above — apply each choice to CLAUDE.md, then run this block again")
 if not root_p.is_file() or r["text"] != cur:
-    bak = pathlib.Path(".context/claude-md.pre-split.md")
-    if root_p.is_file() and not bak.exists():
+    if raw is not None and not bak.exists():
         bak.parent.mkdir(parents=True, exist_ok=True)
-        bak.write_text(cur, encoding="utf-8")
+        bak.write_bytes(raw)
     fd, tmp = tempfile.mkstemp(dir=".", prefix=".claude-md-split-")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -565,6 +567,9 @@ if not root_p.is_file() or r["text"] != cur:
         if os.path.exists(tmp):
             os.unlink(tmp)
     print("CLAUDE.md split: the root imports .claude/framework.md")
+gi = pathlib.Path(".gitignore")
+if gi.is_file() and ".claude/framework.md" not in gi.read_text(encoding="utf-8", errors="replace").splitlines():
+    print("report: .gitignore — add `.claude/framework.md` to its IP block (beside CLAUDE.md), or the universal text can be committed")
 snap = json.loads(snap_p.read_text(encoding="utf-8"))
 feats = snap.setdefault("governance_features", {})
 if not feats.get("claude_split_v1"):
