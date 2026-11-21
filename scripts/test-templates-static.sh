@@ -291,6 +291,80 @@ else
 fi
 echo
 
+# ─── #201: an untrusted CI value never runs as shell code — a value reaches a script body only through the environment ───
+# GitHub `${{ }}`, an Azure `$(A.B)` macro or `${{ }}` and a Cloud Build substitution expand as TEXT into the script
+# before the shell runs (a branch name with `$(…)`, a backtick or `;` becomes code — OWASP A03); Groovy interpolates
+# `sh """…"""`. GitLab, Bitbucket and CodeBuild hand runner env vars to the shell: nothing to judge. Args: files (none =
+# every meta workflow and platform template); prints `file: finding`, exit 1 on any.
+UNTRUSTED_PY=$(cat <<'PY'
+import glob, re, sys
+sys.path.insert(0, "scripts"); from gates.common import load_yaml
+MACRO = re.compile(r"\$\([A-Za-z_]\w*(\.\w+)+\)")
+SUBST = re.compile(r"(?<!\$)\$(?!\$)\{?[A-Za-z_]")
+
+
+def mappings(node):
+    if isinstance(node, dict):
+        yield node
+        for v in node.values():
+            yield from mappings(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from mappings(v)
+
+
+def findings(path):
+    name, text = path.rsplit("/", 1)[-1], open(path, encoding="utf-8").read()
+    if name.endswith(".groovy"):
+        return ['sh """…""" — Groovy interpolates into the script; use sh \'\'\'…\'\'\''] if re.search(r'\bsh\s*\(?\s*"""', text) else []
+    doc, out = load_yaml(text), []
+    if "/.github/workflows/" in "/" + path or name.endswith(".github-actions.yml"):
+        out += [f"${{{{ }}}} inside run: — pass it through env: ({m.get('name') or m['run'].strip()[:50]})"
+                for m in mappings(doc) if isinstance(m.get("run"), str) and "${{" in m["run"]]
+    elif name.endswith(".azure-devops.yml"):
+        out += [f"a macro or ${{{{ }}}} inside {k}: — read the env var ({m.get('displayName') or m[k].strip()[:50]})"
+                for m in mappings(doc) for k in ("script", "bash", "pwsh", "powershell")
+                if isinstance(m.get(k), str) and (MACRO.search(m[k]) or "${{" in m[k])]
+    elif name.endswith(".gcp-cloudbuild.yaml"):
+        out += [f"a substitution inside args — map it in env: and read $$VAR ({s.get('id') or a.strip()[:50]})"
+                for s in (doc or {}).get("steps") or [] for a in s.get("args") or [] if isinstance(a, str) and SUBST.search(a)]
+    return out
+
+
+files = sys.argv[1:] or sorted(glob.glob(".github/workflows/*.yml") + glob.glob(".context/templates/setup/workflows/*.y*ml")
+                              + glob.glob(".context/templates/setup/workflows/*.groovy"))
+bad = [f"{f}: {x}" for f in files for x in findings(f)]
+print("\n".join(bad))
+sys.exit(1 if bad else 0)
+PY
+)
+if ! python3 -c "import yaml" 2>/dev/null; then
+  printf '  \033[33m·\033[0m PyYAML absent — untrusted-value check skipped\n'
+else
+  if UNTRUSTED_OUT=$(python3 -c "$UNTRUSTED_PY" 2>&1); then
+    printf '  \033[32m✓\033[0m no workflow (meta + every platform template) expands a CI value into a script body\n'
+  else
+    printf '  \033[31m✗\033[0m a CI value is expanded into a script body (#201):\n%s\n' "$UNTRUSTED_OUT" >&2; failures=$((failures + 1))
+  fi
+  PLANT=$(mktemp -d)
+  printf 'on: pull_request\njobs:\n  j:\n    runs-on: x\n    steps:\n      - run: echo "${{ github.head_ref }}"\n' > "$PLANT/p.github-actions.yml"
+  printf 'steps:\n  - script: |\n      echo "$(System.PullRequest.SourceBranch)"\n' > "$PLANT/p.azure-devops.yml"
+  printf 'steps:\n  - name: x\n    args: ["-c", "echo $BRANCH_NAME"]\n' > "$PLANT/p.gcp-cloudbuild.yaml"
+  printf 'pipeline { stages { stage("x") { steps { sh """\n echo ${CHANGE_BRANCH}\n""" } } } }\n' > "$PLANT/p.jenkins.groovy"
+  PLANT_OUT=$(python3 -c "$UNTRUSTED_PY" "$PLANT"/p.* 2>&1) || true
+  missed=""
+  for p in p.github-actions.yml p.azure-devops.yml p.gcp-cloudbuild.yaml p.jenkins.groovy; do
+    case "$PLANT_OUT" in *"$PLANT/$p: "*) ;; *) missed="$missed $p" ;; esac
+  done
+  rm -rf "$PLANT"
+  if [ -z "$missed" ]; then
+    printf '  \033[32m✓\033[0m the check is red on a planted interpolation on every judged platform (the red before)\n'
+  else
+    printf '  \033[31m✗\033[0m the untrusted-value check misses a planted interpolation:%s\n' "$missed" >&2; failures=$((failures + 1))
+  fi
+fi
+echo
+
 # ─── EVOL-054: the profile step exports the Actions token (meta workflow AND the shipped template) — scm-protection reads the rulesets at ci; a step without the token is n/a forever ───
 for wf in .github/workflows/governance-check.yml .context/templates/setup/workflows/governance-check.github-actions.yml; do
   if python3 - "$wf" <<'PYEOF'
