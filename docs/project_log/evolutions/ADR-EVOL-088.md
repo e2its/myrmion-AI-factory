@@ -141,6 +141,67 @@ These are the Q2 values, now ratified as the design.
 
 **Follow-up C** (the optional pack) is filed only if the run passes. A failing run closes the question as «do not ship» and records it here.
 
+## Measured run (#142, 2026-11-21) — do not ship
+
+**Setup.**
+- A synthetic sample was materialised from framework 10.15.0 on a throwaway branch.
+- Model: sonnet, effort medium. The beacon was off, and `autoCompactWindow` was the same in every window.
+- Three tasks of unlike shape: a feature increment, a fix, and a verification-heavy run.
+- 5 sessions per task per window, in three windows: before, wired after, and an A/A before. That is 45 sessions per pass.
+- The «after» wiring: the MCP declared, a rule paragraph naming the Q1 classes, and one BVL skill step at the above-key read.
+
+**Two passes.**
+- **Pass 1.** 45 of 45 sessions ended green. One task's harness was flawed: the red gate blocked a fix that restored base behaviour, so t2 stayed uncommitted in 4/5, 4/5 and 2/5 sessions. The pass is void: 0 compress calls.
+- **Pass 2.** The harness was cured:
+  - t2's base bug is on main.
+  - t3's verification output is 23.6 KB, and the failing test is named only above a coverage table.
+  - 45 of 45 sessions committed, with pytest green.
+  - The pass is void again.
+
+| Signal (pass 2, `subproducts/measure`, list prices) | before | after | A/A | after − before | A/A − before |
+|---|---|---|---|---|---|
+| median context per session (tokens) | 49706 | 49565 | 49855 | −0.3 % | +0.3 % |
+| per session p25–p75 | 49408–50093 | 49395–49946 | 49411–50308 | | |
+| main context per request p50 / p90 | 49806 / 52748 | 49537 / 52243 | 49833 / 52956 | | |
+| cache-read (window) | 4.52M | 4.54M | 4.51M | +0.4 % | −0.3 % |
+| spend (USD) | 2.350 | 2.210 | 2.274 | −0.140 | −0.075 |
+| CLI cost per session (mean ± sd, n = 15) | 0.188 ± 0.034 | 0.179 ± 0.016 | 0.183 ± 0.022 | | |
+| sessions with ≥ 1 compress call | 0/15 | 0/15 | 0/15 | | |
+| compress / retrieve calls | 0 / 0 | 0 / 0 | 0 / 0 | | |
+| payload audit (work-input calls) | 0 | 0 | 0 | | |
+| results above `context_result_max_kb` (20 KB) | 0 | 0 | 0 | | |
+| largest tool result | 4.0 KB | 5.4 KB | 5.4 KB | | |
+| refused returns / review rounds | 0 / 0 | 0 / 0 | 0 / 0 | | |
+
+**Thresholds.**
+1. **Fails.** Context per session is −0.3 % and cache-read is +0.4 %. Both are inside the A/A spread and far from 10 %.
+2. **Holds.**
+3. **Fails, so the window is void.** 0 % of «after» sessions made a compress call, against the 80 % required.
+4. **Holds (0).**
+5. **Within noise.** The tool definitions are deferred (listed, not loaded). The p50 per request moved −269 tokens (A/A +27), inside the per-session p25–p75 spread of about 700.
+
+Pass 1 gave the same verdict on every threshold.
+
+**Why both passes were void: a structural cause.**
+- No tool result reached 20 KB in 90 sessions.
+- The agents bound each verification output themselves before it enters the context, for example `gate.py seal --run 2>&1 | tail -60` and `pytest … | grep -v "^src" | head -40`. The executor also inlines only the tail of a failing log.
+- So t3's 23.6 KB output never entered a context whole.
+- EVOL-062's diet (file + tail) and this habit leave the tool no input. Compression applies only to a result above the key, and none occurs.
+- A third pass could be non-void only by forcing a large output into the context. That is the anti-pattern the diet forbids, so the pass would measure a workload the framework does not produce.
+
+**The wiring was never read.**
+- The rule and the skill step were read in 0/15 «after» sessions, in both passes.
+- `.claude/rules/agents.md` has been out of the launch context since EVOL-141.
+- The BVL skill loads only under `/implement`, which the tasks did not run.
+- The structural cause stands without this: even a rule that is read has no trigger.
+
+**Decision: A — do not ship.**
+- The pre-registered thresholds fail on items 1 and 3 in two passes, and nothing is irreversible. So it is decided on the evidence, with no owner RDR.
+- Follow-up C is not filed.
+- No policy issue is opened. The policy never shipped, so there is nothing to correct, and this record is the finding.
+- The counter (#253) stays, because it reads any future context tool.
+- Revisit only when a measured project shows `raw_results_over_threshold` > 0 in its main sessions. That is an output above the key entering a context, and the instrument already reports it.
+
 ## Consequences
 
 For B (nothing of the tool lands in a project until the second RDR):
@@ -176,7 +237,7 @@ For B (nothing of the tool lands in a project until the second RDR):
 
 ## Honest limits
 
-- No measurement was run; this ADR fixes the design and the run follows #253. Thresholds (10 %, 5 sessions, 80 % usage) are pre-registered design, not findings.
+- The design and its thresholds (10 %, 5 sessions, 80 % usage) were fixed before the run. The run (§ Measured run) used one synthetic sample and three tasks. Its void verdict rests on a workload that never produces a result above the key, and a project whose workload does would reopen the question through `raw_results_over_threshold`.
 - `headroom` was not called on repository content (brief); its description comes from its public README and third-party summaries.
 - ❓ unverified — external: the current release and its pin; whether `headroom_compress` takes a file path (so the raw output never enters context); the default state and scope of the telemetry beacon in the pinned version; where the originals' cache lives and its TTL default; the lossless/lossy status of the code compressor; the vendor's savings figures; the exact transcript name of the tool's calls (expected `mcp__headroom__headroom_compress`, seen in this harness's tool list).
 - A sample project and a real project differ in output mix; a pass does not transfer by itself.
