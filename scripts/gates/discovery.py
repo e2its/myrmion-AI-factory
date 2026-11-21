@@ -1872,9 +1872,9 @@ def lint_excludes(command: str) -> tuple[str | None, list[str]]:
 
 
 def lint_anywhere(pat: str, tool: str | None) -> bool:
-    """#261, probed (ruff 0.17.4, eslint 9.39.1): a ruff pattern with no `/` matches at any depth; an eslint pattern
-    matches at any depth only from `**/`. Every other form names a path from the project root."""
-    return pat.startswith("**/") if tool == "eslint" else "/" not in pat
+    """#261, probed (ruff 0.17.4, eslint 9.39.1): a pattern from `**/` matches at any depth, and so does a ruff pattern
+    with no `/`. Every other form names a path from the project root."""
+    return pat.startswith("**/") or (tool != "eslint" and "/" not in pat)
 
 
 def lint_excluded(path: str, pats: list[str], tool: str | None = None) -> bool:
@@ -1920,8 +1920,8 @@ def _v15(reg: dict, manifest: dict) -> list[str]:
         tool, pats = lint_excludes(lint["command"])
         if tool not in LINT_READS:
             out.append(f"V15 · {where}: lint tool `{tool}` is not in LINT_READS — name the files it reads"); continue
-        out += [f"V15 · {where}: exclusion `{p}` matches at any depth — anchor it at the project root (`./{p}`), or it skips "
-                f"the project's own `{p}`" for p in pats if lint_anywhere(p, tool)]
+        out += [f"V15 · {where}: exclusion `{p}` matches at any depth — name it from the project root "
+                f"(`./{p.removeprefix('**/')}`), or it skips the project's own `{p.removeprefix('**/')}`" for p in pats if lint_anywhere(p, tool)]
         for p, o in sorted(owners.items()):
             if not p.endswith(LINT_READS[tool]):
                 continue

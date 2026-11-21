@@ -132,7 +132,7 @@ print(g.get("command", ""), (w.get("command") or [""])[0], sep="\t")' "$WORK/$na
         want=$(grep -E '^(src/backend|tests)/.*\.pyi?$' "$WORK/framework.txt" | sed 's#^#./#' | paste -sd, -)
         [ "$x" = "$want" ] && ok "(e) $name: FPR_RUFF_X is the framework-owned Python under src/backend and tests ($x)" \
           || fail "(e) $name: FPR_RUFF_X is \`$x\`, the manifest's framework-owned Python there is \`$want\`"
-        hook() { (cd "$P" && PATH="$WORK/bin:$PATH" REPO_ROOT_FPR="$P" bash "$1") >"$WORK/$name.hook.log" 2>&1; }
+        hook() { (cd "$P" && PATH="$WORK/bin:$PATH" REPO_ROOT_FPR="$P" bash -euo pipefail "$1") >"$WORK/$name.hook.log" 2>&1; }   # the hook's own shell options
         printf '# Copyright 2026 p\n"""Tests."""\n' >"$P/tests/__init__.py"; printf '# Copyright 2026 p\n"""Ok."""\n' >"$P/tests/test_ok.py"
         hook "$WORK/$name.hook"; r=$?
         [ "$r" -eq 0 ] && ok "(e) $name: the push hook's ruff is green on the delivered tree with a project test" \

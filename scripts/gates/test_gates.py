@@ -5526,7 +5526,7 @@ class Discovery(unittest.TestCase):
             self.assertEqual(self._rule(discovery.validate(repo), "V14"), [])
 
     def test_lint_excluded_semantics(self):
-        """#261: the pattern subset ruff and eslint agree on — a bare name anywhere, a slashed path from the root."""
+        """#261: each tool's matching, as probed — a ruff bare name and any `**/` at any depth, every other form from the root."""
         ex = discovery.lint_excluded
         self.assertTrue(ex("a/subproducts/m.py", ["subproducts"], "ruff"), "a ruff bare name matches at any depth")
         self.assertFalse(ex("a/subproducts/m.py", ["./subproducts"], "ruff"), "`./` anchors it at the root")
@@ -5534,6 +5534,8 @@ class Discovery(unittest.TestCase):
         self.assertFalse(ex("src/.context/m.ts", [".context/"], "eslint"), "an eslint pattern is anchored at the root")
         self.assertTrue(ex("src/.context/m.ts", ["**/.context/"], "eslint"), "except from `**/`")
         self.assertTrue(ex("src/a/b/m.ts", ["**/a/b"], "eslint"), "an any-depth path of two parts")
+        self.assertTrue(ex("src/subproducts/m.py", ["**/subproducts"], "ruff"), "a ruff `**/` matches at any depth too")
+        self.assertTrue(discovery.lint_anywhere("**/subproducts", "ruff") and not discovery.lint_anywhere(".context/", "eslint"))
         self.assertTrue(ex("scripts/gates/x.py", ["scripts/gates"], "ruff"), "a slashed path names a directory above the file")
         self.assertFalse(ex("scripts/gates/x.py", ["scripts/gate.py"], "ruff"), "a file pattern never names a sibling directory")
         self.assertTrue(ex("scripts/gate.py", ["scripts/gate.py"], "ruff"))

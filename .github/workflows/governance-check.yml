@@ -182,8 +182,9 @@ jobs:
   delivered-clean:
     # #261: a fresh project's lint and secrets gates are green on the tree the framework delivers, per synthetic answer
     # set (test-delivered-clean.sh). gitleaks and trufflehog, the scanners Q23.2 offers, find nothing there and do find a
-    # planted credential. Each shipped lint row reads the project's code and no framework-owned file, and its superseded
-    # command is red. Every tool is pinned. A missing tool is exit 2 and fails the job; the script's last line is the verdict.
+    # planted credential. Each shipped lint row reads the project's code and no framework-owned file, is green on the tree
+    # and red on a planted defect, and records its superseded command, which is red. The delivered push hook's ruff block
+    # is green on the tree and its exclusion list is the manifest's framework-owned Python. Every tool is pinned. A missing tool is exit 2 and fails the job; the script's last line is the verdict.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
