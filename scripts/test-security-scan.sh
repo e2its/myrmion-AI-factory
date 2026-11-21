@@ -223,6 +223,24 @@ else
   echo "  skip: trufflehog not installed (scenario 14 runs in meta CI)"
 fi
 
+# 15. DAST: the project's rules file reaches every packaged scan as -c, only when it exists (EVOL-138)
+d="$TMP_ROOT/s15"; make_sandbox "$d" ""
+printf '#!/bin/sh\necho "docker $*" >> "$(dirname "$0")/../docker.log"\nexit 0\n' > "$d/bin/docker"; chmod +x "$d/bin/docker"
+dast_args() { # $1 dir ; $2 lane flag — echoes the scan lines docker received
+  rm -f "$1/docker.log"
+  ( cd "$1" && CLAUDE_PROJECT_DIR="$1" PATH="$1/bin:$PATH" TARGET_URL=http://localhost:9 bash "$DISPATCHER" "$2" --apply >/dev/null 2>&1 )
+  grep -E 'zap-(baseline|full-scan|api-scan)\.py' "$1/docker.log" 2>/dev/null
+}
+without=$(dast_args "$d" --dast)
+mkdir -p "$d/security/dast" && printf '10021\tIGNORE\tX-Content-Type-Options Header Missing\n' > "$d/security/dast/rules.tsv"
+lanes_ok=1
+for lane in --dast --dast-full --dast-api; do
+  dast_args "$d" "$lane" | grep -q -- "-g gen.conf -c security/dast/rules.tsv -r " || lanes_ok=0
+done
+[ -n "$without" ] && ! grep -q -- " -c " <<< "$without" && [ "$lanes_ok" = 1 ] \
+  && { echo "  ok: DAST — no rules file, no -c; with it, all three packaged scans read -c security/dast/rules.tsv"; PASS=$((PASS+1)); } \
+  || { echo "  FAIL: DAST rules file — without: [$without], all lanes with -c: $lanes_ok"; FAIL=$((FAIL+1)); }
+
 echo ""
 echo "test-security-scan: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

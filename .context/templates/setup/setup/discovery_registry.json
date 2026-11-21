@@ -3174,6 +3174,12 @@
    "since": "10.16.0",
    "detect": "docs/project_log/governance_versions.json#/governance_features/claude_split_v1",
    "apply": "claude-md split (EVOL-137)"
+  },
+  {
+   "id": "profile members (EVOL-138)",
+   "since": "10.17.0",
+   "detect": "docs/project_log/governance_versions.json#/governance_features/project_members_v1",
+   "apply": "profile members (EVOL-138)"
   }
  ]
 }

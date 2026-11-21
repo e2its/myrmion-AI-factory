@@ -10,7 +10,7 @@
 # law parity, budgets, retired vocabulary, artefact currency, manifest parity, surface ceiling). A
 # sub-increment PR into its train in development mode owes the light profile; everything to main owes
 # the full one. The workflow itself reads no manifest and keeps no branch list (gate.py one-definition).
-# Add project-specific gates as further members in scripts/gates/profile.py, never as ad-hoc steps.
+# Add project-specific gates as rows of config/quality.json → profile.members (EVOL-138), never as ad-hoc steps.
 # ============================================================================
 
 name: Governance Check
@@ -39,7 +39,7 @@ jobs:
       - name: "PyYAML — the gates read pipeline files (delivery --check)"
         run: python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y -qq python3-yaml
 
-      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py is the list)"
+      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py + config/quality.json → profile.members, one list)"
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}

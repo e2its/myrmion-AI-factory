@@ -427,9 +427,8 @@ Budget Required: Professional+ tier
 1. Update compatibility table
 2. Add framework-specific constraints
 3. Generate ADR documenting inclusion decision
-4. Update checklist in `.context/templates/setup/frontend_topologies/NEW_PATTERN_CHECKLIST.md`
 
-**Checklist Location:** `.context/templates/setup/frontend_topologies/NEW_PATTERN_CHECKLIST.md`
+This file is the project's (`.claude/rules/`): the table and the constraints are edited here. A pattern every project should receive is proposed upstream, where the framework keeps its new-pattern checklist (EVOL-138).
 
 ---
 

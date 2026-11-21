@@ -1358,59 +1358,7 @@ rules:
 
 ### Integration with Existing Scripts
 
-**Add to:** `scripts/security-scan.sh`
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Existing flags (EVOL-040: secrets lane is config-driven — no tool-named flags)
-SECRETS=0
-VALIDATE_CONTRACTS=0  # NEW FLAG
-DRY_RUN=${DRY_RUN:-1}
-
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --secrets) SECRETS=1 ;;
-    --contracts|--validate-contracts) VALIDATE_CONTRACTS=1 ;;  # NEW
-    --apply) DRY_RUN=0 ;;
-  esac
-  shift
-done
-
-# NEW: Contract validation
-if [ "$VALIDATE_CONTRACTS" -eq 1 ]; then
-  echo "🔍 Validating contracts..."
-  
-  # OpenAPI validation
-  if [ -d "contracts/openapi" ]; then
-    echo "  ├─ OpenAPI specs..."
-    npx @stoplight/spectral-cli lint "contracts/openapi/**/*.yaml" || exit 1
-  fi
-  
-  # GraphQL validation
-  if [ -d "contracts/graphql" ]; then
-    echo "  ├─ GraphQL schemas..."
-    npx graphql-schema-linter "contracts/graphql/**/*.graphql" || exit 1
-  fi
-  
-  # gRPC validation (Protocol Buffers)
-  if [ -d "contracts/grpc" ]; then
-    echo "  ├─ gRPC Protocol Buffers..."
-    buf lint contracts/grpc/ || exit 1
-  fi
-  
-  # AsyncAPI validation (Event schemas)
-  if [ -d "contracts/asyncapi" ]; then
-    echo "  ├─ AsyncAPI specs..."
-    npx @asyncapi/cli validate "contracts/asyncapi/**/*.yaml" || exit 1
-  fi
-  
-  echo "✅ All contracts valid"
-fi
-
-# Existing secrets-lane logic (config-driven dispatcher)...
-```
+The shipped `scripts/security-scan.sh --contracts` runs the OpenAPI, AsyncAPI, GraphQL and gRPC linters over `contracts/` (framework-owned: never edited in a project). A lint of the project's own runs as a row of `config/quality.json → profile.members` or `verification.gates` (EVOL-138).
 
 ### GitHub Actions Workflow
 

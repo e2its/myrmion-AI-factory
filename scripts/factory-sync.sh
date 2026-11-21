@@ -223,10 +223,10 @@ PLAN=$(python3 -I - "$FRAMEWORK_ROOT" <<'PY'
 import json, sys
 from pathlib import Path
 root = Path(sys.argv[1]); sys.path.insert(0, str(root / "scripts"))
-from gates import manifest
+from gates import agents, manifest
 m = json.loads((root / manifest.DELIVERED).read_text(encoding="utf-8"))
 for landed, r in sorted(manifest.delivered(m).items()):
-    print(f"{r['source']}\t{landed}")
+    print(f"{r['source']}\t{landed}\t{'render' if landed == agents.READER else ''}")   # EVOL-138: the reader, named by agents.READER
 PY
 ) || QUERY_FAILED=1
 if [[ "$QUERY_FAILED" -ne 0 ]] || [[ -z "$PLAN" ]]; then
@@ -234,8 +234,36 @@ if [[ "$QUERY_FAILED" -ne 0 ]] || [[ -z "$PLAN" ]]; then
   echo -e "${RED}  ✗ the manifest's delivered set could not be read (python3 missing or governance_versions.json unreadable) — NOTHING synced${NC}"
   ERRORS=$((ERRORS + 1))
 else
-  while IFS=$'\t' read -r src landed; do
+  while IFS=$'\t' read -r src landed render; do
     [[ -z "$landed" ]] && continue
+    if [[ "$render" == "render" ]] && [[ -f "$FRAMEWORK_ROOT/$src" ]]; then
+      # EVOL-138: the reader lands completed with the read operations of the project's documentation servers
+      # (config/quality.json → agents.docs_servers); a malformed key delivers it as shipped and says so
+      READER_TMP="$(mktemp)"
+      if ! python3 -I - "$FRAMEWORK_ROOT" "$TARGET_PROJECT" "$FRAMEWORK_ROOT/$src" "$READER_TMP" 2>/dev/null <<'PY'
+import sys
+from pathlib import Path
+root, target, src, out = (Path(a) for a in sys.argv[1:5]); sys.path.insert(0, str(root / "scripts"))
+from gates import agents
+from gates.common import GateFault
+text = src.read_text(encoding="utf-8")
+try:
+    extra = agents.project_docs_servers(target)
+    extra = {s: ops for s, ops in extra.items() if s not in agents.framework_docs_servers(root)}   # the framework this sync delivers
+    out.write_text(agents.reader_tools(text, extra), encoding="utf-8")
+except GateFault as e:
+    out.write_text(text, encoding="utf-8")
+    print(f"  ! the reader lands as shipped — {e} (gate.py agents names it)")
+PY
+      then
+        echo "  ! the reader lands as shipped — its render did not run (gate.py agents names the cause)"
+        cp "$FRAMEWORK_ROOT/$src" "$READER_TMP"
+      fi
+      chmod --reference="$FRAMEWORK_ROOT/$src" "$READER_TMP" 2>/dev/null || chmod 644 "$READER_TMP"
+      sync_file "$READER_TMP" "$TARGET_PROJECT/$landed"
+      rm -f "$READER_TMP"
+      continue
+    fi
     sync_file "$FRAMEWORK_ROOT/$src" "$TARGET_PROJECT/$landed"
   done <<< "$PLAN"
 fi

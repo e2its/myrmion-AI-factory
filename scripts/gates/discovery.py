@@ -765,8 +765,9 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
             snap = json.loads((repo / PROJECT_MANIFEST).read_text(encoding="utf-8")).get("templates") or {}
         except (OSError, ValueError, AttributeError):
             snap = {}
+        from .agents import landed_as_delivered   # EVOL-138: the reader sync completed compares as delivered — one view with the drift check
         out["templates_to_refresh"] = [k for k in landing if templates[k].get("owner") == "framework" and target(k) and (repo / target(k)).is_file()
-                                       and src(k).is_file() and (repo / target(k)).read_bytes() != src(k).read_bytes()]
+                                       and src(k).is_file() and landed_as_delivered(repo, target(k)) != src(k).read_bytes()]
         out["templates_moved"] = [{"key": k, "target": target(k), "from": snap[k].get("version"), "to": templates[k].get("version")} for k in landing
                                   if templates[k].get("owner") == "project" and isinstance(snap.get(k), dict)
                                   and (_semver(templates[k].get("version")) or (0, 0, 0)) > (_semver(snap[k].get("version")) or (0, 0, 0))]

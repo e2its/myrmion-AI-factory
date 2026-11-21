@@ -52,7 +52,7 @@ Placeholders marked "captured post-init" remain in `{{...}}` form after material
 
 ## Authoring a new adapter
 
-A new tracker needs all of:
+An adapter is framework-owned (`scripts/gates/tracker.py`, replaced whole by sync): it is authored in the framework repository, never in a project (EVOL-138). A new tracker needs all of:
 
 1. An executor in `scripts/gates/tracker.py` (read into the one board shape, apply, re-read).
 2. Recorded responses under `scripts/fixtures/tracker/` and tests: parsing, idempotent re-run, flow mapping.

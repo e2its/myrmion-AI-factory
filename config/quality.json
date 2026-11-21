@@ -410,7 +410,13 @@
     "families": {
       "writer": "opus",
       "critic": "sonnet"
-    }
+    },
+    "_doc_docs_servers": "EVOL-138: a project's documentation servers, each mapped to its read operations — the framework repo declares none (its servers live in the docs-scan skill).",
+    "docs_servers": {}
+  },
+  "profile": {
+    "_doc": "EVOL-138: a project's own gate members (rows {name, runner, needs_build, needs_database, owner}), read after scripts/gates/profile.py MEMBERS as one list — the framework repo adds none.",
+    "members": []
   },
   "documentation": {
     "_doc": "The ONE definition of a documentation path (EVOL-051): root-anchored globs in `paths`, minus `exclusions` (code whatever the extension). Read by python3 scripts/gate.py documentation — the push-gate preflight's review-lane skip, the planning gate's exemption (planning.docs_exempt is retired) and the seal's classification. A workflow or a behavioural contract (.claude/{instructions,skills,commands,hooks}) is never documentation.",

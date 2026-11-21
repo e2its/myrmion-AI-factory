@@ -15,6 +15,7 @@ members    the gate members, enumerated by PROPERTY: `light` = the members that 
 """
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -24,7 +25,7 @@ import tempfile
 from pathlib import Path
 
 from . import branch as branch_mod
-from .common import GateFault, context
+from .common import QUALITY, GateFault, context, key
 from .documents import BASE as DOCS_BASE, DOWN, MEMO
 
 MODES = ("development", "production")
@@ -79,6 +80,89 @@ MEMBERS = [
     ("performance-deployed", True, False, "DEVOPS --deploy (gate.py performance --run --site --url, on the deployed build)", None, False),
 ]
 
+FRAMEWORK_NAMES = frozenset(m[0] for m in MEMBERS)
+PROJECT_KEY = "profile.members"   # EVOL-138: the project's own members — a seam of config/quality.json, merged add-only by name
+ROW_KEYS = ("name", "runner", "needs_build", "needs_database", "owner")
+
+
+def _row(r, i: int, taken: set[str]) -> tuple:
+    where = f"{PROJECT_KEY}[{i}]"
+    if not isinstance(r, dict) or set(ROW_KEYS) - set(r):
+        raise GateFault(f"{where} is not a row {{{', '.join(ROW_KEYS)}}} — every key is required")
+    name, runner = r["name"], r["runner"]
+    if not isinstance(name, str) or not name.strip():
+        raise GateFault(f"{where}: `name` must be a non-empty string")
+    if name in taken:
+        raise GateFault(f"{where}: `{name}` is already a member — one name, one member (rename the project's row)")
+    if runner is not None and (not isinstance(runner, list) or not runner or not all(isinstance(t, str) and t for t in runner)):
+        raise GateFault(f"{where} `{name}`: `runner` must be a non-empty list of strings, or null for a member its owner runs")
+    if not all(isinstance(r[k], bool) for k in ("needs_build", "needs_database")) or not isinstance(r["owner"], str) or not r["owner"].strip():
+        raise GateFault(f"{where} `{name}`: `needs_build` and `needs_database` are booleans, `owner` a non-empty string")
+    taken.add(name)
+    return (name, r["needs_build"], r["needs_database"], r["owner"], runner, False)
+
+
+def project_members(repo: Path) -> list[tuple]:
+    """The project's rows of `profile.members` (EVOL-138), as member tuples. No config, no key: none. A malformed key is a
+    GateFault — never a silent drop."""
+    if not (repo / QUALITY).is_file():
+        return []
+    rows = key(repo, PROJECT_KEY, [])
+    if not isinstance(rows, list):
+        raise GateFault(f"{PROJECT_KEY} must be a list of rows")
+    return check_rows(rows)
+
+
+def check_rows(rows: list) -> list[tuple]:
+    """Validate `profile.members` rows against the framework's members and each other; return them as member tuples."""
+    taken = {m[0] for m in MEMBERS}
+    return [_row(r, i, taken) for i, r in enumerate(rows)]
+
+
+def members(repo: Path) -> list[tuple]:
+    """The one member list (EVOL-138): the framework's MEMBERS, then the project's rows."""
+    return MEMBERS + project_members(repo)
+
+
+def installed_members(text: str, known: set[str]) -> list[dict]:
+    """The rows an installed profile.py added to MEMBERS (EVOL-138 migration): each literal tuple whose name `known` lacks, as a
+    `profile.members` row. A non-literal element is refused — its move is the agent's, by hand."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as e:
+        raise GateFault(f"the installed profile.py does not parse ({e.msg}, line {e.lineno})") from None
+    node = next((n.value for n in tree.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "MEMBERS" for t in n.targets)), None)
+    if not isinstance(node, ast.List):
+        raise GateFault("the installed profile.py holds no `MEMBERS = [...]` list")
+    for st in tree.body:   # MEMBERS grown outside its literal (append, extend, +=, a slice or item store, a re-assignment) would be lost silently
+        if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) or (isinstance(st, ast.Assign) and st.value is node):
+            continue
+        for n in ast.walk(st):
+            if (isinstance(n, ast.Name) and n.id == "MEMBERS" and isinstance(n.ctx, ast.Store)) or \
+               (isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name) and n.value.id == "MEMBERS" and isinstance(n.ctx, (ast.Store, ast.Del))) or \
+               (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "MEMBERS" and n.attr in ("append", "extend", "insert", "__iadd__")):
+                raise GateFault(f"line {st.lineno}: MEMBERS is changed outside its list — move those members into {PROJECT_KEY} by hand")
+    out, taken = [], set(known)
+    for el in node.elts:
+        if isinstance(el, ast.Tuple) and el.elts and isinstance(el.elts[0], ast.Constant) and el.elts[0].value in known:
+            continue   # the framework's row, whatever its shape in that version
+        try:
+            m = ast.literal_eval(el)
+        except ValueError:
+            raise GateFault(f"line {el.lineno}: a member that is not a literal tuple — move it into {PROJECT_KEY} by hand") from None
+        if not (isinstance(m, tuple) and len(m) == 6):
+            raise GateFault(f"line {el.lineno}: a member that is not a 6-field tuple — move it into {PROJECT_KEY} by hand")
+        if m[0] in known:
+            continue
+        runner = list(m[4]) if isinstance(m[4], tuple) else m[4]
+        row = {"name": m[0], "runner": runner, "needs_build": m[1], "needs_database": m[2], "owner": m[3]}
+        try:
+            _row(row, len(out), taken)
+        except GateFault as e:
+            raise GateFault(f"line {el.lineno}: {e} — move it into {PROJECT_KEY} by hand") from None
+        out.append(row)
+    return out
+
 
 def manifest_path(repo: Path) -> Path:
     return repo / (".context/templates/setup/governance_versions.json" if context(repo) == "meta" else "docs/project_log/governance_versions.json")
@@ -118,9 +202,9 @@ def profile(repo: Path, branch: str | None = None, control_point: str = "push") 
             "profile": "light" if light else "full", "reason": reason}
 
 
-def owed(prof: str) -> list[dict]:
+def owed(prof: str, repo: Path | None = None) -> list[dict]:
     out = []
-    for name, nb, nd, owner, runner, meta_only in MEMBERS:
+    for name, nb, nd, owner, runner, meta_only in (members(repo) if repo is not None else MEMBERS):
         if prof == "light" and (nb or nd):
             continue
         out.append({"member": name, "needs_build": nb, "needs_database": nd, "owner": owner, "runnable": runner is not None, "meta_only": meta_only})
@@ -152,19 +236,26 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
         return {**pr, "control_point": control_point, "base": None, "results": [], "owed_elsewhere": [],
                 "verdict": "RED", "summary": f"no diff base — nothing was measured: {e}"}
     ctx = context(repo)
+    try:
+        listed, bad = members(repo), None
+    except GateFault as e:   # a malformed project key: one RED row, the framework members still run (all-report)
+        listed, bad = MEMBERS, str(e)
     with tempfile.TemporaryDirectory(prefix="gate-documents-") as memo:   # one run reads each pinned artefact once; nothing survives the run (EVOL-080)
-        results, elsewhere = _members(repo, pr, base, br, control_point, only, ctx, {**os.environ, MEMO: memo, DOCS_BASE: base})
+        results, elsewhere = _members(repo, pr, base, br, control_point, only, ctx, {**os.environ, MEMO: memo, DOCS_BASE: base}, listed)
+    if bad:
+        results.append({"member": PROJECT_KEY, "rc": 1, "status": "RED", "tail": bad, "output": f"{bad} ({QUALITY})"})
     red = [r["member"] for r in results if r["status"] == "RED"]
     faults = [r["member"] for r in results if r["status"] == "FAULT"]
     verdict = "RED" if red else ("FAULT" if faults else "ok")
     parts = ([f"red: {', '.join(red)}"] if red else []) + ([f"could not run: {', '.join(faults)}"] if faults else [])
+    skipped = [n for n, nb, nd, *_ in listed if nb or nd] if pr["profile"] == "light" else []
     return {**pr, "control_point": control_point, "base": base, "results": results, "owed_elsewhere": elsewhere,
-            "verdict": verdict, "summary": " · ".join(parts)}
+            "skipped": skipped, "verdict": verdict, "summary": " · ".join(parts)}
 
 
-def _members(repo, pr, base, br, control_point, only, ctx, env):
+def _members(repo, pr, base, br, control_point, only, ctx, env, listed=None):
     results, elsewhere = [], []
-    for name, nb, nd, owner, runner, meta_only in MEMBERS:
+    for name, nb, nd, owner, runner, meta_only in (MEMBERS if listed is None else listed):
         if pr["profile"] == "light" and (nb or nd):
             continue
         if runner is None:
@@ -176,8 +267,12 @@ def _members(repo, pr, base, br, control_point, only, ctx, env):
             results.append({"member": name, "rc": 0, "status": "n/a", "tail": "framework repo only", "output": ""})
             continue
         cmd = _cmd(repo, runner, base, br, control_point)
-        if cmd[0] == "bash" and not (repo / cmd[1]).is_file():   # governance not delivered is a red on the delivery, never an infra pass
-            results.append({"member": name, "rc": 1, "status": "RED", "tail": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh", "output": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh"})
+        if cmd[0] == "bash" and len(cmd) == 1:   # EVOL-138: a project row may be malformed this way — one red row, the board still prints
+            results.append({"member": name, "rc": 1, "status": "RED", "tail": "the runner is `bash` with no script", "output": f"the runner is `bash` with no script ({PROJECT_KEY})"})
+            continue
+        if cmd[0] == "bash" and not cmd[1].startswith("-") and not (repo / cmd[1]).is_file():   # governance not delivered is a red on the delivery, never an infra pass
+            said = f"{cmd[1]} is not delivered — run scripts/factory-sync.sh" if name in FRAMEWORK_NAMES else f"{cmd[1]} is not found ({PROJECT_KEY})"
+            results.append({"member": name, "rc": 1, "status": "RED", "tail": said, "output": said})
             continue
         try:
             r = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True, timeout=900, env=env)
@@ -226,7 +321,7 @@ def render(rep: dict) -> str:
             lines.extend("      " + ln for ln in (r.get("output") or r["tail"]).splitlines() if ln.strip())
     if rep["owed_elsewhere"]:
         lines.append("  owed at their own control point (not run here): " + ", ".join(f"{e['member']} → {e['owner']}" for e in rep["owed_elsewhere"]))
-    skipped = [m for m in (n for n, nb, nd, *_ in MEMBERS if nb or nd)] if rep["profile"] == "light" else []
+    skipped = rep.get("skipped", [])
     if skipped:
         lines.append("  skipped by the light profile (need a build or a database — owed at their own control point: the train close, the deployment): " + ", ".join(skipped))
     lines.append(f"verdict: {rep['verdict']}" + (f" — {rep['summary']}" if rep["summary"] else " — the light profile writes no seal" if rep["profile"] == "light" else ""))

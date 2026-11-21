@@ -97,7 +97,13 @@
   },
   "agents": {
     "_doc": "EVOL-049: the two model FAMILIES as harness aliases (never pinned ids; SETUP Q34) — writers and critics on different families by construction (gate.py agents refuses equal aliases). The class policy, the roster and the per-spawn resolution live in .claude/rules/agents.md.",
-    "families": {"writer": "{{AGENT_WRITER_MODEL}}", "critic": "{{AGENT_CRITIC_MODEL}}"}
+    "families": {"writer": "{{AGENT_WRITER_MODEL}}", "critic": "{{AGENT_CRITIC_MODEL}}"},
+    "_doc_docs_servers": "EVOL-138: the project's documentation servers, each mapped to its read operations ({\"vendor-docs\": [\"search_vendor_docs\"]}) — the [LAW-10] banner lists them and factory-sync.sh lands the reader with mcp__<server>__<op> appended; the framework's own servers live in the docs-scan skill. gate.py agents holds each to a read verb, never a personal-data connector.",
+    "docs_servers": {}
+  },
+  "profile": {
+    "_doc": "EVOL-138: the project's own gate members — rows {name, runner, needs_build, needs_database, owner}, runner a list of strings (`gate` = scripts/gate.py; {base}, {base_branch}, {branch}, {control_point} substituted) or null for a member its owner runs. gate.py profile reads them after the framework's members in scripts/gates/profile.py: one list, every member reports. A name already a member is refused.",
+    "members": []
   },
   "retired_terms": [
     {
