@@ -47,6 +47,8 @@ validate    V1 schema · V2 a single option not derived (a one-literal row its d
             headers, no env — no credential in the entry (EVOL-079) · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
             configured id a row, a row no option configures names no STACK_LABEL_KEYS label.
             V14 (EVOL-080) the asked deliverable homes (`deliverables.<category>.home`) are the documents reader's asked categories.
+            V15 (#261) a shipped `lint` row excludes every framework-owned delivered file of its tool's language (LINT_READS)
+            and no project-owned one, each exclusion anchored at the project root.
 any answer  EVOL-131 — an open key's answer that is none of its literals is `unmodelled`: {key, answer, owes, templates} —
             owes = the config pointers the key's shipped rows set, templates = the manifest entries naming the key that this
             answer skips. Each owed pointer is declared in docs/setup.md under the pointer itself, in a shipped row's shape
@@ -71,6 +73,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import re
+import shlex
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -110,6 +113,9 @@ DETECT = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|#))([^#\s]+)#(/[^#\s]*)$")
 TIERS = (0, 1, 2)
 TOP_FIELDS = ("questions", "derived", "constants", "placeholder_baseline", "migrations")
 GATE_ROW_FIELDS = ("command", "scoped", "red_link", "report", "red", "red_reads", "inline", "was")   # `was`: superseded template values, registry-only (EVOL-116)
+LINT_READS = {"ruff": (".py", ".pyi"), "eslint": (".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"),
+              "golangci-lint": (".go",), "dotnet": (".cs",), "cargo": (".rs",)}   # #261: the files each shipped lint tool reads
+LINT_EXCLUDE_FLAGS = ("--extend-exclude", "--exclude", "--ignore-pattern")   # ruff (comma-separated) and eslint (one per flag)
 LOOP_PARTS = {"backend.runtime": ("tests", "sca"), "frontend.framework": ("frontend-tests",)}   # each answered part needs one of its gates
 STOP = ("the project has no declared way to verify {parts} — declare its gate rows (SETUP discovery § verification coverage, "
         "docs/setup.md → verification.gates) and run --generate again")
@@ -1849,15 +1855,92 @@ def _v14(reg: dict) -> list[str]:
     return out
 
 
+def lint_excludes(command: str) -> tuple[str | None, list[str]]:
+    """#261: a lint command's tool (the first word, past `npx`) and the paths its exclusion flags name."""
+    try:
+        toks = shlex.split(command)
+    except ValueError:
+        return None, []
+    words = [t for t in toks if t != "npx"]
+    pats: list[str] = []
+    for i, t in enumerate(toks):
+        flag, eq, val = t.partition("=")
+        if flag in LINT_EXCLUDE_FLAGS:
+            val = val if eq else (toks[i + 1] if i + 1 < len(toks) else "")
+            pats += [p for p in val.split(",") if p]
+    return (Path(words[0]).name if words else None), pats
+
+
+def lint_anywhere(pat: str, tool: str | None) -> bool:
+    """#261, probed (ruff 0.17.4, eslint 9.39.1): a pattern from `**/` matches at any depth, and so does a ruff pattern
+    with no `/`. Every other form names a path from the project root."""
+    return pat.startswith("**/") or (tool != "eslint" and "/" not in pat)
+
+
+def lint_excluded(path: str, pats: list[str], tool: str | None = None) -> bool:
+    """Whether `tool` skips the project-relative `path` under the exclusion patterns: a root-anchored pattern names that
+    path or a directory above it; an any-depth one names it from any directory. A leading `/` names nothing. `*` and `?`
+    never cross `/`, `**` does."""
+    parts = path.split("/")
+    for p in pats:
+        if p.startswith("/"):
+            continue
+        q = p.removeprefix("**/").removeprefix("./").strip("/")
+        if not q:
+            continue
+        starts = range(len(parts)) if lint_anywhere(p, tool) else (0,)
+        rx = re.compile("".join(".*" if t == "**" else "[^/]*" if t == "*" else "[^/]" if t == "?" else re.escape(t)
+                                for t in re.split(r"(\*\*|\*|\?)", q)))
+        if any(rx.fullmatch("/".join(parts[i:n])) for i in starts for n in range(i + 1, len(parts) + 1)):
+            return True
+    return False
+
+
+def _delivered_owners(manifest: dict) -> dict[str, str | None]:
+    """Every path a project receives with its owner: factory-sync's (manifest.delivered, EVOL-136) and each template's target."""
+    from .manifest import delivered
+    out = {p: r.get("owner") for p, r in delivered(manifest).items()}
+    for _, e in (manifest.get("templates") or {}).items():
+        if isinstance(e, dict) and isinstance(e.get("target"), str):
+            out.setdefault(e["target"], e.get("owner"))
+    return out
+
+
+def _v15(reg: dict, manifest: dict) -> list[str]:
+    """#261: a shipped lint row reads the project's own code — it excludes every framework-owned delivered file of its
+    language (the project cannot cure one, EVOL-136) and no project-owned one."""
+    owners, out = _delivered_owners(manifest), []
+    rows = [(f"`{k}` = {lit}", r) for k, s in _specs(reg).items() if isinstance(s.get("configures"), dict)
+            for lit, r in s["configures"].items()]
+    rows += [(f"derived `{k}`", s["configures"]) for k, s in _derived(reg).items() if isinstance(s, dict) and "configures" in s]
+    for where, r in rows:
+        lint = ((r or {}).get("verification.gates") or {}).get("lint") if isinstance(r, dict) else None
+        if not isinstance(lint, dict) or not isinstance(lint.get("command"), str):
+            continue
+        tool, pats = lint_excludes(lint["command"])
+        if tool not in LINT_READS:
+            out.append(f"V15 · {where}: lint tool `{tool}` is not in LINT_READS — name the files it reads"); continue
+        out += [f"V15 · {where}: exclusion `{p}` matches at any depth — name it from the project root "
+                f"(`./{p.removeprefix('**/')}`), or it skips the project's own `{p.removeprefix('**/')}`" for p in pats if lint_anywhere(p, tool)]
+        for p, o in sorted(owners.items()):
+            if not p.endswith(LINT_READS[tool]):
+                continue
+            if o == "framework" and not lint_excluded(p, pats, tool):
+                out.append(f"V15 · {where}: lint reads framework-owned `{p}` — exclude it in the command (a project cannot cure it)")
+            elif o == "project" and lint_excluded(p, pats, tool):
+                out.append(f"V15 · {where}: lint excludes project-owned `{p}` — the gate reads the project's code")
+    return out
+
+
 def validate(repo: Path) -> list[str]:
-    """Every finding of V1–V14, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
+    """Every finding of V1–V15, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
     reg = load_registry(repo)
     manifest = load_manifest(repo)
     fw = _semver(manifest.get("framework_version"))
     out = _v1(reg, fw)
     if fw is None:
         out.append(f"V1 · framework_version `{manifest.get('framework_version')}` in {MANIFEST} is not x.y.z — `since` cannot be held to it")
-    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg) + _v10(repo, reg, manifest) + _v11(repo, reg, fw) + _v12(reg) + _v13(repo, reg) + _v14(reg)
+    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg) + _v10(repo, reg, manifest) + _v11(repo, reg, fw) + _v12(reg) + _v13(repo, reg) + _v14(reg) + _v15(reg, manifest)
 
 
 def render(findings: list[str]) -> str:

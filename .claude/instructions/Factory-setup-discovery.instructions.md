@@ -431,12 +431,12 @@ Questions are organized in dependency order within tiers; conditions live in the
 **Automatic Special Needs Detection Protocol:** Before asking, scan `business_goal` keywords and integration ACLs to auto-detect needs in 10 categories: `ai_agent_framework`, `orm`, `auth_library`, `payment_processing`, `real_time_communication`, `file_processing`, `email_service`, `caching`, `message_queue`, `workflow_orchestration`.
 
 **Per-runtime dependency recommendations:**
-- Node.js Express/Fastify: Prisma/TypeORM/Drizzle (ORM), Zod (validation), Jest/Vitest (testing)
-- Node.js NestJS: TypeORM/Prisma (ORM), class-validator (validation), Jest (testing)
-- Python FastAPI: SQLAlchemy/Tortoise (ORM), Pydantic (validation), pytest (testing)
-- Python Django: Django ORM (built-in), DRF serializers (validation), pytest-django (testing)
-- Java Spring Boot: Spring Data JPA/Hibernate (ORM), Jakarta Validation (validation), JUnit 5 (testing)
-- Go Gin/Echo: GORM/sqlx (ORM), go-playground/validator (validation), testing (built-in)
+- Node.js Express/Fastify — Prisma/TypeORM/Drizzle (ORM), Zod (validation), Jest/Vitest (testing)
+- Node.js NestJS — TypeORM/Prisma (ORM), class-validator (validation), Jest (testing)
+- Python FastAPI — SQLAlchemy/Tortoise (ORM), Pydantic (validation), pytest (testing)
+- Python Django — Django ORM (built-in), DRF serializers (validation), pytest-django (testing)
+- Java Spring Boot — Spring Data JPA/Hibernate (ORM), Jakarta Validation (validation), JUnit 5 (testing)
+- Go Gin/Echo — GORM/sqlx (ORM), go-playground/validator (validation), testing (built-in)
 
 **Frontend dependency recommendations per framework:**
 - React+Next.js: React Query/SWR (data), React Hook Form/Formik (forms), Tailwind/Styled Components (styling)

@@ -312,10 +312,10 @@ if "| DC-18 |" not in cat:
 PY
   # the project's config predates 8.20.0: no `train`, no `contracts`, no `data`, no `performance`, no `delivery`, no `proof`, no `tracker`, no `documents` and no `catalog` block (EVOL-104, EVOL-115, EVOL-071, EVOL-073, EVOL-081, EVOL-106, EVOL-079, EVOL-080, EVOL-084) — their migrations are owed
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data", "performance", "delivery", "proof", "tracker", "documents", "catalog")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
-  # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped (a `was` value — replaced), a
+  # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped and lint command (`was` values — replaced, #261), a
   # tests command the project edited (kept), no red_reads (added); no `sast` row (EVOL-074 — added), no `contract-parity` row (EVOL-070 — added where Q4.5 selects it), no `performance` row (EVOL-073 — added with a frontend)
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]
-g["frontend-tests"]["scoped"]="npx jest --config jest.config.ts {paths} --no-coverage"; g["tests"]["command"]="python -m pytest -q -x"
+g["frontend-tests"]["scoped"]="npx jest --config jest.config.ts {paths} --no-coverage"; g["tests"]["command"]="python -m pytest -q -x"; g["lint"]["command"]="ruff check ."
 [r.pop("red_reads", None) for r in g.values()]; [g.pop(k, None) for k in ("sast", "contract-parity", "performance")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   # its answers predate the deploy tool (EVOL-081): `hosting.iac_tool`, renamed by the deploy-tool migration
   sed -i 's/^\(  *\)deploy_tool:/\1iac_tool:/' "$P/docs/setup.md"

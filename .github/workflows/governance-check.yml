@@ -126,7 +126,7 @@ jobs:
           3. **T2 governance suite** — one of the static template / extraction / ADR-accept / sync-gate tests failed.
              Run locally: \`bash scripts/test-templates-static.sh\` (and the sibling \`scripts/test-*.sh\` suites). Each test is self-contained and prints the failing assertion.
 
-          Run all checks locally: \`./scripts/validate-governance.sh --base main && ./scripts/check-adr-constitution-sync.sh origin/main && for t in scripts/test-*.sh; do case \$t in *red-stacks.sh|*sast-packs.sh) continue;; esac; bash \"\$t\" || break; done\` (\`scripts/test-red-stacks.sh <stack>\` runs in the stack's container — the red-stacks job; \`scripts/test-sast-packs.sh\` in semgrep/semgrep:1.182.0 — the sast-packs job)"
+          Run all checks locally: \`./scripts/validate-governance.sh --base main && ./scripts/check-adr-constitution-sync.sh origin/main && for t in scripts/test-*.sh; do case \$t in *red-stacks.sh|*sast-packs.sh|*delivered-clean.sh) continue;; esac; bash \"\$t\" || break; done\` (\`scripts/test-red-stacks.sh <stack>\` runs in the stack's container — the red-stacks job; \`scripts/test-sast-packs.sh\` in semgrep/semgrep:1.182.0 — the sast-packs job; \`scripts/test-delivered-clean.sh\` with its pinned linters and scanners — the delivered-clean job)"
 
   # EVOL-116: the registry's per-file scoped rows proven on every stack the templates offer, each in its pinned tool
   # image — a passing, a failing and a no-test file per stack (Rust adds its in-source tests). No silent pass: exit 2 is
@@ -178,6 +178,34 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.0 sh -c \
             'bash scripts/test-sast-packs.sh >/tmp/t 2>&1; r=$?; cat /tmp/t; [ "$r" -eq 0 ] && grep -q "^test-sast-packs: OK$" /tmp/t'
+
+  delivered-clean:
+    # #261: a fresh project's lint and secrets gates are green on the tree the framework delivers, per synthetic answer
+    # set (test-delivered-clean.sh). gitleaks and trufflehog, the scanners Q23.2 offers, find nothing there and do find a
+    # planted credential. Each shipped lint row reads the project's code and no framework-owned file, is green on the tree
+    # and red on a planted defect, and records its superseded command, which is red. The delivered push hook's ruff block
+    # is green on the tree and its exclusion list is the manifest's framework-owned Python. Every tool is pinned. A missing tool is exit 2 and fails the job; the script's last line is the verdict.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Delivered tree clean (ruff 0.17.4, eslint 9.39.1, gitleaks v8.30.0, trufflehog 3.99.3)
+        env:
+          RUFF: python3 -m ruff
+          ESLINT_VERSION: 9.39.1
+          TMPDIR: /tmp/delivered-clean
+          GITLEAKS: docker run --rm -v /tmp/delivered-clean:/tmp/delivered-clean zricethezav/gitleaks:v8.30.0
+          TRUFFLEHOG: docker run --rm -v /tmp/delivered-clean:/tmp/delivered-clean --entrypoint trufflehog trufflesecurity/trufflehog:3.99.3
+        run: |
+          mkdir -p /tmp/delivered-clean
+          python3 -m pip install --quiet ruff==0.17.4
+          bash scripts/test-delivered-clean.sh >/tmp/t 2>&1; r=$?; cat /tmp/t; [ "$r" -eq 0 ] && grep -q "^test-delivered-clean: OK$" /tmp/t
 
   contract-parity:
     # EVOL-070: the contract parity gate proven with the real oasdiff — the release binary pinned at 1.15.2, refused
