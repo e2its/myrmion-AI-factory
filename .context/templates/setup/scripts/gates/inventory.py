@@ -8,7 +8,8 @@ read     per sibling, three calls through `rest.call` (a redirect never followed
          nothing written — never a copy of a sibling's inventory.
 match    CIP criteria 1 (EXACT: name, case-insensitive, and type), 2 (SAME_DOMAIN: module and type) and 4 (NAME_SIMILAR:
          Levenshtein < 3 and type); the best per entry. Criterion 3 (semantic) stays local: it would need the whole
-         sibling inventory in the agent's context. A match carries the entry whole — every string cleaned and capped: another
+         sibling inventory in the agent's context. At most 20 matches per candidate, best first; the rest counted in a warning.
+         A match carries the entry whole — every string cleaned and capped: another
          repository's data, never an instruction — with {source, sha}.
 token    one token, one platform (owner RDR «1», 2026-11-21): sent only to the project's own SCM — its origin host, or, when
          that is a SaaS host, the same platform's SaaS host; a sibling anywhere else is named and not read. Bitbucket and
@@ -36,6 +37,11 @@ INVENTORY = "config/codebase_inventory.json"
 SERVICE = "the sibling's SCM"
 ENTRY_TEXT_MAX = 300   # each string of a sibling's entry: another repository's bytes, cleaned and capped before the agent reads them
 SHA = re.compile(r"[0-9a-fA-F]{7,64}")
+ENTRY_DEPTH, ENTRY_ITEMS = 6, 50   # a sibling's entry, bounded: nesting levels and keys / items per level
+MAX_MATCHES = 20   # per candidate, best first — a context bound, never a decision: the rest is counted in a warning
+RANK = {"EXACT_MATCH": 0, "SAME_DOMAIN": 1, "NAME_SIMILAR": 2}
+SCHEMED = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]*://)([^/?#]*)(.*)$", re.S)
+SCP = re.compile(r"^(.+)@([^@/:]+:(?!//).*)$", re.S)
 
 
 def _lev(a: str, b: str) -> int:
@@ -85,7 +91,7 @@ def _gitlab(rm: dict, tok: str, call) -> tuple[str, object]:
     api = "https://gitlab.com/api/v4" if rm["host"] == "gitlab.com" else f"https://{rm['host']}/api/v4"
     proj = _obj(_get(call, f"{api}/projects/{_q(rm['owner'] + '/' + rm['repo'])}", h))
     pid, branch = _must(proj.get("id"), "id"), _must(proj.get("default_branch"), "default_branch")
-    if not pid.isdigit():
+    if not rest.ascii_int(pid):
         raise _Shape("its answer carries no numeric `id`")
     base = f"{api}/projects/{pid}/repository"
     sha = _sha(_obj(_obj(_get(call, f"{base}/branches/{_q(branch)}", h)).get("commit")).get("id"), "commit.id")
@@ -150,23 +156,48 @@ def _obj(v) -> dict:
 
 
 def _q(s: str) -> str:
+    if s in (".", ".."):
+        raise _Shape("its URL names a `.` or `..` path segment")
     return urllib.parse.quote(s, safe="")
 
 
-def _clean_entry(v):
-    """Another repository's entry, shape kept: every string cleaned (no control or bidi byte) and capped."""
+def _clean_entry(v, depth: int = 0):
+    """Another repository's entry, shape kept and bounded: every string cleaned (no control or bidi byte) and capped,
+    at most ENTRY_ITEMS keys / items per level and ENTRY_DEPTH levels."""
+    if isinstance(v, (dict, list)) and depth >= ENTRY_DEPTH:
+        return "…"
     if isinstance(v, dict):
-        return {clean(k, ENTRY_TEXT_MAX): _clean_entry(x) for k, x in v.items()}
+        return {clean(k, ENTRY_TEXT_MAX): _clean_entry(x, depth + 1) for k, x in list(v.items())[:ENTRY_ITEMS]}
     if isinstance(v, list):
-        return [_clean_entry(x) for x in v]
+        return [_clean_entry(x, depth + 1) for x in v[:ENTRY_ITEMS]]
     return clean(v, ENTRY_TEXT_MAX) if isinstance(v, str) else v
 
 
-def _shown(p: urllib.parse.SplitResult, url: str) -> str:
-    """The sibling as messages and pins name it: an https URL's user part dropped."""
-    if p.scheme in ("http", "https") and "@" in p.netloc:
-        return urllib.parse.urlunsplit((p.scheme, p.netloc.rsplit("@", 1)[1], p.path, "", ""))
-    return clean(url, ENTRY_TEXT_MAX)
+def _userinfo(url: str) -> tuple[str | None, str]:
+    """(the user part, the URL without it) for every form — scheme://user@host/…, user@host:path."""
+    m = SCHEMED.match(url)
+    if m:
+        if "@" not in m.group(2):
+            return None, url
+        info, host = m.group(2).rsplit("@", 1)
+        return info, m.group(1) + host + m.group(3)
+    m = SCP.match(url)
+    return (m.group(1), m.group(2)) if m else (None, url)
+
+
+def _best(matches: list[dict]) -> tuple[list[dict], dict]:
+    """At most MAX_MATCHES per candidate: EXACT, then SAME_DOMAIN, then NAME_SIMILAR by distance; ties keep the declared
+    order. Returns the kept matches and the count left out per candidate."""
+    def key(m):
+        return RANK[m["criterion"]], (_lev(m["candidate"].lower(), str(m["entry"].get("name", "")).lower())
+                                      if m["criterion"] == "NAME_SIMILAR" else 0)
+    kept, omitted = [], {}
+    for name in dict.fromkeys(m["candidate"] for m in matches):
+        ranked = sorted((m for m in matches if m["candidate"] == name), key=key)
+        kept += ranked[:MAX_MATCHES]
+        if len(ranked) > MAX_MATCHES:
+            omitted[name] = len(ranked) - MAX_MATCHES
+    return kept, omitted
 
 
 def _get(call, url: str, headers: dict):
@@ -228,18 +259,19 @@ def siblings(repo, candidates: list[dict], env: dict | None = None, call=rest.ca
             home = scm.remote(repo)["host"]
         except GateFault:
             home = None   # no origin: the project's platform answer alone names the SaaS host the token may reach
-    project = answers.get("scm.platform")
-    for url in urls:
-        try:
-            parts = urllib.parse.urlsplit(url)
-            parts.port   # a malformed port raises here, not later
-        except ValueError:
-            out["warnings"].append(f"sibling {clean(url, ENTRY_TEXT_MAX)}: not a clone URL — fix it in docs/setup.md → {SIBLINGS_KEY}; not read")
-            continue
-        shown = _shown(parts, url)
-        if parts.password is not None:
+    project = answers.get("scm.platform") if isinstance(answers.get("scm.platform"), str) else None
+    found = []
+    for raw in urls:
+        info, url = _userinfo(raw.strip())   # the user part never reaches a message, a pin or the parser
+        shown = clean(url, ENTRY_TEXT_MAX)
+        if info is not None and ":" in info:
             out["warnings"].append(f"sibling {shown}: its URL carries a credential — remove it from docs/setup.md → {SIBLINGS_KEY}; "
                                    f"the token comes from the vault ({TOKEN_ENV}); not read")
+            continue
+        try:
+            urllib.parse.urlsplit(url).port   # a malformed port raises here, not later
+        except ValueError:
+            out["warnings"].append(f"sibling {shown}: not a clone URL — fix it in docs/setup.md → {SIBLINGS_KEY}; not read")
             continue
         try:
             rm = scm.remote(repo, url)
@@ -254,13 +286,20 @@ def siblings(repo, candidates: list[dict], env: dict | None = None, call=rest.ca
             continue
         except GateFault as e:
             moved = " — if it moved, update its URL in docs/setup.md → " + SIBLINGS_KEY if "redirect" in str(e) else ""
-            out["warnings"].append(f"sibling {shown}: {str(e).replace(url, shown)}{moved} — reuse is checked without it")
+            out["warnings"].append(f"sibling {shown}: {e}{moved} — reuse is checked without it")
+            continue
+        except (ValueError, TypeError, RecursionError, OSError) as e:   # the fail-open boundary: a sibling's bytes never escape
+            out["warnings"].append(f"sibling {shown}: its answer could not be read ({type(e).__name__}) — reuse is checked without it")
+            continue
+        try:
+            mine = [{"candidate": c["name"], "source": shown, "sha": sha, "criterion": crit, "entry": _clean_entry(entry)}
+                    for c in candidates for entry in arts if (crit := match(c, entry))]
+        except (ValueError, TypeError, RecursionError) as e:
+            out["warnings"].append(f"sibling {shown}: its inventory could not be matched ({type(e).__name__}) — reuse is checked without it")
             continue
         out["siblings"] += 1   # read: its inventory answered
-        for c in candidates:
-            for entry in arts:
-                crit = match(c, entry)
-                if crit:
-                    out["matches"].append({"candidate": c["name"], "source": shown, "sha": sha, "criterion": crit, "entry": _clean_entry(entry)})
+        found += mine
+    out["matches"], omitted = _best(found)
+    out["warnings"] += [f"{n} more matches for {name} not shown — the best {MAX_MATCHES} are" for name, n in omitted.items()]
     out["warnings"] = [w.replace(tok, "***") for w in out["warnings"]]   # defence: no message carries the token
     return out

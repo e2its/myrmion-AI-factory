@@ -9664,6 +9664,8 @@ class Inventory(unittest.TestCase):
             self.assertEqual((p.returncode, out["matches"], out["warnings"]), (0, [], []), p.stderr); self.assertIn("no sibling repository declared", out["note"])
             p = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "inventory", "--siblings"], input="nope", capture_output=True, text=True)
             self.assertEqual(p.returncode, 2); self.assertIn("not JSON", p.stderr + p.stdout)
+            p = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "inventory"], input="[]", capture_output=True, text=True)
+            self.assertEqual(p.returncode, 2); self.assertIn("name --siblings", p.stderr + p.stdout)
 
     def test_an_answer_of_the_wrong_shape_is_named_never_raised(self):
         b = "https://api.github.com/repos/acme/core"
@@ -9711,12 +9713,65 @@ class Inventory(unittest.TestCase):
 
     def test_a_url_carrying_a_credential_is_refused_unread(self):
         r, seen = self._run(["https://bob:hunter2pw@github.com/acme/core.git", "https://github.com/acme/core"], self._gh())
-        self.assertEqual([u for u, _ in seen if "acme/core" not in u], []); self.assertEqual(len(seen), 3, "only the clean sibling is read")
+        self.assertEqual(len(seen), 3, "only the clean sibling is read")
         self.assertIn("carries a credential", r["warnings"][0]); self.assertNotIn("hunter2pw", json.dumps(r)); self.assertNotIn("bob", json.dumps(r))
         r, _ = self._run(["https://bob@github.com/acme/core.git"], self._gh())
         self.assertEqual({m["source"] for m in r["matches"]}, {"https://github.com/acme/core.git"}, "a user part never reaches the pin")
         r, _ = self._run(["https://github.com:99999/acme/core"], {})
         self.assertIn("not a clone URL", r["warnings"][0])
+        for bad in ("ssh://bob:hunter2pw@github.com/acme/core.git", "bob:hunter2pw@github.com:acme/core.git", "https://bob:hunter2pw@github.com:99999/x"):
+            r, seen = self._run([bad], self._gh())
+            self.assertEqual(seen, [], bad); self.assertIn("carries a credential", r["warnings"][0], bad)
+            self.assertNotIn("hunter2pw", json.dumps(r), bad)
+        r, _ = self._run([" https://ghp_tok999@github.com/acme/core "], self._gh())
+        self.assertEqual(len(r["matches"]), 3); self.assertNotIn("ghp_tok999", json.dumps(r), "a token in the user part is dropped everywhere")
+        r, _ = self._run(["git@github.com:acme/core.git"], self._gh())
+        self.assertEqual({m["source"] for m in r["matches"]}, {"github.com:acme/core.git"})
+
+    def test_a_hostile_answer_is_named_never_raised(self):
+        b = "https://api.github.com/repos/acme/core"
+        r, _ = self._run(["https://github.com/acme/core"], {b: {"default_branch": "\ud800"}})
+        self.assertIn("could not be read (UnicodeEncodeError)", r["warnings"][0])
+        deep = []
+        for _ in range(3000):
+            deep = [deep]
+        inv = {"artifacts": [{"name": "AuthService", "type": "service", "module": "auth", "x": deep, "many": list(range(500))}]}
+        r, _ = self._run(["https://github.com/acme/core"], self._gh(inv=inv))
+        e = r["matches"][0]["entry"]
+        self.assertEqual(len(e["many"]), 50); self.assertIn("…", json.dumps(e, ensure_ascii=False)); json.dumps(r)
+        g = "https://gitlab.com/api/v4/projects"
+        r, _ = self._run(["https://gitlab.com/grp/core"], {f"{g}/grp%2Fcore": {"id": "²", "default_branch": "main"}}, platform="GitLab")
+        self.assertIn("numeric `id`", r["warnings"][0])
+        r, seen = self._run(["https://github.com/./core"], {})
+        self.assertEqual(seen, []); self.assertIn("`.` or `..`", r["warnings"][0])
+        r, seen = self._run(["https://ghe.acme.io/acme/core"], {}, platform=["GitHub"], home="ghe.acme.io")
+        self.assertEqual(seen, []); self.assertIn("not one this reader can read", r["warnings"][0])
+        err = urllib.error.HTTPError("https://api.github.com/x", 404, "x", {}, io.BytesIO(b"[" * 60000))
+        with unittest.mock.patch.object(rest, "_OPEN", side_effect=err), self.assertRaises(rest.NotFound):
+            rest.call("GitHub", "s", "a", "GET", "https://api.github.com/x", {})
+
+    def test_a_crowded_module_is_bounded_best_first(self):
+        arts = [{"name": f"Svc{i}", "type": "service", "module": "auth", "path": f"src/s{i}.py"} for i in range(25)]
+        arts.append({"name": "AuthService", "type": "service", "module": "y", "path": "src/exact.py"})
+        r, _ = self._run(["https://github.com/acme/core"], self._gh(inv={"artifacts": arts}))
+        paths = [m["entry"]["path"] for m in r["matches"]]
+        self.assertEqual((len(paths), paths[0], paths[1]), (20, "src/exact.py", "src/s0.py"), "best first, declared order on a tie")
+        self.assertEqual(r["warnings"], ["6 more matches for AuthService not shown — the best 20 are"])
+        near = [{"name": "AuthServixx", "type": "service", "module": "x", "path": "far"}, {"name": "AuthServicx", "type": "service", "module": "x", "path": "near"}]
+        r, _ = self._run(["https://github.com/acme/core"], self._gh(inv={"artifacts": near}))
+        self.assertEqual([m["entry"]["path"] for m in r["matches"]], ["near", "far"], "NAME_SIMILAR by distance")
+
+    def test_the_origin_names_the_home(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "-C", str(repo), "remote", "add", "origin", "https://github.com/acme/app.git"], check=True)
+            call, seen = self._stub(self._gh())
+            from gates import inventory
+            r = inventory.siblings(repo, [{"name": "AuthService", "type": "service", "module": "auth"}], env={"INVENTORY_SIBLINGS_TOKEN": self.TOK},
+                                   call=call, answers={"inventory.siblings": ["https://gitlab.com/acme/web", "https://github.com/acme/core"], "scm.platform": "GitHub"})
+        self.assertEqual({urllib.parse.urlsplit(u).hostname for u, _ in seen}, {"api.github.com"})
+        self.assertIn("not on the project's own SCM (github.com)", r["warnings"][0]); self.assertEqual(len(r["matches"]), 3)
 
     def test_entries_are_cleaned_data(self):
         inv = {"artifacts": [{"name": "AuthService", "type": "service", "module": "auth", "path": "src/x.py",

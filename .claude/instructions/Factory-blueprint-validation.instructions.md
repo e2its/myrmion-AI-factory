@@ -161,8 +161,8 @@ FUNCTION cip_refine_artifact_recheck(refine_changes, FEATURE_ID):
       DECIDE (§ Reuse Decision): REUSE / EXTEND / CREATE_NEW
       overlaps += candidates.SAME_DOMAIN.length
 
-  # Siblings (EVOL-139): with inventory.siblings declared, the new artifacts also go through
-  #   python3 scripts/gate.py inventory --siblings  (factory-codebase-inventory § Siblings) — same decision, pinned {source}@{sha}
+  # Siblings (EVOL-139): always (none declared → a note), the new artifacts also go through
+  #   python3 scripts/gate.py inventory --siblings <<'JSON' … JSON  (factory-codebase-inventory § Siblings) — same decision, pinned {source}@{sha}
 
   LOG: "CIP Refine Re-Check: {new_artifacts.length} new artifacts checked, {overlaps} overlaps resolved"
 ```
@@ -185,7 +185,7 @@ FUNCTION endpoint_rescan_gate(refine_changes, FEATURE_ID):
       ❌ BLOCK: "Endpoint collision detected: {endpoint.method} {endpoint.path}"
       SHOW: "Already exists in: {collisions[0].feature_id} ({collisions[0].contract_slug})"
       DECIDE (factory-codebase-inventory § Reuse Decision): reuse the existing endpoint, rename, or ADR for an intentional overlap
-      RE-RUN this gate after the decision
+      RE-RUN this gate after the decision — a collision kept by an ADR passes
 
   ✅ No endpoint collisions — proceed with refine
 ```

@@ -54,11 +54,12 @@ def ascii_int(v) -> bool:
 def _reason(e: urllib.error.HTTPError) -> str:
     try:
         msg = json.loads(e.read(REASON_MAX).decode("utf-8") or "{}")   # an error body is read bounded, like an answer
-    except (ValueError, OSError, AttributeError):
+    except (ValueError, OSError, AttributeError, RecursionError):   # a hostile body (deep nesting) is no reason
         return ""
     if not isinstance(msg, dict):
         return ""
-    parts = [*(msg.get("errorMessages") or []), *(f"{k}: {v}" for k, v in (msg.get("errors") or {}).items() if isinstance(msg.get("errors"), dict))]
+    errs = msg.get("errorMessages")
+    parts = [*(errs if isinstance(errs, list) else []), *(f"{k}: {v}" for k, v in (msg.get("errors") or {}).items() if isinstance(msg.get("errors"), dict))]
     if not parts and isinstance(msg.get("message"), str):
         parts = [msg["message"]]
     return "; ".join(str(p) for p in parts)

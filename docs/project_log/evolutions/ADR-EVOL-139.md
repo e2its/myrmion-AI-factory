@@ -105,7 +105,8 @@ Evidence (external, beat 0, the docs reader):
    - Every value that lands in a URL is encoded; a commit id must be hex and a GitLab project id digits.
    - Criterion 3 (semantic) stays local: it would need the whole sibling inventory in the agent's context.
 3. **Fail-open, named (LAW-08).** No token: one warning, nothing read. Otherwise each sibling that yields nothing returns one plain warning naming its URL, and the remaining siblings are still read:
-   - a URL carrying a credential (refused unread; the warning shows the URL without it);
+   - a URL carrying a credential, in any form (`https://u:p@…`, `ssh://u:p@…`, `u:p@host:path`): refused unread, the warning shows the URL without it. A user part alone (`https://user@…`, `git@host:…`) is read and dropped from every message and pin;
+   - an answer that cannot be read at all (a deep nesting, an encoding fault): named by its kind, never its bytes;
    - an unsupported platform;
    - refused (401/403);
    - unreachable (network, 5xx, a redirect never followed);
@@ -116,7 +117,7 @@ Evidence (external, beat 0, the docs reader):
    - `cip_consultation_gate` gains one step, always run: it pipes the artefacts it is about to create into the reader; none declared → a note. Each match is decided the same way as a local one, tagged `{source}@{sha}`: REUSE (consume it, record the pin, never write a foreign entry) or CREATE_NEW; a sibling is never extended from here.
    - **The architect decides reuse.** Owner direction, 2026-11-21, verbatim: «no me vale, es algo que el sistema debería poder decidir sin intervención humana» · «debería poder decidir si un módulo existe y es reutilizable» · «el arquitecto debería revisar qué hay construido antes de proponer construir nada nuevo si ya existe un componente para eso. Eso es lo que hace un arquitecto y para eso gestionamos un code_inventory». The CIP's one decision home (factory-codebase-inventory § Reuse Decision) changes from a user RDR per candidate to the agent's decision from the evidence, local and sibling alike. Each decision lands in § Reuse Analysis with one line of rationale and is reviewed at BLUEPRINT --approve. The user is asked only when the choice changes what the product does for the business (LAW-16). Aligned in the same pull request (LAW-17): blueprint-design −2d and −1c, the blueprint-validation refine re-check, implement-build 0d, the canary and design_template § Reuse Analysis. CODESIGN's domain-concept overlap stays the user's: it is a business decision.
    - The design's § Reuse Analysis records that pin.
-   - BLUEPRINT (−2c, the refine re-check) and IMPLEMENT (plan S.2, build 0d) consult siblings. CODESIGN 0.5 stays local: its domain check is business-only (LAW-16).
+   - BLUEPRINT (−2c, the refine re-check) consults siblings; IMPLEMENT reads BLUEPRINT's pin (plan S.2) and consults only when § Reuse Analysis is absent (build 0d). CODESIGN 0.5 stays local: its domain check is business-only (LAW-16).
 5. **Not a gate.** The reader is no profile member, no CI step and no workflow.
 
 ## Rejected
@@ -134,7 +135,8 @@ Evidence (external, beat 0, the docs reader):
   - On GitHub and GitLab, a missing inventory and a token that cannot see the repository give the same 404, so the warning names both.
   - Rate limits were not measured (ADR-EVOL-087).
   - A sibling that was never materialised has no inventory and is named as such.
-  - An entry's strings are capped at 300 characters; a longer description is cut.
+  - An entry's strings are capped at 300 characters, 50 keys or items per level and 6 levels; a longer entry is cut.
+  - At most 20 matches per candidate return, best first (EXACT, SAME_DOMAIN, NAME_SIMILAR by distance); a warning counts the rest. A context bound, never a decision.
   - A sibling on another platform or another server is not read: one token reaches one SCM.
 
 ## Verification
