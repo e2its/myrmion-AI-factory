@@ -6,11 +6,14 @@ Edit / Write / MultiEdit give `tool_input.file_path`. Bash gives the targets of 
 destination), and an inline interpreter program (#227) — python `-c PROG`, node `-e|--eval|-p|--print PROG`, or a
 heredoc on stdin (`- <<EOF`, `<<EOF` with no script). Python is read by its AST, node by a light scanner; a target is
 a literal, a name bound exactly once (module scope) to one, a path built over literals (Path(…), `/`, path.join),
-`sys.argv[N]`, joined to a literal working directory set once before it. Python writers: open / io.open / X.open
-with a write mode, os.open with a write flag, write_text|write_bytes, os.replace|rename, shutil copy / move
-destinations, a path's replace|rename(target). Node: writeFile, appendFile, createWriteStream (first argument),
-copyFile, rename, cp (second), open with a write flag — Sync or not. A recognised writer whose target is computed is
-unresolved, never guessed. Anything else is not a writer (bash -c, a script file, a program piped in, xargs /
+`sys.argv[N]`, joined to a literal working directory set once before it (by position; never when code may run later).
+Python writers: open / io / codecs / tarfile / gzip / bz2 / lzma open and zipfile.ZipFile with a write mode, a path's
+open, os.open with a write flag, write_text|write_bytes, os.replace|rename and shutil.move (source and destination),
+shutil copy destinations, a path's replace|rename (both). Node: writeFile, appendFile, createWriteStream (first
+argument), copyFile, cp (second), rename (both), open with a write flag — Sync or not. Unresolved, never guessed: a
+computed target, mode or flag; a `$` in program text the shell expanded; a writer passed around, rebound, unpacked or
+reached by a name; code built at run time; an unparsable program that names a writer; a reader fault. Imports are read
+through their aliases. Heredoc operators count where bash reads them. Anything else is not a writer (bash -c, a script file, a program piped in, xargs /
 find -exec, build scripts, git apply — pre-commit stays their backstop). A wrapper or a reserved word before the
 command (sudo, env, do, then, {, !) never hides it.
 
@@ -39,48 +42,102 @@ UNMASK = str.maketrans({v: k for k, v in MASK.items()})
 BRACE = re.compile(r"\{[^{}]*(,|\.\.)[^{}]*\}")
 FILE_REDIR = {">", ">>", ">|", "&>", "&>>", "<>"}
 OPS = re.compile(r"&>>|&>|>>|>\||>&|<<<|<<|<&|<>|&&|\|\||\|&|;;|[;&|()<>\n]")
-HEREDOC = re.compile(r"(?<!<)<<(-?)(?!<)[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+# a heredoc operator: `<<WORD`, `<<-WORD`, `<<'WORD'`, `<<"WORD"`, `<<\WORD` — any quoting makes the body literal
+HEREDOC = re.compile(r"(?<!<)<<(-?)(?!<)[ \t]*(?:\\([A-Za-z_]\w*)|'([^'\n]+)'|\"([^\"\n]+)\"|([A-Za-z_]\w*))(?=[\s;&|()<>]|$)")
 VAR = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 ASSIGN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.S)
 ENV_FALLBACK = ("HOME", "CLAUDE_PROJECT_DIR", "TMPDIR")
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit"}
 HDOC_MARK = chr(0xE100)   # a private-use character: the placeholder word of a heredoc body (#227)
 HDOC_WORD = re.compile(HDOC_MARK + r"(\d+)")
-PATH_CTORS = {"Path", "pathlib.Path", "PurePath", "pathlib.PurePath", "PosixPath", "pathlib.PosixPath"}
+PATH_CTORS = {"pathlib.Path", "pathlib.PurePath", "pathlib.PosixPath"}   # named through the program's imports only
 OS_WRITE_FLAGS = {"O_WRONLY", "O_RDWR", "O_CREAT", "O_APPEND", "O_TRUNC"}
 SHUTIL_DEST = {"shutil.copy", "shutil.copy2", "shutil.copyfile", "shutil.move", "shutil.copytree"}
+PY_OPENERS = {"open", "io.open", "codecs.open", "tarfile.open", "gzip.open", "bz2.open", "lzma.open", "zipfile.ZipFile"}
+PY_WRITER_FUNCS = PY_OPENERS | SHUTIL_DEST | {"os.open", "os.replace", "os.rename"}
+PY_WRITER_ATTRS = {"write_text", "write_bytes"}
+PY_VERB_NAMES = PY_WRITER_ATTRS | {"open", "replace", "rename", "copy", "copy2", "copyfile", "copytree", "move", "ZipFile"}
+PY_VERBS = re.compile(r"\b(open|write_text|write_bytes|replace|rename|copy2?|copyfile|copytree|move|O_[A-Z]+|ZipFile|exec|eval|compile|__import__|import_module|getattr)\b")
+PY_CODE_AT_RUNTIME = {"exec", "eval", "compile", "__import__", "runpy.run_path", "runpy.run_module", "builtins"}
+PY_BY_NAME = {"getattr", "operator.methodcaller", "operator.attrgetter"}
+PY_DYNAMIC_BIND = {"globals", "vars", "locals", "setattr", "delattr", "__builtins__"}
+# names a program may rebind: the builtin writers and the modules whose functions the reader recognises
+PY_BUILTIN_WRITERS = {"open", "exec", "eval", "compile", "__import__", "getattr", "setattr", "globals", "vars", "locals", "os", "sys", "io",
+                      "codecs", "shutil", "pathlib", "tarfile", "zipfile", "gzip", "bz2", "lzma", "Path", "PurePath", "PosixPath"}
+PY_CHDIR = {"chdir", "fchdir", "chroot"}
 JS_FIRST = {"writeFile", "writeFileSync", "appendFile", "appendFileSync", "createWriteStream"}
 JS_SECOND = {"copyFile", "copyFileSync", "rename", "renameSync", "cp", "cpSync"}
 JS_OPEN = {"open", "openSync"}
 JS_BARE = {"writeFile", "writeFileSync", "appendFile", "appendFileSync", "createWriteStream", "copyFileSync", "renameSync", "cpSync"}
 JS_ID = re.compile(r"[A-Za-z_$][\w$]*")
+JS_ID_START = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$")
+JS_NUM = re.compile(r"\d[\w.]*")
 JS_OP = re.compile(r"===|!==|==|!=|<=|>=|=>|\+\+|--|\?\?=|\|\|=|&&=|[-+*/%]=|\.\.\.")
 JS_ASSIGN = {"=", "+=", "-=", "*=", "/=", "%=", "??=", "||=", "&&=", "++", "--"}
+JS_FS_VERBS = {"writeFile", "writeFileSync", "appendFile", "appendFileSync", "createWriteStream", "copyFile", "copyFileSync",
+               "renameSync", "cpSync", "openSync"}   # the names that only fs uses: seen anywhere but a call, a writer passed around
+JS_FS_MODULES = {"fs", "node:fs", "fs/promises", "node:fs/promises"}
+JS_VERB_TEXT = re.compile(r"writeFile|appendFile|createWriteStream|copyFile|rename|cpSync|openSync|\bopen\b|\bfs\b")
+JS_SCOPES = {("id", "function"), ("id", "catch"), ("id", "for"), ("id", "class"), ("p", "=>")}
+JS_KEYWORDS = {"return", "typeof", "case", "in", "of", "new", "delete", "void", "throw", "else", "do", "instanceof", "yield", "await"}
+JS_REGEX_AFTER_P = {"(", ",", "=", ":", "[", "!", "&", "|", "?", "{", "}", ";", "+", "-", "*", "%", "<", ">", "~", "^", "=>", "==", "===",
+                    "!=", "!==", "<=", ">=", "+=", "-=", "*=", "/=", "%=", "??=", "||=", "&&=", "..."}
+JS_REGEX_AFTER_ID = {("id", k) for k in JS_KEYWORDS}
 
 
 class Unresolved(Exception):
     """A recognised writer whose target cannot be named before it runs."""
 
 
-def _drop_heredocs(text: str) -> tuple[str, list[str]]:
+def _drop_heredocs(text: str) -> tuple[str, list[tuple[str, bool]]]:
     """The command without its heredoc bodies, each `<<[-]WORD` replaced by a placeholder word that names its body —
-    the body is the command's stdin (an interpreter's program), never a word of the command line."""
-    out, pending, bodies = [], [], []
-    for line in text.split("\n"):
-        if pending:
-            strip_tabs, word, k = pending[0]
-            line = line.lstrip("\t") if strip_tabs else line
-            if line == word:
-                pending.pop(0)
-            else:
-                bodies[k].append(line)
+    the body is the command's stdin (an interpreter's program), never a word of the command line. Bodies are
+    (text, expands): an unquoted delimiter lets the shell expand the body. An operator counts only where bash reads
+    one: outside quotes, comments and arithmetic (`$((1<<X))`); its body starts after the line's last quote closes."""
+    out, bodies, pending = [], [], []
+    q, arith, i, n = None, 0, 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "\n" and q is None and pending:
+            out.append(c); i += 1
+            for strip_tabs, word, k in pending:
+                lines = []
+                while i < n:
+                    j = text.find("\n", i)
+                    line, i = (text[i:], n) if j < 0 else (text[i:j], j + 1)
+                    line = line.lstrip("\t") if strip_tabs else line
+                    if line == word:
+                        break
+                    lines.append(line)
+                bodies[k] = ("\n".join(lines), bodies[k][1])
+            pending = []
             continue
-        def sub(m):
-            pending.append((m.group(1) == "-", m.group(3), len(bodies)))
-            bodies.append([])
-            return f" {HDOC_MARK}{len(bodies) - 1} "
-        out.append(HEREDOC.sub(sub, line))
-    return "\n".join(out), ["\n".join(b) for b in bodies]
+        if c == "\\" and q != "'" and i + 1 < n:
+            out.append(text[i:i + 2]); i += 2; continue
+        if q is None:
+            m = HEREDOC.match(text, i)
+            if m and arith and re.search(rf"(?m)^\t*{re.escape(next(g for g in m.groups()[1:] if g is not None))}$", text[m.end():]):
+                raise Unresolved("a `<<` the guard cannot tell between a shift and a heredoc")   # `((cmd <<EOF` …
+            if c == "\n":
+                arith = 0   # an arithmetic expression ends with its line
+            if c in "'\"":
+                q = c
+            elif c == "#" and (i == 0 or text[i - 1] in " \t\r;&|()<>\n"):
+                j = text.find("\n", i)
+                j = n if j < 0 else j
+                out.append(text[i:j]); i = j; continue
+            elif text.startswith("((", i) or (arith and text.startswith("))", i)):
+                arith += 1 if c == "(" else -1
+                out.append(text[i:i + 2]); i += 2; continue
+            elif m and not arith:
+                word = next(g for g in m.groups()[1:] if g is not None)
+                pending.append((m.group(1) == "-", word, len(bodies)))
+                bodies.append(("", m.group(5) is not None))
+                out.append(f" {HDOC_MARK}{len(bodies) - 1} "); i = m.end(); continue
+        elif c == q:
+            q = None
+        out.append(c); i += 1
+    return "".join(out), bodies
 
 
 def _mask(text: str) -> str:
@@ -154,7 +211,7 @@ class _Reader:
         self.unresolved: str | None = None
         self.writer = False
         self.argvs: list[list[str]] = []   # each simple command's words after the wrappers (the deploy class reads them)
-        self.bodies: list[str] = []        # the heredoc bodies, by placeholder index
+        self.bodies: list[tuple[str, bool]] = []   # the heredoc bodies (text, expands), by placeholder index
 
     # ── words → paths ──
     def expand(self, word: str) -> str:
@@ -193,9 +250,12 @@ class _Reader:
         self.writer = True
         self.targets.append(self.path(word))
 
-    def lit_path(self, p: str, base) -> str:
-        """A path an interpreter program names: never shell-expanded; relative to `base` (False: a working directory
-        the program changed to through a value the guard cannot name)."""
+    def lit_path(self, p: str, base, expands: bool = False) -> str:
+        """A path an interpreter program names: never shell-expanded by the reader; relative to `base` (False: a working
+        directory the program changed to through a value the guard cannot name). `expands`: the shell expanded the
+        program text before the interpreter saw it (`-c`, an unquoted heredoc, a here-string) — a `$` is not literal."""
+        if expands and ("$" in p or "`" in p):
+            raise Unresolved(f"«{p}» holds a shell expansion inside the program text")
         if not os.path.isabs(p):
             if base is False:
                 raise Unresolved(f"«{p}» is relative to a working directory the program changes through a value the guard cannot name")
@@ -210,19 +270,21 @@ class _Reader:
 
     # ── one simple command ──
     def run(self, cmd):
-        args, redirs, i, stdin = [], [], 0, None
+        args, redirs, i, stdin = [], [], 0, (None, False)
         while i < len(cmd):
             kind, tok = cmd[i]
             if kind == "w" and HDOC_WORD.fullmatch(tok):
                 k = int(HDOC_WORD.fullmatch(tok).group(1))
-                stdin = self.bodies[k] if k < len(self.bodies) else None
+                stdin = self.bodies[k] if k < len(self.bodies) else (None, False)
                 i += 1
                 continue
             if kind == "op":
                 nxt = cmd[i + 1][1] if i + 1 < len(cmd) and cmd[i + 1][0] == "w" else None
                 if args and re.fullmatch(r"\d+", args[-1]) and tok in FILE_REDIR | {">&", "<", "<&"}:
                     args.pop()   # an all-digit word right before a redirection is its fd
-                if tok in FILE_REDIR and nxt is not None:
+                if tok == "<<<" and nxt is not None:
+                    stdin = (nxt, True)   # a here-string: the word is stdin, the shell expanded it
+                elif tok in FILE_REDIR and nxt is not None:
                     redirs.append(nxt)
                 elif tok == ">&" and nxt is not None and not re.fullmatch(r"\d+|-", nxt):
                     redirs.append(nxt)
@@ -351,48 +413,50 @@ class _Reader:
         while i < len(rest):
             a = rest[i]
             if a == "-":
-                return _PyProgram(self, stdin, rest[i:]).run()
+                return _PyProgram(self, stdin[0], rest[i:], stdin[1]).run()
             if a.startswith("--"):
                 i += 1; continue
             if not a.startswith("-"):
                 return   # a script file: not a recognised writer
             for j, c in enumerate(a[1:], 1):
-                if c == "c":
+                if c == "c":   # the word's quoting is gone: a `$` in it may have been expanded
                     if a[j + 1:]:
-                        return _PyProgram(self, a[j + 1:], ["-c", *rest[i + 1:]]).run()
-                    return _PyProgram(self, rest[i + 1] if i + 1 < len(rest) else None, ["-c", *rest[i + 2:]]).run()
+                        return _PyProgram(self, a[j + 1:], ["-c", *rest[i + 1:]], True).run()
+                    return _PyProgram(self, rest[i + 1] if i + 1 < len(rest) else None, ["-c", *rest[i + 2:]], True).run()
                 if c == "m":
                     return   # a module: not a recognised writer
                 if c in "WX":
                     i += 0 if a[j + 1:] else 1   # the option's value
                     break
             i += 1
-        return _PyProgram(self, stdin, [""]).run()
+        return _PyProgram(self, stdin[0], [""], stdin[1]).run()
 
     def _node(self, rest, stdin):
-        """The program: `-e|--eval|-p|--print PROG` (or `=PROG`), or stdin after `-` or after no script."""
+        """The program: `-e|--eval|-p|--print PROG` (also `-pe`, or `=PROG`), or stdin after `-` or after no script."""
         i = 0
         while i < len(rest):
             a = rest[i]
-            if a in ("-e", "--eval", "-p", "--print"):
-                return _JsProgram(self, rest[i + 1] if i + 1 < len(rest) else None).run()
-            if a.startswith(("--eval=", "--print=")):
-                return _JsProgram(self, a.split("=", 1)[1]).run()
-            if a == "-":
-                return _JsProgram(self, stdin).run()
             if a in ("-r", "--require", "--import", "-C", "--conditions", "--loader", "--experimental-loader"):
                 i += 2; continue
+            if a in ("--eval", "--print") or re.fullmatch(r"-[a-z]*[ep][a-z]*", a):
+                return _JsProgram(self, rest[i + 1] if i + 1 < len(rest) else None, True).run()
+            if a.startswith(("--eval=", "--print=")):
+                return _JsProgram(self, a.split("=", 1)[1], True).run()
+            if a == "-":
+                return _JsProgram(self, stdin[0], stdin[1]).run()
             if not a.startswith("-"):
                 return   # a script file: not a recognised writer
             i += 1
-        return _JsProgram(self, stdin).run()
+        return _JsProgram(self, stdin[0], stdin[1]).run()
 
 
 class _PyProgram:
-    """An inline python program read by its AST (#227): the recognised writers and their resolvable targets."""
+    """An inline python program read by its AST (#227): the recognised writers and their resolvable targets.
+    Whatever the reader cannot follow — a writer passed around or redefined, code built at run time, a name rebound,
+    a chdir it cannot place — makes a write unresolved, never a guessed target."""
 
-    def __init__(self, reader: _Reader, code: str | None, argv: list[str]):
-        self.r, self.code, self.argv = reader, code, argv
+    def __init__(self, reader: _Reader, code: str | None, argv: list[str], expands: bool):
+        self.r, self.code, self.argv, self.expands = reader, code, argv, expands
 
     def run(self):
         if self.code is None:
@@ -400,26 +464,54 @@ class _PyProgram:
         try:
             tree = ast.parse(self.code)
         except (SyntaxError, ValueError):
+            if PY_VERBS.search(self.code):
+                raise Unresolved("a python program the guard cannot parse names a writer")
             return   # a program that cannot run writes nothing
+        nodes = list(ast.walk(tree))
         stores: dict[str, int] = {}
+        imported: dict[str, int] = {}
+        conflicts: set[str] = set()
+        self.alias: dict[str, str] = {}   # a local name → the dotted name it imports
         self.modules: set[str] = set()
-        for n in ast.walk(tree):
+        for n in nodes:
             names = []
             if isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Store, ast.Del)):
                 names = [n.id]
             elif isinstance(n, ast.arg):
                 names = [n.arg]
-            elif isinstance(n, ast.alias):
-                names = [(n.asname or n.name).split(".")[0]]
-                self.modules.add(names[0])
+            elif isinstance(n, (ast.MatchAs, ast.MatchStar)) and n.name:
+                names = [n.name]
+            elif isinstance(n, ast.MatchMapping) and n.rest:
+                names = [n.rest]
             elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 names = [n.name]
             elif isinstance(n, ast.ExceptHandler) and n.name:
                 names = [n.name]
             elif isinstance(n, (ast.Global, ast.Nonlocal)):
                 names = list(n.names)
+            elif isinstance(n, ast.Import):
+                for a in n.names:
+                    local = a.asname or a.name.split(".")[0]
+                    names.append((local, a.name if a.asname else local))
+            elif isinstance(n, ast.ImportFrom):
+                for a in n.names:
+                    local = a.asname or a.name
+                    names.append((local, f"{n.module}.{a.name}" if n.module and not n.level else f".{a.name}"))
             for x in names:
+                if isinstance(x, tuple):
+                    x, target = x
+                    if self.alias.get(x, target) != target:
+                        conflicts.add(x)   # one name, two modules: which one runs is not read
+                    self.alias[x] = target
+                    imported[x] = imported.get(x, 0) + 1
+                    self.modules.add(x)
                 stores[x] = stores.get(x, 0) + 1
+        # a writer's name the program rebinds itself (def open, os = …, a name imported from two places) is not the writer
+        self.shadowed = conflicts | {x for x, c in stores.items()
+                                     if (x in imported and c > imported[x]) or (x not in imported and x in PY_BUILTIN_WRITERS)}
+        self.alias = {k: v for k, v in self.alias.items() if k not in self.shadowed}
+        loads = {n.id for n in nodes if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+        dyn = loads & PY_DYNAMIC_BIND or any(isinstance(n, ast.Attribute) and n.attr == "__dict__" for n in nodes)
         self.bound: dict[str, ast.AST] = {}
         for st in tree.body:   # a name bound exactly once, at module scope, by a plain assignment
             if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name):
@@ -430,19 +522,54 @@ class _PyProgram:
                 continue
             if stores.get(name) == 1:
                 self.bound[name] = value
-        self.chdir = None   # None: the shell's cwd · (line, dir): a literal chdir · False: a chdir the guard cannot name
-        calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and _dotted(n.func) in ("os.chdir", "chdir")]
-        if calls:
-            c = calls[0]
-            top = any(isinstance(st, ast.Expr) and st.value is c for st in tree.body)
-            d = self.resolve(c.args[0]) if len(calls) == 1 and top and len(c.args) == 1 else None
-            try:
-                self.chdir = (c.lineno, self.r.lit_path(d, self.r.cwd)) if d is not None else False
-            except Unresolved:
-                self.chdir = False
-        for n in ast.walk(tree):
+        # globals()[…] = …, setattr, vars(): a name may be rebound where the reader cannot see it — every write unresolved
+        self.dynamic, self.shadow = bool(dyn), False
+        self.argv_ok = "sys" not in self.shadowed and not any(self._mutates_argv(n) for n in nodes)
+        self.uses_pathlib = any(v == "pathlib" or v.startswith("pathlib.") for v in self.alias.values())
+        callees = {id(c.func) for c in nodes if isinstance(c, ast.Call)}
+        for n in nodes:   # a writer the program passes around, or code it builds at run time
+            if isinstance(n, (ast.Name, ast.Attribute)) and not (isinstance(n, ast.Name) and not isinstance(n.ctx, ast.Load)):
+                d = _dotted(n, self.alias)
+                if d in PY_CODE_AT_RUNTIME or (d or "").startswith("importlib"):
+                    raise Unresolved(f"a python program that builds code at run time (line {n.lineno})")
+                if id(n) not in callees and (d in PY_WRITER_FUNCS or (isinstance(n, ast.Attribute) and n.attr in PY_WRITER_ATTRS)):
+                    raise Unresolved(f"a python writer the program passes around instead of calling (line {n.lineno})")
+            if isinstance(n, ast.Call) and _dotted(n.func, self.alias) in PY_BY_NAME:
+                key = n.args[1] if _dotted(n.func, self.alias) == "getattr" and len(n.args) > 1 else (n.args[0] if n.args else None)
+                if not (isinstance(key, ast.Constant) and isinstance(key.value, str)) or key.value in PY_VERB_NAMES:
+                    raise Unresolved(f"a python attribute reached by a name the guard cannot vet (line {n.lineno})")
+        self.chdir = self._chdir(tree, nodes)
+        for n in nodes:
             if isinstance(n, ast.Call):
                 self.call(n)
+
+    def _mutates_argv(self, n) -> bool:
+        if isinstance(n, (ast.Subscript, ast.Attribute)) and isinstance(getattr(n, "ctx", None), (ast.Store, ast.Del)):
+            return _dotted(n.value if isinstance(n, ast.Subscript) else n, self.alias) == "sys.argv"
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr not in ("count", "index", "copy"):
+            return _dotted(n.func.value, self.alias) == "sys.argv"
+        return False
+
+    def _chdir(self, tree, nodes):
+        """None: the shell's cwd · (position, dir): one literal chdir · False: a chdir the reader cannot place."""
+        sites = [n for n in nodes if (isinstance(n, ast.Name) and n.id in PY_CHDIR) or (isinstance(n, ast.Attribute) and n.attr in PY_CHDIR)]
+        if not sites:
+            return None
+        calls = [c for c in nodes if isinstance(c, ast.Call) and c.func is sites[0]]
+        if len(sites) != 1 or not calls or _dotted(calls[0].func, self.alias) != "os.chdir" or len(calls[0].args) != 1:
+            return False
+        c = calls[0]
+        if not any(isinstance(st, ast.Expr) and st.value is c for st in tree.body):
+            return False
+        if any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef, ast.GeneratorExp)) for n in nodes):
+            return False   # code written before the chdir may run after it
+        d = self.resolve(c.args[0])
+        if d is None:
+            return False
+        try:
+            return (c.end_lineno, c.end_col_offset), self.r.lit_path(d, self.r.cwd, self.expands)
+        except Unresolved:
+            return False
 
     def resolve(self, n, depth: int = 0) -> str | None:
         """The path an expression names, or None when it is computed."""
@@ -454,9 +581,9 @@ class _PyProgram:
             return "".join(v.value for v in n.values) if all(isinstance(v, ast.Constant) for v in n.values) else None
         if isinstance(n, ast.Name):
             return self.resolve(self.bound[n.id], depth + 1) if n.id in self.bound else None
-        if isinstance(n, ast.Subscript) and _dotted(n.value) == "sys.argv":
+        if isinstance(n, ast.Subscript) and _dotted(n.value, self.alias) == "sys.argv":
             k = n.slice.value if isinstance(n.slice, ast.Constant) and type(n.slice.value) is int else None
-            if k is None or not 0 < k < len(self.argv):
+            if not self.argv_ok or k is None or not 0 < k < len(self.argv):
                 return None
             try:
                 return self.r.expand(self.argv[k])   # the shell expanded the word before python saw it
@@ -466,41 +593,75 @@ class _PyProgram:
             a, b = self.resolve(n.left, depth + 1), self.resolve(n.right, depth + 1)
             return os.path.join(a, b) if a is not None and b is not None else None
         if isinstance(n, ast.Call):
-            if _dotted(n.func) in PATH_CTORS and not n.keywords:
+            if _dotted(n.func, self.alias) in PATH_CTORS and not n.keywords and not any(isinstance(a, ast.Starred) for a in n.args):
                 parts = [self.resolve(a, depth + 1) for a in n.args]
                 return None if None in parts else (os.path.join(*parts) if parts else ".")
             if isinstance(n.func, ast.Attribute) and n.func.attr in ("resolve", "absolute") and not n.args:
                 return self.resolve(n.func.value, depth + 1)
         return None
 
-    def path(self, n) -> str:
+    def pathlike(self, n, depth: int = 0) -> bool:
+        """The expression is a pathlib path by its spelling: a constructor, a `/` over one, a name bound to one."""
+        if depth > 20:
+            return False
+        if isinstance(n, ast.Call):
+            if _dotted(n.func, self.alias) in PATH_CTORS:
+                return True
+            return isinstance(n.func, ast.Attribute) and n.func.attr in ("resolve", "absolute", "with_suffix", "with_name") and self.pathlike(n.func.value, depth + 1)
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div):
+            return self.pathlike(n.left, depth + 1)
+        return isinstance(n, ast.Name) and n.id in self.bound and self.pathlike(self.bound[n.id], depth + 1)
+
+    def hit(self, n):
+        if self.shadow or self.dynamic:
+            raise Unresolved(f"a python writer the program redefines or reaches dynamically (line {getattr(n, 'lineno', '?')})")
         p = self.resolve(n)
         if p is None:
             raise Unresolved(f"a python write whose target is computed in the program (line {getattr(n, 'lineno', '?')})")
         base = self.r.cwd
         if self.chdir is False:
             base = False
-        elif self.chdir is not None and getattr(n, "lineno", 0) > self.chdir[0]:
+        elif self.chdir is not None and (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)) >= self.chdir[0]:
             base = self.chdir[1]
-        return self.r.lit_path(p, base)
+        self.r.hit_path(self.r.lit_path(p, base, self.expands))
 
     def call(self, n):
-        f, name = n.func, _dotted(n.func)
+        f, name = n.func, _dotted(n.func, self.alias)
         attr = f.attr if isinstance(f, ast.Attribute) else None
+        root = f
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        self.shadow = isinstance(root, ast.Name) and root.id in self.shadowed
+        if any(isinstance(a, ast.Starred) for a in n.args) or any(k.arg is None for k in n.keywords):
+            if name in PY_WRITER_FUNCS or attr in PY_WRITER_ATTRS | {"open", "replace", "rename"}:
+                raise Unresolved(f"a python writer whose arguments are unpacked at run time (line {n.lineno})")
+            return
         arg = lambda k, kw: n.args[k] if len(n.args) > k else next((x.value for x in n.keywords if x.arg in kw), None)   # noqa: E731
         if name == "os.open":
             flags = arg(1, ("flags",))
-            if flags is not None and {x.attr if isinstance(x, ast.Attribute) else x.id for x in ast.walk(flags) if isinstance(x, (ast.Attribute, ast.Name))} & OS_WRITE_FLAGS:
-                self.r.hit_path(self.path(arg(0, ("path",))))
+            if flags is None:
+                return
+            parts = [x for x in ast.walk(flags) if not isinstance(x, (ast.BinOp, ast.operator, ast.expr_context))]
+            names = {x.attr if isinstance(x, ast.Attribute) else x.id for x in parts if isinstance(x, (ast.Attribute, ast.Name))}
+            if any(not (isinstance(x, ast.Attribute) and x.attr.startswith("O_"))
+                   and not (isinstance(x, ast.Name) and (x.id.startswith("O_") or self.alias.get(x.id) == "os")) for x in parts):
+                raise Unresolved(f"an os.open whose flags are computed in the program (line {n.lineno})")
+            if names & OS_WRITE_FLAGS:
+                self.hit(arg(0, ("path",)))
         elif name in ("os.replace", "os.rename"):
-            dst = arg(1, ("dst",))
+            src, dst = arg(0, ("src",)), arg(1, ("dst",))
             if dst is not None:
-                self.r.hit_path(self.path(dst))
+                self.hit(src)   # the file moved away is a write on its source, as for mv
+                self.hit(dst)
         elif name in SHUTIL_DEST:
             src, dst = arg(0, ("src",)), arg(1, ("dst",))
             if dst is None:
                 return
-            d = self.path(dst)
+            if name == "shutil.move":
+                self.hit(src)
+            before = len(self.r.targets)
+            self.hit(dst)
+            d = self.r.targets.pop(before)
             if name == "shutil.copytree":
                 self.r.hit_path(os.path.join(d, "*"))
             elif name != "shutil.copyfile" and os.path.isdir(d):
@@ -508,38 +669,51 @@ class _PyProgram:
                 self.r.hit_path(os.path.join(d, os.path.basename(s.rstrip("/")) if s else "*"))
             else:
                 self.r.hit_path(d)
-        elif attr in ("write_text", "write_bytes"):
-            self.r.hit_path(self.path(f.value))
+        elif attr in PY_WRITER_ATTRS:
+            self.hit(f.value)
         elif attr in ("replace", "rename") and len(n.args) == 1 and not n.keywords:
-            self.r.hit_path(self.path(n.args[0]))   # a path's replace / rename: str.replace takes two
-        elif name in ("open", "io.open", "codecs.open") or attr == "open":
-            module = name in ("open", "io.open", "codecs.open") or (isinstance(f.value, ast.Name) and f.value.id in self.modules)
-            mode = arg(1, ("mode",)) if module else arg(0, ("mode",))
-            if mode is None:
-                return   # the default mode reads
+            if self.pathlike(f.value):   # str.replace takes two; a DataFrame's rename is not a path's
+                self.hit(f.value)
+                self.hit(n.args[0])
+            elif self.uses_pathlib:
+                raise Unresolved(f"a rename whose receiver the guard cannot tell from a path (line {n.lineno})")
+        elif name in PY_OPENERS or (attr == "open" and isinstance(f.value, ast.Name) and f.value.id in self.modules):
+            self._open(n, arg(1, ("mode",)), arg(0, ("file", "filename", "name")))
+        elif attr == "open":
+            mode = arg(0, ("mode",))
             m = mode.value if isinstance(mode, ast.Constant) and isinstance(mode.value, str) else None
-            if m is not None and not set(m) & set("wax+"):
-                return
-            if m is None:
-                raise Unresolved(f"a python open whose mode is computed in the program (line {n.lineno})")
-            target = arg(0, ("file", "filename", "name")) if module else f.value
-            if target is None:
-                raise Unresolved(f"a python open with no target (line {n.lineno})")
-            self.r.hit_path(self.path(target))
+            if self.pathlike(f.value) or (self.uses_pathlib and m is not None and re.fullmatch(r"[rwxabtU+]+", m)):
+                self._open(n, mode, f.value)
+
+    def _open(self, n, mode, target):
+        if mode is None:
+            return   # the default mode reads
+        m = mode.value if isinstance(mode, ast.Constant) and isinstance(mode.value, str) else None
+        if m is None:
+            raise Unresolved(f"a python open whose mode is computed in the program (line {n.lineno})")
+        if not set(m.split(":")[0]) & set("wax+"):
+            return
+        if target is None:
+            raise Unresolved(f"a python open with no target (line {n.lineno})")
+        self.hit(target)
 
 
-def _dotted(n) -> str | None:
-    if isinstance(n, ast.Name):
-        return n.id
-    if isinstance(n, ast.Attribute):
-        head = _dotted(n.value)
-        return f"{head}.{n.attr}" if head else None
-    return None
+def _dotted(n, alias: dict | None = None) -> str | None:
+    """`a.b.c` with its head through the program's imports (`import os as o` → os, `from os import replace` → os.replace)."""
+    parts = []
+    while isinstance(n, ast.Attribute):
+        parts.append(n.attr)
+        n = n.value
+    if not isinstance(n, ast.Name):
+        return None
+    head = alias.get(n.id, n.id) if alias else n.id
+    return ".".join([head, *reversed(parts)])
 
 
-def _js_tokens(code: str) -> list[tuple[str, str | None]]:
-    """Strings ("s", value — None when it escapes or interpolates), identifiers ("id"), punctuation ("p"); comments
-    and whitespace dropped. A regex literal is not read — a light scanner, never a parser."""
+def _js_tokens(code: str) -> tuple[list[tuple[str, str | None]], bool]:
+    """(tokens, complete): strings ("s", value — None when it escapes or interpolates), identifiers ("id"),
+    punctuation ("p"); comments, whitespace and regex literals dropped. complete is False when a string, comment or
+    regex runs to the end — the scan derailed, and what follows it was not read."""
     toks, i, n = [], 0, len(code)
     while i < n:
         c = code[i]
@@ -548,7 +722,26 @@ def _js_tokens(code: str) -> list[tuple[str, str | None]]:
         if code.startswith("//", i):
             j = code.find("\n", i); i = n if j < 0 else j; continue
         if code.startswith("/*", i):
-            j = code.find("*/", i + 2); i = n if j < 0 else j + 2; continue
+            j = code.find("*/", i + 2)
+            if j < 0:
+                return toks, False
+            i = j + 2; continue
+        if c == "/" and (not toks or (toks[-1][0] == "p" and toks[-1][1] in JS_REGEX_AFTER_P) or toks[-1] in JS_REGEX_AFTER_ID):
+            j, cls = i + 1, False
+            while j < n and (cls or code[j] != "/"):
+                if code[j] == "\\":
+                    j += 2; continue
+                if code[j] == "\n":
+                    return toks, False
+                cls = (cls or code[j] == "[") and code[j] != "]"
+                j += 1
+            if j >= n:
+                return toks, False
+            i = j + 1
+            while i < n and code[i].isalpha():
+                i += 1
+            toks.append(("p", "regex"))
+            continue
         if c in "'\"`":
             j, buf, plain = i + 1, [], True
             while j < n and code[j] != c:
@@ -557,13 +750,18 @@ def _js_tokens(code: str) -> list[tuple[str, str | None]]:
                 if c == "`" and code.startswith("${", j):
                     plain = False
                 buf.append(code[j]); j += 1
+            if j >= n:
+                return toks, False
             toks.append(("s", "".join(buf) if plain else None))
             i = j + 1; continue
-        m = JS_ID.match(code, i) or JS_OP.match(code, i)
+        m = JS_ID.match(code, i) or JS_NUM.match(code, i)
         if m:
-            toks.append(("id" if JS_ID.match(code, i) else "p", m.group())); i = m.end(); continue
+            toks.append(("id" if c in JS_ID_START else "n", m.group())); i = m.end(); continue
+        m = JS_OP.match(code, i)
+        if m:
+            toks.append(("p", m.group())); i = m.end(); continue
         toks.append(("p", c)); i += 1
-    return toks
+    return toks, True
 
 
 def _js_args(toks, k) -> tuple[list[list], int]:
@@ -588,15 +786,42 @@ def _js_args(toks, k) -> tuple[list[list], int]:
 
 
 class _JsProgram:
-    """An inline node program read by a light scanner (#227): the fs writers and their resolvable targets."""
+    """An inline node program read by a light scanner (#227): the fs writers and their resolvable targets. A writer
+    renamed, indexed or passed around, a scan that derails, a chdir it cannot place: unresolved, never guessed."""
 
-    def __init__(self, reader: _Reader, code: str | None):
-        self.r, self.code = reader, code
+    def __init__(self, reader: _Reader, code: str | None, expands: bool):
+        self.r, self.code, self.expands = reader, code, expands
 
     def run(self):
         if self.code is None:
             return
-        t = self.toks = _js_tokens(self.code)
+        t, complete = _js_tokens(self.code)
+        self.toks = t
+        if not complete:
+            if JS_VERB_TEXT.search(self.code):
+                raise Unresolved("a node program the guard cannot scan to its end names a writer")
+            return
+        for i, (kind, v) in enumerate(t):   # a writer renamed, indexed or passed around
+            if kind == "s" and v in JS_FS_VERBS:
+                raise Unresolved(f"a node writer reached by its name as a string («{v}»)")
+            if kind != "id" or v not in JS_FS_VERBS:
+                continue
+            prev, nxt = (t[i - 1] if i else None), (t[i + 1] if i + 1 < len(t) else None)
+            if nxt == ("p", "(") or (prev in (("p", "{"), ("p", ",")) and nxt in (("p", ","), ("p", "}"))):
+                continue
+            raise Unresolved(f"a node writer the program renames or passes around («{v}»)")
+        if any(x in (("id", "eval"), ("id", "Function")) for x in t):
+            raise Unresolved("a node program that builds code at run time")
+        uses_fs = any(x[0] == "s" and x[1] in JS_FS_MODULES for x in t)
+        for i, x in enumerate(t):
+            if x in (("id", "require"), ("id", "import")) and i + 1 < len(t) and t[i + 1] == ("p", "("):
+                if not (i + 3 < len(t) and t[i + 2][0] == "s" and t[i + 2][1] is not None and t[i + 3] == ("p", ")")):
+                    raise Unresolved("a node module loaded by a name the guard cannot read")
+            prev = t[i - 1] if i else None
+            if uses_fs and x == ("p", "[") and prev is not None and (prev in (("p", ")"), ("p", "]")) or (prev[0] == "id" and prev[1] not in JS_KEYWORDS)):
+                key, _ = _js_args(t, i)
+                if not (len(key) == 1 and len(key[0]) == 1 and key[0][0][0] in ("s", "n") and key[0][0][1] is not None):
+                    raise Unresolved("a node program that reaches a member by a computed key")
         assigns: dict[str, int] = {}
         for i, (kind, v) in enumerate(t):
             if kind != "id" or (i and t[i - 1] == ("p", ".")):
@@ -605,36 +830,41 @@ class _JsProgram:
             before = t[i - 1] if i else None
             if (after and after[0] == "p" and after[1] in JS_ASSIGN) or (before and before[0] == "p" and before[1] in ("++", "--")):
                 assigns[v] = assigns.get(v, 0) + 1
+        scoped = any(x in JS_SCOPES for x in t)   # a parameter, a loop or a catch may rebind a name: no binding is trusted
         self.bound: dict[str, list] = {}
         for i, (kind, v) in enumerate(t):
-            if kind == "id" and v in ("const", "let", "var"):
-                j = i + 1
-                while j + 1 < len(t) and t[j][0] == "id" and t[j + 1] == ("p", "="):
-                    name, j, expr, depth = t[j][1], j + 2, [], 0
-                    while j < len(t):
-                        x = t[j]
-                        if x[0] == "p" and x[1] in "([{":
-                            depth += 1
-                        elif x[0] == "p" and x[1] in ")]}":
-                            if depth == 0:
-                                break
-                            depth -= 1
-                        elif depth == 0 and (x in (("p", ","), ("p", ";")) or x in (("id", "const"), ("id", "let"), ("id", "var"))):
+            if scoped or kind != "id" or v not in ("const", "let", "var"):
+                continue
+            j = i + 1
+            while j + 1 < len(t) and t[j][0] == "id" and t[j + 1] == ("p", "="):
+                name, j, expr, depth = t[j][1], j + 2, [], 0
+                while j < len(t):
+                    x = t[j]
+                    if x[0] == "p" and x[1] in "([{":
+                        depth += 1
+                    elif x[0] == "p" and x[1] in ")]}":
+                        if depth == 0:
                             break
-                        expr.append(x); j += 1
-                    if assigns.get(name) == 1:
-                        self.bound[name] = expr
-                    if j < len(t) and t[j] == ("p", ","):
-                        j += 1
-                    else:
+                        depth -= 1
+                    elif depth == 0 and (x in (("p", ","), ("p", ";")) or x in (("id", "const"), ("id", "let"), ("id", "var"))):
                         break
+                    expr.append(x); j += 1
+                if assigns.get(name) == 1:
+                    self.bound[name] = expr
+                if j < len(t) and t[j] == ("p", ","):
+                    j += 1
+                else:
+                    break
         self.chdir = None
-        sites = [i for i in range(len(t) - 3) if t[i] == ("id", "process") and t[i + 1] == ("p", ".") and t[i + 2] == ("id", "chdir") and t[i + 3] == ("p", "(")]
+        sites = [i for i, x in enumerate(t) if x == ("id", "chdir")]
         if sites:
-            args, _ = _js_args(t, sites[0] + 3)
-            d = self.resolve(args[0]) if len(sites) == 1 and len(args) == 1 else None
+            k = sites[0]
+            body = any(t[j] == ("p", ")") and t[j + 1] == ("p", "{") for j in range(len(t) - 1))   # a body may run later
+            ok = len(sites) == 1 and not scoped and not body and k >= 2 and t[k - 2] == ("id", "process") and t[k - 1] == ("p", ".") and k + 1 < len(t) and t[k + 1] == ("p", "(")
+            args, end = _js_args(t, k + 1) if ok else ([], 0)
+            d = self.resolve(args[0]) if ok and len(args) == 1 else None
             try:
-                self.chdir = (sites[0], self.r.lit_path(d, self.r.cwd)) if d is not None else False
+                self.chdir = (end, self.r.lit_path(d, self.r.cwd, self.expands)) if d is not None else False
             except Unresolved:
                 self.chdir = False
         for i in range(len(t) - 1):
@@ -645,16 +875,19 @@ class _JsProgram:
             if not method and (v not in JS_BARE or (i and t[i - 1] == ("id", "function"))):
                 continue
             args, _ = _js_args(t, i + 1)
+            at = (i, v.endswith("Sync"))
             if v in JS_FIRST and args:
-                self.r.hit_path(self.path(args[0], i))
+                self.hit(args[0], at)
             elif v in JS_SECOND and len(args) > 1:
-                self.r.hit_path(self.path(args[1], i))
+                if v.startswith("rename"):
+                    self.hit(args[0], at)   # the file moved away is a write on its source, as for mv
+                self.hit(args[1], at)
             elif v in JS_OPEN and len(args) > 1:
                 m = self.resolve(args[1])
                 if m is None:
                     raise Unresolved("a node open whose flags are computed in the program")
                 if set(m) & set("wax+"):
-                    self.r.hit_path(self.path(args[0], i))
+                    self.hit(args[0], at)
 
     def resolve(self, expr, depth: int = 0) -> str | None:
         if depth > 20 or not expr:
@@ -669,23 +902,28 @@ class _JsProgram:
             if end != len(expr):
                 return None
             parts = [self.resolve(a, depth + 1) for a in args]
-            return None if None in parts or not parts else os.path.join(*parts)
+            if None in parts or not parts:
+                return None
+            if expr[2][1] == "join":   # node's join concatenates every segment; only resolve restarts at an absolute one
+                return os.path.normpath("/".join(p for p in parts if p))
+            return os.path.normpath(os.path.join(*parts))
         return None
 
     def _is_path_module(self, name: str) -> bool:
         e = self.bound.get(name)
         return name == "path" or (e is not None and len(e) == 4 and e[0] == ("id", "require") and e[2] in (("s", "path"), ("s", "node:path")))
 
-    def path(self, expr, at: int) -> str:
+    def hit(self, expr, at: tuple[int, bool]):
         p = self.resolve(expr)
         if p is None:
             raise Unresolved("a node write whose target is computed in the program")
         base = self.r.cwd
         if self.chdir is False:
             base = False
-        elif self.chdir is not None and at > self.chdir[0]:
-            base = self.chdir[1]
-        return self.r.lit_path(p, base)
+        elif self.chdir is not None:
+            # an asynchronous writer resolves its path when the call runs, maybe after the chdir
+            base = self.chdir[1] if at[0] >= self.chdir[0] else (base if at[1] else False)
+        self.r.hit_path(self.r.lit_path(p, base, self.expands))
 
 
 def _operands(rest):
@@ -702,9 +940,15 @@ def _operands(rest):
 
 def _bash(repo: Path, command: str, cwd: str | None, env: dict) -> _Reader:
     r = _Reader(repo, cwd, env)
+    if HDOC_MARK in command:
+        r.writer, r.unresolved = True, "the command carries a character the guard reserves for its own use"
+        return r
     try:
         text, r.bodies = _drop_heredocs(command)
         cmds = _commands(_lex(text))
+    except Unresolved as e:
+        r.writer, r.unresolved = True, str(e)
+        return r
     except ValueError:
         if re.search(r">|\b(tee|sed|cp|mv|python[0-9.]*|node(js)?)\b", command):
             r.writer, r.unresolved = True, "the command could not be read (unbalanced quotes)"
@@ -721,6 +965,9 @@ def _bash(repo: Path, command: str, cwd: str | None, env: dict) -> _Reader:
             r.run(c)
         except Unresolved as e:
             r.writer, r.unresolved = True, str(e)
+            break
+        except Exception as e:   # a reader fault is never a pass: the hook would read it as nothing to judge
+            r.writer, r.unresolved = True, f"the command could not be read ({type(e).__name__})"
             break
     return r
 
