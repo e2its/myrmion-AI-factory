@@ -7,6 +7,10 @@ docs_mcp_allowlist:
   - context7
   - aws-knowledge
   - pulumi
+  - microsoft-learn
+  - cloudflare-docs
+  - google-developer-knowledge
+  - terraform
 ---
 
 # MCP DOCS SCAN
@@ -24,8 +28,9 @@ FUNCTION mcp_docs_scan(scope: "design" | "implementation"):
   available_mcp_tools = list_own_tools_matching(/^mcp__([^_]+)__/)
   available_mcp_servers = unique(extract_server_name(t) for t IN available_mcp_tools)
 
-  # 2. Filter by explicit allowlist (frontmatter `docs_mcp_allowlist`). NO heuristics.
-  allowlist = THIS_SKILL.frontmatter.docs_mcp_allowlist
+  # 2. Filter by explicit allowlist (frontmatter `docs_mcp_allowlist` + the project's
+  #    config/quality.json → agents.docs_servers keys, EVOL-138). NO heuristics.
+  allowlist = THIS_SKILL.frontmatter.docs_mcp_allowlist + keys(config.agents.docs_servers)
   docs_mcps = intersect(available_mcp_servers, allowlist)
 
   # 3. Emit banner (single line, mirrors Applicability Roll-Call style).
@@ -52,22 +57,36 @@ Examples:
 
 - **Mandatory emission** at the first user-facing turn of every command invocation listed in `applicable_when.command`. Missing banner = `mal-iniciado`, halt and re-emit (same severity as missing Applicability Roll-Call).
 - **Per-invocation scan** — never cached across turns. If a different command fires later in the same session, the scan runs again.
-- **Allowlist-based filtering** — adding a new docs MCP requires editing this skill's frontmatter `docs_mcp_allowlist`. No regex / heuristic detection.
+- **Allowlist-based filtering** — the framework's servers in this skill's frontmatter `docs_mcp_allowlist`, the project's in `config/quality.json → agents.docs_servers` (EVOL-138). No regex / heuristic detection.
 - **`none detected` is a warning, not a block** — greenfield / offline use must not break.
 - **Scope value** is `design` for BLUEPRINT (`--start`, `--refine`) and `implementation` for IMPLEMENT (`--build`, `--refine`).
 - **Citation contract** — when `docs_mcps NOT EMPTY`, the consumer (BLUEPRINT step 2.6 / IMPLEMENT step 3.4) MUST cite each docs MCP it queried in the iteration body and populate `iterations[-1].mcp_consulted: [names]` (factory-iteration-model § Canonical Iteration ID).
 
 ## Extending the allowlist
 
-Add a server name to `docs_mcp_allowlist` in this file's frontmatter when:
-- A new docs-focused MCP server is integrated (e.g. official docs MCP for a framework).
-- An existing MCP that primarily provides documentation lookup is connected (e.g. a new vendor docs MCP).
+This skill and the reader are framework-owned: sync replaces both whole, so a project never edits them (EVOL-138).
 
-Do NOT add general-purpose MCPs (chrome-devtools, pulumi for resource ops, etc.) — those are not docs sources. Never a personal-data connector (`claude_ai_*`: mail, drive, docs, office): the validator refuses them for the reader whatever this list says, because a reader that also fetches the web must never hold the user's private files.
+**The framework's servers** — vendor-official, documentation only, verified at source; registered in Claude Code under the name shown (the tool ids carry it, names exact):
 
-The list is also the reader's (EVOL-056): `factory-docs-reader` (class `reader`, `rules/agents.md` § Beat 0) may carry the **read operations** of the servers named here and no other — `python3 scripts/gate.py agents` holds every definition of the class to it. Extending this list extends the banner and the reader at once.
+| Name | Source | Register |
+|------|--------|----------|
+| `context7` | Upstash Context7 | `claude mcp add --transport http context7 https://mcp.context7.com/mcp` |
+| `aws-knowledge` | AWS Knowledge | `claude mcp add --transport http aws-knowledge https://knowledge-mcp.global.api.aws` |
+| `pulumi` | Pulumi registry tools | Pulumi MCP server |
+| `microsoft-learn` | Microsoft Learn | `claude mcp add --transport http microsoft-learn https://learn.microsoft.com/api/mcp` |
+| `cloudflare-docs` | Cloudflare docs | `claude mcp add --transport http cloudflare-docs https://docs.mcp.cloudflare.com/mcp` |
+| `google-developer-knowledge` | Google Developer Knowledge (auth) | `claude mcp add --transport http google-developer-knowledge https://developerknowledge.googleapis.com/mcp` |
+| `terraform` | HashiCorp Terraform MCP, registry toolset | `hashicorp/terraform-mcp-server` |
+
+A server whose documentation tool sits beside write tools (Stripe, Vercel, Supabase, MongoDB, GitHub) is not in this list: the project adds its read operation itself.
+
+**The project's servers** — `config/quality.json → agents.docs_servers`, each server mapped to its read operations, e.g. `{"vendor-docs": ["search_vendor_docs"]}`. The banner lists them, and `factory-sync.sh` lands the reader with `mcp__<server>__<op>` appended to its `tools:`. A server registered under another name than the table's goes here too. A server the framework already lists stays the framework's.
+
+Never a general-purpose MCP (chrome-devtools, a cloud's resource operations) and never a personal-data connector (`claude_ai_*`: mail, drive, docs, office): the validator refuses them for the reader whatever a list says, because a reader that also fetches the web must never hold the user's private files.
+
+The reader (`factory-docs-reader`, class `reader`, `rules/agents.md` § Beat 0, EVOL-056) carries the **read operations** of these servers and no other — `python3 scripts/gate.py agents` holds every definition of the class to them, and the drift check reads the landed reader with exactly the project's tail removed.
 
 ## [LAW-10] MCP-Docs Scan Banner
 > Design and build invocations open with the MCP docs scan banner, computed per invocation from an allowlist and never cached.
 
-BLUEPRINT `--start` / `--refine` and IMPLEMENT `--build` / `--refine` MUST emit the banner (`🔌 MCP Docs Scan — ...`) as the first user-facing line of every invocation. Missing banner = `mal-iniciado`. Per-invocation scan, never cached across turns. Allowlist-based detection, no heuristics — extending it means editing this skill's frontmatter `docs_mcp_allowlist`.
+BLUEPRINT `--start` / `--refine` and IMPLEMENT `--build` / `--refine` MUST emit the banner (`🔌 MCP Docs Scan — ...`) as the first user-facing line of every invocation. Missing banner = `mal-iniciado`. Per-invocation scan, never cached across turns. Allowlist-based detection, no heuristics — the framework's servers in this skill's frontmatter `docs_mcp_allowlist`, a project's in `config/quality.json → agents.docs_servers` (EVOL-138).

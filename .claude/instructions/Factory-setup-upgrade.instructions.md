@@ -415,7 +415,7 @@ Run `python3 scripts/gate.py catalog`: green, n/a with its reason, or each findi
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).
 
-**turn and probe budgets (EVOL-058).** Add `turn_budget` and `probe_budget` to every size tier of `.claude/rules/agents.md` (template values, the `medium` row) and `maxTurns` (= the large tier's `turn_budget`) to every read-only definition under `.claude/agents/` — same step as the `scripts/gates/` refresh.
+**turn and probe budgets (EVOL-058).** Add `turn_budget` and `probe_budget` to every size tier of `.claude/rules/agents.md` (template values, the `medium` row); the read-only definitions under `.claude/agents/` carry `maxTurns` already (framework-owned, delivered by sync — never edited here): the large tier's `turn_budget` never exceeds it (EVOL-138).
 
 **canary (EVOL-059).** Add `agents.canary.line_tolerance` with the template's value; the critics' `Model:` line arrives with the gates refresh.
 
@@ -574,6 +574,52 @@ snap = json.loads(snap_p.read_text(encoding="utf-8"))
 feats = snap.setdefault("governance_features", {})
 if not feats.get("claude_split_v1"):
     feats["claude_split_v1"] = True
+    snap_p.write_text(json.dumps(snap, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+```
+
+**profile members (EVOL-138).** Moves the gate members a project added to `scripts/gates/profile.py` into `config/quality.json → profile.members`, the project's home — the profile reads both as one list. Sync has already replaced `profile.py` with the framework's, so the block reads the committed one (`git show HEAD:scripts/gates/profile.py`) and moves each literal member whose name the delivered list lacks, add-only by name. A member written as an expression is refused by its line: move it into `profile.members` by hand (`{name, runner, needs_build, needs_database, owner}`), then run the block again. It sets `governance_features.project_members_v1`; a second run changes nothing. Name the moved members in the upgrade report:
+
+```bash
+python3 -I - <<'PY'
+import json, os, pathlib, shutil, subprocess, sys, tempfile
+sys.path.insert(0, "scripts")
+from gates import discovery, profile
+q_p, snap_p, rel = pathlib.Path("config/quality.json"), pathlib.Path(discovery.PROJECT_MANIFEST), "scripts/gates/profile.py"
+def git(*a):
+    return subprocess.run(["git", *a], capture_output=True, text=True)
+if git("rev-parse", "--verify", "-q", "HEAD").returncode != 0:
+    sys.exit("refused: no commit to read the installed profile.py from — commit the project's tree as it stood before the upgrade, then run this block again")
+shown = git("show", f"HEAD:{rel}") if git("cat-file", "-e", f"HEAD:{rel}").returncode == 0 else None
+if shown is not None and shown.returncode != 0:
+    sys.exit(f"refused: git could not read the committed {rel} — {shown.stderr.strip()}")
+try:
+    rows = profile.installed_members(shown.stdout, {m[0] for m in profile.MEMBERS}) if shown else []
+    q = json.loads(q_p.read_text(encoding="utf-8"))
+    members = q.setdefault("profile", {}).setdefault("members", [])
+    if not isinstance(members, list):
+        raise ValueError("config/quality.json → profile.members is not a list")
+    have = {m.get("name") for m in members if isinstance(m, dict)}
+    moved = [r for r in rows if r["name"] not in have]
+    profile.check_rows(members + moved)
+except (profile.GateFault, ValueError, OSError) as e:
+    sys.exit(f"refused: {e} — nothing was written")
+print(json.dumps({"moved": [r["name"] for r in moved], "already": sorted(r["name"] for r in rows if r["name"] in have)}))
+if moved:
+    members.extend(moved)
+    fd, tmp = tempfile.mkstemp(dir=str(q_p.parent), prefix=".quality-members-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(q, indent=2, ensure_ascii=False) + "\n")
+        shutil.copymode(q_p, tmp)
+        os.replace(tmp, q_p)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+snap = json.loads(snap_p.read_text(encoding="utf-8"))
+feats = snap.setdefault("governance_features", {})
+if not feats.get("project_members_v1"):
+    feats["project_members_v1"] = True
     snap_p.write_text(json.dumps(snap, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 PY
 ```

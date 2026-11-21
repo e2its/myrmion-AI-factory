@@ -3,7 +3,7 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.27.0
+version: 2.28.0
 date: 2026-10-20
 ---
 
@@ -156,7 +156,7 @@ The hooks defend this rule **locally** (the PreToolUse hooks refuse a write on a
 
 > Moved verbatim from `CLAUDE.md` § Workflow (EVOL-064).
 
-No gate is optional — it changes its control point. One key, `delivery_mode` in `docs/project_log/governance_versions.json` (SETUP Q32; `development` | `production`), read by one definition — `python3 scripts/gate.py profile` — that fails closed: an absent key, an unknown value or an unreadable manifest is `production`, and no environment variable overrides it. The profile is derived from the mode and the branch class (`gate.py branch-class`): **light** only for a sub-increment pushed to its train in development mode (and always for the **static round** before the critics, `--control-point static`, whatever the class or the mode — EVOL-051); **full** for everything else. Members are enumerated by property in `scripts/gates/profile.py` (needs build · needs database · owner); `gate.py profile --run` runs every script member with all-report semantics and one verdict; `gate.py one-definition` proves that no hook, workflow or preflight keeps its own branch list or manifest read. Return to production mode: set `delivery_mode: production` in the manifest in one commit. **Every push and every loop execution leaves its record (EVOL-057):** the pre-push hook's exit trap writes the push's line (profile, base, mode, class, start, end, exit) through `gate.py push-log`; the loop's executor `gate.py seal --run` runs the plan's executions, times each and writes the per-gate timing beside the seal (`config/quality.json → verification.logs`); the measurement subproduct reads both, no gate does.
+No gate is optional — it changes its control point. One key, `delivery_mode` in `docs/project_log/governance_versions.json` (SETUP Q32; `development` | `production`), read by one definition — `python3 scripts/gate.py profile` — that fails closed: an absent key, an unknown value or an unreadable manifest is `production`, and no environment variable overrides it. The profile is derived from the mode and the branch class (`gate.py branch-class`): **light** only for a sub-increment pushed to its train in development mode (and always for the **static round** before the critics, `--control-point static`, whatever the class or the mode — EVOL-051); **full** for everything else. Members are enumerated by property in `scripts/gates/profile.py` (needs build · needs database · owner), the project's own as rows of `config/quality.json → profile.members` — one list, read by `profile.members` (EVOL-138); `gate.py profile --run` runs every script member with all-report semantics and one verdict; `gate.py one-definition` proves that no hook, workflow or preflight keeps its own branch list or manifest read. Return to production mode: set `delivery_mode: production` in the manifest in one commit. **Every push and every loop execution leaves its record (EVOL-057):** the pre-push hook's exit trap writes the push's line (profile, base, mode, class, start, end, exit) through `gate.py push-log`; the loop's executor `gate.py seal --run` runs the plan's executions, times each and writes the per-gate timing beside the seal (`config/quality.json → verification.logs`); the measurement subproduct reads both, no gate does.
 
 | Control point | `development` | `production` | Seal |
 | --- | --- | --- | --- |

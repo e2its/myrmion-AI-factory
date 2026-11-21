@@ -96,6 +96,8 @@ date: YYYY-MM-DD
 
 ## Adding New Templates
 
+A project's own rule is a file under `.claude/rules/` — project-owned, never touched by sync or upgrade (EVOL-138). The steps below are the framework repository's, for a template every project receives:
+
 1. Create template file in `.context/templates/setup/rules/new_rule.md`
 2. Add version header (YAML frontmatter)
 3. Define variables with `{{VAR_NAME}}` syntax

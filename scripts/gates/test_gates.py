@@ -1510,6 +1510,77 @@ class Profile(unittest.TestCase):
             self.assertEqual(profile._cmd(repo, ["bash", "x", "--base", "{base_branch}"], "origin/feature/F-001-inc-1-a", "b")[-1], "feature/F-001-inc-1-a")
             self.assertEqual(profile._cmd(repo, ["bash", "x", "--base", "{base_branch}"], "refs/remotes/origin/main", "b")[-1], "main")
 
+    def _quality(self, repo, rows):
+        q = json.loads((repo / "config/quality.json").read_text(encoding="utf-8")) if (repo / "config/quality.json").is_file() else {}
+        q.setdefault("profile", {})["members"] = rows
+        write(repo / "config/quality.json", json.dumps(q))
+
+    def test_project_members_join_the_one_list(self):
+        """EVOL-138: the project's rows live in config/quality.json → profile.members — owed, run, read by freeze — never in profile.py."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(profile.members(repo), profile.MEMBERS, "no key: the framework's list")
+            ours = {"name": "ours", "runner": ["bash", "scripts/ours.sh"], "needs_build": False, "needs_database": False, "owner": "the project"}
+            built = {"name": "ours-built", "runner": None, "needs_build": True, "needs_database": False, "owner": "BVL full loop"}
+            self._quality(repo, [ours, built])
+            write(repo / "scripts/ours.sh", "#!/bin/bash\necho 'ours: red — the project gate'\nexit 1\n")
+            self.assertEqual(profile.members(repo)[-2:], [("ours", False, False, "the project", ["bash", "scripts/ours.sh"], False),
+                                                          ("ours-built", True, False, "BVL full loop", None, False)])
+            self.assertIn("ours", {m["member"] for m in profile.owed("light", repo)})
+            self.assertNotIn("ours-built", {m["member"] for m in profile.owed("light", repo)}, "light = no build, by property — the project's rows too")
+            self.assertIn("ours-built", {m["member"] for m in profile.owed("full", repo)})
+            self.assertIn("ours", freeze._gates(repo), "the design freeze names the project's gates")
+            rep = profile.run(repo, only=["ours", "retired-terms"])
+            by = {r["member"]: r for r in rep["results"]}
+            self.assertEqual(by["ours"]["status"], "RED"); self.assertIn("the project gate", by["ours"]["output"])
+            self.assertIn("retired-terms", by); self.assertEqual(rep["verdict"], "RED")
+            self.assertIn({"member": "ours-built", "owner": "BVL full loop"}, rep["owed_elsewhere"], "an agent-run project member is owed, never dropped")
+
+    def test_a_malformed_project_key_is_one_red_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            ok = {"name": "ours", "runner": ["gate", "budget"], "needs_build": False, "needs_database": False, "owner": "p"}
+            for rows, said in (({"ours": 1}, "must be a list"), ([{"name": "ours"}], "every key is required"),
+                               ([{**ok, "name": "budget"}], "already a member"), ([ok, ok], "already a member"),
+                               ([{**ok, "runner": []}], "non-empty list of strings"), ([{**ok, "runner": "gate budget"}], "non-empty list of strings"),
+                               ([{**ok, "needs_build": "no"}], "booleans"), ([{**ok, "name": " "}], "non-empty string")):
+                self._quality(repo, rows)
+                with self.assertRaises(GateFault) as e:
+                    profile.members(repo)
+                self.assertIn(said, str(e.exception), rows)
+            self._quality(repo, [{**ok, "name": "budget"}])
+            rep = profile.run(repo, only=["retired-terms"])
+            by = {r["member"]: r for r in rep["results"]}
+            self.assertEqual(by["profile.members"]["status"], "RED"); self.assertIn("already a member", by["profile.members"]["tail"])
+            self.assertIn("retired-terms", by, "the framework members still run (all-report)")
+            self.assertEqual(rep["verdict"], "RED")
+            self.assertIn("budget", freeze._gates(repo), "a malformed key is the profile's red, never the freeze's fault")
+
+    def test_installed_members_are_the_rows_an_old_profile_added(self):
+        """EVOL-138 migration: the rows an installed profile.py added to MEMBERS, as profile.members rows."""
+        known = {m[0] for m in profile.MEMBERS}
+        text = 'X = 1\nMEMBERS = [\n    ("budget", False, False, "gate.py", ["gate", "budget"], False),\n    ("ours", False, True, "the project", ["bash", "scripts/ours.sh"], False),   # ours\n]\n'
+        self.assertEqual(profile.installed_members(text, known),
+                         [{"name": "ours", "runner": ["bash", "scripts/ours.sh"], "needs_build": False, "needs_database": True, "owner": "the project"}])
+        self.assertEqual(profile.installed_members(text.replace('"ours"', '"budget"'), known), [], "nothing added: nothing to move")
+        for bad, said in ((text.replace('["bash", "scripts/ours.sh"]', 'RUNNER'), "not a literal tuple"),
+                          (text.replace(', False),   # ours', '),   # ours'), "6-field"),
+                          ("MEMBERS = members()\n", "no `MEMBERS = [...]`"), ("MEMBERS = [\n", "does not parse")):
+            with self.assertRaises(GateFault) as e:
+                profile.installed_members(bad, known)
+            self.assertIn(said, str(e.exception))
+        self.assertEqual(profile.installed_members((HERE / "profile.py").read_text(encoding="utf-8"), known), [], "the delivered file adds nothing")
+
+
+    def test_an_installed_member_that_is_no_valid_row_is_refused_by_its_line(self):
+        """EVOL-138: a literal tuple whose fields break the row contract (a string runner, a repeated name) is refused before any write."""
+        base = 'MEMBERS = [\n    ("adr-sync", False, False, "x", ["gate", "adr-sync"], False),\n'
+        for extra in ('    ("ours", False, False, "the project", "bash run.sh", False),\n',
+                      '    ("ours", False, False, "p", None, False),\n    ("ours", False, False, "p", None, False),\n'):
+            with self.assertRaises(profile.GateFault) as cm:
+                profile.installed_members(base + extra + "]\n", {"adr-sync"})
+            self.assertIn("by hand", str(cm.exception))
+
     def test_one_definition_scan(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
@@ -2161,6 +2232,53 @@ class Agents(unittest.TestCase):
             self.assertEqual(agents.check_return("## Sources\n(or exactly: no sources)\nno sources\n## Answer\nx\n## Unknowns\n- q · searched: web\n(or exactly: none)\n" + gov, "reader"), [], "the template's hint lines are not lines")
             self.assertTrue(any("exactly `## Sources`" in p for p in agents.check_return("## Sources (2)\n- mcp · context7 · q · https://x · d\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")))
             self.assertEqual(agents.check_return("did x\n## Hand-off\nDone: A.1\nRemaining: none\nState: s\n" + gov, "worker"), [], "the reader's sections are the reader's — a worker owes its hand-off and its governance block (EVOL-062), never the reader's sections")
+
+    def test_project_docs_servers_complete_the_reader(self):
+        """EVOL-138 (RDR «1+»): config/quality.json → agents.docs_servers allowlists the project's servers; sync completes the
+        reader's tools with their read operations; the drift check sees through exactly that tail; the validator still holds them."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text())
+            def declare(v):
+                q["agents"]["docs_servers"] = v; write(repo / "config/quality.json", json.dumps(q))
+            declare({"vendor-docs": ["search_vendor_docs", "get_page"], "context7": ["query-docs"]})
+            extra = agents.project_docs_servers(repo)
+            self.assertEqual(extra, {"vendor-docs": ["search_vendor_docs", "get_page"]}, "a server the framework lists stays the framework's")
+            self.assertEqual(agents.docs_servers(repo), {"context7", "aws-knowledge", "vendor-docs"})
+            src = agent_def("factory-docs-reader", "reader", READER_TOOLS)
+            landed = agents.reader_tools(src, extra)
+            self.assertIn("tools: " + READER_TOOLS + ", mcp__vendor-docs__search_vendor_docs, mcp__vendor-docs__get_page\n", landed)
+            self.assertEqual(agents.reader_tools(landed, extra), landed, "idempotent")
+            self.assertEqual(agents.reader_unrender(landed, extra), src, "the delivered source under the landed reader")
+            self.assertEqual(agents.reader_tools(src, {}), src); self.assertEqual(agents.reader_unrender(src, {}), src)
+            edited = landed.replace("tools: Read,", "tools: Read, Bash,")
+            self.assertNotEqual(agents.reader_unrender(edited, extra), src, "a hand edit still differs from what sync delivered")
+            write(repo / ".claude/agents/factory-docs-reader.md", landed)
+            self.assertEqual(agents.validate(repo, self.manifest), [], "the project's read operations are admitted")
+            declare({"vendor-docs": ["search_vendor_docs", "delete_page"]})
+            write(repo / ".claude/agents/factory-docs-reader.md", agents.reader_tools(src, agents.project_docs_servers(repo)))
+            self.assertTrue(any("write verb" in x["reason"] for x in agents.validate(repo, self.manifest)), "a project's mutator is still red")
+            declare({"claude_ai_Gmail": ["search_threads"]})
+            write(repo / ".claude/agents/factory-docs-reader.md", agents.reader_tools(src, agents.project_docs_servers(repo)))
+            self.assertTrue(any("personal-data connector" in x["reason"] for x in agents.validate(repo, self.manifest)), "a personal connector never, whoever lists it")
+            for bad in (["vendor-docs"], {"vendor-docs": []}, {"vendor-docs": "search"}, {"": ["get"]}):
+                declare(bad)
+                with self.assertRaisesRegex(GateFault, "agents.docs_servers"):
+                    agents.project_docs_servers(repo)
+                self.assertTrue(any("agents.docs_servers" in x["reason"] and x["path"] == "config/quality.json" for x in agents.validate(repo, self.manifest)), bad)
+            with self.assertRaisesRegex(GateFault, "no `tools:` line"):
+                agents.reader_tools("---\nname: x\n---\ntools: body\n", {"v": ["get"]})
+
+    def test_turn_caps_are_at_most_the_definitions_ceiling(self):
+        """EVOL-138: a definition's maxTurns is the framework's ceiling; the project's key is the cap told, never above it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("  worker_turn_cap: 80\n", "  worker_turn_cap: 50\n").replace("large: {files: 30, lines: 800, turn_budget: 60,", "large: {files: 30, lines: 800, turn_budget: 45,"))
+            self.assertEqual(agents.validate(repo, self.manifest), [], "a project lowers its caps without touching a framework definition")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("  worker_turn_cap: 80\n", "  worker_turn_cap: 90\n"))
+            self.assertTrue(any("`maxTurns: 80`" in x["reason"] and "worker_turn_cap (90)" in x["reason"] for x in agents.validate(repo, self.manifest)), "above the harness's stop is red")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("large: {files: 30, lines: 800, turn_budget: 60,", "large: {files: 30, lines: 800, turn_budget: 70,"))
+            self.assertTrue(any("`maxTurns: 60`" in x["reason"] and "(70)" in x["reason"] for x in agents.validate(repo, self.manifest)), "a tier budget above the reader's stop is red")
 
     def test_context_diet_keys_cap_and_handoff(self):
         """EVOL-062: the two digits are keys; every worker definition declares the cap (the harness's hard stop); the resolver hands it; a phase definition declares none; the hand-off is the worker's contract."""
@@ -6069,6 +6187,20 @@ class Owners(unittest.TestCase):
             write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {}, "governance_features": {"owners_v1": True, "claude_split_v1": True}}))
             self.assertTrue(discovery._detected(repo, row["detect"]))
 
+    def test_profile_members_row_owed_then_not(self):
+        """EVOL-138: the shipped members row's detect pointer — owed before the anchor stamps it, not after."""
+        reg = Path(__file__).resolve().parents[2] / ".context/templates/setup/setup/discovery_registry.json"
+        if not reg.is_file():
+            self.skipTest("no registry")
+        row = next(r for r in json.loads(reg.read_text(encoding="utf-8"))["migrations"] if r.get("id") == "profile members (EVOL-138)")
+        self.assertEqual((row["apply"], row["since"]), (row["id"], "10.17.0"))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {}, "governance_features": {"claude_split_v1": True}}))
+            self.assertFalse(discovery._detected(repo, row["detect"]))
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {}, "governance_features": {"claude_split_v1": True, "project_members_v1": True}}))
+            self.assertTrue(discovery._detected(repo, row["detect"]))
+
     def test_new_entry_copies_the_sibling_owner(self):
         self.assertEqual(manifest._sibling_fields(self._m(), "templates", "rules/q.md").get("owner"), "project")
 
@@ -6115,6 +6247,24 @@ class Owners(unittest.TestCase):
             (repo / ".claude/newtree/n.md").unlink()
             f = manifest.project_findings(repo, snap)
             self.assertEqual([x["path"] for x in f], [".claude/newtree/n.md"]); self.assertIn("missing", f[0]["reason"])
+
+    def test_the_completed_reader_is_not_drift(self):
+        """EVOL-138: sync lands the reader completed with the project's servers; drift compares it with exactly that tail removed."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            src = agent_def("factory-docs-reader", "reader", READER_TOOLS)
+            sha = hashlib.sha256(src.encode()).hexdigest()
+            write(repo / agents.DOCS_SCAN_SKILL, DOCS_SCAN)
+            write(repo / agents.READER, src)
+            self.assertEqual(manifest._landed_sha(repo, agents.READER), sha, "no key: the bytes as landed")
+            write(repo / "config/quality.json", json.dumps({"agents": {"docs_servers": {"vendor-docs": ["get_page"]}}}))
+            write(repo / agents.READER, agents.reader_tools(src, agents.project_docs_servers(repo)))
+            self.assertNotEqual(hashlib.sha256((repo / agents.READER).read_bytes()).hexdigest(), sha)
+            self.assertEqual(manifest._landed_sha(repo, agents.READER), sha, "the completed reader is what sync delivered")
+            write(repo / agents.READER, (repo / agents.READER).read_text().replace("tools: Read,", "tools: Read, Bash,"))
+            self.assertNotEqual(manifest._landed_sha(repo, agents.READER), sha, "a hand edit is drift")
+            (repo / agents.READER).unlink()
+            self.assertIsNone(manifest._landed_sha(repo, agents.READER))
 
     def test_snapshot_owners_and_older_frameworks(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -12812,7 +12962,7 @@ else:
 
     def test_one_memo_per_profile_run_gone_after_it(self):
         seen = {}
-        def members(repo, pr, base, br, cp, only, ctx, env):
+        def members(repo, pr, base, br, cp, only, ctx, env, listed=None):
             seen["dir"] = env[documents.MEMO]; seen["there"] = Path(env[documents.MEMO]).is_dir()
             return [], []
         with tempfile.TemporaryDirectory() as tmp:
@@ -13153,7 +13303,7 @@ else:
         args = {m[0]: m[4] for m in profile.MEMBERS}
         self.assertIn("{control_point}", args["documents"])
         seen = {}
-        def members(repo, pr, base, br, cp, only, ctx, env):
+        def members(repo, pr, base, br, cp, only, ctx, env, listed=None):
             seen["base"] = env.get(documents.BASE)
             return [], []
         with tempfile.TemporaryDirectory() as tmp:

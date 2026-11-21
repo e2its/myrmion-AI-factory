@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.16.0",
+  "framework_version": "10.17.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-21",
   "governance_features": {
@@ -68,7 +68,7 @@
       "owner": "project"
     },
     "rules/frontend_architecture_compatibility.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/rules/frontend_architecture_compatibility.md",
       "owner": "project"
@@ -122,7 +122,7 @@
       "owner": "project"
     },
     "rules/branching.md": {
-      "version": "2.27.0",
+      "version": "2.28.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md",
       "owner": "project"
@@ -171,7 +171,7 @@
       "owner": "project"
     },
     "rules/contract-first-policy.md": {
-      "version": "3.9.0",
+      "version": "3.10.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/contract-first-policy.md",
       "owner": "project"
@@ -265,7 +265,7 @@
       "owner": "project"
     },
     "scripts/security-scan.sh": {
-      "version": "3.3.2",
+      "version": "3.4.0",
       "content_type": "universal",
       "target": "scripts/security-scan.sh",
       "delivery": "both",
@@ -371,7 +371,7 @@
       "owner": "framework"
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "2.8.0",
+      "version": "2.9.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd.platform == \"GitHub Actions\"",
@@ -529,7 +529,7 @@
       "owner": "project"
     },
     "claude/framework.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/framework.md",
       "delivery": "both",
@@ -550,7 +550,7 @@
       "owner": "project"
     },
     "backlog-tool-adapters/README.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "docs/backlog-tool-adapters/README.md",
       "owner": "project"
@@ -586,7 +586,7 @@
       "owner": "project"
     },
     "config/quality.json": {
-      "version": "2.7.1",
+      "version": "2.8.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "owner": "seam"
@@ -655,7 +655,7 @@
       "owner": "project"
     },
     "rules/README.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/rules/README.md",
       "owner": "project"
@@ -710,7 +710,7 @@
       "owner": "project"
     },
     "policies/dast.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": null,
       "role": "DAST policy reference — consumed in place by SETUP/QA.",
@@ -1069,7 +1069,7 @@
       "owner": "project"
     },
     "scripts/gate.py": {
-      "version": "2.11.1",
+      "version": "2.12.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language.",
@@ -1117,7 +1117,7 @@
       "owner": "framework"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.51.2",
+      "version": "1.52.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -1141,7 +1141,7 @@
       "owner": "framework"
     },
     "scripts/gates/profile.py": {
-      "version": "1.19.0",
+      "version": "1.20.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
@@ -1186,7 +1186,7 @@
       "owner": "framework"
     },
     "scripts/gates/agents.py": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "content_type": "universal",
       "target": "scripts/gates/agents.py",
       "delivery": "both",
@@ -1194,7 +1194,7 @@
       "owner": "framework"
     },
     "rules/agents.md": {
-      "version": "1.13.0",
+      "version": "1.14.0",
       "content_type": "universal",
       "target": ".claude/rules/agents.md",
       "role": "The one data home of the agent class policy (tools per class, budgets, families, per-spawn resolution, ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies. Read by gate.py agents.",
@@ -1386,7 +1386,7 @@
       "owner": "project"
     },
     "claude/agents/factory-docs-reader.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-docs-reader.md",
       "role": "Agent definition — reader (read-only, family critic): the external-facts reader spawned by the main session at Beat 0 of a design, a plan or an infrastructure configuration; the harness matrix plus the read operations of the [LAW-10] documentation servers; the return (sources, answer, unknowns) refused when incomplete.",
@@ -1401,7 +1401,7 @@
       "owner": "framework"
     },
     "scripts/gates/manifest.py": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "content_type": "universal",
       "target": "scripts/gates/manifest.py",
       "delivery": "both",
@@ -1443,7 +1443,7 @@
       "owner": "framework"
     },
     "setup/discovery_registry.json": {
-      "version": "2.11.0",
+      "version": "2.12.0",
       "content_type": "universal",
       "target": null,
       "role": "The SETUP discovery registry (EVOL-102) — consumed in place by SETUP and gate.py discovery, never copied: the questions, their tiers, keys, options and conditions; derived values never asked.",
@@ -1486,7 +1486,7 @@
       "owner": "framework"
     },
     "scripts/gates/freeze.py": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/freeze.py",
@@ -1695,6 +1695,13 @@
       "delivery": "both",
       "target": "scripts/gates/notebook.py",
       "owner": "framework"
+    },
+    "security/dast/rules.tsv": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "owner": "project",
+      "target": "security/dast/rules.tsv",
+      "role": "The project's ZAP packaged-scan rules (EVOL-138): security-scan.sh passes it as -c when present; lands holding only the format, as comments."
     }
   },
   "agent_templates": {
@@ -2021,13 +2028,13 @@
       "owner": "framework"
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "4.8.0",
+      "version": "4.9.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "delivery": "sync",
       "owner": "framework"
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "3.8.0",
+      "version": "3.9.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "delivery": "sync",
       "owner": "framework"
@@ -2051,7 +2058,7 @@
       "owner": "framework"
     },
     "CLAUDE.md": {
-      "version": "14.42.0",
+      "version": "14.43.0",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
@@ -2122,7 +2129,7 @@
       "owner": "framework"
     },
     "skills/factory-mcp-docs-scan/SKILL.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "skill",
       "role": "Agent self-introspects tool registry, filters by explicit docs_mcp_allowlist frontmatter, emits single-line 🔌 MCP Docs Scan banner before BLUEPRINT --start/--refine and IMPLEMENT --build/--refine. Per-invocation scan (not cached across turns).",
       "path": ".claude/skills/factory-mcp-docs-scan/SKILL.md",
@@ -2210,7 +2217,7 @@
       "owner": "framework"
     },
     "skills/factory-code-review/references/severity-mapping.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "skill-asset",
       "role": "Single tuning home: upstream agent scales → framework rubric 🔴🟡🟢❓. Per-agent tables + cross-cutting rules (iron law unverifiable→❓, advisory ceiling 🟡, dedupe, mandatory fix per 🔴/🟡). Orchestrator-side — agent files never edited for severity.",
       "path": ".claude/skills/factory-code-review/references/severity-mapping.md",
@@ -2274,7 +2281,7 @@
       "owner": "framework"
     },
     "skills/factory-pr-review/SKILL.md": {
-      "version": "1.15.0",
+      "version": "1.16.0",
       "type": "skill",
       "role": "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.context/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .context/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT increment pass — work critics; separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "path": ".claude/skills/factory-pr-review/SKILL.md",
@@ -2282,7 +2289,7 @@
       "owner": "framework"
     },
     "skills/factory-pr-review/README.md": {
-      "version": "1.0.2",
+      "version": "1.1.0",
       "type": "skill-asset",
       "role": "Factory PR Review installation + framework integration notes — community-origin README kept for upstream attribution and contributor guidance.",
       "path": ".claude/skills/factory-pr-review/README.md",
@@ -2386,7 +2393,7 @@
       "owner": "framework"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.14.0",
+      "version": "1.15.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
@@ -2725,7 +2732,7 @@
       "owner": "framework"
     },
     "scripts/security-scan.sh": {
-      "version": "1.4.2",
+      "version": "1.5.0",
       "type": "script",
       "role": "Meta copy of the security-scan dispatcher. Registered at its historical 0-byte state (born empty at initial commit — CVP CRITICAL); real dispatcher content lands with EVOL-040 K4 and bumps this entry.",
       "path": "scripts/security-scan.sh",
@@ -2737,7 +2744,7 @@
       "path": ".github/workflows/lockstep-check.yml"
     },
     "config/quality.json": {
-      "version": "1.22.1",
+      "version": "1.23.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json"
@@ -2749,7 +2756,7 @@
       "path": "scripts/test-materialization-surface.sh"
     },
     "scripts/test-security-scan.sh": {
-      "version": "1.0.3",
+      "version": "1.1.0",
       "type": "script",
       "role": "Secrets-lane dispatcher self-test (scenarios via stub scanner: clean, fail-open-noisy, require-scanner strict, disabled, unconfigured, broken-JSON diagnosis, eval-injection regression, {{RANGE}} word-drop, findings fail-closed, base/head resolved to commits, a bare placeholder after a flag refused, an unknown placeholder never run; and the real trufflehog through the dispatcher where installed — #189). The only executable coverage of the push-time secrets gate fail-directions. Wired into governance-check T2.",
       "path": "scripts/test-security-scan.sh"
@@ -2805,7 +2812,7 @@
       "owner": "framework"
     },
     "scripts/gate.py": {
-      "version": "2.11.1",
+      "version": "2.12.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
@@ -2841,13 +2848,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.51.2",
+      "version": "1.52.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.48.0",
+      "version": "1.49.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -2877,7 +2884,7 @@
       "path": "scripts/gates/branch.py"
     },
     "scripts/gates/profile.py": {
-      "version": "1.19.0",
+      "version": "1.20.0",
       "type": "script",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
       "path": "scripts/gates/profile.py"
@@ -2919,7 +2926,7 @@
       "owner": "framework"
     },
     "scripts/gates/agents.py": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "type": "script",
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes). Meta copy (lock-step pair).",
       "path": "scripts/gates/agents.py"
@@ -3069,7 +3076,7 @@
       "path": "scripts/gates/scm.py"
     },
     "agents/factory-docs-reader.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-docs-reader.md",
       "role": "Agent definition — reader (read-only, family critic): the external-facts reader spawned by the main session at Beat 0 of a design, a plan or an infrastructure configuration; the harness matrix plus the read operations of the [LAW-10] documentation servers; the return (sources, answer, unknowns) refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
@@ -3083,7 +3090,7 @@
       "role": "Meta copy (lock-step pair) of the lens canary module — see the templates entry."
     },
     "scripts/gates/manifest.py": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "path": "scripts/gates/manifest.py",
       "role": "The manifest bump helper (EVOL-061): one command moves the entry, the file's frontmatter and framework_version — state only (EVOL-118); --check verifies. Meta copy (lock-step pair).",
       "type": "script"
@@ -3171,7 +3178,7 @@
       "path": "scripts/gates/frontmatter.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12.json": {
-      "version": "1.17.2",
+      "version": "1.18.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json",
@@ -3188,7 +3195,7 @@
       "path": "scripts/gates/train.py"
     },
     "scripts/gates/freeze.py": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "type": "script",
       "path": "scripts/gates/freeze.py"
     },
@@ -3422,7 +3429,7 @@
       "path": "scripts/gates/data.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json": {
-      "version": "1.12.2",
+      "version": "1.13.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json",

@@ -194,20 +194,27 @@ if [ "$DAST" -eq 1 ]; then
   # capture that rather than swallowing it with `|| true` (findings are
   # fail-closed, same as the secrets lane — the header contract).
   ZAP_RC=0
+  # The project's exclusions (EVOL-138): security/dast/rules.tsv is project-owned — ID<TAB>IGNORE|INFO|WARN|FAIL<TAB>name,
+  # or ID<TAB>OUTOFSCOPE<TAB>url-regex — read by every packaged scan as -c (relative to /zap/wrk) when it exists.
+  ZAP_RULES=()
+  if [ -f "security/dast/rules.tsv" ]; then
+    ZAP_RULES=(-c security/dast/rules.tsv)
+    echo "  ├─ Project exclusions: security/dast/rules.tsv"
+  fi
   case "$DAST_MODE" in
     baseline)
       echo "  ├─ Running ZAP Baseline Scan (passive + spider, ~10 min)..."
       docker run -v "$(pwd)":/zap/wrk/:rw \
         -t zaproxy/zap-stable:latest \
         zap-baseline.py -t "$TARGET_URL" \
-        -g gen.conf -r "${REPORT_FILE}.html" || ZAP_RC=$?
+        -g gen.conf ${ZAP_RULES[@]+"${ZAP_RULES[@]}"} -r "${REPORT_FILE}.html" || ZAP_RC=$?
       ;;
     full)
       echo "  ├─ Running ZAP Full Scan (active attacks + AJAX spider, ~30 min)..."
       docker run -v "$(pwd)":/zap/wrk/:rw \
         -t zaproxy/zap-stable:latest \
         zap-full-scan.py -t "$TARGET_URL" \
-        -g gen.conf -r "${REPORT_FILE}.html" || ZAP_RC=$?
+        -g gen.conf ${ZAP_RULES[@]+"${ZAP_RULES[@]}"} -r "${REPORT_FILE}.html" || ZAP_RC=$?
       ;;
     api)
       echo "  ├─ Running ZAP API Scan (OpenAPI/GraphQL, ~15 min)..."
@@ -217,7 +224,7 @@ if [ "$DAST" -eq 1 ]; then
       docker run -v "$(pwd)":/zap/wrk/:rw \
         -t zaproxy/zap-stable:latest \
         zap-api-scan.py -t "$TARGET_URL" \
-        -f openapi -g gen.conf -r "${REPORT_FILE}.html" || ZAP_RC=$?
+        -f openapi -g gen.conf ${ZAP_RULES[@]+"${ZAP_RULES[@]}"} -r "${REPORT_FILE}.html" || ZAP_RC=$?
       ;;
   esac
 

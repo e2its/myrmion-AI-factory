@@ -234,8 +234,35 @@ if [[ "$QUERY_FAILED" -ne 0 ]] || [[ -z "$PLAN" ]]; then
   echo -e "${RED}  ✗ the manifest's delivered set could not be read (python3 missing or governance_versions.json unreadable) — NOTHING synced${NC}"
   ERRORS=$((ERRORS + 1))
 else
+  READER_LANDED=".claude/agents/factory-docs-reader.md"
   while IFS=$'\t' read -r src landed; do
     [[ -z "$landed" ]] && continue
+    if [[ "$landed" == "$READER_LANDED" ]] && [[ -f "$FRAMEWORK_ROOT/$src" ]]; then
+      # EVOL-138: the reader lands completed with the read operations of the project's documentation servers
+      # (config/quality.json → agents.docs_servers); a malformed key delivers it as shipped and says so
+      READER_TMP="$(mktemp)"
+      if ! python3 -I - "$FRAMEWORK_ROOT" "$TARGET_PROJECT" "$FRAMEWORK_ROOT/$src" "$READER_TMP" <<'PY'
+import sys
+from pathlib import Path
+root, target, src, out = (Path(a) for a in sys.argv[1:5]); sys.path.insert(0, str(root / "scripts"))
+from gates import agents
+from gates.common import GateFault
+text = src.read_text(encoding="utf-8")
+try:
+    extra = agents.project_docs_servers(target)
+    extra = {s: ops for s, ops in extra.items() if s not in agents.framework_docs_servers(root)}   # the framework this sync delivers
+    out.write_text(agents.reader_tools(text, extra), encoding="utf-8")
+except GateFault as e:
+    out.write_text(text, encoding="utf-8")
+    print(f"  ! the reader lands as shipped — {e} (gate.py agents names it)")
+PY
+      then
+        cp "$FRAMEWORK_ROOT/$src" "$READER_TMP"
+      fi
+      sync_file "$READER_TMP" "$TARGET_PROJECT/$landed"
+      rm -f "$READER_TMP"
+      continue
+    fi
     sync_file "$FRAMEWORK_ROOT/$src" "$TARGET_PROJECT/$landed"
   done <<< "$PLAN"
 fi

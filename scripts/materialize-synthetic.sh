@@ -578,7 +578,7 @@ import json, sys, pathlib
 m = json.load(open(sys.argv[1])); out = {"framework_version": m["framework_version"], "delivery_mode": "development", "templates": {}}   # Q32 sample
 for k, e in m["templates"].items():
     if isinstance(e, dict) and e.get("target"): out["templates"][k] = {"version": e["version"], "target": e["target"], "owner": e["owner"]}
-out["governance_features"] = {"owners_v1": True, "claude_split_v1": True}   # EVOL-136: each owner stamped; EVOL-137: the root lands split
+out["governance_features"] = {"owners_v1": True, "claude_split_v1": True, "project_members_v1": True}   # EVOL-136: each owner stamped; EVOL-137: the root lands split; EVOL-138: members in config
 p = pathlib.Path(sys.argv[2]); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps(out, indent=1))
 PY
 OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
@@ -704,6 +704,62 @@ else
   bad "the last CLAUDE.md monolith ($FROM) is not in this clone's history — the split proof needs it (fetch the full history)"
 fi
 rm -rf "$Q" "$Q.split.sh" "$Q.mono"
+# EVOL-138: the project's extension points survive sync — a member the project added to an installed profile.py moves into
+# config/quality.json → profile.members and runs; a documentation server of its own lands in the reader, never drift
+Q="$SCRATCH/h138"; cp -a "$P" "$Q"
+python3 - "$Q" <<'PY'
+import json, pathlib, sys
+q = pathlib.Path(sys.argv[1])
+pf = q / "scripts/gates/profile.py"; t = pf.read_text(encoding="utf-8")
+anchor = "MEMBERS = [\n"
+assert t.count(anchor) == 1
+pf.write_text(t.replace(anchor, anchor + '    ("ours",             False, False, "the project", ["bash", "scripts/ours.sh"], False),\n'), encoding="utf-8")
+(q / "scripts/ours.sh").write_text("#!/bin/bash\necho 'ours: red — the project gate ran'\nexit 1\n", encoding="utf-8")
+c = q / "config/quality.json"; d = json.loads(c.read_text(encoding="utf-8"))
+d.setdefault("agents", {})["docs_servers"] = {"vendor-docs": ["search_vendor_docs"]}
+c.write_text(json.dumps(d, indent=2), encoding="utf-8")
+m = q / "docs/project_log/governance_versions.json"; d = json.loads(m.read_text()); d["governance_features"].pop("project_members_v1"); m.write_text(json.dumps(d, indent=1))
+PY
+git -C "$Q" add -A && git -C "$Q" -c user.name=t -c user.email=t@t commit -qm "the project's member, as an installed profile.py held it"
+python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$Q.members.sh" <<'PY'
+import re, sys; s = open(sys.argv[1], encoding="utf-8").read()
+print(re.search(r"```bash\n(.*?)```", s[s.index("**profile members (EVOL-138).**"):], re.S).group(1))
+PY
+SYNC=$(bash "$ROOT/scripts/factory-sync.sh" "$Q" --force 2>&1); RCS=$?
+cmp -s "$Q/scripts/gates/profile.py" "$T/scripts/gates/profile.py" && OVER=y || OVER=n
+OUT=$(cd "$Q" && bash "$Q.members.sh" 2>&1); RC1=$?
+SUM1=$(cd "$Q" && sha256sum config/quality.json docs/project_log/governance_versions.json)
+OUT2=$(cd "$Q" && bash "$Q.members.sh" 2>&1); RC2=$?
+SUM2=$(cd "$Q" && sha256sum config/quality.json docs/project_log/governance_versions.json)
+CHK=$(cd "$Q" && python3 - <<'PY'
+import json, pathlib, sys
+sys.path.insert(0, "scripts")
+from gates import profile
+q = pathlib.Path(".")
+rows = json.loads((q / "config/quality.json").read_text())["profile"]["members"]
+feats = json.loads((q / "docs/project_log/governance_versions.json").read_text())["governance_features"]
+rep = profile.run(q, base="origin/main", only=["ours"])
+by = {r["member"]: r for r in rep["results"]}
+bad = []
+if [r["name"] for r in rows] != ["ours"]: bad.append(f"rows {rows}")
+if not feats.get("project_members_v1"): bad.append("not stamped")
+if by.get("ours", {}).get("status") != "RED" or "the project gate ran" not in by["ours"].get("output", ""): bad.append(f"ours did not run: {by.get('ours')}")
+print("; ".join(bad))
+PY
+)
+[ "$RCS" -eq 0 ] && [ "$OVER" = y ] && [ "$RC1" -eq 0 ] && [ "$RC2" -eq 0 ] && [ -z "$CHK" ] && [ "$SUM1" = "$SUM2" ] \
+  && ok "the project's member: sync replaces profile.py, the row moves into profile.members, the profile runs it, a second run changes nothing (EVOL-138)" \
+  || bad "the members migration (sync=$RCS, replaced=$OVER, rc=$RC1/$RC2, idempotent=$([ "$SUM1" = "$SUM2" ] && echo y || echo n))" "$CHK
+$OUT
+$(printf '%s' "$SYNC" | tail -5)"
+OUT=$(cd "$Q" && python3 scripts/gate.py agents 2>&1); RCA=$?
+OUT2=$(cd "$Q" && python3 scripts/gate.py manifest-parity 2>&1); RCP=$?
+grep -q '^tools: .*, mcp__vendor-docs__search_vendor_docs$' "$Q/.claude/agents/factory-docs-reader.md" && [ "$RCA" -eq 0 ] && [ "$RCP" -eq 0 ] \
+  && ok "the project's documentation server lands in the reader through sync, the agents gate admits it and the drift check reads it as delivered (EVOL-138)" \
+  || bad "the project's documentation server (agents rc=$RCA, parity rc=$RCP)" "$OUT
+$OUT2
+$(grep '^tools:' "$Q/.claude/agents/factory-docs-reader.md")"
+rm -rf "$Q" "$Q.members.sh"
 # EVOL-118: the manifest carries current state only — a reintroduced history key is red, named by its path; removed, green again
 if grep -rlq '^changelog:' "$P/.claude/rules"; then bad "a materialised rule carries a frontmatter changelog (EVOL-118)" "$(grep -rl '^changelog:' "$P/.claude/rules")"; else ok "no materialised rule carries a frontmatter changelog (EVOL-118)"; fi
 cp "$P/docs/project_log/governance_versions.json" "$P/manifest.keep"

@@ -445,9 +445,9 @@ The skill reads `pr_review_overrides:` from every ADR under `docs/project_log/ad
 
 A project that wants to disable a check entirely declares it in an ADR (or FDR for feature-scoped exemptions), which is itself reviewed and ratified. There is no per-developer escape hatch — bypassing the gate without an ADR/FDR is a governance-scope violation.
 
-## Customisation (deprecated path)
+## Customisation
 
-A project can also create `references/local-policy.md` in its copy of the skill, but this is **deprecated** in favour of the rule + ADR mechanism above. The rule + ADR path is governance-tracked (manifest-bumped, ADR-ratified) whereas a `local-policy.md` is an opaque skill-local override. Use it only for one-off experiments; promote to a rule + ADR before merging to main.
+This skill is framework-owned and replaced whole by sync (EVOL-138): a project's policy lives in `.claude/rules/`, its tuning in `config/quality.json → code_review`, its downgrades in an ADR's `pr_review_overrides` — never in a copy of this skill.
 
 ## Skill structure
 

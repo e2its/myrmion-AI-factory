@@ -10,7 +10,7 @@
 # law parity, budgets, retired vocabulary, artefact currency, manifest parity, surface ceiling). A
 # sub-increment PR into its train in development mode owes the light profile; everything to main owes
 # the full one. The workflow itself reads no manifest and keeps no branch list (gate.py one-definition).
-# Add project-specific gates as further members in scripts/gates/profile.py, never as ad-hoc steps.
+# Add project-specific gates as rows of config/quality.json → profile.members (EVOL-138), never as ad-hoc steps.
 # ============================================================================
 
 name: Governance Check

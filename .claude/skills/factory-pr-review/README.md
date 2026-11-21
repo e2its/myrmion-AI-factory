@@ -115,38 +115,11 @@ python pr-review/scripts/post_review.py \
 
 ## Customization
 
-### Project-specific policy
+This skill is framework-owned: sync replaces it whole, so an edit here is lost (EVOL-138). A project tunes the review in its own homes:
 
-Create a `references/local-policy.md` file in your repo's copy of the skill (not the base copy). Document there:
-
-- Specific naming conventions.
-- Allowed/forbidden libraries.
-- Logging standards.
-- Mandatory testing policy.
-- Specific security rules (PII, PCI, health data).
-
-Then add to `SKILL.md` a line like:
-
-```
-If references/local-policy.md exists, always load it and apply its rules with priority over the general ones.
-```
-
-### Severity tuning
-
-Edit `references/severity-rubric.md` to reflect your team's priorities. For example, in a prototype repo you can downgrade many blockers to important.
-
-### Per-language adaptation
-
-Add files in `references/` per language if you need to go deeper:
-
-```
-references/
-├── lang-python.md
-├── lang-typescript.md
-└── lang-java.md
-```
-
-Reference them from `code-review-criteria.md`. The progressive disclosure pattern is preserved: only the relevant ones load based on detected languages.
+- **Project policy** (naming, libraries, logging, testing, PII/PCI/health rules) — a rule under `.claude/rules/`, applied by the precedence `factory-code-review/SKILL.md` states (law > ADR/FDR > rule file > agent defaults).
+- **Severity and blocking** — `config/quality.json → code_review`, or an ADR's `pr_review_overrides` (see `SKILL.md`).
+- **A language or a check the framework lacks** — proposed upstream.
 
 ## CI integration
 

@@ -2,7 +2,7 @@
 
 Single tuning home for normalising every vendored agent's native scale onto the framework rubric (`factory-pr-review/references/severity-rubric.md`): 🔴 Blocker / 🟡 Important / 🟢 Nit / ❓ Question. Normalisation is ORCHESTRATOR-side — never edit the agents' internal scales (keeps vendored files close to upstream for re-sync).
 
-Cutoffs below are provisional pending dogfood calibration. Tune HERE, nowhere else.
+Cutoffs below are provisional pending dogfood calibration. Tuned HERE, in the framework repository, nowhere else — a project's own severity policy lives in its rules and an ADR's `pr_review_overrides` (EVOL-138); this file is replaced whole by sync.
 
 ## Per-agent tables
 

@@ -1,0 +1,5 @@
+# ZAP packaged-scan rules (EVOL-138) — the project's own exclusions; security-scan.sh passes this file as -c when it exists.
+# One rule per line, tab-separated: <rule id>\t<IGNORE|INFO|WARN|FAIL>\t<name>  or  <rule id>[,<rule id>]\t<OUTOFSCOPE>\t<url regex>
+# Each exclusion is documented in security/dast/false-positives.md and approved by the security lens (policies/dast.md § 4).
+# Example (commented):
+# 10021	IGNORE	X-Content-Type-Options Header Missing

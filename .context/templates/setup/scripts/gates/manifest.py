@@ -181,7 +181,7 @@ def project_findings(repo: Path, snap: dict) -> list[dict]:
         sec, key = r["entry"].split(":", 1)
         if r["owner"] != "framework" or key.startswith(DRIFT_EXEMPT) or not shas.get(r["entry"]):
             continue
-        got = _sha(repo / landed)
+        got = _landed_sha(repo, landed)
         if got is None:
             out.append({"path": landed, "reason": f"framework-owned and delivered, but missing — {restore}"})
         elif got != shas[r["entry"]]:
@@ -196,6 +196,22 @@ def project_findings(repo: Path, snap: dict) -> list[dict]:
             out.append({"path": t, "reason": "framework-owned: differs from its delivered template — SETUP --upgrade refreshes it (templates_to_refresh); "
                                              "a change of your own belongs in a project-owned file"})
     return out
+
+
+def _landed_sha(repo: Path, landed: str) -> str | None:
+    """The sha of what sync delivered at `landed`. The docs reader lands completed with the project's servers' read operations
+    (EVOL-138): its sha is taken with exactly that tail removed — a hand edit still differs."""
+    from . import agents   # agents → corpus → common; imported here to keep this module's import graph flat
+    if landed != agents.READER:
+        return _sha(repo / landed)
+    try:
+        text = (repo / landed).read_text(encoding="utf-8")
+        extra = agents.project_docs_servers(repo)
+    except (OSError, UnicodeDecodeError):
+        return None
+    except GateFault:
+        return _sha(repo / landed)   # a malformed key: compared as landed — gate.py agents names the key
+    return hashlib.sha256(agents.reader_unrender(text, extra).encode("utf-8")).hexdigest()
 
 
 def record(m: dict, root: Path) -> dict:

@@ -257,7 +257,7 @@ def cmd_profile(repo, a):
         print(json.dumps(rep, indent=2) if a.json else profile_mod.render(rep))
         return {"ok": 0, "RED": 1}.get(rep["verdict"], 2)
     pr = profile_mod.profile(repo, a.branch, a.control_point)
-    pr["members"] = profile_mod.owed(pr["profile"])
+    pr["members"] = profile_mod.owed(pr["profile"], repo)
     print(json.dumps(pr, indent=2) if a.json else f"profile: {pr['profile']} — {pr['reason']} · {pr['mode_reason']}\n  members: " + ", ".join(m["member"] for m in pr["members"]))
     return 0
 

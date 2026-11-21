@@ -1,5 +1,5 @@
 ---
-version: 1.2.0
+version: 1.3.0
 date: 2026-01-26
 ---
 
@@ -32,7 +32,7 @@ Each ZAP alert is a `## Findings` row of the QA report at its severity: High →
 | Low | Fix next sprint |
 | Info | Optional |
 
-False positives: document in `security/dast/false-positives.md`, update exclusions in `zap-config.yaml`, require the security lens's approval (`factory-critic-security`, via /QA).
+False positives: document in `security/dast/false-positives.md`, exclude in `security/dast/rules.tsv` (project-owned; `security-scan.sh` passes it to every ZAP scan as `-c` when present — `ID<TAB>IGNORE<TAB>name`, or `ID<TAB>OUTOFSCOPE<TAB>url-regex`), require the security lens's approval (`factory-critic-security`, via /QA). `security/dast/zap-config.yaml` is an Automation Framework plan for `zap.sh -cmd -autorun`; the scan does not read it (EVOL-138).
 
 ## 5. Remediation Workflow
 1. /QA --verify (security pass) runs scan, generates report in `security/dast/reports/`.

@@ -158,7 +158,10 @@ def _plain(s: str) -> str:
 
 def _gates(repo: Path) -> set[str]:
     """The gates a project runs: every profile member that is not framework-only, and its verification-loop rows."""
-    names = {m[0] for m in profile.MEMBERS if not m[5]}
+    try:
+        names = {m[0] for m in profile.members(repo) if not m[5]}
+    except GateFault:
+        names = {m[0] for m in profile.MEMBERS if not m[5]}   # a malformed project key is the profile's red, never this gate's
     try:
         names |= {g for g in vcfg(repo)["gates"] if g != RED}
     except GateFault:
