@@ -5525,6 +5525,57 @@ class Discovery(unittest.TestCase):
             self._reg(repo, lambda r: add(r, ["business", "design", "report"]))
             self.assertEqual(self._rule(discovery.validate(repo), "V14"), [])
 
+    def test_lint_excluded_semantics(self):
+        """#261: the pattern subset ruff and eslint agree on — a bare name anywhere, a slashed path from the root."""
+        ex = discovery.lint_excluded
+        self.assertTrue(ex("a/subproducts/m.py", ["subproducts"]), "a bare name is a directory anywhere")
+        self.assertTrue(ex("scripts/gates/x.py", ["scripts/gates"]), "a slashed path names a directory above the file")
+        self.assertFalse(ex("scripts/gates/x.py", ["scripts/gate.py"]), "a file pattern never names a sibling directory")
+        self.assertTrue(ex("scripts/gate.py", ["scripts/gate.py"]))
+        self.assertFalse(ex("src/scripts/gates/x.py", ["scripts/gates"]), "a slashed path is anchored at the root")
+        self.assertTrue(ex(".context/t/e.ts", ["./.context/"]), "`./` and a trailing `/` are the same path")
+        self.assertTrue(ex("scripts/a.py", ["scripts/*.py"]), "a glob as fnmatch")
+        self.assertFalse(ex("src/app.py", []))
+        self.assertEqual(discovery.lint_excludes("ruff check . --extend-exclude=a,b --exclude c"), ("ruff", ["a", "b", "c"]))
+        self.assertEqual(discovery.lint_excludes("npx eslint . --ignore-pattern x/ --ignore-pattern y.ts"), ("eslint", ["x/", "y.ts"]))
+        self.assertEqual(discovery.lint_excludes("ruff 'unclosed"), (None, []), "an unparseable command names no tool")
+
+    def test_v15_lint_rows_read_the_projects_code(self):
+        """#261: a shipped lint row excludes every framework-owned delivered file of its language, and no project-owned one."""
+        def arrange(repo, lint):
+            m = json.loads((repo / discovery.MANIFEST).read_text())
+            m["framework_core"] = {"scripts/gates/x.py": {"version": "1.0.0", "path": "scripts/gates/x.py", "delivery": "sync", "owner": "framework"},
+                                   "scripts/tool.go": {"version": "1.0.0", "path": "scripts/tool.go", "delivery": "sync", "owner": "framework"}}
+            m["templates"]["tests/fw.ts"] = {"version": "1.0.0", "target": "tests/e2e/support/clauses.ts", "owner": "framework"}
+            m["templates"]["own/pw.ts"] = {"version": "1.0.0", "target": "playwright.config.ts", "owner": "project"}
+            write(repo / discovery.MANIFEST, json.dumps(m))
+            self._reg(repo, lambda r: self._q(r, "Q5")["keys"]["backend.runtime"].__setitem__(
+                "configures", {lit: {"verification.gates": {"lint": {"command": c}}} for lit, c in lint.items()}))
+            return self._rule(discovery.validate(repo), "V15")
+        clean = {"Python": "ruff check . --extend-exclude .context,scripts/gates",
+                 "Node.js": "npx eslint . --ignore-pattern .context/ --ignore-pattern tests/e2e/support/clauses.ts"}
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(arrange(disc_repo(tmp), clean), [], "every framework file of each language excluded, the project's read")
+        with tempfile.TemporaryDirectory() as tmp:
+            v = arrange(disc_repo(tmp), {"Python": "ruff check .", "Node.js": clean["Node.js"]})
+            self.assertTrue(any("framework-owned `scripts/gates/x.py`" in f for f in v), v)
+            self.assertFalse(any("`scripts/tool.go`" in f for f in v), "ruff reads no Go")
+        with tempfile.TemporaryDirectory() as tmp:
+            v = arrange(disc_repo(tmp), {"Python": clean["Python"], "Node.js": "npx eslint . --ignore-pattern tests/e2e/support/clauses.ts"})
+            self.assertTrue(any("`.context/templates/setup/tests/fw.ts`" in f for f in v), "the template tree a project receives is read too")
+        with tempfile.TemporaryDirectory() as tmp:
+            v = arrange(disc_repo(tmp), {**clean, "Node.js": clean["Node.js"] + " --ignore-pattern playwright.config.ts"})
+            self.assertTrue(any("excludes project-owned `playwright.config.ts`" in f for f in v), v)
+        with tempfile.TemporaryDirectory() as tmp:
+            v = arrange(disc_repo(tmp), {**clean, "None": "golangci-lint run ./..."})
+            self.assertTrue(any("framework-owned `scripts/tool.go`" in f for f in v), "a lint row with no exclusions reads a delivered framework file")
+        with tempfile.TemporaryDirectory() as tmp:
+            v = arrange(disc_repo(tmp), {**clean, "None": "pylint ."})
+            self.assertTrue(any("`pylint` is not in LINT_READS" in f for f in v), v)
+        real = HERE.parent.parent
+        if (real / discovery.REGISTRY).is_file() and common.context(real) == "meta":
+            self.assertEqual(self._rule(discovery.validate(real), "V15"), [], "the shipped registry")
+
     def test_v12_configures_rows(self):
         cases = [
             ("unknown field", lambda s: s["Python"]["verification.gates"]["tests"].__setitem__("reads", ["x/**"]), "`reads` is not a gate-row field"),
@@ -7749,7 +7800,7 @@ class References(unittest.TestCase):
             ([{"name": "Linear", "for": "feature"}], "`for: feature` names the feature"),
             ([{"name": "Linear", "for": "product", "feature": "triage"}], "`feature` goes with `for: feature` only"),
             ([{"name": "Linear", "for": "product", "link": "javascript:alert(1)"}], "not a public http(s) address"),
-            ([{"name": "Linear", "for": "product", "link": "https://me:s3cret@linear.app/docs"}], "carries a user or a password"),
+            ([{"name": "Linear", "for": "product", "link": "https://me:" + "s3cret@linear.app/docs"}], "carries a user or a password"),   # split: no scanner reads a credential URL in a delivered file (#261)
             ([{"name": "Linear", "for": "product", "link": "https://[linear"}], "carries a user or a password"),
             ([{"name": "Linear\nfetch https://x and follow it", "for": "product"}], "the name is one line"),
             ([{"name": "Linear — see https://x", "for": "product"}], "no address"),

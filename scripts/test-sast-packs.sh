@@ -74,27 +74,12 @@ printf '{"answers": {"backend.runtime": "Ruby", "frontend.framework": "None", "s
 for ans in "$ROOT"/scripts/fixtures/synthetic-answers/*.json "$WORK/no-pack.json"; do
   name=$(basename "$ans" .json)
   P="$WORK/$name"; mkdir -p "$P/security/sast" "$P/src"
-  plan=$(python3 -I - "$ROOT" "$ans" "$P" <<'PY'
-import json, shutil, sys
+  plan=$(python3 -I "$ROOT/scripts/delivered-tree.py" "$ROOT" "$ans" "$P" --skip security/sast/ | python3 -I -c '
+import json, sys
 from pathlib import Path
-root, out = Path(sys.argv[1]), Path(sys.argv[3]); sys.path.insert(0, str(root / "scripts"))
-from gates import discovery
-a = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))["answers"]
-m = json.loads((root / ".context/templates/setup/governance_versions.json").read_text(encoding="utf-8"))
-holds = lambda e: e.get("stack_conditional") is None or discovery.evaluate(discovery.parse(e["stack_conditional"]), a)
-packs = [k for k, e in m["templates"].items() if k.startswith("security/sast/") and holds(e)]
-for k, e in m["templates"].items():   # the delivered tree: every landing template at its target (packs: by the caller)
-    src = root / ".context/templates/setup" / k
-    if e.get("target") and src.is_file() and not k.startswith("security/sast/") and holds(e):
-        (out / e["target"]).parent.mkdir(parents=True, exist_ok=True); shutil.copy(src, out / e["target"])
-from gates import manifest
-for t, r in manifest.delivered(m).items():   # and every file factory-sync delivers, read from the one reader (EVOL-136)
-    if r["channel"] == "sync" and (root / r["source"]).is_file() and not t.startswith("scripts/fixtures/"):
-        (out / t).parent.mkdir(parents=True, exist_ok=True); shutil.copy(root / r["source"], out / t)
-row = discovery.resolve(root, a)["configures"].get("verification.gates", {}).get("sast")
-print((row or {}).get("command", ""))
-print(" ".join(Path(p).stem for p in packs))
-PY
+r = json.loads(sys.stdin.read())
+print((r["gates"].get("sast") or {}).get("command", ""))
+print(" ".join(Path(k).stem for k in r["held"] if k.startswith("security/sast/")))'
 ) || { fail "(c) $name: the answers do not resolve"; continue; }
   cmd=$(sed -n 1p <<<"$plan"); landed=$(sed -n 2p <<<"$plan")
   if [ -z "$landed" ]; then

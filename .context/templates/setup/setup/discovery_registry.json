@@ -230,7 +230,12 @@
          "report": "coverage/lcov.info"
         },
         "lint": {
-         "command": "ruff check ."
+         "command": "ruff check . --extend-exclude .claude,.context,subproducts,scripts/gates,scripts/gate.py,scripts/project_summarization.py,scripts/check-inventory-freshness.py,scripts/reconcile_inventory.py,scripts/check-command-flags.py,scripts/check-design-sections.py,tests/conftest_traceability.py",
+         "was": {
+          "command": [
+           "ruff check ."
+          ]
+         }
         },
         "sca": {
          "command": "if command -v pip-audit >/dev/null 2>&1; then pip-audit --strict --desc; elif command -v safety >/dev/null 2>&1; then safety check; else pip-audit --strict --desc; fi"
@@ -266,7 +271,12 @@
          "report": "coverage/lcov.info"
         },
         "lint": {
-         "command": "npx eslint . --max-warnings 0"
+         "command": "npx eslint . --max-warnings 0 --ignore-pattern .context/ --ignore-pattern tests/e2e/support/clauses.ts --ignore-pattern tests/e2e/specs/canary.spec.ts",
+         "was": {
+          "command": [
+           "npx eslint . --max-warnings 0"
+          ]
+         }
         },
         "sca": {
          "command": "npm audit --omit=dev --audit-level=$(echo {sca_threshold} | sed s/medium/moderate/)"

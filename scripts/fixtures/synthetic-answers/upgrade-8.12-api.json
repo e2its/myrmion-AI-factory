@@ -145,6 +145,7 @@
         "sast"
       ],
       "replaced": [
+        "lint.command",
         "frontend-tests.scoped"
       ],
       "kept": [
@@ -155,7 +156,7 @@
       "contract-parity": "python3 scripts/gate.py contracts --parity",
       "tests": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q",
       "coverage": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q",
-      "lint": "ruff check .",
+      "lint": "ruff check . --extend-exclude .claude,.context,subproducts,scripts/gates,scripts/gate.py,scripts/project_summarization.py,scripts/check-inventory-freshness.py,scripts/reconcile_inventory.py,scripts/check-command-flags.py,scripts/check-design-sections.py,tests/conftest_traceability.py",
       "sca": "if command -v pip-audit >/dev/null 2>&1; then pip-audit --strict --desc; elif command -v safety >/dev/null 2>&1; then safety check; else pip-audit --strict --desc; fi",
       "typecheck": "if [ -f mypy.ini ] || { [ -f pyproject.toml ] && grep -q '^\\[tool\\.mypy' pyproject.toml; }; then mypy .; fi",
       "frontend-tests": "npx jest --config jest.config.ts --no-coverage",
