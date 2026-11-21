@@ -529,7 +529,7 @@
       "owner": "project"
     },
     "claude/framework.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/framework.md",
       "delivery": "both",
@@ -2065,7 +2065,7 @@
       "owner": "framework"
     },
     "CLAUDE.md": {
-      "version": "14.43.0",
+      "version": "14.44.0",
       "path": "CLAUDE.md"
     },
     "skills/factory-governance-loading/SKILL.md": {
