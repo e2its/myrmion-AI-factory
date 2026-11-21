@@ -42,7 +42,15 @@ PREFIX_WORDS = {"env", "command", "exec", "nohup", "time", "sudo", "if", "then",
 SEPARATORS = {";", "&&", "||", "|", "|&", "&", "(", ")", "\n", ";;"}
 SPECIAL = "#;&|()<>\n"   # quoted or escaped, these are word characters: masked before shlex, restored in the word
 MASK = {c: chr(0xE000 + i) for i, c in enumerate(SPECIAL)}
-UNMASK = str.maketrans({v: k for k, v in MASK.items()})
+LIT = {"$": chr(0xE010), "`": chr(0xE011)}   # a `$` or a backtick the shell keeps literal (single-quoted, escaped)
+ANSI = chr(0xE012)                           # a `$'…'` word whose escapes the guard does not decode: an unknown value
+UNMASK = str.maketrans({**{v: k for k, v in MASK.items()}, **{v: k for k, v in LIT.items()}})
+
+
+class _Word(str):
+    """A shell word with what the shell did to it: `expands` when a `$` or a backtick in it was live (unquoted or in
+    double quotes) — its quoting is gone once lexed, so the lexer says."""
+    expands = True
 BRACE = re.compile(r"\{[^{}]*(,|\.\.)[^{}]*\}")
 FILE_REDIR = {">", ">>", ">|", "&>", "&>>", "<>"}
 OPS = re.compile(r"&>>|&>|>>|>\||>&|<<<|<<|<&|<>|&&|\|\||\|&|;;|[;&|()<>\n]")
@@ -66,7 +74,7 @@ PY_OPENERS = {"open", "io.open", "io.FileIO", "codecs.open", "tarfile.open", "ta
 PY_STORES = {"sqlite3.connect", "shelve.open", "dbm.open", "fileinput.input", "fileinput.FileInput"}   # a file they create or rewrite
 PY_WRITER_FUNCS = PY_OPENERS | SHUTIL_DEST | PY_STORES | {"os.open", "os.replace", "os.rename"}
 PY_WRITER_ATTRS = {"write_text", "write_bytes"}
-PY_VERB_NAMES = PY_WRITER_ATTRS | {"open", "replace", "rename", "copy", "copy2", "copyfile", "copytree", "move", "ZipFile", "FileIO", "connect", "input"}
+PY_VERB_NAMES = PY_WRITER_ATTRS | {x.rsplit(".", 1)[-1] for x in PY_WRITER_FUNCS}   # a writer's own name, whatever reaches it
 PY_VERBS = re.compile(r"\b(open|write_text|write_bytes|replace|rename|copy2?|copyfile|copytree|move|O_[A-Z]+|ZipFile|FileIO|connect|"
                       r"fileinput|exec|eval|compile|__import__|import_module|getattr)\b")
 PY_CODE_AT_RUNTIME = {"exec", "eval", "compile", "__import__", "builtins", "sys.modules"}
@@ -74,12 +82,14 @@ PY_CODE_MODULES = {"runpy", "timeit", "cProfile", "profile", "pdb", "code", "bui
 PY_IMPORTLIB_READS = {"importlib", "importlib.util", "importlib.util.find_spec", "importlib.metadata"}   # the rest loads code
 PY_BY_NAME = {"getattr", "operator.methodcaller", "operator.attrgetter"}
 # names and attributes that reach the interpreter's own tables: a writer reached there is never read
-PY_INTERNALS = {"globals", "vars", "locals", "setattr", "delattr", "__builtins__", "__dict__", "__globals__", "__subclasses__", "__class__",
-                "__bases__", "__mro__", "__getattribute__", "__loader__", "__code__", "__closure__"}
+PY_INTERNALS = {"globals", "vars", "locals", "setattr", "delattr", "__builtins__", "__dict__", "__globals__", "__subclasses__",
+                "__getattribute__", "__loader__", "__code__", "__closure__"}
 # the modules whose functions write: one passed around under another name is a writer the reader no longer sees
 PY_WRITER_MODULES = {"os", "shutil", "io", "codecs", "pathlib", "tarfile", "zipfile", "gzip", "bz2", "lzma", "sys", "builtins", "fileinput",
                      "sqlite3", "shelve", "dbm", "importlib", "importlib.util"}
 PY_MODULE_SPELLING = {"posix": "os", "_io": "io", "__builtin__": "builtins"}   # one module, one name
+# an attribute that hands out a module that writes, or its open: `shutil.os`, `tarfile.bltn_open`, `gzip.builtins`
+PY_REACH = {m for m in PY_WRITER_MODULES if "." not in m} | set(PY_MODULE_SPELLING) | {"_os", "bltn_open"}
 # names a program may rebind: the builtin writers and the modules whose functions the reader recognises
 PY_BUILTIN_WRITERS = PY_WRITER_MODULES | {"open", "exec", "eval", "compile", "__import__", "getattr", "setattr", "globals", "vars", "locals",
                                           "Path", "PurePath", "PosixPath"}
@@ -92,7 +102,7 @@ JS_OPEN = {"open", "openSync"}
 JS_BARE = {"writeFile", "writeFileSync", "appendFile", "appendFileSync", "createWriteStream", "copyFileSync", "renameSync", "cpSync"}
 JS_BARE_FS = {"copyFile", "openSync", "rename", "cp", "open"}   # bare only when the program loads fs: other modules use these names
 JS_INTERNALS = {"eval", "Function", "constructor", "globalThis", "global", "Reflect", "binding", "_linkedBinding", "dlopen"}
-JS_CODE_MODULES = {"vm", "node:vm"}   # loaded, they run a string as code
+JS_CODE_MODULES = {f"{p}{m}" for p in ("", "node:") for m in ("vm", "worker_threads", "module", "repl", "inspector")}   # they run a string as code
 JS_ID = re.compile(r"[A-Za-z_$][\w$]*")
 JS_ID_START = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$")
 JS_NUM = re.compile(r"\d[\w.]*")
@@ -135,10 +145,10 @@ def _drop_heredocs(text: str) -> tuple[str, list[tuple[str, bool]]]:
                         break
                     lines.append(line)
                 body, expands = "\n".join(lines), bodies[k][1]
-                if expands:
-                    if any(x.endswith("\\") for x in lines):
-                        raise Unresolved("a heredoc line that ends in a backslash (the shell joins it to the next)")
-                    body = re.sub(r"\\([\\$`])", r"\1", body)
+                if expands and any(x.endswith("\\") for x in lines):
+                    body = False   # the shell joins the line to the next: a body an interpreter must not run unread
+                elif expands:
+                    body = re.sub(r"\\([\\$`])", lambda e: LIT.get(e.group(1), e.group(1)), body)
                 bodies[k] = (body, expands)
             pending = []
             continue
@@ -150,12 +160,13 @@ def _drop_heredocs(text: str) -> tuple[str, list[tuple[str, bool]]]:
             word = re.sub(r"\\(.)|'([^']*)'|\"([^\"]*)\"", lambda x: next(g for g in x.groups() if g is not None), m.group(2)) if m else None
             if c == "\n":
                 arith = 0   # an arithmetic expression ends with its line
-            if c == "$" and text.startswith("$'", i):
+            if c == "$" and text.startswith("$'", i) and not arith:   # ANSI-C quoting: `\'` does not close it
                 j = i + 2
                 while j < n and text[j] != "'":
-                    if text[j] == "\\":
-                        raise Unresolved("an ANSI-C quoted string ($'…') with escapes the guard does not read")
-                    j += 1
+                    j += 2 if text[j] == "\\" else 1
+                out.append(text[i:j + 1]); i = j + 1; continue
+            if m and "$" in m.group(2) and not arith:
+                raise Unresolved("a heredoc delimiter with a shell expansion in it")
             if arith:
                 if m and re.search(rf"(?m)^\t*{re.escape(word)}$", text[m.end():]):
                     raise Unresolved("a `<<` that may be a heredoc or an arithmetic shift")   # `((cmd <<EOF` …
@@ -191,10 +202,20 @@ def _mask(text: str) -> str:
                 i += 2; continue
             if nxt in MASK:   # outside quotes the escape makes it a word character; inside "…" the backslash stays literal
                 out.append(MASK[nxt] if q is None else c + MASK[nxt])
+            elif nxt in LIT:   # `\$`, `` \` ``: a literal character, outside quotes and inside "…"
+                out.append(LIT[nxt])
             else:
                 out.append(c + nxt)
             i += 2; continue
         if q is None:
+            if text.startswith("$'", i):   # ANSI-C quoting: `\'` does not close it; read as one single-quoted chunk
+                j = i + 2
+                while j < n and text[j] != "'":
+                    j += 2 if text[j] == "\\" else 1
+                body = text[i + 2:j].replace("\\'", "'")
+                lit = "".join("'\"'\"'" if ch == "'" else MASK.get(ch) or LIT.get(ch) or ch for ch in body)
+                out.append((ANSI if "\\" in body else "") + "'" + lit + "'")
+                i = j + 1; continue
             if c in "'\"":
                 q = c
             elif c == "#" and (not out or out[-1] in " \t\r;&|()<>\n"):   # an escaped pair (`\ #`) is a word, never its start
@@ -205,6 +226,8 @@ def _mask(text: str) -> str:
             q = None
         elif c in MASK:
             c = MASK[c]
+        elif q == "'" and c in LIT:
+            c = LIT[c]
         out.append(c)
         i += 1
     return "".join(out)
@@ -220,7 +243,9 @@ def _lex(text: str) -> list[str]:
         if tok and all(c in ";&|()<>\n" for c in tok):
             words.extend(("op", o) for o in OPS.findall(tok))
         else:
-            words.append(("w", tok.translate(UNMASK)))
+            w = _Word(tok.translate(UNMASK))
+            w.expands = any(c in tok for c in "$`" + ANSI)
+            words.append(("w", w))
     return words
 
 
@@ -251,12 +276,13 @@ class _Reader:
         self.writer = False
         self.argvs: list[list[str]] = []   # each simple command's words after the wrappers (the deploy class reads them)
         self.bodies: list[tuple[str, bool]] = []   # the heredoc bodies (text, expands), by placeholder index
-        self.raw = ""                              # the command as given
 
     # ── words → paths ──
     def expand(self, word: str) -> str:
         if "`" in word or "$(" in word:
             raise Unresolved(f"a command substitution in «{word}»")
+        if ANSI in word:
+            raise Unresolved("an ANSI-C quoted string ($'…') whose escapes the guard does not decode")
         if word == "~" or word.startswith("~/"):
             home = self.env.get("HOME")
             if not home:
@@ -265,7 +291,7 @@ class _Reader:
 
         def sub(m):
             name = m.group(1) or m.group(2)
-            val = self.vars.get(name) if name in self.vars else (self.env.get(name) if name in ENV_FALLBACK else None)
+            val = self.var(name)
             if val is None:
                 raise Unresolved(f"the variable ${name} is not set in the command")
             return val
@@ -321,7 +347,7 @@ class _Reader:
                 if args and re.fullmatch(r"\d+", args[-1]) and tok in FILE_REDIR | {">&", "<", "<&"}:
                     args.pop()   # an all-digit word right before a redirection is its fd
                 if tok == "<<<" and nxt is not None:
-                    stdin = (nxt, True)   # a here-string: the word is stdin, the shell expanded it
+                    stdin = (nxt, getattr(nxt, "expands", True))   # a here-string: the word is stdin, as the shell left it
                 elif tok == "<<":
                     stdin = (False, True)   # a heredoc the scanner did not read: an interpreter's program unknown
                 elif tok in FILE_REDIR and nxt is not None:
@@ -334,6 +360,7 @@ class _Reader:
             i += 1
         for r in redirs:
             self.hit(r)
+        before = dict(self.vars)
         while args and ASSIGN.match(args[0]):
             name, val = ASSIGN.match(args.pop(0)).groups()
             try:
@@ -354,6 +381,7 @@ class _Reader:
                         self.vars[m.group(1)] = None
         if not args:
             return
+        self.vars = before   # `X=v cmd $X`: the shell expands the words first; X reaches only cmd's environment
         name, rest = os.path.basename(args[0]), args[1:]
         self.argvs.append([name, *rest])
         if name == "cd":
@@ -367,7 +395,7 @@ class _Reader:
             self._copy(name, rest)
         elif name in ("node", "nodejs") or re.fullmatch(r"(python|pypy)(\d+(\.\d+)?t?)?", name):
             if stdin[0] is False:
-                raise Unresolved("an interpreter reads a heredoc whose delimiter the guard cannot read")
+                raise Unresolved("an interpreter reads a heredoc the guard cannot read to its end")
             (self._node if name.startswith("node") else self._python)(rest, stdin)
 
     def _cd(self, rest):
@@ -463,9 +491,9 @@ class _Reader:
                 return   # a script file: not a recognised writer
             for j, c in enumerate(a[1:], 1):
                 if c == "c":
-                    prog = a[j + 1:] or (rest[i + 1] if i + 1 < len(rest) else None)
+                    word = a if a[j + 1:] else (rest[i + 1] if i + 1 < len(rest) else None)
                     argv = ["-c", *rest[i + (1 if a[j + 1:] else 2):]]
-                    return _PyProgram(self, prog, argv, self.expanded(prog)).run()
+                    return _PyProgram(self, a[j + 1:] or word, argv, _expands(word)).run()
                 if c == "m":
                     return   # a module: not a recognised writer
                 if c in "WX":
@@ -483,10 +511,9 @@ class _Reader:
                 i += 2; continue
             if a in ("--eval", "--print") or re.fullmatch(r"-[a-z]*[ep][a-z]*", a):
                 prog = rest[i + 1] if i + 1 < len(rest) else None
-                return _JsProgram(self, prog, self.expanded(prog)).run()
+                return _JsProgram(self, prog, _expands(prog)).run()
             if a.startswith(("--eval=", "--print=")):
-                prog = a.split("=", 1)[1]
-                return _JsProgram(self, prog, self.expanded(prog)).run()
+                return _JsProgram(self, a.split("=", 1)[1], _expands(a)).run()
             if a == "-":
                 return _JsProgram(self, stdin[0], stdin[1]).run()
             if a == "--":
@@ -503,17 +530,23 @@ class _Reader:
         substituted; any other expansion becomes a marker the program readers treat as an unknown value."""
         if "`" in code or "$(" in code:
             raise Unresolved("a command substitution inside the program text")
+        if ANSI in code:
+            raise Unresolved("an ANSI-C quoted string ($'…') whose escapes the guard does not decode")
 
         def sub(m):
             name = m.group(1) or m.group(2)
-            val = (self.vars.get(name) if name in self.vars else self.env.get(name) if name in ENV_FALLBACK else None) if name else None
+            val = self.var(name) if name else None
             return SHELL_MARK if val is None else val
-        return SHELL_EXPANSION.sub(sub, code)
+        return SHELL_EXPANSION.sub(sub, code).translate(UNMASK)   # a heredoc's `\$` stays literal
 
-    def expanded(self, prog: str | None) -> bool:
-        """The program word may have been shell-expanded: its quoting is gone after lexing, so it is literal only
-        when the raw command holds it whole inside single quotes."""
-        return prog is None or f"'{prog}'" not in self.raw
+    def var(self, name: str) -> str | None:
+        """A variable's value as the guard knows it: set earlier in the command, else a known environment variable."""
+        return self.vars.get(name) if name in self.vars else (self.env.get(name) if name in ENV_FALLBACK else None)
+
+
+def _expands(word) -> bool:
+    """The shell may have expanded the word: a live `$` or backtick in it, as the lexer saw it."""
+    return getattr(word, "expands", True)
 
 
 class _PyProgram:
@@ -612,11 +645,16 @@ class _PyProgram:
                     raise Unresolved(f"a python writer the program passes around instead of calling (program line {n.lineno})")
                 if isinstance(n, ast.Name) and n.id in self.alias and self.alias[n.id] in PY_WRITER_MODULES and id(n) not in values:
                     raise Unresolved(f"a python module that writes, passed around under another name (program line {n.lineno})")
+                if imported_head and isinstance(n, ast.Attribute) and n.attr in PY_REACH:
+                    raise Unresolved(f"a python module that writes, reached through another module (program line {n.lineno})")
+                if id(n) not in callees and d in PY_BY_NAME:
+                    raise Unresolved(f"a python attribute lookup the program passes around (program line {n.lineno})")
             if isinstance(n, ast.Call) and _dotted(n.func, self.alias) in PY_BY_NAME:
                 getattr_ = _dotted(n.func, self.alias) == "getattr"
                 key = n.args[1] if getattr_ and len(n.args) > 1 else (n.args[0] if n.args else None)
                 const = isinstance(key, ast.Constant) and isinstance(key.value, str)
-                if const and key.value in PY_VERB_NAMES or not const and (not getattr_ or self._writes_through(n.args[0] if n.args else None)):
+                if (const and any(x in PY_VERB_NAMES | PY_REACH for x in key.value.split(".")) or
+                        not const and (not getattr_ or self._writes_through(n.args[0] if n.args else None))):
                     raise Unresolved(f"a python attribute reached by a name the guard cannot vet (program line {n.lineno})")
         self.chdir = self._chdir(tree, nodes)
         for n in nodes:
@@ -640,13 +678,15 @@ class _PyProgram:
                             setattr(n, field, new)
 
     def _writes_through(self, obj) -> bool:
-        """getattr(obj, <computed>): obj may hand out a writer — a path, a module that writes, anything not a plain name."""
-        if obj is None or self.pathlike(obj):
+        """getattr(obj, <computed>): obj may hand out a writer — anything but an imported module that does not write."""
+        if not isinstance(obj, (ast.Name, ast.Attribute)) or self.pathlike(obj):
             return True
-        if not isinstance(obj, (ast.Name, ast.Attribute)):
+        head = obj
+        while isinstance(head, ast.Attribute):
+            head = head.value
+        if not (isinstance(head, ast.Name) and head.id in self.alias):
             return True
-        d = _dotted(obj, self.alias) or ""
-        return d in PY_WRITER_MODULES or d.split(".")[0] in PY_WRITER_MODULES and isinstance(obj, ast.Attribute)
+        return (_dotted(obj, self.alias) or "").split(".")[0] in PY_WRITER_MODULES
 
     def _mutates_argv(self, n) -> bool:
         if isinstance(n, (ast.Subscript, ast.Attribute)) and isinstance(getattr(n, "ctx", None), (ast.Store, ast.Del)):
@@ -810,7 +850,7 @@ class _PyProgram:
     def _store(self, n, name, arg):
         """sqlite3, shelve and dbm create their file; fileinput rewrites its files in place."""
         if name.startswith("fileinput."):
-            inplace = arg(2, ("inplace",))
+            inplace = arg(1, ("inplace",))
             if inplace is None or (isinstance(inplace, ast.Constant) and not inplace.value):
                 return
             files = arg(0, ("files",))
@@ -874,15 +914,8 @@ def _js_tokens(code: str, depth: int = 0) -> tuple[list[tuple[str, str | None]],
                 return toks, False
             i = j + 2; continue
         if c == "/" and (not toks or (toks[-1][0] == "p" and toks[-1][1] in JS_REGEX_AFTER_P) or toks[-1] in JS_REGEX_AFTER_ID):
-            j, cls = i + 1, False
-            while j < n and (cls or code[j] != "/"):
-                if code[j] == "\\":
-                    j += 2; continue
-                if code[j] == "\n":
-                    return toks, False
-                cls = (cls or code[j] == "[") and code[j] != "]"
-                j += 1
-            if j >= n:
+            j = _js_regex_end(code, i)
+            if j is None:
                 return toks, False
             i = j + 1
             while i < n and code[i].isalpha():
@@ -907,6 +940,10 @@ def _js_tokens(code: str, depth: int = 0) -> tuple[list[tuple[str, str | None]],
             toks.append(("s", "".join(buf) if plain else None))
             toks += inner
             i = j + 1; continue
+        if c == "/" and toks and toks[-1] in (("p", "}"), ("p", ")")) and not code.startswith("/=", i):
+            j = _js_regex_end(code, i)   # a block's `}` or an `if (…)` opens a regex, an object's `}` divides: not told apart
+            if j is not None and re.search(r"['\"`]|//|/\*", code[i + 1:j]):
+                return toks, False
         if c == "\\":
             return toks, False   # `writeFileSync`: an escaped identifier the scan does not decode
         m = JS_ID.match(code, i) or JS_NUM.match(code, i)
@@ -919,6 +956,19 @@ def _js_tokens(code: str, depth: int = 0) -> tuple[list[tuple[str, str | None]],
     return toks, True
 
 
+def _js_regex_end(code: str, i: int) -> int | None:
+    """The index of the `/` that closes a regex literal opened at i, or None when it runs past its line."""
+    j, cls, n = i + 1, False, len(code)
+    while j < n and (cls or code[j] != "/"):
+        if code[j] == "\\":
+            j += 2; continue
+        if code[j] == "\n":
+            return None
+        cls = (cls or code[j] == "[") and code[j] != "]"
+        j += 1
+    return j if j < n else None
+
+
 def _js_close(code: str, i: int) -> int | None:
     """The index of the `}` that closes a template's `${` whose body starts at i — strings inside skipped."""
     depth, n = 0, len(code)
@@ -928,6 +978,8 @@ def _js_close(code: str, i: int) -> int | None:
             j = i + 1
             while j < n and code[j] != c:
                 j += 2 if code[j] == "\\" else 1
+            if c == "`" and "${" in code[i + 1:j]:
+                return None   # a nested template's own `${…}`: its braces are not counted
             i = j + 1; continue
         if c == "{":
             depth += 1
@@ -982,8 +1034,10 @@ class _JsProgram:
         self.toks = t
         uses_fs = any(x[0] == "s" and x[1] in JS_FS_MODULES for x in t)
         for i, (kind, v) in enumerate(t):   # a writer renamed, indexed or passed around; code built at run time
-            if kind == "s" and v in JS_FS_VERBS:
+            if kind == "s" and (v in JS_FS_VERBS or (uses_fs and v in JS_BARE_FS)):
                 raise Unresolved(f"a node writer reached by its name as a string («{v}»)")
+            if v == "constructor" and t[i + 1:i + 3] == [("p", "."), ("id", "name")]:
+                continue   # `x.constructor.name`: a name, never the constructor called
             if (kind == "id" and v in JS_INTERNALS) or (kind == "s" and v in JS_CODE_MODULES):
                 raise Unresolved(f"a node program that builds code at run time or reaches the runtime's internals («{v}»)")
             if kind != "id" or not (v in JS_FS_VERBS or (uses_fs and v in JS_BARE_FS)):
@@ -1186,7 +1240,6 @@ def _operands(rest):
 
 def _bash(repo: Path, command: str, cwd: str | None, env: dict) -> _Reader:
     r = _Reader(repo, cwd, env)
-    r.raw = command
     if HDOC_MARK in command:
         r.writer, r.unresolved = True, "the command carries a character the guard reserves for its own use"
         return r

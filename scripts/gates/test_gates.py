@@ -6995,7 +6995,7 @@ class Writes(unittest.TestCase):
                     f"echo {self.w.HDOC_MARK}0 | python3 -",
                     "python3 -c \"open('src/a\x00', 'w')\"",
                     "python3 -c \"open('src/a\\x00', 'w')\"",
-                    "python3 -c $'open(\"src/a\", \"w\")'",
+                    "python3 -c $'open(\"src/a\", \\x22w\")'",
                     "python3 - <<'EOF'\no = open\no('src/a', 'w')\nEOF",
                     "python3 - <<'EOF'\np = 'src/a'\nglobals()['p'] = '/etc/x'\nopen(p, 'w')\nEOF",
                     "python3 - <<'EOF'\nimport os\ngetattr(os, 'replace')('a', 'src/b')\nEOF",
@@ -7055,14 +7055,44 @@ class Writes(unittest.TestCase):
                  "fileinput.input('src/inp', inplace=True)\nsqlite3.connect('src/s.db')\nshelve.open('src/sh')\ndbm.open('src/dbm', 'c')\nEOF",
                  ["src/fi", "src/g.gz", "src/inp", "src/s.db", "src/sh", "src/dbm"]),
                 ("node -e 'console.log(`${require(\"fs\").writeFileSync(\"src/tp\", \"x\")}`)'", ["src/tp"]),
-                ("node -e \"x = {} / 2; require('fs').writeFileSync('src/bd', 'x'); y = 1 / 2\"", ["src/bd"]),
+                ("node -e \"x = {} / 2\nrequire('fs').writeFileSync('src/bd', 'x'); y = 1 / 2\"", ["src/bd"]),
+                ("python3 -c $'open(\"src/an\", \"w\")'", ["src/an"]),
+                ("echo $'" + b + "'' ; python3 - <<EOF\nopen('src/aq','w')\nEOF\n# '", ["src/aq"]),
+                ("python3 - <<'EOF'\nimport fileinput\nfileinput.input('src/app.py', True)\nEOF", ["src/app.py"]),
+                ("python3 --check-hash-based-pycs=default -c \"open('src/lv', 'w')\"", ["src/lv"]),
+                ("F=src/b1; python3 -c \"open('${F}', 'w')\"", ["src/b1"]),
+                ("python3 -c \"import posix; posix.replace('x', 'src/px')\"", ["x", "src/px"]),
+                ("node --input-type module -e \"import * as fs from 'fs'; fs.writeFileSync('src/is', 'x')\"", ["src/is"]),
+                ("node -e \"console.log(o.constructor.name); require('fs').writeFileSync('src/cn', 'x')\"", ["src/cn"]),
                 ("node -e \"const {copyFile, openSync} = require('fs'); copyFile('a', 'src/c1', () => 0); openSync('src/o1', 'w')\"", ["src/c1", "src/o1"]),
                 ("node -e \"const {rename} = require('fs/promises'); rename('src/app.py', 'src/rn')\"", ["src/app.py", "src/rn"]),
                 ("node --input-type module -e \"import fs from 'fs'; fs.writeFileSync('src/it', 'x')\"", ["src/it"]),
                 ("node -r ./x -e \"require('fs').writeFileSync('src/rq', 'x')\"", ["src/rq"])):
             self.inside(cmd, expected)
-        for cmd in ("echo $'" + b + "'' ; python3 - <<EOF\nopen('src/a','w')\nEOF\n# '",
+        for cmd in ("python3 -c $'open(\"src/a\", " + b + "x22w\")'",
+                    "python3 -c $'" + b + "x6fpen(\"src/a\", \"w\")'",
+                    "cp x $'src/" + b + "x61'",
+                    "python3 -c \"import os; getattr(os.path, input())\"",
                     "python3 - <<",
+                    "node -e \"x = {} / 2; require('fs').writeFileSync('src/bd', 'x'); y = 1 / 2\"",
+                    "node -e \"if (1) {} /'/.test(0); require('fs').writeFileSync('src/a','x') //'\"",
+                    "node -e \"if (1) /'/.test(0); require('fs').writeFileSync('src/a','x') //'\"",
+                    "node -e 'x = `${`${`a`}`}`; require(\"fs\").writeFileSync(\"src/a\", \"x\")'",
+                    "python3 -c \"import shutil; shutil.os.replace('x', 'src/a')\"",
+                    "python3 -c \"import gzip; gzip.builtins.open('src/a', 'w')\"",
+                    "python3 -c \"import tarfile; tarfile.bltn_open('src/a', 'w')\"",
+                    "python3 -c \"import tempfile; getattr(tempfile, '_os').replace('x', 'src/a')\"",
+                    "python3 -c \"import operator, tempfile; operator.attrgetter('_os.replace')(tempfile)('x', 'src/a')\"",
+                    "python3 -c \"import tempfile; list(map(getattr, [tempfile], ['_os']))[0].replace('x', 'src/a')\"",
+                    "python3 -c \"import json; getattr(json, 'BZ2File')\"",
+                    "python3 -c \"import os\nfor k in ['replace']: getattr(os, k)('x', 'src/a')\"",
+                    "python3 -c \"d = {}; getattr(d, input())\"",
+                    "python3 -c \"open('$@', 'w')\"",
+                    "node -e \"require('fs')['rename']('src/app.py', 'src/b')\"",
+                    "node -e \"require('worker_threads')\"",
+                    "node -e \"require('node:module')\"",
+                    "node -e \"const C = (() => 0).constructor; C('1')()\"",
+                    "node -e \"const fs = require('fs'); const k = 'w'; fs?.[k]('src/a', 'x')\"",
                     "x=$(( 1 <<EOF\nEOF\n)); python3 - <<EOF\nopen('src/a', 'w')\nEOF",
                     "python3 - <<EOF\nopen('src/a', " + b + "\n'w')\nEOF",
                     "N=replace; python3 -c \"import os; getattr(os, '$N')('a', 'src/b')\"",
@@ -7103,13 +7133,38 @@ class Writes(unittest.TestCase):
                     "python3 - <<'EOF'\nimport dbm, sqlite3, fileinput\ndbm.open('src/d')\nsqlite3.connect(':memory:')\nfileinput.input('src/f')\nEOF",
                     "node -e \"const fs = require('fs'); const [a] = fs.readFileSync('x', 'utf8').split(','); console.log(a)\"",
                     "node -e \"const fs = require('fs'); const l = [1]; console.log(l[l.length - 1], require('fs')[0])\"",
-                    "node -e \"console.log('global')\""):
+                    "node -e \"console.log('global')\"",
+                    "git commit -m $'a" + b + "n" + b + "nb'",
+                    "cut -d$'" + b + "t' -f1 f",
+                    "cat <<EOF\na " + b + "\nb\nEOF",
+                    "python3 -c \"class A: pass\nprint(A().__class__.__name__)\"",
+                    "node -e \"console.log({}.constructor.name)\"",
+                    "python3 -- -c \"open('src/a', 'w')\""):
             t = self.bash(cmd)
             self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
-        self.assertIn("a heredoc whose delimiter the guard cannot read", self.bash("python3 - <<")["unresolved"])
+        self.assertIn("the guard cannot read to its end", self.bash("python3 - <<")["unresolved"])
         with unittest.mock.patch.object(self.w._Reader, "run", side_effect=RecursionError):
             t = self.bash("python3 -c \"print(1)\"")
         self.assertEqual(t["unresolved"], "the command is too complex for the guard to read")
+
+    def test_inline_program_shell_words(self):
+        """#227 round-2 cure: the program text as the shell hands it over — a quote in a comment is no quoting, a
+        prefix assignment never reaches its own command's words, an escaped `$` stays literal, a here-string expands."""
+        b = chr(92)   # a backslash
+        for cmd, expected in (
+                ("F=src/a; python3 -c \"open('$F', 'w')\" # 'open('$F', 'w')'", ["src/a"]),
+                ("X=src/a; python3 -c \"open('$X','w')\"", ["src/a"]),
+                ("python3 -c 'open(\"$HOME/x\", \"w\")'", ["$HOME/x"]),
+                ("python3 - <<EOF\nopen('src/" + b + "$x', 'w')\nEOF", ["src/$x"]),
+                ("F=src/hs; python3 - <<< \"open('$F', 'w')\"", ["src/hs"]),
+                ("python3 - <<< 'open(\"src/$F\", \"w\")'", ["src/$F"])):
+            self.inside(cmd, expected)
+        for cmd in ("X=src/a python3 -c \"open('$X','w')\"",
+                    "python3 - <<$D\nopen('src/a', 'w')\n$D"):
+            self.assertIsNotNone(self.bash(cmd)["unresolved"], cmd)
+        for cmd in ("python3 -c \"open('$HOME/.claude/settings.json', 'w')\" # 'open('$HOME/.claude/settings.json', 'w')'",
+                    "HOME=/tmp/x python3 -c \"open('$HOME/.claude/settings.json', 'w')\""):
+            self.assertTrue(self.bash(cmd)["guarded"], cmd)
 
     def test_guarded_on_every_branch(self):
         for target in (self.home / ".claude/settings.json", self.home / ".claude/settings.local.json", self.home / ".claude/hooks/x.sh",
