@@ -223,10 +223,10 @@ PLAN=$(python3 -I - "$FRAMEWORK_ROOT" <<'PY'
 import json, sys
 from pathlib import Path
 root = Path(sys.argv[1]); sys.path.insert(0, str(root / "scripts"))
-from gates import manifest
+from gates import agents, manifest
 m = json.loads((root / manifest.DELIVERED).read_text(encoding="utf-8"))
 for landed, r in sorted(manifest.delivered(m).items()):
-    print(f"{r['source']}\t{landed}")
+    print(f"{r['source']}\t{landed}\t{'render' if landed == agents.READER else ''}")   # EVOL-138: the reader, named by agents.READER
 PY
 ) || QUERY_FAILED=1
 if [[ "$QUERY_FAILED" -ne 0 ]] || [[ -z "$PLAN" ]]; then
@@ -234,10 +234,9 @@ if [[ "$QUERY_FAILED" -ne 0 ]] || [[ -z "$PLAN" ]]; then
   echo -e "${RED}  ✗ the manifest's delivered set could not be read (python3 missing or governance_versions.json unreadable) — NOTHING synced${NC}"
   ERRORS=$((ERRORS + 1))
 else
-  READER_LANDED=".claude/agents/factory-docs-reader.md"
-  while IFS=$'\t' read -r src landed; do
+  while IFS=$'\t' read -r src landed render; do
     [[ -z "$landed" ]] && continue
-    if [[ "$landed" == "$READER_LANDED" ]] && [[ -f "$FRAMEWORK_ROOT/$src" ]]; then
+    if [[ "$render" == "render" ]] && [[ -f "$FRAMEWORK_ROOT/$src" ]]; then
       # EVOL-138: the reader lands completed with the read operations of the project's documentation servers
       # (config/quality.json → agents.docs_servers); a malformed key delivers it as shipped and says so
       READER_TMP="$(mktemp)"
