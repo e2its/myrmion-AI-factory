@@ -6856,7 +6856,7 @@ class Writes(unittest.TestCase):
     def test_not_writers(self):
         for cmd in ("cat x", "grep -r y .", "git status", "ls 2>/dev/null", "echo hi 2>&1", "git diff > /dev/null",
                     "cat < src/app.py", "grep x <<< 'abc'", "make >&2", "exec 3>&-", "sed s/a/b/ src/app.py",
-                    "bash -c 'echo x > src/a'", "python3 - <<EOF\nopen('src/a','w')\nEOF", "git apply p.diff",
+                    "bash -c 'echo x > src/a'", "git apply p.diff",
                     "python3 -c 'print(1)'", "python3 -c 'open(('"):
             t = self.bash(cmd)
             self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
@@ -6894,11 +6894,58 @@ class Writes(unittest.TestCase):
 
     def test_unresolved_blocks_and_names_the_route(self):
         for cmd in ('echo x > "$UNSET"', "echo x > $(pwd)/f", "echo x > `pwd`/f", "echo x > src/*.py", "sed -i s/a/b/ src/?.py",
-                    "python3 -c \"p='a'; open(p,'w')\""):
+                    "python3 -c \"p=input(); open(p,'w')\""):
             t = self.bash(cmd)
             self.assertIsNotNone(t["unresolved"], cmd)
             rc, text = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": cmd}}, self.env)
             self.assertEqual(rc, 1, cmd); self.assertIn("Edit or Write", text)
+
+    def test_inline_programs(self):
+        """#227: an inline program — `-c`, `-e`, a heredoc on stdin — meets the gates; a literal, a name bound once,
+        a path over literals and a literal chdir resolve; computed is unresolved; a program that only reads is no writer."""
+        self.inside("python3 - <<'EOF'\nopen('src/a.txt', 'w').write('1')\nEOF", ["src/a.txt"])
+        self.inside("python3 - <<EOF\np = 'src/x.py'\nwith open(p, 'w') as f:\n    f.write('1')\nEOF", ["src/x.py"])
+        self.inside("python3 - <<'PY'\nfrom pathlib import Path\np = Path('src/y.txt')\np.write_text('1')\nPY", ["src/y.txt"])
+        self.inside("python3 - <<'PY'\nimport pathlib\nR = pathlib.Path('src')\n(R / 'z.md').write_bytes(b'1')\nPY", ["src/z.md"])
+        self.inside("python3 - <<'PY'\nimport os\nos.chdir('src')\nopen('c.txt', 'a').write('1')\nPY", ["src/c.txt"])
+        self.inside("python3 - <<-EOF\n\tp = 'src/t.py'\n\topen(p, 'x')\n\tEOF", ["src/t.py"])
+        self.inside("python3 -I - <<'EOF'\nopen('src/i.py', 'w')\nEOF", ["src/i.py"])
+        self.inside("python3 <<'EOF'\nopen('src/n.py', 'w')\nEOF", ["src/n.py"])
+        self.inside("python3 - src/argv.json <<'EOF'\nimport sys, json\njson.dump({}, open(sys.argv[1], 'w'))\nEOF", ["src/argv.json"])
+        self.inside("python3 - <<'EOF'\nimport os, tempfile\nfd, tmp = tempfile.mkstemp()\nos.replace(tmp, 'src/r.json')\nEOF", ["src/r.json"])
+        self.inside(f"python3 - <<'EOF'\nimport shutil\nshutil.copy('{self.scratch}/f.txt', 'dir')\nEOF", ["dir/f.txt"])
+        self.inside("python3 - <<'EOF'\nfrom pathlib import Path\nPath('src/old').rename('src/new')\nEOF", ["src/new"])
+        self.inside("python3 -c \"p='src/b.py'; open(p,'w')\"", ["src/b.py"])
+        self.inside("node -e \"require('fs').writeFileSync('src/j.js', 'x')\"", ["src/j.js"])
+        self.inside("node -e \"const fs = require('fs'); const out = 'src/k.json'; fs.writeFileSync(out, '{}')\"", ["src/k.json"])
+        self.inside("node - <<'EOF'\nconst fs = require('fs'), path = require('path');\nfs.appendFileSync(path.join('src', 'n.log'), 'x');\nEOF", ["src/n.log"])
+        self.inside("node --eval=\"require('fs').copyFileSync('a', 'src/cp.js')\"", ["src/cp.js"])
+        self.inside("tee src/tee.txt <<EOF\nbody\nEOF", ["src/tee.txt"])   # the heredoc is the input, never an operand
+        for cmd in ("python3 - <<'EOF'\nopen(input(), 'w')\nEOF",
+                    "python3 - <<'EOF'\nn = 1\nopen(f'src/{n}.txt', 'w')\nEOF",
+                    "python3 - <<'EOF'\np = 'src/a'\np = 'src/b'\nopen(p, 'w')\nEOF",
+                    "python3 - <<'EOF'\nfor p in ('src/a', 'src/b'):\n    open(p, 'w')\nEOF",
+                    "python3 - <<'EOF'\nimport sys\nopen('src/a', sys.argv[1])\nEOF",
+                    "python3 - <<'EOF'\nimport os, sys\nos.chdir(sys.argv[9])\nopen('a.txt', 'w')\nEOF",
+                    "node -e \"require('fs').writeFileSync(process.argv[2], 'x')\"",
+                    "node -e \"let p = 'src/a'; p = 'src/b'; require('fs').writeFileSync(p, 'x')\""):
+            t = self.bash(cmd)
+            self.assertIsNotNone(t["unresolved"], cmd)
+            rc, text = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": cmd}}, self.env)
+            self.assertEqual(rc, 1, cmd); self.assertIn("Edit or Write", text)
+        for cmd in ("python3 - <<'EOF'\nimport json\nd = json.load(open('src/app.py'))\nprint(len(d))\nEOF",
+                    "python3 - <<'EOF'\nfrom pathlib import Path\nprint(Path('src/app.py').read_text())\nEOF",
+                    "python3 - <<'EOF'\np = input()\nprint(open(p).read(), open(p, 'r').read(), open(p, mode='rb').read())\nEOF",
+                    "python3 - <<'EOF'\nimport datetime\ns = 'a'.replace('a', 'b')\nd = datetime.date.today().replace(year=1)\nprint(s, d)\nEOF",
+                    "python3 - <<'EOF'\nprint(1)\nEOF", "python3 -m json.tool src/app.py", "python3 script.py",
+                    "python3 -c 'print(1)'", "python3 - <<'EOF'\nimport os\nfd = os.open('src/app.py', os.O_RDONLY)\nEOF",
+                    "node -e \"console.log(require('fs').readFileSync('src/app.py', 'utf8'))\"",
+                    "node -e \"console.log('writeFileSync(x)') // fs.writeFileSync(y)\"",
+                    "cat <<EOF | python3 -\nopen('src/a', 'w')\nEOF", "node script.js", "python3 - <<'EOF'\nopen('src/a', 'w'\nEOF"):
+            t = self.bash(cmd)
+            self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": f"python3 - <<'EOF'\nopen('{self.scratch}/o.txt', 'w')\nEOF"}}, self.env)
+        self.assertEqual(rc, 4, "a write outside the project stays not judged")
 
     def test_guarded_on_every_branch(self):
         for target in (self.home / ".claude/settings.json", self.home / ".claude/settings.local.json", self.home / ".claude/hooks/x.sh",
