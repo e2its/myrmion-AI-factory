@@ -284,6 +284,8 @@ FAKEHOME="$SANDBOX/home"; mkdir -p "$FAKEHOME/.claude" "$SANDBOX/scratch"
 mkdir -p "$REPO/src"; printf 'a\n' > "$REPO/src/app.py"
 bashp() { python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]}}))' "$1"; }
 WRITERS=("sed -i s/a/b/ src/app.py" "echo x > src/app.py" "echo x | tee src/app.py" "cp /etc/hostname src/app.py" "python3 -c \"open('src/app.py','w')\"")
+STDIN_W=$(printf "python3 - <<'EOF'\np = 'src/app.py'\nopen(p, 'w')\nEOF")   # #227: a program on stdin, its target a name bound once
+WRITERS+=("$STDIN_W" "node -e \"require('fs').writeFileSync('src/app.py', 'x')\"")
 git -C "$REPO" checkout -q main
 for c in "${WRITERS[@]}"; do
   HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "$c")"
@@ -291,7 +293,8 @@ for c in "${WRITERS[@]}"; do
 done
 HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "echo x > $SANDBOX/scratch/f; sed -i s/a/b/ /dev/null")"
 assert_pass "on main: a shell write outside the project (scratch) passes"
-for c in "git status" "cat src/app.py" "grep -r a . 2>/dev/null" "ls > /dev/null"; do
+STDIN_R=$(printf "python3 - <<'EOF'\nimport json\nprint(open('src/app.py').read())\nEOF")
+for c in "git status" "cat src/app.py" "grep -r a . 2>/dev/null" "ls > /dev/null" "$STDIN_R"; do
   HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "$c")"; assert_pass "on main: read-only Bash «$c» passes"
 done
 # EVOL-081: the adapter's own apply/destroy is class deploy — blocked on every branch when the project deploys from its pipeline
@@ -330,6 +333,10 @@ HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "sed -i s/a/b/ src/app
 assert_block "fix branch without a plan: Bash sed -i on a governed file is blocked by the planning gate" "no approved plan covers this write to 'src/app.py'"
 HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "cp /etc/host* src/")"
 assert_block "fix branch without a plan: a glob copied into a governed directory is judged as that directory's content" "no approved plan covers this write to 'src/*'"
+HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "$STDIN_W")"
+assert_block "fix branch without a plan: a stdin python program writing a governed file is blocked by the planning gate (#227)" "no approved plan covers this write to 'src/app.py'"
+HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "python3 -c \"import os; os.chdir('src'); open('app.py', 'a')\"")"
+assert_block "fix branch without a plan: a -c program's chdir places its write (#227 round 1)" "no approved plan covers this write to 'src/app.py'"
 HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "echo x > docs/n.md")"
 assert_pass "fix branch without a plan: a shell write to documentation passes"
 HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "echo '{}' > ~/.claude/settings.json")"

@@ -4535,6 +4535,63 @@ class Discovery(unittest.TestCase):
     def _green(self, repo):
         return [f for f in discovery.validate(repo) if not f.startswith("V8 ")]   # V8 reads the meta repo's consumer files, absent here
 
+    # ── the upgrade's write steps (#227): functions the guide calls, never programs it improvises ──────
+    def _in(self, d, fn, resolved):
+        out, here = io.StringIO(), os.getcwd()
+        run = unittest.mock.Mock(return_value=unittest.mock.Mock(stdout=json.dumps(resolved)))
+        os.chdir(d)
+        try:
+            with unittest.mock.patch.object(discovery.subprocess, "run", run), contextlib.redirect_stdout(out):
+                fn()
+        finally:
+            os.chdir(here)
+        return out.getvalue()
+
+    def test_upgrade_guide_calls_functions_that_exist(self):
+        guide = (Path(__file__).resolve().parents[2] / discovery.UPGRADE).read_text(encoding="utf-8")
+        calls = re.findall(r"from gates import discovery; discovery\.(\w+)\(\)", guide)
+        self.assertEqual(sorted(calls), ["browser_mcp", "drop_history", "move_project_members", "notebook_migration", "refresh_templates",
+                                         "split_claude_md", "write_seams"])
+        for name in calls:
+            self.assertTrue(callable(getattr(discovery, name, None)), name)
+        from gates import writes
+        with tempfile.TemporaryDirectory() as d:
+            for block in re.findall(r"```bash\n(.*?)```", guide, re.S):   # every step the guide runs, judged before it runs
+                t = writes.targets(Path(d), {"tool_name": "Bash", "tool_input": {"command": block}}, {"HOME": d})
+                self.assertIsNone(t["unresolved"], block[:80])
+
+    def test_refresh_templates_atomic_mode_kept_symlink_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            write(root / discovery.MANIFEST, json.dumps({"templates": {"rules/a.md": {"target": ".claude/rules/a.md"},
+                                                                       "rules/b.md": {"target": ".claude/rules/b.md"}}}))
+            write(root / (discovery.TEMPLATE_ROOT + "rules/a.md"), "new a\n")
+            write(root / (discovery.TEMPLATE_ROOT + "rules/b.md"), "new b\n")
+            write(root / ".claude/rules/a.md", "old a\n"); os.chmod(root / ".claude/rules/a.md", 0o750)
+            write(root / "elsewhere.md", "theirs\n"); os.symlink(root / "elsewhere.md", root / ".claude/rules/b.md")
+            out = self._in(d, discovery.refresh_templates, {"templates_to_refresh": ["rules/a.md", "rules/b.md"]})
+            self.assertEqual((root / ".claude/rules/a.md").read_text(), "new a\n")
+            self.assertEqual(os.stat(root / ".claude/rules/a.md").st_mode & 0o777, 0o750)
+            self.assertEqual((root / "elsewhere.md").read_text(), "theirs\n", "a symlinked target is never written through")
+            self.assertEqual(out.splitlines(), ["refreshed: .claude/rules/a.md", "refused (a symlink): .claude/rules/b.md"])
+            self.assertEqual(sorted(os.listdir(root / ".claude/rules")), ["a.md", "b.md"], "no temporary file left")
+
+    def test_write_seams_writes_only_what_changed(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            write(root / "config/quality.json", "{}\n"); os.chmod(root / "config/quality.json", 0o640)
+            seams = {"config/quality.json": {"added": ["a"], "replaced": [], "unresolved": [], "merged": {"a": 1}},
+                     ".claude/settings.json": {"added": [], "replaced": [], "unresolved": ["K"], "merged": {"x": 1}},
+                     "new/dir/s.json": {"added": [], "replaced": ["b"], "unresolved": [], "merged": {"b": 2}}}
+            with unittest.mock.patch.object(discovery, "seams_upgrade", return_value=seams) as up:
+                out = self._in(d, discovery.write_seams, {"placeholders": {"P": "v"}})
+            self.assertEqual(up.call_args.args[1], {"P": "v"})
+            self.assertEqual(json.loads((root / "config/quality.json").read_text()), {"a": 1})
+            self.assertEqual(os.stat(root / "config/quality.json").st_mode & 0o777, 0o640)
+            self.assertFalse((root / ".claude/settings.json").exists(), "an unresolved-only seam is not written")
+            self.assertEqual(json.loads((root / "new/dir/s.json").read_text()), {"b": 2})
+            self.assertEqual(out.splitlines(), ["config/quality.json added: a", ".claude/settings.json unresolved: K", "new/dir/s.json replaced: b"])
+
     # ── grammar + evaluator ──────────────────────────────────────────────────────
     def test_grammar_each_operator(self):
         a = {"backend.runtime": "Python", "n": 3, "flag": True, "db.engine": None}
@@ -6856,8 +6913,8 @@ class Writes(unittest.TestCase):
     def test_not_writers(self):
         for cmd in ("cat x", "grep -r y .", "git status", "ls 2>/dev/null", "echo hi 2>&1", "git diff > /dev/null",
                     "cat < src/app.py", "grep x <<< 'abc'", "make >&2", "exec 3>&-", "sed s/a/b/ src/app.py",
-                    "bash -c 'echo x > src/a'", "python3 - <<EOF\nopen('src/a','w')\nEOF", "git apply p.diff",
-                    "python3 -c 'print(1)'", "python3 -c 'open(('"):
+                    "bash -c 'echo x > src/a'", "git apply p.diff",
+                    "python3 -c 'print(1)'", "python3 -c 'print(('"):
             t = self.bash(cmd)
             self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
         self.assertEqual(self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "git status"}}, self.env)[0], 4)
@@ -6894,11 +6951,277 @@ class Writes(unittest.TestCase):
 
     def test_unresolved_blocks_and_names_the_route(self):
         for cmd in ('echo x > "$UNSET"', "echo x > $(pwd)/f", "echo x > `pwd`/f", "echo x > src/*.py", "sed -i s/a/b/ src/?.py",
-                    "python3 -c \"p='a'; open(p,'w')\""):
+                    "python3 -c \"p=input(); open(p,'w')\""):
             t = self.bash(cmd)
             self.assertIsNotNone(t["unresolved"], cmd)
             rc, text = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": cmd}}, self.env)
             self.assertEqual(rc, 1, cmd); self.assertIn("Edit or Write", text)
+
+    def test_inline_programs(self):
+        """#227: an inline program — `-c`, `-e`, a heredoc on stdin — meets the gates; a literal, a name bound once,
+        a path over literals and a literal chdir resolve; computed is unresolved; a program that only reads is no writer."""
+        self.inside("python3 - <<'EOF'\nopen('src/a.txt', 'w').write('1')\nEOF", ["src/a.txt"])
+        self.inside("python3 - <<EOF\np = 'src/x.py'\nwith open(p, 'w') as f:\n    f.write('1')\nEOF", ["src/x.py"])
+        self.inside("python3 - <<'PY'\nfrom pathlib import Path\np = Path('src/y.txt')\np.write_text('1')\nPY", ["src/y.txt"])
+        self.inside("python3 - <<'PY'\nimport pathlib\nR = pathlib.Path('src')\n(R / 'z.md').write_bytes(b'1')\nPY", ["src/z.md"])
+        self.inside("python3 - <<'PY'\nimport os\nos.chdir('src')\nopen('c.txt', 'a').write('1')\nPY", ["src/c.txt"])
+        self.inside("python3 - <<-EOF\n\tp = 'src/t.py'\n\topen(p, 'x')\n\tEOF", ["src/t.py"])
+        self.inside("python3 -I - <<'EOF'\nopen('src/i.py', 'w')\nEOF", ["src/i.py"])
+        self.inside("python3 <<'EOF'\nopen('src/n.py', 'w')\nEOF", ["src/n.py"])
+        self.inside("python3 - src/argv.json <<'EOF'\nimport sys, json\njson.dump({}, open(sys.argv[1], 'w'))\nEOF", ["src/argv.json"])
+        self.inside(f"python3 - <<'EOF'\nimport os\nos.replace('{self.scratch}/t.json', 'src/r.json')\nEOF", ["src/r.json"])
+        self.inside(f"python3 - <<'EOF'\nimport shutil\nshutil.copy('{self.scratch}/f.txt', 'dir')\nEOF", ["dir/f.txt"])
+        self.inside("python3 - <<'EOF'\nfrom pathlib import Path\nPath('src/old').rename('src/new')\nEOF", ["src/old", "src/new"])
+        self.inside("python3 -c \"p='src/b.py'; open(p,'w')\"", ["src/b.py"])
+        self.inside("node -e \"require('fs').writeFileSync('src/j.js', 'x')\"", ["src/j.js"])
+        self.inside("node -e \"const fs = require('fs'); const out = 'src/k.json'; fs.writeFileSync(out, '{}')\"", ["src/k.json"])
+        self.inside("node - <<'EOF'\nconst fs = require('fs'), path = require('path');\nfs.appendFileSync(path.join('src', 'n.log'), 'x');\nEOF", ["src/n.log"])
+        self.inside("node --eval=\"require('fs').copyFileSync('a', 'src/cp.js')\"", ["src/cp.js"])
+        self.inside("tee src/tee.txt <<EOF\nbody\nEOF", ["src/tee.txt"])   # the heredoc is the input, never an operand
+        for cmd in ("python3 - <<'EOF'\nopen(input(), 'w')\nEOF",
+                    "python3 - <<'EOF'\nn = 1\nopen(f'src/{n}.txt', 'w')\nEOF",
+                    "python3 - <<'EOF'\np = 'src/a'\np = 'src/b'\nopen(p, 'w')\nEOF",
+                    "python3 - <<'EOF'\nfor p in ('src/a', 'src/b'):\n    open(p, 'w')\nEOF",
+                    "python3 - <<'EOF'\nimport sys\nopen('src/a', sys.argv[1])\nEOF",
+                    "python3 - <<'EOF'\nimport os, sys\nos.chdir(sys.argv[9])\nopen('a.txt', 'w')\nEOF",
+                    "node -e \"require('fs').writeFileSync(process.argv[2], 'x')\"",
+                    "node -e \"let p = 'src/a'; p = 'src/b'; require('fs').writeFileSync(p, 'x')\"",
+                    "python3 - <<'EOF'\nimport os, tempfile\nfd, tmp = tempfile.mkstemp()\nos.replace(tmp, 'src/r.json')\nEOF",
+                    "python3 - <<'EOF'\nopen('src/a', 'w'\nEOF"):
+            t = self.bash(cmd)
+            self.assertIsNotNone(t["unresolved"], cmd)
+            rc, text = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": cmd}}, self.env)
+            self.assertEqual(rc, 1, cmd); self.assertIn("Edit or Write", text)
+        for cmd in ("python3 - <<'EOF'\nimport json\nd = json.load(open('src/app.py'))\nprint(len(d))\nEOF",
+                    "python3 - <<'EOF'\nfrom pathlib import Path\nprint(Path('src/app.py').read_text())\nEOF",
+                    "python3 - <<'EOF'\np = input()\nprint(open(p).read(), open(p, 'r').read(), open(p, mode='rb').read())\nEOF",
+                    "python3 - <<'EOF'\nimport datetime\ns = 'a'.replace('a', 'b')\nd = datetime.date.today().replace(year=1)\nprint(s, d)\nEOF",
+                    "python3 - <<'EOF'\nprint(1)\nEOF", "python3 -m json.tool src/app.py", "python3 script.py",
+                    "python3 -c 'print(1)'", "python3 - <<'EOF'\nimport os\nfd = os.open('src/app.py', os.O_RDONLY)\nEOF",
+                    "node -e \"console.log(require('fs').readFileSync('src/app.py', 'utf8'))\"",
+                    "node -e \"console.log('writeFileSync(x)') // fs.writeFileSync(y)\"",
+                    "cat <<EOF | python3 -\nopen('src/a', 'w')\nEOF", "node script.js"):
+            t = self.bash(cmd)
+            self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": f"python3 - <<'EOF'\nopen('{self.scratch}/o.txt', 'w')\nEOF"}}, self.env)
+        self.assertEqual(rc, 4, "a write outside the project stays not judged")
+
+    def test_inline_program_writers(self):
+        """#227 round-1 cure: every recognised writer at its target, each heredoc form, the chdir by position."""
+        s = self.scratch
+        for cmd, expected in (
+                ("python3 -c \"import os; os.chdir('src'); open('c.txt', 'a')\"", ["src/c.txt"]),
+                ("python3 -c \"open('c.txt', 'a'); import os; os.chdir('src')\"", ["c.txt"]),
+                ("python3 -c \"x = 0 if 1 else 1 <<SHIFT; open('src/app.py', 'w')\"", ["src/app.py"]),
+                ("echo $((1<<X))\npython3 -c \"open('src/ar.py', 'w')\"\nX=1", ["src/ar.py"]),
+                ("python3 - <<\\EOF\nopen('src/bs.py', 'w')\nEOF", ["src/bs.py"]),
+                ("python3 - <<\"EOF\"\nopen('src/dq.py', 'w')\nEOF", ["src/dq.py"]),
+                ("python3 <<< \"open('src/hs.py', 'w')\"", ["src/hs.py"]),
+                ("python3 - <<'EOF'\nopen('src/$x.py', 'w')\nEOF", ["src/$x.py"]),
+                ("python3 - <<'EOF'\nimport os, os.path\nopen('src/op.py', 'w')\nEOF", ["src/op.py"]),
+                ("python3 - <<'EOF'\nfrom os import replace\nreplace('src/a1', 'src/a2')\nEOF", ["src/a1", "src/a2"]),
+                ("python3 - <<'EOF'\nimport os as o\no.rename('src/b1', 'src/b2')\nEOF", ["src/b1", "src/b2"]),
+                (f"python3 - <<'EOF'\nimport os\nos.rename('src/app.py', '{s}/gone')\nEOF", ["src/app.py"]),
+                ("python3 - <<'EOF'\nimport os\nfd = os.open('src/fd.txt', os.O_WRONLY | os.O_CREAT)\nEOF", ["src/fd.txt"]),
+                ("python3 - <<'EOF'\nimport shutil\nshutil.move('src/m1', 'src/m2')\nshutil.copy2('a', 'src/c2')\nshutil.copyfile('a', 'src/cf')\nEOF",
+                 ["src/m1", "src/m2", "src/c2", "src/cf"]),
+                ("python3 - <<'EOF'\nfrom shutil import copytree\ncopytree('a', 'src/tree')\nEOF", ["src/tree/*"]),
+                ("python3 - <<'EOF'\nimport io, codecs, tarfile, zipfile\nio.open('src/io.txt', 'w')\ncodecs.open('src/co.txt', 'w', 'utf-8')\n"
+                 "tarfile.open('src/t.tgz', 'w:gz')\nzipfile.ZipFile('src/z.zip', 'w')\nEOF", ["src/io.txt", "src/co.txt", "src/t.tgz", "src/z.zip"]),
+                ("python3 - <<'EOF'\nfrom pathlib import Path\nPath('src/po.txt').open('w')\nPath('src/rp').replace('src/rq')\nEOF", ["src/po.txt", "src/rp", "src/rq"]),
+                ("node -pe \"require('fs').writeFileSync('src/pe.js', 'x')\"", ["src/pe.js"]),
+                ("node --print \"require('fs').appendFileSync('src/pr.js', 'x')\"", ["src/pr.js"]),
+                ("nodejs -e \"require('fs').createWriteStream('src/ws.log')\"", ["src/ws.log"]),
+                ("node -e \"const fs = require('fs'); fs.writeFile('src/wf.js', 'x', () => 0); fs.openSync('src/o.js', 'w')\"", ["src/wf.js", "src/o.js"]),
+                (f"node -e \"require('fs').renameSync('src/app.py', '{s}/gone'); require('fs').cpSync('a', 'src/cp')\"", ["src/app.py", "src/cp"]),
+                ("node -e \"const {writeFileSync} = require('fs'); writeFileSync('src/d.js', 'x')\"", ["src/d.js"]),
+                ("node -e \"process.chdir('src'); require('fs').writeFileSync('pc.js', 'x')\"", ["src/pc.js"]),
+                ("node -e \"require('fs').writeFileSync('b.js', 'x'); process.chdir('src')\"", ["b.js"]),
+                ("node -e \"const p = require('node:path'); require('fs').writeFileSync(p.resolve('src', 'r.js'), 'x')\"", ["src/r.js"]),
+                ("node -e \"const path = require('path'); require('fs').writeFileSync(path.join('src', '/pj.js'), 'x')\"", ["src/pj.js"]),
+                ("node -e \"const r = /'/; require('fs').writeFileSync('src/rx.js', 'x')\"", ["src/rx.js"])):
+            self.inside(cmd, expected)
+        rc, text = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "python3 -c \"import os; os.chdir('.git'); open('config', 'a')\""}}, self.env)
+        self.assertEqual(rc, 1); self.assertIn("harness or user configuration", text)
+        deep = "python3 -c \"import os; x = os" + ".path" * 3000 + "; open('src/lc.py', 'w')\""
+        self.assertTrue(self.bash(deep)["writer"], "a deep attribute chain is read, never a fault")
+        home = self.bash("python3 -c \"open('$HOME/.claude/settings.json', 'w')\"")   # a variable the guard knows: substituted
+        self.assertTrue(home["guarded"], home)
+        for cmd in ("python3 -c \"open('$SOMEWHERE/.claude/settings.json', 'w')\"",
+                    "python3 - <<EOF\nopen('$SOMEWHERE/x', 'w')\nEOF",
+                    f"echo {self.w.HDOC_MARK}0 | python3 -",
+                    "python3 -c \"open('src/a\x00', 'w')\"",
+                    "python3 -c \"open('src/a\\x00', 'w')\"",
+                    "python3 -c $'open(\"src/a\", \\x22w\")'",
+                    "python3 - <<'EOF'\no = open\no('src/a', 'w')\nEOF",
+                    "python3 - <<'EOF'\np = 'src/a'\nglobals()['p'] = '/etc/x'\nopen(p, 'w')\nEOF",
+                    "python3 - <<'EOF'\nimport os\ngetattr(os, 'replace')('a', 'src/b')\nEOF",
+                    "python3 - <<'EOF'\nimport os\nn = 'rep' + 'lace'\ngetattr(os, n)('a', 'src/b')\nEOF",
+                    "python3 - <<'EOF'\nexec(\"open('src/a', 'w')\")\nEOF",
+                    "python3 - <<'EOF'\nargs = ('src/a', 'w')\nopen(*args)\nEOF",
+                    "python3 - <<'EOF'\nimport os\nos.open('src/a', 577)\nEOF",
+                    "python3 - <<'EOF'\ndef open(*a):\n    pass\nopen('src/a', 'w')\nEOF",
+                    "python3 - src/b.json <<'EOF'\nimport sys\nsys.argv[1] = '/etc/x'\nopen(sys.argv[1], 'w')\nEOF",
+                    "python3 - <<'EOF'\nimport os\ndef f():\n    open('a', 'w')\nos.chdir('src')\nf()\nEOF",
+                    "python3 - <<'EOF'\nfrom pathlib import Path\nx = input()\nx.rename('src/b')\nEOF",
+                    "python3 - <<'EOF'\nmatch 1:\n    case p:\n        pass\np = 'src/a'\nopen(p, 'w')\nEOF",
+                    "node -e \"const w = require('fs').writeFileSync; w('src/a', 'x')\"",
+                    "node -e \"require('fs')['writeFileSync']('src/a', 'x')\"",
+                    "node -e \"const k = 'write' + 'FileSync'; require('fs')[k]('src/a', 'x')\"",
+                    "node -e \"const {writeFileSync: w} = require('fs'); w('src/a', 'x')\"",
+                    "node -e \"eval('1')\"",
+                    "node -e \"const m = 'fs'; require(m).writeFileSync('src/a', 'x')\"",
+                    "node -e \"x = /abc; require('fs').writeFileSync('src/a', 'x')\"",
+                    "node -e \"require('fs').writeFile('a.js', 'x', () => 0); process.chdir('src')\"",
+                    "node -e \"require('fs').promises.writeFile('a.js', 'x'); process.chdir('src')\"",
+                    "node -e \"const o = { w() { require('fs').writeFileSync('a.js', 'x') } }; process.chdir('src'); o.w()\"",
+                    "python3 - <<'EOF'\nimport os\ng = (open('a', 'w') for _ in [0])\nos.chdir('src')\nlist(g)\nEOF"):
+            t = self.bash(cmd)
+            self.assertIsNotNone(t["unresolved"], cmd)
+        for cmd in ("python3 - <<'EOF'\nimport zipfile\nz = zipfile.ZipFile('src/z.zip')\nprint(z.open('data.json').read())\nEOF",
+                    "python3 - <<'EOF'\nimport pandas\ns = pandas.Series([1])\nprint(s.rename('b'))\nEOF",
+                    "python3 -c \"import re; print(re.compile('a').sub('b', 'a'))\"",
+                    "python3 -c \"import tarfile; tarfile.open('src/t.txz', 'r:xz')\"",
+                    "python3 -c \"from pathlib import Path; print('a'.replace('a', 'b'), Path('src/app.py').exists())\""):
+            t = self.bash(cmd)
+            self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
+
+    def test_inline_program_round_two(self):
+        """#227 round-2 cure: delimiters as shell words, expansions inside the program, modules passed around, the
+        writers the stores hide, the node forms a template, a bare name or a URL import hide — read or unresolved."""
+        b = chr(92)   # a backslash
+        for cmd, expected in (
+                ("python3 - <<PY-1\nopen('src/d1', 'w')\nPY-1", ["src/d1"]),
+                ("python3 - <<E\"O\"F\nopen('src/d2', 'w')\nEOF", ["src/d2"]),
+                ("cat <<E\"O\"F\nx\nEOF\npython3 -c \"open('src/d3', 'w')\"", ["src/d3"]),
+                ("python3 - <<EOF\nopen('src/e" + b * 4 + "x', 'w')\nEOF", ["src/e" + b + "x"]),
+                ("cat <<A; python3 - <<B\na\nA\nopen('src/two', 'w')\nB", ["src/two"]),
+                ("python3 - <<EOF # a comment <<X\nopen('src/cm', 'w')\nEOF", ["src/cm"]),
+                ("echo 'a\nb'; python3 - <<EOF\nopen('src/ql', 'w')\nEOF", ["src/ql"]),
+                ("echo $(( ((1)+2) )) ; python3 - <<EOF\nopen('src/ar2', 'w')\nEOF", ["src/ar2"]),
+                ("python3 - a" + b + " #x <<EOF\nopen('src/esc', 'w')\nEOF", ["src/esc"]),
+                ("X='open(\"src/x1\", \"w\")'; python3 -c \"$X\"", ["src/x1"]),
+                ("M=w; python3 -c \"open('src/m1', '$M')\"", ["src/m1"]),
+                ("python3 -Ic \"open('src/ic', 'w')\"", ["src/ic"]),
+                ("python3 -W ignore -X dev -c \"open('src/wx', 'w')\"", ["src/wx"]),
+                ("python3 --check-hash-based-pycs default -c \"open('src/lo', 'w')\"", ["src/lo"]),
+                ("python3 -c \"from pathlib import Path; Path('src/t1').rename(target='src/t2')\"", ["src/t1", "src/t2"]),
+                ("python3 -c \"from builtins import open; open('src/bo', 'w')\"", ["src/bo"]),
+                ("python3 -c \"from os import chdir as cd; cd('src'); open('ca', 'w')\"", ["src/ca"]),
+                ("python3 - <<'EOF'\nimport io, gzip, fileinput, sqlite3, shelve, dbm\nio.FileIO('src/fi', 'w')\ngzip.open('src/g.gz', 'wb')\n"
+                 "fileinput.input('src/inp', inplace=True)\nsqlite3.connect('src/s.db')\nshelve.open('src/sh')\ndbm.open('src/dbm', 'c')\nEOF",
+                 ["src/fi", "src/g.gz", "src/inp", "src/s.db", "src/sh", "src/dbm"]),
+                ("node -e 'console.log(`${require(\"fs\").writeFileSync(\"src/tp\", \"x\")}`)'", ["src/tp"]),
+                ("node -e \"x = {} / 2\nrequire('fs').writeFileSync('src/bd', 'x'); y = 1 / 2\"", ["src/bd"]),
+                ("python3 -c $'open(\"src/an\", \"w\")'", ["src/an"]),
+                ("echo $'" + b + "'' ; python3 - <<EOF\nopen('src/aq','w')\nEOF\n# '", ["src/aq"]),
+                ("python3 - <<'EOF'\nimport fileinput\nfileinput.input('src/app.py', True)\nEOF", ["src/app.py"]),
+                ("python3 --check-hash-based-pycs=default -c \"open('src/lv', 'w')\"", ["src/lv"]),
+                ("F=src/b1; python3 -c \"open('${F}', 'w')\"", ["src/b1"]),
+                ("python3 -c \"import posix; posix.replace('x', 'src/px')\"", ["x", "src/px"]),
+                ("node --input-type module -e \"import * as fs from 'fs'; fs.writeFileSync('src/is', 'x')\"", ["src/is"]),
+                ("node -e \"console.log(o.constructor.name); require('fs').writeFileSync('src/cn', 'x')\"", ["src/cn"]),
+                ("node -e \"const {copyFile, openSync} = require('fs'); copyFile('a', 'src/c1', () => 0); openSync('src/o1', 'w')\"", ["src/c1", "src/o1"]),
+                ("node -e \"const {rename} = require('fs/promises'); rename('src/app.py', 'src/rn')\"", ["src/app.py", "src/rn"]),
+                ("node --input-type module -e \"import fs from 'fs'; fs.writeFileSync('src/it', 'x')\"", ["src/it"]),
+                ("node -r ./x -e \"require('fs').writeFileSync('src/rq', 'x')\"", ["src/rq"])):
+            self.inside(cmd, expected)
+        for cmd in ("python3 -c $'open(\"src/a\", " + b + "x22w\")'",
+                    "python3 -c $'" + b + "x6fpen(\"src/a\", \"w\")'",
+                    "cp x $'src/" + b + "x61'",
+                    "python3 -c \"import os; getattr(os.path, input())\"",
+                    "python3 - <<",
+                    "node -e \"x = {} / 2; require('fs').writeFileSync('src/bd', 'x'); y = 1 / 2\"",
+                    "node -e \"if (1) {} /'/.test(0); require('fs').writeFileSync('src/a','x') //'\"",
+                    "node -e \"if (1) /'/.test(0); require('fs').writeFileSync('src/a','x') //'\"",
+                    "node -e 'x = `${`${`a`}`}`; require(\"fs\").writeFileSync(\"src/a\", \"x\")'",
+                    "python3 -c \"import shutil; shutil.os.replace('x', 'src/a')\"",
+                    "python3 -c \"import gzip; gzip.builtins.open('src/a', 'w')\"",
+                    "python3 -c \"import tarfile; tarfile.bltn_open('src/a', 'w')\"",
+                    "python3 -c \"import tempfile; getattr(tempfile, '_os').replace('x', 'src/a')\"",
+                    "python3 -c \"import operator, tempfile; operator.attrgetter('_os.replace')(tempfile)('x', 'src/a')\"",
+                    "python3 -c \"import tempfile; list(map(getattr, [tempfile], ['_os']))[0].replace('x', 'src/a')\"",
+                    "python3 -c \"import json; getattr(json, 'BZ2File')\"",
+                    "python3 -c \"import os\nfor k in ['replace']: getattr(os, k)('x', 'src/a')\"",
+                    "python3 -c \"d = {}; getattr(d, input())\"",
+                    "python3 -c \"open('$@', 'w')\"",
+                    "node -e \"require('fs')['rename']('src/app.py', 'src/b')\"",
+                    "node -e \"require('worker_threads')\"",
+                    "node -e \"require('node:module')\"",
+                    "node -e \"const C = (() => 0).constructor; C('1')()\"",
+                    "node -e \"const fs = require('fs'); const k = 'w'; fs?.[k]('src/a', 'x')\"",
+                    "x=$(( 1 <<EOF\nEOF\n)); python3 - <<EOF\nopen('src/a', 'w')\nEOF",
+                    "python3 - <<EOF\nopen('src/a', " + b + "\n'w')\nEOF",
+                    "N=replace; python3 -c \"import os; getattr(os, '$N')('a', 'src/b')\"",
+                    "python3 - <<EOF\n$CODE\nEOF",
+                    "python3 -c \"open('src/a', '$1')\"",
+                    "python3 -c \"open(`echo src/a`, 'w')\"",
+                    "python3 -c \"$(cat p.py)\"",
+                    "python3 -c \"from pathlib import Path; getattr(Path('src/a'), 'write_text')('x')\"",
+                    "node -e \"const fs = require('fs'); fs." + b + "u0077riteFileSync('src/a', 'x')\"",
+                    "node -e \"if (0) 1; else { 1; process.chdir('src') }; require('fs').writeFileSync('a', 'x')\"",
+                    "python3 -c \"import os; o = os; o.replace('x', 'src/a')\"",
+                    "python3 -c \"from os import *; replace('x', 'src/a')\"",
+                    "python3 -c \"import sys; sys.modules['os'].replace('x', 'src/a')\"",
+                    "python3 -c \"__builtins__.__dict__['ex' + 'ec']('1')\"",
+                    "python3 -c \"import timeit; timeit.timeit('1', number=1)\"",
+                    "python3 -c \"import importlib; importlib.import_module('os').replace('x', 'src/a')\"",
+                    "python3 - <<'EOF'\nfrom pathlib import Path\nimport os\np = Path('a').resolve()\nos.chdir('src')\nopen(p, 'w')\nEOF",
+                    "python3 - <<'EOF'\nimport shelve\nf = input()\nshelve.open('src/a', f)\nEOF",
+                    "python3 - <<'EOF'\nimport sqlite3\nsqlite3.connect('file:src/a', uri=True)\nEOF",
+                    "python3 - <<'EOF'\nimport fileinput\nfileinput.input(input(), inplace=True)\nEOF",
+                    "node -e \"require('fs').writeFile" + b + "u0053ync('src/a', 'x')\"",
+                    "node -e \"require('vm').runInThisContext('1')\"",
+                    "node -e \"(() => 0).constructor('1')()\"",
+                    "node -e \"import('data:text/javascript,1')\"",
+                    "node -e \"const fs = require('fs'); doit(fs)\"",
+                    "node -e \"doit(require('fs'))\"",
+                    "node -e \"const fs = require('fs'); const k = 'w'; fs.promises[k]('src/a', 'x')\"",
+                    "node -e \"const k = 'w'; const {[k]: w} = require('fs')\"",
+                    "node -e \"const p = require('path'); process.chdir('src'); require('fs').writeFileSync(p.resolve('a'), 'x')\"",
+                    "node -e \"if (1) { process.chdir('src') }; require('fs').writeFileSync('a', 'x')\"",
+                    "node -e \"const p = 'src/a'; function f(p) {}; require('fs').writeFileSync(p, 'x')\""):
+            t = self.bash(cmd)
+            self.assertIsNotNone(t["unresolved"], cmd)
+        for cmd in ("python3 -c \"import importlib.util; print(importlib.util.find_spec('yaml'))\"",
+                    "python3 -c \"import json\nfor k in dir(json): getattr(json, k)\"",
+                    "python3 -c \"import tarfile; tarfile.open('src/t', 'r|xz')\"",
+                    "python3 -c 'print(\"$HOME\")'",
+                    "python3 - <<'EOF'\nimport dbm, sqlite3, fileinput\ndbm.open('src/d')\nsqlite3.connect(':memory:')\nfileinput.input('src/f')\nEOF",
+                    "node -e \"const fs = require('fs'); const [a] = fs.readFileSync('x', 'utf8').split(','); console.log(a)\"",
+                    "node -e \"const fs = require('fs'); const l = [1]; console.log(l[l.length - 1], require('fs')[0])\"",
+                    "node -e \"console.log('global')\"",
+                    "git commit -m $'a" + b + "n" + b + "nb'",
+                    "cut -d$'" + b + "t' -f1 f",
+                    "cat <<EOF\na " + b + "\nb\nEOF",
+                    "python3 -c \"class A: pass\nprint(A().__class__.__name__)\"",
+                    "node -e \"console.log({}.constructor.name)\"",
+                    "python3 -- -c \"open('src/a', 'w')\""):
+            t = self.bash(cmd)
+            self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
+        self.assertIn("the guard cannot read to its end", self.bash("python3 - <<")["unresolved"])
+        with unittest.mock.patch.object(self.w._Reader, "run", side_effect=RecursionError):
+            t = self.bash("python3 -c \"print(1)\"")
+        self.assertEqual(t["unresolved"], "the command is too complex for the guard to read")
+
+    def test_inline_program_shell_words(self):
+        """#227 round-2 cure: the program text as the shell hands it over — a quote in a comment is no quoting, a
+        prefix assignment never reaches its own command's words, an escaped `$` stays literal, a here-string expands."""
+        b = chr(92)   # a backslash
+        for cmd, expected in (
+                ("F=src/a; python3 -c \"open('$F', 'w')\" # 'open('$F', 'w')'", ["src/a"]),
+                ("X=src/a; python3 -c \"open('$X','w')\"", ["src/a"]),
+                ("python3 -c 'open(\"$HOME/x\", \"w\")'", ["$HOME/x"]),
+                ("python3 - <<EOF\nopen('src/" + b + "$x', 'w')\nEOF", ["src/$x"]),
+                ("F=src/hs; python3 - <<< \"open('$F', 'w')\"", ["src/hs"]),
+                ("python3 - <<< 'open(\"src/$F\", \"w\")'", ["src/$F"])):
+            self.inside(cmd, expected)
+        for cmd in ("X=src/a python3 -c \"open('$X','w')\"",
+                    "python3 - <<$D\nopen('src/a', 'w')\n$D"):
+            self.assertIsNotNone(self.bash(cmd)["unresolved"], cmd)
+        for cmd in ("python3 -c \"open('$HOME/.claude/settings.json', 'w')\" # 'open('$HOME/.claude/settings.json', 'w')'",
+                    "HOME=/tmp/x python3 -c \"open('$HOME/.claude/settings.json', 'w')\""):
+            self.assertTrue(self.bash(cmd)["guarded"], cmd)
 
     def test_guarded_on_every_branch(self):
         for target in (self.home / ".claude/settings.json", self.home / ".claude/settings.local.json", self.home / ".claude/hooks/x.sh",

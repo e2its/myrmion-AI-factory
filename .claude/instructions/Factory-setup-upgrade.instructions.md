@@ -143,26 +143,7 @@ A `framework_core` entry without `delivery` is a file of the framework repo itse
 3. **seam.** Step 8b.7.
 
 ```bash
-python3 -I - <<'PY'
-import json, os, pathlib, shutil, subprocess, sys, tempfile
-sys.path.insert(0, "scripts")
-from gates import discovery
-r = json.loads(subprocess.run([sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"], capture_output=True, text=True, check=True).stdout)
-m = json.loads(pathlib.Path(discovery.MANIFEST).read_text(encoding="utf-8"))["templates"]
-for k in r.get("templates_to_refresh") or []:
-    t = m[k]["target"]
-    if os.path.islink(t):
-        print(f"refused (a symlink): {t}"); continue
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(t) or ".")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(pathlib.Path(discovery.TEMPLATE_ROOT + k).read_bytes())
-        shutil.copymode(t, tmp); os.replace(tmp, t)
-    finally:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-    print(f"refreshed: {t}")
-PY
+python3 -I -c 'import sys; sys.path.insert(0, "scripts"); from gates import discovery; discovery.refresh_templates()'
 ```
 
 **Placeholder resolution (Smart Discovery Cascade)** — for a new file (Step 3) and a seam's `unresolved` key. Resolve each `{{PLACEHOLDER}}` from, in order:
@@ -188,28 +169,7 @@ Unresolved after all 5 → **RDR Protocol**: recommendation with justification +
 7. **Seams (EVOL-136), every upgrade.** `seams_upgrade` lists, per seam, the keys it adds, the framework hook commands it replaces and the keys no answer fills. Show the listing; then run it as written (idempotent — a second run adds nothing). Each `unresolved` key is one RDR through the cascade (Step 2); write the answer to that key, then run it again:
 
 ```bash
-python3 -I - <<'PY'
-import json, os, pathlib, shutil, subprocess, sys, tempfile
-sys.path.insert(0, "scripts")
-from gates import discovery
-fills = json.loads(subprocess.run([sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"], capture_output=True, text=True, check=True).stdout)["placeholders"]
-for target, r in discovery.seams_upgrade(pathlib.Path("."), fills).items():
-    for k in ("added", "replaced", "unresolved"):
-        for x in r[k]:
-            print(f"{target} {k}: {x}")
-    if r["added"] or r["replaced"]:
-        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(target) or ".")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(json.dumps(r["merged"], indent=2, ensure_ascii=False) + "\n")
-            if os.path.exists(target):
-                shutil.copymode(target, tmp)
-            os.replace(tmp, target)
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
-PY
+python3 -I -c 'import sys; sys.path.insert(0, "scripts"); from gates import discovery; discovery.write_seams()'
 ```
 
 Migration anchors (registry `migrations`; a row is owed when the project is older than its `since` and its `detect` pointer is missing; a `detect: always` row on every upgrade):
@@ -251,31 +211,7 @@ Run `python3 scripts/gate.py performance`: green, or each finding named.
 **history-in-vcs (EVOL-118).** The operational files carry current state only; the history stays in version control. It drops every `changelog` key of the manifest and the inventory, and the frontmatter `changelog:` of every delivered Markdown target and every `.claude/rules/*.md`; a path outside the project, a symlink or a non-UTF-8 file is skipped; a Markdown file keeps its line endings, a rewritten JSON file is written with indent 2. Idempotent — a clean project changes nothing. Run:
 
 ```bash
-python3 - <<'PY'
-import json, pathlib, re
-root = pathlib.Path.cwd().resolve()
-def strip(o):
-    if isinstance(o, dict): return {k: strip(v) for k, v in o.items() if k != "changelog"}
-    if isinstance(o, list): return [strip(x) for x in o]
-    return o
-def inside(f): return f.is_file() and not f.is_symlink() and f.resolve().is_relative_to(root)
-def read(f): return f.read_bytes().decode("utf-8")
-man = root / "docs/project_log/governance_versions.json"
-tpl = json.loads(read(man)).get("templates") if inside(man) else None
-targets = {e["target"] for e in (tpl.values() if isinstance(tpl, dict) else []) if isinstance(e, dict) and isinstance(e.get("target"), str)}
-for f in (man, root / "config/codebase_inventory.json"):
-    if inside(f):
-        d = json.loads(read(f)); c = strip(d)
-        if c != d: f.write_bytes((json.dumps(c, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
-for f in sorted({root / t for t in targets if t.endswith(".md")} | set((root / ".claude/rules").glob("*.md"))):
-    if not inside(f): continue
-    try: s = read(f)
-    except UnicodeDecodeError: print(f"skipped, not UTF-8: {f.relative_to(root)}"); continue
-    m = re.match(r"---\r?\n(.*?\r?\n)---\r?\n", s, re.S)
-    if m and re.search(r"^changelog:", m.group(1), re.M):
-        fm = re.sub(r"^changelog:[^\r\n]*\r?\n(?:(?:[ \t]+\S|-[ \t])[^\r\n]*\r?\n|[ \t]*\r?\n(?=[ \t]+\S|-[ \t]))*", "", m.group(1), flags=re.M)
-        f.write_bytes((s[:m.start(1)] + fm + s[m.end(1):]).encode("utf-8"))
-PY
+python3 -I -c 'import sys; sys.path.insert(0, "scripts"); from gates import discovery; discovery.drop_history()'
 ```
 
 Then regenerate the snapshot (`docs/constitution.md` may have moved) and run `python3 scripts/gate.py manifest-parity`: green, or each finding named. Bumps from now on: `gate.py manifest --bump` writes the version only; the why goes in the commit.
@@ -283,35 +219,7 @@ Then regenerate the snapshot (`docs/constitution.md` may have moved) and run `py
 **browser-mcp (EVOL-077).** Q23.5's answer (`qa.browser_mcp`, asked when a frontend exists) lands its server in `.mcp.json` → `mcpServers`: the registry row `configures → mcp.servers`, pinned and `--isolated`. The merge keeps every server the project already has. A same-name server with other content is kept and printed: pose it as an RDR (keep it, or take the registry's). `none` or no frontend writes nothing. Idempotent — a second run changes nothing. Materialisation runs this same block. Run:
 
 ```bash
-python3 - "$@" <<'PY'
-import json, os, pathlib, subprocess, sys, tempfile
-root = pathlib.Path.cwd().resolve()
-cmd = [sys.executable, "scripts/gate.py", "discovery", "--resolve", "--json"] + (["--answers", sys.argv[1]] if len(sys.argv) > 1 else [])
-r = subprocess.run(cmd, capture_output=True, text=True)
-if r.returncode != 0: sys.exit(f"discovery --resolve failed: {(r.stdout or r.stderr).strip()}")
-want = json.loads(r.stdout).get("configures", {}).get("mcp.servers") or {}
-f = root / ".mcp.json"
-if not want: print("no browser MCP answered: .mcp.json untouched"); sys.exit(0)
-if f.is_symlink(): sys.exit(".mcp.json is a symlink: merge the servers by hand")
-try: doc = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else {}
-except json.JSONDecodeError as e: sys.exit(f".mcp.json is not valid JSON ({e.msg}, line {e.lineno}): fix it, then re-run")
-except UnicodeDecodeError: sys.exit(".mcp.json is not UTF-8 text: fix it, then re-run")
-if not isinstance(doc, dict) or not isinstance(doc.setdefault("mcpServers", {}), dict): sys.exit(".mcp.json is not {\"mcpServers\": {...}}: merge the servers by hand")
-added = []
-for name, row in want.items():
-    have = doc["mcpServers"].get(name)
-    if have is None: doc["mcpServers"][name] = row; added.append(name)
-    elif have != row: print(f"kept {name}: it differs from the registry's {row} — RDR: keep it, or take the registry's")
-if added:
-    fd, tmp = tempfile.mkstemp(dir=root, prefix=".mcp.json.")   # an unpredictable name, created exclusively: no symlink is followed
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as out: out.write(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
-        if f.is_file(): os.chmod(tmp, f.stat().st_mode & 0o777)   # the project's own mode survives the replace
-        os.replace(tmp, f)
-    except BaseException:
-        os.unlink(tmp); raise
-    print("added: " + ", ".join(added))
-PY
+python3 -I -c 'import sys; sys.path.insert(0, "scripts"); from gates import discovery; discovery.browser_mcp()' "$@"
 ```
 
 Interactive sessions ask once to approve a project server; the `factory-qa` agent carries the walk's tools of that server by name (`mcp__<server>__<tool>`).
@@ -469,40 +377,7 @@ PY
 **session-notebook (EVOL-133).** The session notebook's two budget keys and its two hook wirings. Run it as written (idempotent): it adds `budgets.notebook_reinject` and `budgets.notebook_precompact` when absent or invalid (at the template's value, or the project's `budgets.hook_output_cap` when lower; a valid value is never touched), adds the `UserPromptSubmit` entry that runs `scripts/gate.py notebook --hook-json` when the event exists and no entry runs it (an absent event is added whole by the seams step, 8b.7), and widens the `PostToolUse` entry that runs `scripts/governance-onedit.sh` to `Edit|Write|Bash`; a project's own entries and values are kept. Name each line it prints in the upgrade report:
 
 ```bash
-python3 - <<'PY'
-import json, pathlib
-def load(p):
-    return json.loads(p.read_text(encoding="utf-8"))
-q_path, s_path = pathlib.Path("config/quality.json"), pathlib.Path(".claude/settings.json")
-q = load(q_path)
-b = q.setdefault("budgets", {})
-changed_q = False
-cap = b.get("hook_output_cap")
-for k, v in (("notebook_reinject", 9000), ("notebook_precompact", 1000)):   # the template's values at 10.10.0
-    if type(cap) is int and cap > 0:
-        v = min(v, cap)
-    if type(b.get(k)) is not int or b[k] < 1:
-        print(f"budgets.{k}: {b.get(k)!r} -> {v}")
-        b[k] = v
-        changed_q = True
-if changed_q:
-    q_path.write_text(json.dumps(q, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-s = load(s_path) if s_path.exists() else {}
-h = s.get("hooks") if isinstance(s.get("hooks"), dict) else {}
-changed_s = False
-ups = h.get("UserPromptSubmit")
-if isinstance(ups, list) and not any("scripts/gate.py notebook --hook-json" in (x.get("command") or "") for e in ups for x in e.get("hooks", [])):
-    ups.append({"hooks": [{"type": "command", "command": 'cd "${CLAUDE_PROJECT_DIR:-.}" && python3 scripts/gate.py notebook --hook-json || true'}]})
-    print("hooks.UserPromptSubmit: + scripts/gate.py notebook --hook-json")
-    changed_s = True
-for e in h.get("PostToolUse", []):
-    if e.get("matcher") == "Edit|Write" and any("scripts/governance-onedit.sh" in (x.get("command") or "") for x in e.get("hooks", [])):
-        e["matcher"] = "Edit|Write|Bash"
-        print("hooks.PostToolUse: governance-onedit.sh matcher Edit|Write -> Edit|Write|Bash")
-        changed_s = True
-if changed_s:
-    s_path.write_text(json.dumps(s, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-PY
+python3 -I -c 'import sys; sys.path.insert(0, "scripts"); from gates import discovery; discovery.notebook_migration()'
 ```
 
 **owners (EVOL-136).** Stamps on each project snapshot entry the `owner` the delivered manifest declares, where the entry has none, and sets `governance_features.owners_v1`. Run it as written (idempotent); name the count it prints in the upgrade report:
@@ -535,108 +410,13 @@ PY
 Apply each choice to `CLAUDE.md`, then run the block again. It writes only when nothing is unresolved: the root's bytes as they stood are kept first at `.context/claude-md.pre-split.md` (ignored, never overwritten), every kept section as written (LF line ends); it sets `governance_features.claude_split_v1` (idempotent: a split root is unchanged). Name the kept sections in the upgrade report, and the `.gitignore` line it prints when the installed IP block does not ignore `.claude/framework.md` (the project's file, never written here):
 
 ```bash
-python3 -I - <<'PY'
-import json, os, pathlib, shutil, sys, tempfile
-sys.path.insert(0, "scripts")
-from gates import discovery
-root_p, snap_p = pathlib.Path("CLAUDE.md"), pathlib.Path(discovery.PROJECT_MANIFEST)
-if not pathlib.Path(".claude/framework.md").is_file():
-    sys.exit("refused: .claude/framework.md is not delivered — run factory-sync.sh first; the root would import nothing")
-bak = pathlib.Path(".context/claude-md.pre-split.md")
-for p in (root_p, bak):
-    if p.is_symlink():
-        sys.exit(f"refused (a symlink): {p} — replace it with a regular file, then run this block again")
-if not (pathlib.Path(discovery.SPLIT_KNOWN).is_file() and pathlib.Path(discovery.SPLIT_ROOT).is_file()):
-    sys.exit("refused: the known monolith parts or the root template are not delivered — run factory-sync.sh first")
-try:
-    tpl = pathlib.Path(discovery.SPLIT_ROOT).read_text(encoding="utf-8")
-    known = json.loads(pathlib.Path(discovery.SPLIT_KNOWN).read_text(encoding="utf-8"))
-    raw = root_p.read_bytes() if root_p.is_file() else None
-    cur = raw.decode("utf-8-sig") if raw is not None else tpl
-    r = discovery.claude_split(cur, known, tpl, pathlib.Path(".claude/framework.md").read_text(encoding="utf-8"))
-except (discovery.GateFault, ValueError, OSError) as e:
-    sys.exit(f"refused: {e} — CLAUDE.md must be UTF-8 and the delivered files intact (run factory-sync.sh)")
-print(json.dumps({k: r[k] for k in ("framework", "kept", "unresolved", "differs")}, indent=1, ensure_ascii=False))
-if r["text"] is None:
-    sys.exit("unresolved: one RDR per heading above — apply each choice to CLAUDE.md, then run this block again")
-if not root_p.is_file() or r["text"] != cur:
-    if raw is not None and not bak.exists():
-        bak.parent.mkdir(parents=True, exist_ok=True)
-        bak.write_bytes(raw)
-    fd, tmp = tempfile.mkstemp(dir=".", prefix=".claude-md-split-")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(r["text"])
-        shutil.copymode(root_p, tmp) if root_p.is_file() else os.chmod(tmp, 0o644)
-        os.replace(tmp, root_p)
-    finally:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-    print("CLAUDE.md split: the root imports .claude/framework.md")
-gi = pathlib.Path(".gitignore")
-if gi.is_file() and ".claude/framework.md" not in gi.read_text(encoding="utf-8", errors="replace").splitlines():
-    print("report: .gitignore — add `.claude/framework.md` to its IP block (beside CLAUDE.md), or the universal text can be committed")
-snap = json.loads(snap_p.read_text(encoding="utf-8"))
-feats = snap.setdefault("governance_features", {})
-if not feats.get("claude_split_v1"):
-    feats["claude_split_v1"] = True
-    snap_p.write_text(json.dumps(snap, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-PY
+python3 -I -c 'import sys; sys.path.insert(0, "scripts"); from gates import discovery; discovery.split_claude_md()'
 ```
 
 **profile members (EVOL-138).** Moves the gate members a project added to `scripts/gates/profile.py` into `config/quality.json → profile.members`, the project's home — the profile reads both as one list. Sync has already replaced `profile.py` with the framework's, so the block reads the committed one (`git show HEAD:scripts/gates/profile.py`) and moves each literal member whose name the delivered list lacks, add-only by name. It refuses, writing nothing, when `profile.py` is still the old one (run sync first), when HEAD already holds the delivered file (the sync result was committed: the installed one is in an earlier commit), and when a member is written as an expression or `MEMBERS` is changed outside its list: move it into `profile.members` by hand (`{name, runner, needs_build, needs_database, owner}`), then run the block again. It sets `governance_features.project_members_v1`; once that is set the block reports nothing to do and writes nothing, whatever HEAD holds. Name the moved members in the upgrade report:
 
 ```bash
-python3 -I - <<'PY'
-import json, os, pathlib, shutil, subprocess, sys, tempfile
-sys.path.insert(0, "scripts")
-from gates import discovery, profile
-q_p, snap_p, rel = pathlib.Path("config/quality.json"), pathlib.Path(discovery.PROJECT_MANIFEST), "scripts/gates/profile.py"
-def git(*a):
-    return subprocess.run(["git", *a], capture_output=True, text=True, encoding="utf-8", errors="replace")
-if not hasattr(profile, "installed_members"):
-    sys.exit(f"refused: {rel} predates EVOL-138 — run scripts/factory-sync.sh first, then this block")
-try:
-    snap = json.loads(snap_p.read_text(encoding="utf-8"))
-    if (snap.get("governance_features") or {}).get("project_members_v1"):
-        print(json.dumps({"moved": [], "already": "governance_features.project_members_v1 is set — nothing to do"}))
-        sys.exit(0)
-    if git("rev-parse", "--verify", "-q", "HEAD").returncode != 0:
-        sys.exit("refused: no commit to read the installed profile.py from — commit the project's tree as it stood before the upgrade, then run this block again")
-    shown = git("show", f"HEAD:{rel}") if git("cat-file", "-e", f"HEAD:{rel}").returncode == 0 else None
-    if shown is not None and shown.returncode != 0:
-        sys.exit(f"refused: git could not read the committed {rel} — {shown.stderr.strip()}")
-    if shown is not None and pathlib.Path(rel).is_file() and shown.stdout == pathlib.Path(rel).read_text(encoding="utf-8"):
-        sys.exit(f"refused: HEAD already holds the delivered {rel} — the installed one is in an earlier commit (git log -p -- {rel}): "
-                 f"move its project rows into config/quality.json → profile.members by hand, then set governance_features.project_members_v1")
-    rows = profile.installed_members(shown.stdout, {m[0] for m in profile.MEMBERS}) if shown else []
-    q = json.loads(q_p.read_text(encoding="utf-8"))
-    prof = q.setdefault("profile", {})
-    members = prof.setdefault("members", []) if isinstance(prof, dict) else None
-    if not isinstance(members, list):
-        raise ValueError("config/quality.json → profile.members is not a list of rows")
-    have = {m.get("name") for m in members if isinstance(m, dict)}
-    moved = [r for r in rows if r["name"] not in have]
-    profile.check_rows(members + moved)
-except (profile.GateFault, ValueError, OSError, RecursionError) as e:
-    sys.exit(f"refused: {e} — nothing was written")
-print(json.dumps({"moved": [r["name"] for r in moved], "already": sorted(r["name"] for r in rows if r["name"] in have)}))
-if moved:
-    members.extend(moved)
-    fd, tmp = tempfile.mkstemp(dir=str(q_p.parent), prefix=".quality-members-")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(json.dumps(q, indent=2, ensure_ascii=False) + "\n")
-        shutil.copymode(q_p, tmp)
-        os.replace(tmp, q_p)
-    finally:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-feats = snap.setdefault("governance_features", {})
-if not feats.get("project_members_v1"):
-    feats["project_members_v1"] = True
-    snap_p.write_text(json.dumps(snap, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-PY
+python3 -I -c 'import sys; sys.path.insert(0, "scripts"); from gates import discovery; discovery.move_project_members()'
 ```
 
 ---

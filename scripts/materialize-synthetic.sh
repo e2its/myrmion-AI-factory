@@ -451,6 +451,7 @@ fi
 # of the project's own: both keys, the notebook entry and the Bash matcher land, the project's hook is kept; twice, the second a no-op
 if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(open(sys.argv[1])) else 1)' "$ANSWERS"; then
   H="$SCRATCH/h133"; Q="$H/q"; mkdir -p "$Q/config" "$Q/.claude"
+  cp -R "$ROOT/scripts" "$Q/scripts"   # the migration is a function of the delivered discovery module (#227)
   python3 - "$ROOT/.claude/instructions/Factory-setup-upgrade.instructions.md" > "$H/mig.sh" <<'PY2'
 import re, sys; s = open(sys.argv[1], encoding="utf-8").read(); a = s.index("**session-notebook (EVOL-133).**")
 print(re.search(r"```bash\n(.*?)```", s[a:], re.S).group(1))
@@ -1033,14 +1034,20 @@ OUT=$(cd "$P" && python3 scripts/gate.py plan --path src/app.py 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'plan approved on this branch' && ok "the harness's approval unblocks the governed write" || bad "approval did not unblock (rc=$RC)" "$OUT"
 # EVOL-065: a shell write meets the same delivered hooks — red on main, green on a working branch with its plan
 SED_P='{"tool_name":"Bash","tool_input":{"command":"sed -i s/1/2/ src/app.py"}}'
+# #227: a program on stdin whose target is a name bound once — the form agents use most
+STDIN_P='{"tool_name":"Bash","tool_input":{"command":"python3 - <<'"'"'EOF'"'"'\np = '"'"'src/app.py'"'"'\nopen(p, '"'"'w'"'"').write('"'"'2'"'"')\nEOF"}}'
 mkdir -p "$SCRATCH/home"
 for h in check-branch-protection check-plan-approval; do
   OUT=$(cd "$P" && printf '%s' "$SED_P" | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/$h.sh 2>&1 >/dev/null); RC=$?
   [ "$RC" -eq 0 ] && ok "the delivered $h lets a Bash sed -i through on a fix branch with its approved plan" || bad "$h blocked a planned shell write (rc=$RC)" "$OUT"
+  OUT=$(cd "$P" && printf '%s' "$STDIN_P" | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/$h.sh 2>&1 >/dev/null); RC=$?
+  [ "$RC" -eq 0 ] && ok "the delivered $h lets a stdin program's write through on a fix branch with its approved plan" || bad "$h blocked a planned stdin program (rc=$RC)" "$OUT"
 done
 git -C "$P" branch -f main HEAD; git -C "$P" checkout -q main
 OUT=$(cd "$P" && printf '%s' "$SED_P" | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-branch-protection.sh 2>&1 >/dev/null); RC=$?
 [ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'BLOCKED: on protected branch' && ok "RED: the delivered branch hook blocks a Bash sed -i on main" || bad "shell write on main not blocked (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf '%s' "$STDIN_P" | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-branch-protection.sh 2>&1 >/dev/null); RC=$?
+[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'BLOCKED: on protected branch' && ok "RED: the delivered branch hook blocks a stdin program writing src/app.py through a bound name on main (#227)" || bad "stdin program on main not blocked (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '%s' '{"tool_name":"Bash","tool_input":{"command":"git status"}}' | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-branch-protection.sh 2>&1 >/dev/null); RC=$?
 [ "$RC" -eq 0 ] && ok "a read-only Bash call on main passes the delivered branch hook" || bad "read-only Bash blocked on main (rc=$RC)" "$OUT"
 git -C "$P" checkout -q fix/gated
