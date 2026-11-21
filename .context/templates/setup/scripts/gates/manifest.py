@@ -199,19 +199,11 @@ def project_findings(repo: Path, snap: dict) -> list[dict]:
 
 
 def _landed_sha(repo: Path, landed: str) -> str | None:
-    """The sha of what sync delivered at `landed`. The docs reader lands completed with the project's servers' read operations
-    (EVOL-138): its sha is taken with exactly that tail removed — a hand edit still differs."""
+    """The sha of what sync delivered at `landed` (agents.landed_as_delivered: the docs reader with exactly the project's
+    tail removed, EVOL-138 — a hand edit still differs)."""
     from . import agents   # agents → corpus → common; imported here to keep this module's import graph flat
-    if landed != agents.READER:
-        return _sha(repo / landed)
-    try:
-        text = (repo / landed).read_text(encoding="utf-8")
-        extra = agents.project_docs_servers(repo)
-    except (OSError, UnicodeDecodeError):
-        return None
-    except GateFault:
-        return _sha(repo / landed)   # a malformed key: compared as landed — gate.py agents names the key
-    return hashlib.sha256(agents.reader_unrender(text, extra).encode("utf-8")).hexdigest()
+    b = agents.landed_as_delivered(repo, landed)
+    return None if b is None else hashlib.sha256(b).hexdigest()
 
 
 def record(m: dict, root: Path) -> dict:

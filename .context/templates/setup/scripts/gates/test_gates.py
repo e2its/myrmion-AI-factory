@@ -1535,6 +1535,13 @@ class Profile(unittest.TestCase):
             self.assertEqual(by["ours"]["status"], "RED"); self.assertIn("the project gate", by["ours"]["output"])
             self.assertIn("retired-terms", by); self.assertEqual(rep["verdict"], "RED")
             self.assertIn({"member": "ours-built", "owner": "BVL full loop"}, rep["owed_elsewhere"], "an agent-run project member is owed, never dropped")
+            write(repo / "scripts/flag.sh", "#!/bin/bash\necho 'flag: ran'\nexit 0\n")
+            self._quality(repo, [{**ours, "name": "lone", "runner": ["bash"]}, {**ours, "name": "flagged", "runner": ["bash", "-e", "scripts/flag.sh"]},
+                                 {**ours, "name": "gone", "runner": ["bash", "scripts/gone.sh"]}])
+            by = {r["member"]: r for r in profile.run(repo, only=["lone", "flagged", "gone"])["results"]}
+            self.assertEqual(by["lone"]["status"], "RED", "bash with no script: one red row, the board prints")
+            self.assertEqual(by["flagged"]["status"], "ok", "a flag first is never read as the script")
+            self.assertIn("is not found", by["gone"]["tail"]); self.assertNotIn("factory-sync", by["gone"]["tail"], "sync never delivers a project's script")
 
     def test_a_malformed_project_key_is_one_red_row(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1580,6 +1587,12 @@ class Profile(unittest.TestCase):
             with self.assertRaises(profile.GateFault) as cm:
                 profile.installed_members(base + extra + "]\n", {"adr-sync"})
             self.assertIn("by hand", str(cm.exception))
+        for grown in ('MEMBERS.append(("x", False, False, "p", None, False))\n', 'MEMBERS += [("x", False, False, "p", None, False)]\n',
+                      'MEMBERS = MEMBERS + []\n', 'MEMBERS.extend([])\n'):
+            with self.assertRaisesRegex(profile.GateFault, "changed outside its list"):
+                profile.installed_members(base + "]\n" + grown, {"adr-sync"})
+        self.assertEqual(profile.installed_members('MEMBERS = [\n    ("adr-sync", False, "older shape"),\n    ("adr-sync2", RUNNER),\n]\n', {"adr-sync", "adr-sync2"}), [],
+                         "a framework row is skipped by its name, whatever its shape in that version")
 
     def test_one_definition_scan(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2261,13 +2274,22 @@ class Agents(unittest.TestCase):
             declare({"claude_ai_Gmail": ["search_threads"]})
             write(repo / ".claude/agents/factory-docs-reader.md", agents.reader_tools(src, agents.project_docs_servers(repo)))
             self.assertTrue(any("personal-data connector" in x["reason"] for x in agents.validate(repo, self.manifest)), "a personal connector never, whoever lists it")
-            for bad in (["vendor-docs"], {"vendor-docs": []}, {"vendor-docs": "search"}, {"": ["get"]}):
+            for bad in (["vendor-docs"], {"vendor-docs": []}, {"vendor-docs": "search"}, {"": ["get"]}, {"v": ["get_page\npermissionMode: bypassPermissions"]},
+                        {"v": ["a, Bash"]}, {"v": ["a b"]}, {"v": ["a#b"]}, {"v": ["a:b"]}, {"v__x": ["get"]}, {" v": ["get"]}):
                 declare(bad)
                 with self.assertRaisesRegex(GateFault, "agents.docs_servers"):
                     agents.project_docs_servers(repo)
                 self.assertTrue(any("agents.docs_servers" in x["reason"] and x["path"] == "config/quality.json" for x in agents.validate(repo, self.manifest)), bad)
             with self.assertRaisesRegex(GateFault, "no `tools:` line"):
                 agents.reader_tools("---\nname: x\n---\ntools: body\n", {"v": ["get"]})
+            with self.assertRaisesRegex(GateFault, "tool-id characters"):
+                agents.reader_tools(src, {"v": ["get\nhooks: x"]})
+            declare({"vendor-docs": ["search_vendor_docs"]})
+            write(repo / ".claude/agents/factory-docs-reader.md", src)
+            self.assertTrue(any("not in the reader's tools" in x["reason"] for x in agents.validate(repo, self.manifest)), "declared, not landed: said")
+            self.assertEqual(agents.landed_as_delivered(repo, ".claude/agents/factory-docs-reader.md"), src.encode())
+            write(repo / ".claude/agents/factory-docs-reader.md", agents.reader_tools(src, agents.project_docs_servers(repo)))
+            self.assertEqual(agents.landed_as_delivered(repo, ".claude/agents/factory-docs-reader.md"), src.encode(), "the landed reader, as delivered")
 
     def test_turn_caps_are_at_most_the_definitions_ceiling(self):
         """EVOL-138: a definition's maxTurns is the framework's ceiling; the project's key is the cap told, never above it."""
@@ -5233,6 +5255,19 @@ class Discovery(unittest.TestCase):
             self.assertEqual(r["seams_upgrade"], {}, "no seam declared")
             write(repo / ".claude/rules/always.md", "# v2\n")
             self.assertEqual(discovery.resolve(repo, discovery.answers(repo), project=True)["templates_to_refresh"], [], "identical: nothing to refresh")
+            # EVOL-138: the reader sync completed with the project's servers is not refreshed back to the plain template
+            m["templates"]["claude/agents/factory-docs-reader.md"] = {"version": "1.0.0", "content_type": "universal", "owner": "framework", "target": ".claude/agents/factory-docs-reader.md"}
+            write(repo / discovery.MANIFEST, json.dumps(m))
+            src = "---\nname: factory-docs-reader\ntools: Read, Grep\n---\nbody\n"
+            write(repo / ".context/templates/setup/claude/agents/factory-docs-reader.md", src)
+            qp = repo / "config/quality.json"
+            q = json.loads(qp.read_text()) if qp.is_file() else {}
+            q.setdefault("agents", {})["docs_servers"] = {"vendor-docs": ["search_vendor_docs"]}
+            write(qp, json.dumps(q))
+            write(repo / ".claude/agents/factory-docs-reader.md", src.replace("Grep\n", "Grep, mcp__vendor-docs__search_vendor_docs\n"))
+            self.assertEqual(discovery.resolve(repo, discovery.answers(repo), project=True)["templates_to_refresh"], [], "the rendered reader is as delivered")
+            write(repo / ".claude/agents/factory-docs-reader.md", src.replace("Grep\n", "Grep, Bash\n"))
+            self.assertEqual(discovery.resolve(repo, discovery.answers(repo), project=True)["templates_to_refresh"], ["claude/agents/factory-docs-reader.md"], "a hand edit is refreshed")
 
     def test_resolve_templates_to_add_and_remove(self):
         with tempfile.TemporaryDirectory() as tmp:

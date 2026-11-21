@@ -578,7 +578,7 @@ if not feats.get("claude_split_v1"):
 PY
 ```
 
-**profile members (EVOL-138).** Moves the gate members a project added to `scripts/gates/profile.py` into `config/quality.json → profile.members`, the project's home — the profile reads both as one list. Sync has already replaced `profile.py` with the framework's, so the block reads the committed one (`git show HEAD:scripts/gates/profile.py`) and moves each literal member whose name the delivered list lacks, add-only by name. A member written as an expression is refused by its line: move it into `profile.members` by hand (`{name, runner, needs_build, needs_database, owner}`), then run the block again. It sets `governance_features.project_members_v1`; a second run changes nothing. Name the moved members in the upgrade report:
+**profile members (EVOL-138).** Moves the gate members a project added to `scripts/gates/profile.py` into `config/quality.json → profile.members`, the project's home — the profile reads both as one list. Sync has already replaced `profile.py` with the framework's, so the block reads the committed one (`git show HEAD:scripts/gates/profile.py`) and moves each literal member whose name the delivered list lacks, add-only by name. It refuses, writing nothing, when `profile.py` is still the old one (run sync first), when HEAD already holds the delivered file (the sync result was committed: the installed one is in an earlier commit), and when a member is written as an expression or `MEMBERS` is changed outside its list: move it into `profile.members` by hand (`{name, runner, needs_build, needs_database, owner}`), then run the block again. It sets `governance_features.project_members_v1`; a second run changes nothing. Name the moved members in the upgrade report:
 
 ```bash
 python3 -I - <<'PY'
@@ -587,22 +587,29 @@ sys.path.insert(0, "scripts")
 from gates import discovery, profile
 q_p, snap_p, rel = pathlib.Path("config/quality.json"), pathlib.Path(discovery.PROJECT_MANIFEST), "scripts/gates/profile.py"
 def git(*a):
-    return subprocess.run(["git", *a], capture_output=True, text=True)
-if git("rev-parse", "--verify", "-q", "HEAD").returncode != 0:
-    sys.exit("refused: no commit to read the installed profile.py from — commit the project's tree as it stood before the upgrade, then run this block again")
-shown = git("show", f"HEAD:{rel}") if git("cat-file", "-e", f"HEAD:{rel}").returncode == 0 else None
-if shown is not None and shown.returncode != 0:
-    sys.exit(f"refused: git could not read the committed {rel} — {shown.stderr.strip()}")
+    return subprocess.run(["git", *a], capture_output=True, text=True, encoding="utf-8", errors="replace")
+if not hasattr(profile, "installed_members"):
+    sys.exit(f"refused: {rel} predates EVOL-138 — run scripts/factory-sync.sh first, then this block")
 try:
+    if git("rev-parse", "--verify", "-q", "HEAD").returncode != 0:
+        sys.exit("refused: no commit to read the installed profile.py from — commit the project's tree as it stood before the upgrade, then run this block again")
+    shown = git("show", f"HEAD:{rel}") if git("cat-file", "-e", f"HEAD:{rel}").returncode == 0 else None
+    if shown is not None and shown.returncode != 0:
+        sys.exit(f"refused: git could not read the committed {rel} — {shown.stderr.strip()}")
+    if shown is not None and pathlib.Path(rel).is_file() and shown.stdout == pathlib.Path(rel).read_text(encoding="utf-8"):
+        sys.exit(f"refused: HEAD already holds the delivered {rel} — the installed one is in an earlier commit (git log -p -- {rel}): "
+                 f"move its project rows into config/quality.json → profile.members by hand, then set governance_features.project_members_v1")
     rows = profile.installed_members(shown.stdout, {m[0] for m in profile.MEMBERS}) if shown else []
     q = json.loads(q_p.read_text(encoding="utf-8"))
-    members = q.setdefault("profile", {}).setdefault("members", [])
+    prof = q.setdefault("profile", {})
+    members = prof.setdefault("members", []) if isinstance(prof, dict) else None
     if not isinstance(members, list):
-        raise ValueError("config/quality.json → profile.members is not a list")
+        raise ValueError("config/quality.json → profile.members is not a list of rows")
     have = {m.get("name") for m in members if isinstance(m, dict)}
     moved = [r for r in rows if r["name"] not in have]
     profile.check_rows(members + moved)
-except (profile.GateFault, ValueError, OSError) as e:
+    snap = json.loads(snap_p.read_text(encoding="utf-8"))
+except (profile.GateFault, ValueError, OSError, RecursionError) as e:
     sys.exit(f"refused: {e} — nothing was written")
 print(json.dumps({"moved": [r["name"] for r in moved], "already": sorted(r["name"] for r in rows if r["name"] in have)}))
 if moved:
@@ -616,7 +623,6 @@ if moved:
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)
-snap = json.loads(snap_p.read_text(encoding="utf-8"))
 feats = snap.setdefault("governance_features", {})
 if not feats.get("project_members_v1"):
     feats["project_members_v1"] = True

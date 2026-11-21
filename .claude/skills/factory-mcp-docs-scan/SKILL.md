@@ -78,7 +78,7 @@ This skill and the reader are framework-owned: sync replaces both whole, so a pr
 | `google-developer-knowledge` | Google Developer Knowledge (auth) | `claude mcp add --transport http google-developer-knowledge https://developerknowledge.googleapis.com/mcp` |
 | `terraform` | HashiCorp Terraform MCP, registry toolset | `hashicorp/terraform-mcp-server` |
 
-A server whose documentation tool sits beside write tools (Stripe, Vercel, Supabase, MongoDB, GitHub) is not in this list: the project adds its read operation itself.
+A server whose documentation tool sits beside write tools (Stripe, Vercel, Supabase, MongoDB) is not in this list: the project adds its documentation read operation itself. A server that reads the project's or the user's own data — source hosting, a database, payments, mail, tickets — is never a documentation server: the validator cannot tell a data read from a docs read by its name, so this line is the guard. A server that needs a key reads it from the environment (`${VAR}` in the MCP config), never a literal in a committed file.
 
 **The project's servers** — `config/quality.json → agents.docs_servers`, each server mapped to its read operations, e.g. `{"vendor-docs": ["search_vendor_docs"]}`. The banner lists them, and `factory-sync.sh` lands the reader with `mcp__<server>__<op>` appended to its `tools:`. A server registered under another name than the table's goes here too. A server the framework already lists stays the framework's.
 

@@ -241,7 +241,7 @@ else
       # EVOL-138: the reader lands completed with the read operations of the project's documentation servers
       # (config/quality.json → agents.docs_servers); a malformed key delivers it as shipped and says so
       READER_TMP="$(mktemp)"
-      if ! python3 -I - "$FRAMEWORK_ROOT" "$TARGET_PROJECT" "$FRAMEWORK_ROOT/$src" "$READER_TMP" <<'PY'
+      if ! python3 -I - "$FRAMEWORK_ROOT" "$TARGET_PROJECT" "$FRAMEWORK_ROOT/$src" "$READER_TMP" 2>/dev/null <<'PY'
 import sys
 from pathlib import Path
 root, target, src, out = (Path(a) for a in sys.argv[1:5]); sys.path.insert(0, str(root / "scripts"))
@@ -257,8 +257,10 @@ except GateFault as e:
     print(f"  ! the reader lands as shipped — {e} (gate.py agents names it)")
 PY
       then
+        echo "  ! the reader lands as shipped — its render did not run (gate.py agents names the cause)"
         cp "$FRAMEWORK_ROOT/$src" "$READER_TMP"
       fi
+      chmod --reference="$FRAMEWORK_ROOT/$src" "$READER_TMP" 2>/dev/null || chmod 644 "$READER_TMP"
       sync_file "$READER_TMP" "$TARGET_PROJECT/$landed"
       rm -f "$READER_TMP"
       continue

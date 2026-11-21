@@ -36,7 +36,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}   # a ref name is author data: env, never inlined into the script
         run: git fetch origin "$BASE_REF"
 
-      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py is the list)"
+      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py + config/quality.json → profile.members, one list)"
         env:
           GH_TOKEN: ${{ github.token }}   # EVOL-054: the scm-protection member reads this repository's ruleset at the ci control point (metadata: read is enough)
           BASE_REF: ${{ github.base_ref }}

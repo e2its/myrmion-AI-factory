@@ -11,7 +11,7 @@ class: worker
 
 Development worker for the platform and tooling surface (scripts/**, infra/**, workflows, config/**): implements the platform tasks it is handed, proves them with a red case, returns with its governance block. Spawned by name from the IMPLEMENT build loop.
 
-Policy: `rules/agents.md` (class `worker` — tools, budget, family, effort, the cap; the model is passed at your spawn from `gate.py agents --resolve`). Your spawn prompt opens with `effort:` and `turn cap:`; the harness stops you at the cap (`maxTurns`) — hand off before it rather than start a task you cannot finish. You consult the defect catalog before writing and cite the class you adjudicate.
+Policy: `rules/agents.md` (class `worker` — tools, budget, family, effort, the cap; the model is passed at your spawn from `gate.py agents --resolve`). Your spawn prompt opens with `effort:` and `turn cap:`; hand off before the cap rather than start a task you cannot finish (the harness stops you at `maxTurns`, at or above it). You consult the defect catalog before writing and cite the class you adjudicate.
 
 ## Your law
 The orchestrator pastes `python3 scripts/gate.py agents --digest --agent factory-dev-platform` below this line — the slice of the corpus governing your surface, within your class budget. You do not read the corpus yourself.

@@ -46,6 +46,7 @@ ALLOW_MCP = "docs_mcp_allowlist"
 PROJECT_DOCS_KEY = "agents.docs_servers"   # EVOL-138: the project's documentation servers {server: [read operations]} — a seam of config/quality.json
 READER = ".claude/agents/factory-docs-reader.md"   # the one reader sync completes with the project's servers' read operations
 TOOLS_LINE = re.compile(r"(?m)^tools:[^\n]*$")
+MCP_NAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]|_(?!_))*")   # a project server or operation: one token of a tool id — no `__`, space, comma or newline
 READ_VERBS = {"read", "get", "list", "search", "query", "resolve", "retrieve", "fetch", "describe", "lookup", "find", "show", "view"}
 WRITE_VERBS = {"create", "update", "delete", "put", "patch", "set", "write", "deploy", "up", "destroy", "send", "remove", "upload", "trash", "share",
                "apply", "import", "publish", "run", "execute", "refresh", "move", "copy", "label", "mark", "forward", "reply", "add", "insert",
@@ -60,9 +61,9 @@ PASS_ARG = re.compile(r"--pass\s+\S")
 PASS_RULE = "rules/agents.md § Model policy"
 TIERS = ("small", "medium", "large")                        # EVOL-058: every tier declares its budgets
 BUDGET_KEYS = ("turn_budget", "probe_budget")
-WORKER_CAP_KEY = "worker_turn_cap"           # EVOL-062: the harness's hard stop on a worker — every worker definition's maxTurns; the resolver hands it
+WORKER_CAP_KEY = "worker_turn_cap"           # EVOL-062: the cap a worker is told — at most every worker definition's maxTurns, the harness's stop (EVOL-138); the resolver hands it
 RESULT_KB_KEY = "context_result_max_kb"      # EVOL-062: a tool result above it goes to a file and the tail is read; the instrument counts the raw ones
-CONTEXT_KEYS = {WORKER_CAP_KEY: "the harness's hard stop on a worker (every worker definition declares maxTurns equal to it; the resolver hands turn_cap)",
+CONTEXT_KEYS = {WORKER_CAP_KEY: "the cap a worker is told (at most the maxTurns every worker definition declares, the harness's stop — EVOL-138; the resolver hands turn_cap)",
                 RESULT_KB_KEY: "the size in KB above which a tool result goes to a file and the tail is read (the instrument counts the raw ones)"}
 HANDOFF_HEADING = re.compile(r"^[ \t]*##[ \t]*Hand-off\b.*$", re.M)   # EVOL-062: the worker's hand-off — what the register learns from its return (blanks never cross a line: no backtracking over a worker-controlled return)
 HANDOFF_LINES = ("Done:", "Remaining:", "State:")
@@ -148,11 +149,14 @@ def project_docs_servers(repo: Path) -> dict[str, list[str]]:
     """The project's documentation servers (EVOL-138): `config/quality.json → agents.docs_servers`, {server: [read operations]},
     less the servers the framework already lists (theirs is the framework's). Absent: none. Malformed: a GateFault."""
     v = key(repo, PROJECT_DOCS_KEY, {})
-    if not isinstance(v, dict) or not all(isinstance(s, str) and s.strip() and isinstance(ops, list) and ops
-                                          and all(isinstance(o, str) and o.strip() for o in ops) for s, ops in v.items()):
+    if not isinstance(v, dict) or not all(isinstance(s, str) and isinstance(ops, list) and ops and all(isinstance(o, str) for o in ops)
+                                          for s, ops in v.items()):
         raise GateFault(f"{PROJECT_DOCS_KEY} must map each server name to a non-empty list of its read operations")
+    bad = [n for s, ops in v.items() for n in (s, *ops) if not MCP_NAME.fullmatch(n)]
+    if bad:
+        raise GateFault(f"{PROJECT_DOCS_KEY}: {', '.join(repr(n) for n in bad)} is not a server or operation name — letters, digits, `-` and single `_` only, exactly as the tool id spells it")
     known = framework_docs_servers(repo)
-    return {s.strip(): [o.strip() for o in ops] for s, ops in v.items() if s.strip() not in known}
+    return {s: list(ops) for s, ops in v.items() if s not in known}
 
 
 def docs_servers(repo: Path) -> set[str]:
@@ -177,10 +181,27 @@ def reader_tools(text: str, extra: dict[str, list[str]]) -> str:
         return text
     if not text.startswith("---") or not m or m.start() > text.find("\n---", 3):
         raise GateFault(f"{READER} carries no `tools:` line in its frontmatter")
+    if not all(MCP_NAME.fullmatch(n) for s, ops in extra.items() for n in (s, *ops)):
+        raise GateFault(f"{PROJECT_DOCS_KEY}: a name outside the tool-id characters never reaches the reader's frontmatter")
     tail = _reader_tail(extra)
     if m.group(0).endswith(tail):
         return text
     return text[:m.end()] + tail + text[m.end():]
+
+
+def landed_as_delivered(repo: Path, landed: str) -> bytes | None:
+    """The bytes sync delivered at `landed` — the reader with exactly the project's tail removed (EVOL-138), every other file
+    as it is. The one view the drift check and the upgrade's refresh compare. Missing or unreadable: None."""
+    try:
+        raw = (repo / landed).read_bytes()
+    except OSError:
+        return None
+    if landed != READER:
+        return raw
+    try:
+        return reader_unrender(raw.decode("utf-8"), project_docs_servers(repo)).encode("utf-8")
+    except (GateFault, UnicodeDecodeError):
+        return raw   # a malformed key or a non-text reader: compared as landed — gate.py agents names the key
 
 
 def reader_unrender(text: str, extra: dict[str, list[str]]) -> str:
@@ -269,8 +290,8 @@ def _class_writes(c: dict) -> bool:
 
 def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, roster_class: str | None = None, ceiling: int | None = None, worker_cap: int | None = None) -> None:
     """One definition against its class: name = file, description, class agreement, the tool matrix, no model, effort,
-    budget, pointers; a read-only roster definition declares the harness's hard stop (`maxTurns` = the large tier's
-    turn_budget, EVOL-058). Appends findings."""
+    budget, pointers; a read-only roster definition declares the harness's hard stop (`maxTurns` ≥ the large tier's
+    turn_budget, EVOL-058, EVOL-138). Appends findings."""
     rel = str(p.relative_to(repo))
     try:
         fm = read_frontmatter(p)
@@ -346,8 +367,11 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
             f.append({"path": "config/quality.json", "reason": f"agents.families.{role} is `{v}` — a harness alias chosen at SETUP (Q34), never a placeholder or `inherit` (the parent's model = the writer's)"})
     if _alias(families["writer"]) == _alias(families["critic"]):
         f.append({"path": "config/quality.json", "reason": f"agents.families: writer and critic resolve to the same alias `{families['writer']}` — a critic on the author's family inherits the author's blind spots; the separation is the invariant"})
-    try:   # EVOL-138: the project's documentation servers — malformed admits nothing, and is said
-        project_docs_servers(repo)
+    try:   # EVOL-138: the project's documentation servers — malformed admits nothing, and is said; declared but not landed is said too
+        extra = project_docs_servers(repo)
+        rp = repo / READER
+        if extra and rp.is_file() and reader_tools(t := rp.read_text(encoding="utf-8"), extra) != t:
+            f.append({"path": READER, "reason": f"the project's documentation servers ({PROJECT_DOCS_KEY}) are not in the reader's tools — the banner lists them and the reader cannot call them; run scripts/factory-sync.sh"})
     except GateFault as e:
         f.append({"path": "config/quality.json", "reason": str(e)})
     # classes: a known family, and the family a class's tools imply

@@ -80,6 +80,7 @@ MEMBERS = [
     ("performance-deployed", True, False, "DEVOPS --deploy (gate.py performance --run --site --url, on the deployed build)", None, False),
 ]
 
+FRAMEWORK_NAMES = frozenset(m[0] for m in MEMBERS)
 PROJECT_KEY = "profile.members"   # EVOL-138: the project's own members — a seam of config/quality.json, merged add-only by name
 ROW_KEYS = ("name", "runner", "needs_build", "needs_database", "owner")
 
@@ -133,8 +134,17 @@ def installed_members(text: str, known: set[str]) -> list[dict]:
     node = next((n.value for n in tree.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "MEMBERS" for t in n.targets)), None)
     if not isinstance(node, ast.List):
         raise GateFault("the installed profile.py holds no `MEMBERS = [...]` list")
+    for st in tree.body:   # MEMBERS grown outside its literal (append, extend, +=, a re-assignment) would be lost silently
+        if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) or (isinstance(st, ast.Assign) and st.value is node):
+            continue
+        for n in ast.walk(st):
+            if (isinstance(n, ast.Name) and n.id == "MEMBERS" and isinstance(n.ctx, ast.Store)) or \
+               (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "MEMBERS" and n.attr in ("append", "extend", "insert", "__iadd__")):
+                raise GateFault(f"line {st.lineno}: MEMBERS is changed outside its list — move those members into {PROJECT_KEY} by hand")
     out, taken = [], set(known)
     for el in node.elts:
+        if isinstance(el, ast.Tuple) and el.elts and isinstance(el.elts[0], ast.Constant) and el.elts[0].value in known:
+            continue   # the framework's row, whatever its shape in that version
         try:
             m = ast.literal_eval(el)
         except ValueError:
@@ -256,8 +266,12 @@ def _members(repo, pr, base, br, control_point, only, ctx, env, listed=None):
             results.append({"member": name, "rc": 0, "status": "n/a", "tail": "framework repo only", "output": ""})
             continue
         cmd = _cmd(repo, runner, base, br, control_point)
-        if cmd[0] == "bash" and not (repo / cmd[1]).is_file():   # governance not delivered is a red on the delivery, never an infra pass
-            results.append({"member": name, "rc": 1, "status": "RED", "tail": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh", "output": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh"})
+        if cmd[0] == "bash" and len(cmd) == 1:   # EVOL-138: a project row may be malformed this way — one red row, the board still prints
+            results.append({"member": name, "rc": 1, "status": "RED", "tail": "the runner is `bash` with no script", "output": f"the runner is `bash` with no script ({PROJECT_KEY})"})
+            continue
+        if cmd[0] == "bash" and not cmd[1].startswith("-") and not (repo / cmd[1]).is_file():   # governance not delivered is a red on the delivery, never an infra pass
+            said = f"{cmd[1]} is not delivered — run scripts/factory-sync.sh" if name in FRAMEWORK_NAMES else f"{cmd[1]} is not found ({PROJECT_KEY})"
+            results.append({"member": name, "rc": 1, "status": "RED", "tail": said, "output": said})
             continue
         try:
             r = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True, timeout=900, env=env)

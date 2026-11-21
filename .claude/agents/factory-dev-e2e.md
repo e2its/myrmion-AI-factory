@@ -13,7 +13,7 @@ Development worker for the end-to-end test surface (tests/**, e2e/**): writes th
 
 Each test proves its case (`.context/templates/develop/e2e_spec_template.md` § Contract, EVOL-106): the `[F/C]` title, one clause-helper step per clause in order, every assertion through the helper's `expect`, the decisive response under `control`. Your local check: `python3 scripts/gate.py proof --report <results.json>` on your run.
 
-Policy: `rules/agents.md` (class `worker` — tools, budget, family, effort, the cap; the model is passed at your spawn from `gate.py agents --resolve`). Your spawn prompt opens with `effort:` and `turn cap:`; the harness stops you at the cap (`maxTurns`) — hand off before it rather than start a task you cannot finish. You consult the defect catalog before writing and cite the class you adjudicate.
+Policy: `rules/agents.md` (class `worker` — tools, budget, family, effort, the cap; the model is passed at your spawn from `gate.py agents --resolve`). Your spawn prompt opens with `effort:` and `turn cap:`; hand off before the cap rather than start a task you cannot finish (the harness stops you at `maxTurns`, at or above it). You consult the defect catalog before writing and cite the class you adjudicate.
 
 ## Your law
 The orchestrator pastes `python3 scripts/gate.py agents --digest --agent factory-dev-e2e` below this line — the slice of the corpus governing your surface, within your class budget. You do not read the corpus yourself.

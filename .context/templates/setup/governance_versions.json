@@ -727,7 +727,7 @@
       "version": "1.0.1",
       "content_type": "universal",
       "target": "security/dast/zap-config.yaml",
-      "role": "OWASP ZAP baseline config for the DAST lane.",
+      "role": "OWASP ZAP Automation Framework plan (zap.sh -cmd -autorun); the packaged scans of security-scan.sh do not read it — exclusions live in security/dast/rules.tsv (EVOL-138).",
       "owner": "framework"
     },
     "setup/gitignore.hbs": {
@@ -1236,28 +1236,28 @@
       "owner": "framework"
     },
     "claude/agents/factory-dev-backend.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-dev-backend.md",
       "role": "Agent definition — worker (backend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "owner": "framework"
     },
     "claude/agents/factory-dev-frontend.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-dev-frontend.md",
       "role": "Agent definition — worker (frontend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "owner": "framework"
     },
     "claude/agents/factory-dev-platform.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-dev-platform.md",
       "role": "Agent definition — worker (platform / tooling surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "owner": "framework"
     },
     "claude/agents/factory-dev-e2e.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-dev-e2e.md",
       "role": "Agent definition — worker (end-to-end tests surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
@@ -1435,7 +1435,7 @@
       "owner": "framework"
     },
     "scripts/gates/discovery.py": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/discovery.py",
@@ -1980,7 +1980,7 @@
       "owner": "framework"
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.33.2",
+      "version": "2.34.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "delivery": "sync",
       "owner": "framework"
@@ -2487,7 +2487,7 @@
       "owner": "framework"
     },
     "workflows/governance-check.yml": {
-      "version": "1.24.1",
+      "version": "1.24.2",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates."
@@ -2972,7 +2972,7 @@
       "owner": "framework"
     },
     "agents/factory-dev-backend.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-dev-backend.md",
       "role": "Agent definition — worker (backend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
@@ -2980,7 +2980,7 @@
       "owner": "framework"
     },
     "agents/factory-dev-frontend.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-dev-frontend.md",
       "role": "Agent definition — worker (frontend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
@@ -2988,7 +2988,7 @@
       "owner": "framework"
     },
     "agents/factory-dev-platform.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-dev-platform.md",
       "role": "Agent definition — worker (platform / tooling surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
@@ -2996,7 +2996,7 @@
       "owner": "framework"
     },
     "agents/factory-dev-e2e.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "agent",
       "path": ".claude/agents/factory-dev-e2e.md",
       "role": "Agent definition — worker (end-to-end tests surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
@@ -3155,7 +3155,7 @@
       "path": "scripts/gates/dependencies.py"
     },
     "scripts/gates/discovery.py": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "type": "script",
       "path": "scripts/gates/discovery.py",
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V15 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132)."

@@ -759,6 +759,29 @@ grep -q '^tools: .*, mcp__vendor-docs__search_vendor_docs$' "$Q/.claude/agents/f
   || bad "the project's documentation server (agents rc=$RCA, parity rc=$RCP)" "$OUT
 $OUT2
 $(grep '^tools:' "$Q/.claude/agents/factory-docs-reader.md")"
+# the refusals write nothing: the sync result committed first (HEAD = the delivered file), then a non-literal member
+python3 - "$Q" <<'PY'
+import json, pathlib, sys
+m = pathlib.Path(sys.argv[1]) / "docs/project_log/governance_versions.json"; d = json.loads(m.read_text()); d["governance_features"].pop("project_members_v1"); m.write_text(json.dumps(d, indent=1))
+PY
+git -C "$Q" add -A && git -C "$Q" -c user.name=t -c user.email=t@t commit -qm "the sync result committed before the block"
+SUM0=$(cd "$Q" && sha256sum config/quality.json docs/project_log/governance_versions.json)
+OUTA=$(cd "$Q" && bash "$Q.members.sh" 2>&1); RCA=$?
+SUMA=$(cd "$Q" && sha256sum config/quality.json docs/project_log/governance_versions.json)
+python3 - "$Q" <<'PY'
+import pathlib, sys
+pf = pathlib.Path(sys.argv[1]) / "scripts/gates/profile.py"; t = pf.read_text(encoding="utf-8")
+pf.write_text(t.replace("MEMBERS = [\n", 'MEMBERS = [\n    ("built", False, False, "the project", RUNNER, False),\n', 1), encoding="utf-8")
+PY
+git -C "$Q" add -A && git -C "$Q" -c user.name=t -c user.email=t@t commit -qm "a member written as an expression"
+cp "$T/scripts/gates/profile.py" "$Q/scripts/gates/profile.py"
+OUTB=$(cd "$Q" && bash "$Q.members.sh" 2>&1); RCB=$?
+SUMB=$(cd "$Q" && sha256sum config/quality.json docs/project_log/governance_versions.json)
+[ "$RCA" -ne 0 ] && grep -q "refused: HEAD already holds the delivered" <<< "$OUTA" && [ "$SUM0" = "$SUMA" ] \
+  && [ "$RCB" -ne 0 ] && grep -q "not a literal tuple" <<< "$OUTB" && [ "$SUM0" = "$SUMB" ] \
+  && ok "the members migration refuses and writes nothing when HEAD already holds the delivered profile.py or a member is an expression — no stamp (EVOL-138)" \
+  || bad "the members migration refusals (rc=$RCA/$RCB, unchanged=$([ "$SUM0" = "$SUMA" ] && [ "$SUM0" = "$SUMB" ] && echo y || echo n))" "$OUTA
+$OUTB"
 rm -rf "$Q" "$Q.members.sh"
 # EVOL-118: the manifest carries current state only — a reintroduced history key is red, named by its path; removed, green again
 if grep -rlq '^changelog:' "$P/.claude/rules"; then bad "a materialised rule carries a frontmatter changelog (EVOL-118)" "$(grep -rl '^changelog:' "$P/.claude/rules")"; else ok "no materialised rule carries a frontmatter changelog (EVOL-118)"; fi
@@ -1025,7 +1048,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'model opus' && printf '%s' "$OUT" | grep -q 'tier small · turns 20 · probes 2' && ok "per-spawn resolution on the materialised policy: the security critic on the critics' family, with the small tier's turn and probe budgets (EVOL-058)" || bad "resolve wrong (rc=$RC)" "$OUT"
 sed -i '/^maxTurns: /d' "$P/.claude/agents/factory-critic-security.md"
 OUT=$(cd "$P" && python3 scripts/gate.py agents 2>&1); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'maxTurns: (none)' && ok "RED: a read-only definition without the harness's hard stop (maxTurns = the large tier's turn_budget) is refused on the materialised tree" || bad "missing maxTurns not refused (rc=$RC)" "$OUT"
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'maxTurns: (none)' && ok "RED: a read-only definition without the harness's hard stop (maxTurns ≥ the large tier's turn_budget) is refused on the materialised tree" || bad "missing maxTurns not refused (rc=$RC)" "$OUT"
 sed -i 's/^effort: high$/effort: high\nmaxTurns: 60/' "$P/.claude/agents/factory-critic-security.md"
 OUT=$(cd "$P" && python3 scripts/gate.py agents --digest --agent factory-critic-security 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'read .claude/rules/security_policy.md' && printf '%s' "$OUT" | grep -qE 'B within [0-9]+ B' && ok "the security critic's digest carries the security rule of the materialised tree, within its class budget" || bad "digest lacks the lens's law (rc=$RC)" "$OUT"

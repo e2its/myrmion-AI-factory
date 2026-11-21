@@ -101,7 +101,10 @@ Evidence:
 - Honest limits:
   - A server registered in Claude Code under another name than the canonical one is reached through the project's key, not the base list.
   - `zap-config.yaml` stays delivered and unread by the scan. Retiring it is not in this issue.
-  - A member an installed `profile.py` built with a non-literal expression is refused, so the agent moves it by hand.
+  - A member an installed `profile.py` built with a non-literal expression, or added to `MEMBERS` outside its list, is refused, so the agent moves it by hand.
+  - The anchor reads the installed `profile.py` from HEAD. When HEAD already holds the delivered file (the sync result was committed first), it refuses and writes nothing; the agent moves the rows from the earlier commit by hand.
+  - The project's servers are self-declared. The validator refuses a write verb, a name outside the tool-id characters and a `claude_ai_*` connector; it cannot tell a data read from a documentation read, so the skill names the servers that are never documentation servers.
+  - The reader sync renders is compared as delivered by every reader of «landed differs from delivered» — the drift check and the upgrade's refresh — through one function, `agents.landed_as_delivered`.
 
 ## Verification
 

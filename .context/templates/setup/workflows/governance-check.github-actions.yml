@@ -39,7 +39,7 @@ jobs:
       - name: "PyYAML — the gates read pipeline files (delivery --check)"
         run: python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y -qq python3-yaml
 
-      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py is the list)"
+      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py + config/quality.json → profile.members, one list)"
         env:
           BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}

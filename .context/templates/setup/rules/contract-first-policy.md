@@ -1358,7 +1358,7 @@ rules:
 
 ### Integration with Existing Scripts
 
-The shipped `scripts/security-scan.sh --contracts` runs the OpenAPI, GraphQL and gRPC linters over `contracts/` (framework-owned: never edited in a project). A lint of the project's own runs as a row of `config/quality.json → profile.members` or `verification.gates` (EVOL-138).
+The shipped `scripts/security-scan.sh --contracts` runs the OpenAPI, AsyncAPI, GraphQL and gRPC linters over `contracts/` (framework-owned: never edited in a project). A lint of the project's own runs as a row of `config/quality.json → profile.members` or `verification.gates` (EVOL-138).
 
 ### GitHub Actions Workflow
 
