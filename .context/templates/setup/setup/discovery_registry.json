@@ -3201,6 +3201,12 @@
    "since": "10.17.0",
    "detect": "docs/project_log/governance_versions.json#/governance_features/project_members_v1",
    "apply": "profile members (EVOL-138)"
+  },
+  {
+   "id": "ci untrusted values (#201)",
+   "since": "10.18.1",
+   "detect": "always",
+   "apply": "ci untrusted values (#201)"
   }
  ]
 }

@@ -292,15 +292,19 @@ fi
 echo
 
 # ─── #201: an untrusted CI value never runs as shell code — a value reaches a script body only through the environment ───
-# GitHub `${{ }}`, an Azure `$(A.B)` macro or `${{ }}` and a Cloud Build substitution expand as TEXT into the script
+# GitHub `${{ }}`, an Azure `$(name)` macro or `${{ }}` and a Cloud Build substitution expand as TEXT into the script
 # before the shell runs (a branch name with `$(…)`, a backtick or `;` becomes code — OWASP A03); Groovy interpolates
-# `sh """…"""`. GitLab, Bitbucket and CodeBuild hand runner env vars to the shell: nothing to judge. Args: files (none =
-# every meta workflow and platform template); prints `file: finding`, exit 1 on any.
+# every double-quoted string handed to sh/bat/powershell/pwsh. GitLab, Bitbucket and CodeBuild hand runner env vars to
+# the shell: declared exempt by suffix (ENV_ONLY); any other suffix is red until a rule judges it. Args: files (none =
+# every meta workflow, composite action and platform template); prints `file: finding`, exit 1 on any.
 UNTRUSTED_PY=$(cat <<'PY'
 import glob, re, sys
 sys.path.insert(0, "scripts"); from gates.common import load_yaml
-MACRO = re.compile(r"\$\([A-Za-z_]\w*(\.\w+)+\)")
-SUBST = re.compile(r"(?<!\$)\$(?!\$)\{?[A-Za-z_]")
+MACRO = re.compile(r"\$\([A-Za-z_][\w.]*\)")                   # Azure: $(name) or $(A.B), a macro whatever the name
+SUBST = re.compile(r"(?<!\$)\$(?!\$)\{?[A-Za-z_]")              # Cloud Build: a single-$ substitution
+GSTRING = re.compile(r'\b(sh|bat|powershell|pwsh)\b\s*\(?\s*(script\s*:\s*)?"')   # Groovy: a double-quoted script
+AZ_KEYS = ("script", "bash", "pwsh", "powershell", "inlineScript", "Inline", "inline")
+ENV_ONLY = (".gitlab-ci.yml", ".bitbucket.yml", ".aws-codebuild.yml")
 
 
 def mappings(node):
@@ -313,52 +317,83 @@ def mappings(node):
             yield from mappings(v)
 
 
+def label(m, k):
+    return m.get("name") or m.get("displayName") or m.get("id") or str(m.get(k)).strip()[:50]
+
+
 def findings(path):
     name, text = path.rsplit("/", 1)[-1], open(path, encoding="utf-8").read()
     if name.endswith(".groovy"):
-        return ['sh """…""" — Groovy interpolates into the script; use sh \'\'\'…\'\'\''] if re.search(r'\bsh\s*\(?\s*"""', text) else []
+        return ['a double-quoted script for sh/bat/powershell/pwsh — Groovy interpolates it; use \'…\' or \'\'\'…\'\'\'']\
+            if GSTRING.search(text) else []
+    if name.endswith(ENV_ONLY):
+        return []
     doc, out = load_yaml(text), []
-    if "/.github/workflows/" in "/" + path or name.endswith(".github-actions.yml"):
-        out += [f"${{{{ }}}} inside run: — pass it through env: ({m.get('name') or m['run'].strip()[:50]})"
-                for m in mappings(doc) if isinstance(m.get("run"), str) and "${{" in m["run"]]
-    elif name.endswith(".azure-devops.yml"):
-        out += [f"a macro or ${{{{ }}}} inside {k}: — read the env var ({m.get('displayName') or m[k].strip()[:50]})"
-                for m in mappings(doc) for k in ("script", "bash", "pwsh", "powershell")
+    if "/.github/" in "/" + path or re.search(r"\.github-actions\.ya?ml$", name):
+        for m in mappings(doc):
+            if isinstance(m.get("run"), str) and "${{" in m["run"]:
+                out.append(f"${{{{ }}}} inside run: — pass it through env: ({label(m, 'run')})")
+            w = m.get("with")
+            if str(m.get("uses", "")).startswith("actions/github-script") and isinstance(w, dict) \
+                    and "${{" in str(w.get("script", "")):
+                out.append(f"${{{{ }}}} inside github-script — pass it through env: ({label(m, 'uses')})")
+    elif re.search(r"\.azure-devops\.ya?ml$", name):
+        out += [f"a $(…) macro or ${{{{ }}}} inside {k}: — read the env var ({label(m, k)})"
+                for m in mappings(doc) for k in AZ_KEYS
                 if isinstance(m.get(k), str) and (MACRO.search(m[k]) or "${{" in m[k])]
-    elif name.endswith(".gcp-cloudbuild.yaml"):
+    elif re.search(r"\.gcp-cloudbuild\.ya?ml$", name):
         out += [f"a substitution inside args — map it in env: and read $$VAR ({s.get('id') or a.strip()[:50]})"
                 for s in (doc or {}).get("steps") or [] for a in s.get("args") or [] if isinstance(a, str) and SUBST.search(a)]
+    else:
+        out.append("no rule judges this CI platform — add one here, or declare it env-only in ENV_ONLY")
     return out
 
 
-files = sys.argv[1:] or sorted(glob.glob(".github/workflows/*.yml") + glob.glob(".context/templates/setup/workflows/*.y*ml")
-                              + glob.glob(".context/templates/setup/workflows/*.groovy"))
+files = sys.argv[1:] or sorted(glob.glob(".github/workflows/*.y*ml") + glob.glob(".github/actions/**/action.y*ml", recursive=True)
+                              + glob.glob(".context/templates/setup/workflows/*.y*ml") + glob.glob(".context/templates/setup/workflows/*.groovy"))
+if not files:
+    print("no workflow file found — the globs judge nothing"); sys.exit(1)
 bad = [f"{f}: {x}" for f in files for x in findings(f)]
 print("\n".join(bad))
 sys.exit(1 if bad else 0)
 PY
 )
 if ! python3 -c "import yaml" 2>/dev/null; then
-  printf '  \033[33m·\033[0m PyYAML absent — untrusted-value check skipped\n'
+  if [ -n "${CI:-}" ]; then
+    printf '  \033[31m✗\033[0m PyYAML absent in CI — the untrusted-value check cannot run (a security check is never skipped there)\n' >&2; failures=$((failures + 1))
+  else
+    printf '  \033[33m·\033[0m PyYAML absent — untrusted-value check skipped\n'
+  fi
 else
   if UNTRUSTED_OUT=$(python3 -c "$UNTRUSTED_PY" 2>&1); then
     printf '  \033[32m✓\033[0m no workflow (meta + every platform template) expands a CI value into a script body\n'
   else
-    printf '  \033[31m✗\033[0m a CI value is expanded into a script body (#201):\n%s\n' "$UNTRUSTED_OUT" >&2; failures=$((failures + 1))
+    printf '  \033[31m✗\033[0m a CI value is expanded into a script body:\n%s\n' "$UNTRUSTED_OUT" >&2; failures=$((failures + 1))
   fi
   PLANT=$(mktemp -d)
-  printf 'on: pull_request\njobs:\n  j:\n    runs-on: x\n    steps:\n      - run: echo "${{ github.head_ref }}"\n' > "$PLANT/p.github-actions.yml"
-  printf 'steps:\n  - script: |\n      echo "$(System.PullRequest.SourceBranch)"\n' > "$PLANT/p.azure-devops.yml"
-  printf 'steps:\n  - name: x\n    args: ["-c", "echo $BRANCH_NAME"]\n' > "$PLANT/p.gcp-cloudbuild.yaml"
-  printf 'pipeline { stages { stage("x") { steps { sh """\n echo ${CHANGE_BRANCH}\n""" } } } }\n' > "$PLANT/p.jenkins.groovy"
-  PLANT_OUT=$(python3 -c "$UNTRUSTED_PY" "$PLANT"/p.* 2>&1) || true
+  printf 'on: pull_request\njobs:\n  j:\n    runs-on: x\n    steps:\n      - run: echo "${{ github.head_ref }}"\n' > "$PLANT/a.github-actions.yml"
+  printf 'jobs:\n  j:\n    steps:\n      - uses: actions/github-script@v7\n        with:\n          script: console.log("${{ github.event.pull_request.title }}")\n' > "$PLANT/b.github-actions.yml"
+  printf 'steps:\n  - script: |\n      echo "$(System.PullRequest.SourceBranch)"\n' > "$PLANT/c.azure-devops.yml"
+  printf 'steps:\n  - task: AzureCLI@2\n    inputs:\n      inlineScript: echo "$(SRC)"\n' > "$PLANT/d.azure-devops.yml"
+  printf 'steps:\n  - bash: echo "${{ variables.src }}"\n' > "$PLANT/e.azure-devops.yml"
+  printf 'steps:\n  - name: x\n    args: ["-c", "echo $BRANCH_NAME"]\n' > "$PLANT/f.gcp-cloudbuild.yaml"
+  printf 'steps:\n  - name: x\n    args: ["-c", "echo ${_BASE_BRANCH}"]\n' > "$PLANT/g.gcp-cloudbuild.yaml"
+  printf 'pipeline { stages { stage("x") { steps { sh """\n echo ${CHANGE_BRANCH}\n""" } } } }\n' > "$PLANT/h.jenkins.groovy"
+  printf 'node { sh "git fetch origin ${env.CHANGE_TARGET}" }\n' > "$PLANT/i.jenkins.groovy"
+  printf 'node { sh(script: """echo ${env.CHANGE_BRANCH}""") }\n' > "$PLANT/j.jenkins.groovy"
+  printf 'steps:\n  - run: echo hi\n' > "$PLANT/k.tekton.yml"
+  PLANT_OUT=$(python3 -c "$UNTRUSTED_PY" "$PLANT"/* 2>&1) || true
   missed=""
-  for p in p.github-actions.yml p.azure-devops.yml p.gcp-cloudbuild.yaml p.jenkins.groovy; do
+  for p in a.github-actions.yml b.github-actions.yml c.azure-devops.yml d.azure-devops.yml e.azure-devops.yml f.gcp-cloudbuild.yaml g.gcp-cloudbuild.yaml h.jenkins.groovy i.jenkins.groovy j.jenkins.groovy k.tekton.yml; do
     case "$PLANT_OUT" in *"$PLANT/$p: "*) ;; *) missed="$missed $p" ;; esac
   done
+  printf 'node { sh \x27\x27\x27\n git fetch origin "$CHANGE_TARGET"\n\x27\x27\x27 }\n' > "$PLANT/ok.jenkins.groovy"
+  printf 'steps:\n  - script: |\n      out=$(git log -1)\n    env:\n      SRC: $(System.PullRequest.SourceBranch)\n' > "$PLANT/ok.azure-devops.yml"
+  printf 'steps:\n  - name: x\n    env: ["B=$BRANCH_NAME"]\n    args: ["-c", "echo \\"$$B\\" $(date)"]\n' > "$PLANT/ok.gcp-cloudbuild.yaml"
+  python3 -c "$UNTRUSTED_PY" "$PLANT"/ok.* >/dev/null 2>&1 || missed="$missed (a safe form read as red)"
   rm -rf "$PLANT"
   if [ -z "$missed" ]; then
-    printf '  \033[32m✓\033[0m the check is red on a planted interpolation on every judged platform (the red before)\n'
+    printf '  \033[32m✓\033[0m the check is red on every planted interpolation and green on the safe forms (the red before)\n'
   else
     printf '  \033[31m✗\033[0m the untrusted-value check misses a planted interpolation:%s\n' "$missed" >&2; failures=$((failures + 1))
   fi

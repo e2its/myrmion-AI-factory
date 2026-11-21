@@ -23,7 +23,7 @@ steps:
     id: 'fetch-base'
     entrypoint: 'bash'
     env:
-      - 'BASE_BRANCH=${_BASE_BRANCH}'   # #201: a substitution enters through env (a value, never script); bash reads $$VAR
+      - 'BASE_BRANCH=${_BASE_BRANCH}'   # a substitution enters through env (a value, never script); bash reads $$VAR
     args:
       - '-c'
       - |

@@ -1443,7 +1443,7 @@
       "owner": "framework"
     },
     "setup/discovery_registry.json": {
-      "version": "2.13.0",
+      "version": "2.13.1",
       "content_type": "universal",
       "target": null,
       "role": "The SETUP discovery registry (EVOL-102) — consumed in place by SETUP and gate.py discovery, never copied: the questions, their tiers, keys, options and conditions; derived values never asked.",
@@ -2041,7 +2041,7 @@
       "owner": "framework"
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "3.9.0",
+      "version": "3.9.1",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "delivery": "sync",
       "owner": "framework"
@@ -2296,7 +2296,7 @@
       "owner": "framework"
     },
     "skills/factory-pr-review/README.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "type": "skill-asset",
       "role": "Factory PR Review installation + framework integration notes — community-origin README kept for upstream attribution and contributor guidance.",
       "path": ".claude/skills/factory-pr-review/README.md",

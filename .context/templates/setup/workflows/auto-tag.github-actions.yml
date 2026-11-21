@@ -37,7 +37,7 @@ jobs:
       - name: "Runtime surface touched? (EVOL-047: the positive list in config/quality.json decides; the branch rule is untouched)"
         id: runtime_surface
         env:
-          BEFORE: ${{ github.event.before }}   # #201: a CI value reaches a script only through env, never inlined
+          BEFORE: ${{ github.event.before }}   # a CI value reaches a script only through env, never inlined
         run: |
           BASE="$BEFORE"; case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="HEAD^1";; esac   # the previous main tip — merge, squash and fast-forward alike
           set +e; python3 scripts/gate.py runtime-surface --changed --base "$BASE"; rc=$?; set -e
