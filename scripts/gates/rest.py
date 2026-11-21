@@ -5,7 +5,8 @@ call(service, site_hint, auth_hint, method, url, headers, body=None) → (status
   - A redirect is answered, never followed: the credential is sent to the configured site only.
   - A 429 waits its Retry-After once (an ASCII decimal, at most 60 s; anything else waits 5 s); a second 429 is a fault.
   - `Unreachable` (a GateFault) is the transport class: no connection, a body that is not JSON, a 5xx, a repeated 429,
-    401/403 (`Refused`, its subclass: the credential is missing, expired or not allowed). Every other answer (a redirect, a 4xx) is a plain GateFault naming the status and the server's reason.
+    401/403 (`Refused`, its subclass: the credential is missing, expired or not allowed). A 404 is `NotFound` (a plain
+    GateFault subclass). Every other answer (a redirect, a 4xx) is a plain GateFault naming the status and the server's reason.
   - No message carries the URL's query or a header value — the credential never reaches a message.
   - An answer larger than MAX_BODY is a fault: nothing holds the gate on an endless body.
 """
@@ -29,6 +30,11 @@ class Refused(Unreachable):
     control point as wiring to fix (EVOL-080: the CI's credential is missing, expired or not allowed)."""
 
 
+class NotFound(GateFault):
+    """404: the resource is not there — or, on a server that hides what a token cannot see (GitHub, GitLab), not visible to it.
+    A GateFault like every other 4xx; a reader that tells «absent» from «broken» catches it (EVOL-139)."""
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -36,6 +42,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 _OPEN = urllib.request.build_opener(_NoRedirect).open
 MAX_BODY = 16 * 1024 * 1024
+REASON_MAX = 64 * 1024
 
 
 def ascii_int(v) -> bool:
@@ -46,12 +53,13 @@ def ascii_int(v) -> bool:
 
 def _reason(e: urllib.error.HTTPError) -> str:
     try:
-        msg = json.loads(e.read().decode("utf-8") or "{}")
-    except (ValueError, OSError, AttributeError):
+        msg = json.loads(e.read(REASON_MAX).decode("utf-8") or "{}")   # an error body is read bounded, like an answer
+    except (ValueError, OSError, AttributeError, RecursionError):   # a hostile body (deep nesting) is no reason
         return ""
     if not isinstance(msg, dict):
         return ""
-    parts = [*(msg.get("errorMessages") or []), *(f"{k}: {v}" for k, v in (msg.get("errors") or {}).items() if isinstance(msg.get("errors"), dict))]
+    errs = msg.get("errorMessages")
+    parts = [*(errs if isinstance(errs, list) else []), *(f"{k}: {v}" for k, v in (msg.get("errors") or {}).items() if isinstance(msg.get("errors"), dict))]
     if not parts and isinstance(msg.get("message"), str):
         parts = [msg["message"]]
     return "; ".join(str(p) for p in parts)
@@ -83,7 +91,7 @@ def call(service: str, site_hint: str, auth_hint: str, method: str, url: str, he
                 if e.code in (401, 403):
                     raise Refused(f"{service} refused {short} ({e.code}) — {auth_hint}") from None
                 why = _reason(e)
-                cls = Unreachable if e.code >= 500 else GateFault
+                cls = Unreachable if e.code >= 500 else NotFound if e.code == 404 else GateFault
                 raise cls(f"{service} answered {e.code} for {short}" + (f" ({clean(why, 300)})" if why else "")) from None
         except RecursionError:
             raise GateFault(f"{service} answered {short} with JSON nested too deep to read — refused") from None

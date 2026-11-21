@@ -1027,7 +1027,7 @@ The framework ships 23 protocols reusable by every command and agent (`.claude/s
 | **Adversarial Reasoning** | The FOR / AGAINST double pass before any non-trivial choice (governance axis, product axis), with the always-on do-less lens (DC-29). |
 | **Batch Interactivity (BIP)** | Tiered proposal → review → converge cycles instead of one-at-a-time Q&A. |
 | **Incremental Persistence (IPP)** | Skeleton-first write, section-atomic saves, resume-on-entry. Survives context summarization. |
-| **Codebase Inventory (CIP)** `[LAW-03]` | Cross-command DRY inventory; the CIP Canary gate prevents duplication post-summarization. |
+| **Codebase Inventory (CIP)** `[LAW-03]` | Cross-command DRY inventory; the CIP Canary gate prevents duplication post-summarization. A product split over several repositories names them at SETUP; `gate.py inventory --siblings` reads each sibling's inventory at its main commit and returns only the matches, pinned (EVOL-139). |
 | **Coherence Validation (CVP)** | Cross-artifact traceability and completeness validation before a downstream phase consumes an artefact. |
 | **Build Verification Loop (BVL)** `[LAW-05]` | Real test execution, error parsing, auto-fix (max 3 attempts); one full verification loop per change (8 members), sealed and honoured at the push. |
 | **Complexity Check** `[LAW-11]` | Cyclomatic complexity through a project-configured tool, thresholds as keys, fail-open on infrastructure faults (DC-28). |

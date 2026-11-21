@@ -471,11 +471,12 @@ FOR EACH planned_artifact:
     2. SAME_DOMAIN: same module + same type
     3. NEAR_DUPLICATE: >60% responsibility overlap
     4. NAME_SIMILAR: Levenshtein distance <3, same type
-  
+  # a sibling repository's match (EVOL-139) is BLUEPRINT's: read its {source}@{sha} row in § Reuse Analysis, never a second read
+
   IF match found:
-    READ design.md § Reuse Analysis for existing RDR decision
-    IF RDR exists: ANNOTATE task with REUSE/EXTEND context
-    IF NO RDR: FLAG for resolution during --build (DRY Gate)
+    READ design.md § Reuse Analysis for the architect's reuse decision
+    IF a decision exists: ANNOTATE task with REUSE/EXTEND context
+    IF no decision: FLAG for resolution during --build (DRY Gate)
 ```
 
 ### Step S.3: Annotate Plan Tasks

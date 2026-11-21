@@ -53,11 +53,13 @@ pending_design_items: []
 - **Q2:** ...
 
 ## Reuse Analysis
-> Written by `factory-codebase-inventory` (BLUEPRINT Step -2): one RDR per reuse candidate — REUSE / EXTEND / CREATE_NEW (ADR) or, for a cross-domain collision, RENAME / SHARED_KERNEL / KEEP_BOTH.
+> Written by `factory-codebase-inventory` (BLUEPRINT Step -2): the architect decides each reuse candidate from the evidence (§ Reuse Decision) — REUSE / EXTEND / CREATE_NEW (ADR) or, for a cross-domain collision, RENAME / SHARED_KERNEL / KEEP_BOTH — with one line of rationale; reviewed at --approve.
 
 | Candidate | Match (confidence) | Decision | ADR |
 | :--- | :--- | :--- | :--- |
 | {{COMPONENT}} | {{EXISTING_PATH}} ({{0.0-1.0}}) | REUSE / EXTEND / CREATE_NEW | — / ADR-NNN |
+
+> A sibling repository's match (EVOL-139) names its pin in the Match column: `{{SIBLING_URL}}@{{SHA}}:{{EXISTING_PATH}} ({{CRITERION}})`.
 
 ### Existing Contract Analysis
 > BLUEPRINT Step -1 (`rules/contract-first-policy.md` § Existing Endpoint Inventory): endpoints scanned, reused, extended, newly created; a new endpoint carries its justification.

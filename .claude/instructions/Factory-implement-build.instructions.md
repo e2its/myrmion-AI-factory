@@ -501,7 +501,7 @@ IF frontend.framework != "None":
 # CIP GATE — Execute BEFORE any code generation. This prevents duplicating existing components.
 
 IF design.md § Reuse Analysis EXISTS:
-  LOAD RDR decisions (REUSE/EXTEND/CREATE_NEW per artifact)
+  LOAD reuse decisions (REUSE/EXTEND/CREATE_NEW per artifact)
   TRUST BLUEPRINT decisions — do not re-query
   LOG: "CIP Gate: Using BLUEPRINT reuse decisions ({N} artifacts classified)"
 ELSE:
@@ -521,10 +521,11 @@ ELSE:
       EXECUTE 4-criteria matching (with domain isolation gate)
       IF EXACT_MATCH found:
         ⚠️ FLAG: "Existing component '{match.name}' in '{match.path}' — REUSE instead of CREATE"
-        RDR: Ask user REUSE / EXTEND / CREATE_NEW (with justification for CREATE_NEW)
+        DECIDE (factory-codebase-inventory § Reuse Decision): REUSE / EXTEND / CREATE_NEW (rationale for CREATE_NEW)
       IF SAME_DOMAIN found:
         ⚠️ FLAG: "Similar component '{match.name}' in same domain — verify not duplicate"
-        RDR: REUSE / EXTEND / CREATE_NEW
+        DECIDE (§ Reuse Decision): REUSE / EXTEND / CREATE_NEW
+    # Siblings (EVOL-139): the same decision per match of gate.py inventory --siblings (factory-codebase-inventory § Siblings)
     LOG: "CIP Gate: {N} artifacts checked, {M} reuse decisions resolved"
 ```
 

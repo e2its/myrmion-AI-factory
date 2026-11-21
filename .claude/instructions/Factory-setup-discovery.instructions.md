@@ -330,6 +330,19 @@ Questions are organized in dependency order within tiers; conditions live in the
   - Enterprise: full pipeline + canary + multi-environment
 - **Persist:** `ci_cd.tier`
 
+#### Q21.3: Sibling repositories (EVOL-139)
+- **Type:** Free list — the clone URLs of the other repositories the product lives in (`https://github.com/acme/billing.git`, `git@github.com:acme/web.git`), on the project's own SCM (Q21.2): its server, or the same platform's SaaS host. The one token reaches no other host; a sibling elsewhere is named and not read.
+- **Simplified:** es: "¿El producto vive también en otros repositorios? Antes de crear un componente, el agente comprobará si ya existe en ellos." / en: "Does the product also live in other repositories? Before creating a component, the agent checks whether it already exists there."
+- **RDR Recommendation:** none (an empty list) — one repository is the common case, and then nothing changes. Name a sibling only when the product is split across repositories.
+- **Tier-filtered:** All tiers.
+- **Persist:** `inventory.siblings` — read by `gate.py inventory --siblings` at the CIP consultation, each sibling's inventory at its main commit; never copied.
+
+#### Q21.4: Sibling Read Token Vault Entry (conditional: registry `when`)
+- **Type:** Free text — the vault entry's NAME
+- **Simplified:** es: "¿Cómo se llama en tu bóveda el secreto con el token de solo lectura para esos repositorios?" / en: "What is the vault entry holding the read-only token for those repositories called?"
+- **RDR Recommendation:** a read-only token limited to the siblings (GitHub: Contents read; GitLab: read_api; Bitbucket: read:repository; Azure DevOps: Code read). The value never enters the repository: the vault exports it as `INVENTORY_SIBLINGS_TOKEN`.
+- **Persist:** `inventory.siblings_token`
+
 #### Q22: Branching Strategy
 - **Options:** GitHub Flow | Git Flow | Trunk-Based Development
 - **Persist:** `branching.strategy`

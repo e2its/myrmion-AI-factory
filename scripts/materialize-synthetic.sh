@@ -278,6 +278,21 @@ for k in STACK_KEYS:
 ' "$ANSWERS" "$ROOT" 2>&1)
 [ "$SRC" -eq 0 ] && [ -z "$SMISS" ] && ok "the snapshot shows the answered stack keys ($(basename "$ANSWERS"))" || bad "the snapshot does not show the stack answers (rc $SRC)" "$SMISS${SMISS:+
 }$(printf '%s' "$SNAP" | head -8)"
+# the delivered sibling reader reads the delivered answer (EVOL-139): none declared → a note, nothing read; declared and no
+# token in the environment → one warning naming the variable, nothing read — never a network call from the synthetic run
+if python3 -c 'import json,sys; sys.exit(0 if "inventory.siblings" in json.load(open(sys.argv[1]))["answers"] else 1)' "$ANSWERS"; then
+  IRC=0; INV=$(cd "$P" && printf '%s' '[{"name": "AuthService", "type": "service"}]' | env -u INVENTORY_SIBLINGS_TOKEN python3 scripts/gate.py inventory --siblings 2>&1) || IRC=$?
+  IMISS=$(printf '%s' "$INV" | python3 -c '
+import json, sys
+n = len(json.load(open(sys.argv[1]))["answers"]["inventory.siblings"] or [])
+r = json.loads(sys.stdin.read())
+ok = r["matches"] == [] and (("no sibling repository declared" in r.get("note", "") and r["warnings"] == []) if n == 0 else
+                              (len(r["warnings"]) == 1 and "INVENTORY_SIBLINGS_TOKEN is not set" in r["warnings"][0]))
+print("" if ok else json.dumps(r))
+' "$ANSWERS" 2>&1)
+  [ "$IRC" -eq 0 ] && [ -z "$IMISS" ] && ok "gate.py inventory --siblings reads the answered siblings, nothing fetched without the token ($(basename "$ANSWERS"))" \
+    || bad "the sibling reader does not read the answer as expected (rc $IRC)" "$IMISS"
+fi
 # an upgrade fixture (EVOL-102 ph.2: `framework_version` + expect.pending / expect.migrations): the scratch tree is an
 # installed project at that version, the framework's registry and manifest delivered as factory-sync does; --resolve
 # against it lists exactly the expected pending questions and owed migrations, no others

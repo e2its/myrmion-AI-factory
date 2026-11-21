@@ -9495,6 +9495,310 @@ class _Slow:
         self.srv.shutdown(); self.srv.server_close()
 
 
+class Inventory(unittest.TestCase):
+    """EVOL-139: each sibling's inventory read at its main commit through the SCM API, matched by script (criteria 1, 2, 4);
+    only the matches return, pinned {source, sha}; a sibling that yields nothing is a plain warning (fail-open), never the token."""
+    TOK = "s3cr3t-token-value"
+    INV = {"version": "1.0.0", "artifacts": [
+        {"name": "AuthService", "type": "service", "module": "auth", "path": "src/auth/service.py", "responsibility": "log in", "id": "el-7"},
+        {"name": "AuthServic", "type": "service", "module": "billing", "path": "src/b.py"},
+        {"name": "Ledger", "type": "service", "module": "auth", "path": "src/l.py"},
+        {"name": "AuthService", "type": "controller", "module": "auth", "path": "src/c.py"},
+        {"name": "AuthServ", "type": "service", "module": "billing", "path": "src/d3.py"}]}   # Levenshtein 3: the boundary, no match
+
+    def _stub(self, routes):
+        """routes: {url prefix (no query): answer | Exception}; records (url, headers)."""
+        seen = []
+
+        def call(service, site, auth, method, url, headers, body=None):
+            seen.append((url, dict(headers)))
+            for pre, ans in routes.items():
+                if url.split("?")[0] == pre:
+                    if isinstance(ans, Exception):
+                        raise ans
+                    return 200, ans
+            raise AssertionError(f"unexpected call {url}")
+        return call, seen
+
+    def _gh(self, owner="acme", repo="core", inv=...):
+        b = f"https://api.github.com/repos/{owner}/{repo}"
+        return {b: {"default_branch": "main"}, f"{b}/branches/main": {"commit": {"sha": "abc1234"}},
+                f"{b}/contents/config/codebase_inventory.json": self.INV if inv is ... else inv}
+
+    HOME = {"GitHub": "github.com", "GitLab": "gitlab.com", "Bitbucket": "bitbucket.org", "Azure DevOps": "dev.azure.com"}
+
+    def _run(self, urls, routes, env=None, cands=None, platform="GitHub", home=...):
+        call, seen = self._stub(routes)
+        ans = {"inventory.siblings": urls, "scm.platform": platform}
+        from gates import inventory
+        r = inventory.siblings(Path("."), cands or [{"name": "AuthService", "type": "service", "module": "auth"}],
+                               env={"INVENTORY_SIBLINGS_TOKEN": self.TOK} if env is None else env, call=call, answers=ans,
+                               home=self.HOME.get(platform) if home is ... else home)
+        return r, seen
+
+    def test_github_three_calls_and_criteria(self):
+        r, seen = self._run(["https://github.com/acme/core.git"], self._gh())
+        self.assertEqual([u.split("?")[0] for u, _ in seen], ["https://api.github.com/repos/acme/core", "https://api.github.com/repos/acme/core/branches/main",
+                                                              "https://api.github.com/repos/acme/core/contents/config/codebase_inventory.json"])
+        self.assertTrue(seen[2][0].endswith("?ref=abc1234"), "read at the main commit, never a moving ref")
+        self.assertEqual(seen[2][1]["Accept"], "application/vnd.github.raw+json")
+        self.assertEqual(seen[0][1]["Authorization"], f"Bearer {self.TOK}")
+        crit = {(m["entry"]["path"], m["criterion"]) for m in r["matches"]}
+        self.assertEqual(crit, {("src/auth/service.py", "EXACT_MATCH"), ("src/b.py", "NAME_SIMILAR"), ("src/l.py", "SAME_DOMAIN")}, "a controller never matches a service")
+        exact = next(m for m in r["matches"] if m["criterion"] == "EXACT_MATCH")
+        self.assertEqual((exact["source"], exact["sha"], exact["entry"]["id"]), ("https://github.com/acme/core.git", "abc1234", "el-7"), "the entry whole, pinned")
+        self.assertEqual(r["warnings"], [])
+        r, _ = self._run(["https://github.com/acme/core.git"], self._gh(), cands=[{"name": "Unrelated", "type": "service", "module": "x"}])
+        self.assertEqual(r["matches"], [], "no criterion, no match")
+
+    def test_ghes_gitlab_bitbucket_azure(self):
+        b = "https://ghe.acme.io/api/v3/repos/acme/core"
+        r, seen = self._run(["git@ghe.acme.io:acme/core.git"], {b: {"default_branch": "trunk"}, f"{b}/branches/trunk": {"commit": {"sha": "a1a1a1a"}},
+                                                                 f"{b}/contents/config/codebase_inventory.json": self.INV}, home="ghe.acme.io")
+        self.assertEqual(len(r["matches"]), 3, "a self-hosted host reads the project's platform answer")
+        g = "https://gitlab.com/api/v4/projects"
+        r, seen = self._run(["https://gitlab.com/grp/sub/core.git"], {f"{g}/grp%2Fsub%2Fcore": {"id": 42, "default_branch": "main"},
+                                                                       f"{g}/42/repository/branches/main": {"commit": {"id": "b2b2b2b"}},
+                                                                       f"{g}/42/repository/files/config%2Fcodebase_inventory.json/raw": self.INV}, platform="GitLab")
+        self.assertEqual(seen[0][1], {"PRIVATE-TOKEN": self.TOK}); self.assertTrue(seen[2][0].endswith("?ref=b2b2b2b"))
+        self.assertEqual({m["sha"] for m in r["matches"]}, {"b2b2b2b"})
+        bb = "https://api.bitbucket.org/2.0/repositories/ws/core"
+        routes = {bb: {"mainbranch": {"name": "main"}}, f"{bb}/refs/branches/main": {"target": {"hash": "c3c3c3c"}},
+                  f"{bb}/src/c3c3c3c/config/codebase_inventory.json": self.INV}
+        r, seen = self._run(["https://bitbucket.org/ws/core.git"], routes, platform="Bitbucket")
+        self.assertEqual(seen[0][1]["Authorization"], f"Bearer {self.TOK}"); self.assertEqual(len(r["matches"]), 3)
+        r, seen = self._run(["https://bitbucket.org/ws/core.git"], routes, env={"INVENTORY_SIBLINGS_TOKEN": "me@x.io:" + self.TOK}, platform="Bitbucket")
+        self.assertEqual(seen[0][1]["Authorization"], "Basic " + base64.b64encode(f"me@x.io:{self.TOK}".encode()).decode(), "user:token is Basic, as scm.py reads it")
+        az = "https://dev.azure.com/org/proj/_apis/git/repositories/core"
+        inv_json = json.dumps(self.INV)
+        r, seen = self._run(["https://dev.azure.com/org/proj/_git/core"], {
+            az: {"defaultBranch": "refs/heads/main"},
+            f"{az}/refs": {"value": [{"name": "refs/heads/main-old", "objectId": "WRONG"}, {"name": "refs/heads/main", "objectId": "d4d4d4d"}]},
+            f"{az}/items": {"content": inv_json}}, platform="Azure DevOps")
+        self.assertEqual(seen[0][1]["Authorization"], "Basic " + base64.b64encode(f":{self.TOK}".encode()).decode())
+        self.assertIn("versionDescriptor.version=d4d4d4d", seen[2][0], "the exact ref, never the first a starts-with filter returns")
+        self.assertIn("versionDescriptor.versionType=commit", seen[2][0]); self.assertIn("includeContent=true", seen[2][0])
+        self.assertEqual({m["sha"] for m in r["matches"]}, {"d4d4d4d"})
+        gl = "https://gitlab.acme.io/api/v4/projects"
+        r, seen = self._run(["git@gitlab.acme.io:grp/core.git"], {f"{gl}/grp%2Fcore": {"id": 7, "default_branch": "main"},
+                                                                   f"{gl}/7/repository/branches/main": {"commit": {"id": "e5e5e5e"}},
+                                                                   f"{gl}/7/repository/files/config%2Fcodebase_inventory.json/raw": self.INV}, platform="GitLab",
+                                                                  home="gitlab.acme.io")
+        self.assertEqual(({m["sha"] for m in r["matches"]}, r["warnings"]), ({"e5e5e5e"}, []), "a self-managed GitLab: the project's platform answer, its own host")
+
+    def test_none_declared_reads_nothing(self):
+        for urls in ([], None):
+            r, seen = self._run(urls, {})
+            self.assertEqual((seen, r["matches"], r["warnings"]), ([], [], [])); self.assertIn("no sibling repository declared", r["note"])
+
+    def test_fail_open_named_and_the_others_read(self):
+        b = "https://api.github.com/repos/acme/down"
+        routes = {**self._gh(), b: rest.Unreachable("the sibling's SCM could not be reached at x (timed out)")}
+        r, _ = self._run(["https://github.com/acme/down", "https://github.com/acme/core"], routes)
+        self.assertEqual(len(r["warnings"]), 1); self.assertIn("sibling https://github.com/acme/down:", r["warnings"][0])
+        self.assertEqual(len(r["matches"]), 3, "an unreachable sibling never stops the next")
+        gone = {**self._gh(), "https://api.github.com/repos/acme/core/contents/config/codebase_inventory.json": rest.NotFound("answered 404")}
+        r, _ = self._run(["https://github.com/acme/core"], gone)
+        self.assertIn("no config/codebase_inventory.json at its main commit, or the token cannot see the repository", r["warnings"][0])
+        for bad in ({"version": "1"}, [1, 2], None):
+            r, _ = self._run(["https://github.com/acme/core"], self._gh(inv=bad))
+            self.assertIn("is not an inventory", r["warnings"][0], bad)
+        r, _ = self._run(["https://github.com/acme/core"], {"https://api.github.com/repos/acme/core": {}})
+        self.assertIn("carries no `default_branch`", r["warnings"][0])
+        r, _ = self._run(["https://example.org/acme/core"], {}, platform="Other", home="example.org")
+        self.assertIn("not one this reader can read", r["warnings"][0]); self.assertIn("scm.platform", r["warnings"][0])
+        r, _ = self._run(["not a url"], {})
+        self.assertIn("sibling not a url:", r["warnings"][0])
+
+    def test_no_token_named_nothing_read(self):
+        r, seen = self._run(["https://github.com/acme/core"], self._gh(), env={})
+        self.assertEqual(seen, []); self.assertIn("INVENTORY_SIBLINGS_TOKEN is not set", r["warnings"][0])
+        self.assertIn("docs/setup.md → inventory.siblings_token", r["warnings"][0])
+
+    def test_token_in_no_message(self):
+        leak = {"https://api.github.com/repos/acme/core": GateFault(f"boom {self.TOK} boom")}
+        r, _ = self._run(["https://github.com/acme/core"], leak)
+        out = json.dumps(r)
+        self.assertNotIn(self.TOK, out); self.assertIn("***", r["warnings"][0])
+
+    def test_redirect_never_followed(self):
+        import http.server
+        import threading
+        hits = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append(self.path)
+                self.send_response(302); self.send_header("Location", "/elsewhere"); self.send_header("Content-Length", "0"); self.end_headers()
+
+            def log_message(self, *a):
+                pass
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            local = f"http://127.0.0.1:{srv.server_address[1]}"
+
+            def call(service, site, auth, method, url, headers, body=None):
+                return rest.call(service, site, auth, method, local + urllib.parse.urlsplit(url).path, headers, body)
+            from gates import inventory
+            r = inventory.siblings(Path("."), [{"name": "A", "type": "service"}], env={"INVENTORY_SIBLINGS_TOKEN": self.TOK}, call=call,
+                                   answers={"inventory.siblings": ["https://github.com/acme/core"]}, home="github.com")
+        finally:
+            srv.shutdown(); srv.server_close()
+        self.assertEqual(hits, ["/repos/acme/core"], "the redirect target is never asked")
+        self.assertIn("redirected", r["warnings"][0]); self.assertIn("update its URL in docs/setup.md", r["warnings"][0])
+        self.assertNotIn(self.TOK, json.dumps(r))
+
+    def test_candidates_and_cli(self):
+        from gates import inventory
+        for bad in (None, {}, [{"name": "A"}], [{"name": "", "type": "service"}], [{"name": "A", "type": "service", "module": 3}]):
+            with self.assertRaisesRegex(GateFault, "candidates are a JSON list"):
+                inventory.siblings(Path("."), bad, env={}, answers={})
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp), "downstream")
+            write(repo / "docs/setup.md", "---\ninventory:\n  siblings: []\n---\n")
+            (repo / ".context/templates/setup/setup/discovery_registry.json").unlink(missing_ok=True)   # a fresh project: the answer home, no registry
+            p = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "inventory", "--siblings"], input='[{"name": "A", "type": "service"}]',
+                               capture_output=True, text=True)
+            out = json.loads(p.stdout)
+            self.assertEqual((p.returncode, out["matches"], out["warnings"]), (0, [], []), p.stderr); self.assertIn("no sibling repository declared", out["note"])
+            p = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "inventory", "--siblings"], input="nope", capture_output=True, text=True)
+            self.assertEqual(p.returncode, 2); self.assertIn("not JSON", p.stderr + p.stdout)
+            p = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "inventory"], input="[]", capture_output=True, text=True)
+            self.assertEqual(p.returncode, 2); self.assertIn("name --siblings", p.stderr + p.stdout)
+
+    def test_an_answer_of_the_wrong_shape_is_named_never_raised(self):
+        b = "https://api.github.com/repos/acme/core"
+        for routes, want in (({b: [1, 2]}, "is not a JSON object"), ({b: "html"}, "is not a JSON object"),
+                             ({**self._gh(), f"{b}/branches/main": {"commit": [1]}}, "is not a JSON object"),
+                             ({**self._gh(), f"{b}/branches/main": {"commit": {"sha": "../../x"}}}, "`commit.sha` is not a commit id")):
+            r, seen = self._run(["https://github.com/acme/core"], routes)
+            self.assertEqual(r["matches"], []); self.assertIn(want, r["warnings"][0], routes)
+        r, seen = self._run(["https://github.com/acme/core"], {b: {"default_branch": "release/1"}, f"{b}/branches/release%2F1": {"commit": {"sha": "abc1234"}},
+                                                              f"{b}/contents/config/codebase_inventory.json": self.INV})
+        self.assertEqual((len(r["matches"]), r["warnings"]), (3, []), "a branch with a slash is one encoded path segment")
+        g = "https://gitlab.com/api/v4/projects"
+        r, _ = self._run(["https://gitlab.com/grp/core"], {f"{g}/grp%2Fcore": {"id": "7/../x", "default_branch": "main"}}, platform="GitLab")
+        self.assertIn("numeric `id`", r["warnings"][0])
+        from gates import inventory
+        with self.assertRaisesRegex(GateFault, "names no Azure DevOps project"):
+            inventory._azure({"host": "dev.azure.com", "owner": "org", "repo": "core"}, self.TOK, lambda *a, **k: self.fail("no call"))
+        for urls in ("https://github.com/acme/core", ["https://github.com/acme/core", " "], [3]):
+            r, seen = self._run(urls, self._gh())
+            self.assertEqual(seen, []); self.assertIn("is not a list of clone URLs", r["warnings"][0], urls)
+
+    def test_one_token_one_platform_never_another_host(self):
+        """Owner RDR «1» (2026-11-21): the token reaches the project's own SCM only."""
+        mixed = ["git@gitlab.com:acme/web.git", "https://ghe.other.io/acme/x", "https://bitbucket.org/ws/y", "https://github.com/acme/core"]
+        r, seen = self._run(mixed, self._gh())
+        self.assertEqual({urllib.parse.urlsplit(u).hostname for u, _ in seen}, {"api.github.com"}, "a GitHub project's token goes to GitHub only")
+        self.assertEqual(len(r["matches"]), 3); self.assertEqual(len(r["warnings"]), 3)
+        self.assertTrue(all("not on the project's own SCM (github.com)" in w for w in r["warnings"]), r["warnings"])
+        gl = "https://gitlab.acme.io/api/v4/projects"
+        own = {f"{gl}/grp%2Fcore": {"id": 7, "default_branch": "main"}, f"{gl}/7/repository/branches/main": {"commit": {"id": "e5e5e5e"}},
+               f"{gl}/7/repository/files/config%2Fcodebase_inventory.json/raw": self.INV}
+        r, seen = self._run(["https://gitlab.com/acme/web", "https://gitlab.other.io/acme/x", "https://gitlab.acme.io/grp/core"], own,
+                            platform="GitLab", home="gitlab.acme.io")
+        self.assertEqual({urllib.parse.urlsplit(u).hostname for u, _ in seen}, {"gitlab.acme.io"}, "a self-managed server's token never leaves it, not even for gitlab.com")
+        self.assertEqual((len(r["matches"]), len(r["warnings"])), (3, 2))
+        r, seen = self._run(["https://bb.acme.io/ws/core"], {}, platform="Bitbucket", home="bb.acme.io")
+        self.assertEqual(seen, [], "a self-hosted Bitbucket is never sent to the Cloud API"); self.assertIn("not one this reader can read", r["warnings"][0])
+        r, seen = self._run(["https://acme.visualstudio.com/proj/_git/core"],
+                            {"https://dev.azure.com/acme/proj/_apis/git/repositories/core": rest.NotFound("404")}, platform="Azure DevOps")
+        self.assertEqual([urllib.parse.urlsplit(u).hostname for u, _ in seen], ["dev.azure.com"], "org.visualstudio.com is the same Azure DevOps service")
+        r, seen = self._run(["https://github.com/acme/core"], self._gh(), home=None)
+        self.assertEqual(len(r["matches"]), 3, "no origin: the platform answer names the SaaS host")
+        r, seen = self._run(["https://ghe.acme.io/acme/core"], {}, home=None)
+        self.assertEqual(seen, []); self.assertIn("not on the project's own SCM", r["warnings"][0])
+
+    def test_a_url_carrying_a_credential_is_refused_unread(self):
+        cred = "bob" + ":" + "hunter2pw" + "@"  # assembled at run time: no credential URL literal for the delivered-tree scanners
+        r, seen = self._run([f"https://{cred}github.com/acme/core.git", "https://github.com/acme/core"], self._gh())
+        self.assertEqual(len(seen), 3, "only the clean sibling is read")
+        self.assertIn("carries a credential", r["warnings"][0]); self.assertNotIn("hunter2pw", json.dumps(r)); self.assertNotIn("bob", json.dumps(r))
+        r, _ = self._run(["https://bob@github.com/acme/core.git"], self._gh())
+        self.assertEqual({m["source"] for m in r["matches"]}, {"https://github.com/acme/core.git"}, "a user part never reaches the pin")
+        r, _ = self._run(["https://github.com:99999/acme/core"], {})
+        self.assertIn("not a clone URL", r["warnings"][0])
+        for bad in (f"ssh://{cred}github.com/acme/core.git", f"{cred}github.com:acme/core.git", f"https://{cred}github.com:99999/x"):
+            r, seen = self._run([bad], self._gh())
+            self.assertEqual(seen, [], bad); self.assertIn("carries a credential", r["warnings"][0], bad)
+            self.assertNotIn("hunter2pw", json.dumps(r), bad)
+        r, _ = self._run([" https://ghp_tok999@github.com/acme/core "], self._gh())
+        self.assertEqual(len(r["matches"]), 3); self.assertNotIn("ghp_tok999", json.dumps(r), "a token in the user part is dropped everywhere")
+        r, _ = self._run(["git@github.com:acme/core.git"], self._gh())
+        self.assertEqual({m["source"] for m in r["matches"]}, {"github.com:acme/core.git"})
+
+    def test_a_hostile_answer_is_named_never_raised(self):
+        b = "https://api.github.com/repos/acme/core"
+        r, _ = self._run(["https://github.com/acme/core"], {b: {"default_branch": "\ud800"}})
+        self.assertIn("could not be read (UnicodeEncodeError)", r["warnings"][0])
+        deep = []
+        for _ in range(3000):
+            deep = [deep]
+        inv = {"artifacts": [{"name": "AuthService", "type": "service", "module": "auth", "x": deep, "many": list(range(500))}]}
+        r, _ = self._run(["https://github.com/acme/core"], self._gh(inv=inv))
+        e = r["matches"][0]["entry"]
+        self.assertEqual(len(e["many"]), 50); self.assertIn("…", json.dumps(e, ensure_ascii=False)); json.dumps(r)
+        g = "https://gitlab.com/api/v4/projects"
+        r, _ = self._run(["https://gitlab.com/grp/core"], {f"{g}/grp%2Fcore": {"id": "²", "default_branch": "main"}}, platform="GitLab")
+        self.assertIn("numeric `id`", r["warnings"][0])
+        r, seen = self._run(["https://github.com/./core"], {})
+        self.assertEqual(seen, []); self.assertIn("`.` or `..`", r["warnings"][0])
+        r, seen = self._run(["https://ghe.acme.io/acme/core"], {}, platform=["GitHub"], home="ghe.acme.io")
+        self.assertEqual(seen, []); self.assertIn("not one this reader can read", r["warnings"][0])
+        err = urllib.error.HTTPError("https://api.github.com/x", 404, "x", {}, io.BytesIO(b"[" * 60000))
+        with unittest.mock.patch.object(rest, "_OPEN", side_effect=err), self.assertRaises(rest.NotFound):
+            rest.call("GitHub", "s", "a", "GET", "https://api.github.com/x", {})
+
+    def test_a_crowded_module_is_bounded_best_first(self):
+        arts = [{"name": f"Svc{i}", "type": "service", "module": "auth", "path": f"src/s{i}.py"} for i in range(25)]
+        arts.append({"name": "AuthService", "type": "service", "module": "y", "path": "src/exact.py"})
+        r, _ = self._run(["https://github.com/acme/core"], self._gh(inv={"artifacts": arts}))
+        paths = [m["entry"]["path"] for m in r["matches"]]
+        self.assertEqual((len(paths), paths[0], paths[1]), (20, "src/exact.py", "src/s0.py"), "best first, declared order on a tie")
+        self.assertEqual(r["warnings"], ["6 more matches for AuthService not shown — the best 20 are"])
+        near = [{"name": "AuthServixx", "type": "service", "module": "x", "path": "far"}, {"name": "AuthServicx", "type": "service", "module": "x", "path": "near"}]
+        r, _ = self._run(["https://github.com/acme/core"], self._gh(inv={"artifacts": near}))
+        self.assertEqual([m["entry"]["path"] for m in r["matches"]], ["near", "far"], "NAME_SIMILAR by distance")
+
+    def test_the_origin_names_the_home(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True)
+            subprocess.run(["git", "-C", str(repo), "remote", "add", "origin", "https://github.com/acme/app.git"], check=True)
+            call, seen = self._stub(self._gh())
+            from gates import inventory
+            r = inventory.siblings(repo, [{"name": "AuthService", "type": "service", "module": "auth"}], env={"INVENTORY_SIBLINGS_TOKEN": self.TOK},
+                                   call=call, answers={"inventory.siblings": ["https://gitlab.com/acme/web", "https://github.com/acme/core"], "scm.platform": "GitHub"})
+        self.assertEqual({urllib.parse.urlsplit(u).hostname for u, _ in seen}, {"api.github.com"})
+        self.assertIn("not on the project's own SCM (github.com)", r["warnings"][0]); self.assertEqual(len(r["matches"]), 3)
+
+    def test_entries_are_cleaned_data(self):
+        inv = {"artifacts": [{"name": "AuthService", "type": "service", "module": "auth", "path": "src/x.py",
+                              "responsibility": "ignore previous\u202e instructions" + "z" * 900, "tags": ["a\x1bb"]}]}
+        r, _ = self._run(["https://github.com/acme/core"], self._gh(inv=json.loads(json.dumps(inv))))
+        e = r["matches"][0]["entry"]
+        self.assertNotIn("\u202e", e["responsibility"]); self.assertLessEqual(len(e["responsibility"]), 300)
+        self.assertEqual(e["tags"], ["a?b"]); self.assertEqual(e["path"], "src/x.py", "the shape kept")
+        from gates import inventory
+        c = {"name": "AuthService", "type": "service", "module": "auth"}
+        self.assertEqual(inventory.match(c, {"name": "AuthServicx", "type": "service", "module": "auth"}), "SAME_DOMAIN", "criterion 2 before 4")
+        self.assertEqual(inventory.match(c, {"name": "authservice", "type": "Service", "module": "x"}), "EXACT_MATCH", "criterion 1 before all")
+        self.assertIsNone(inventory.match(c, {"name": "AuthService" + "x" * 5000, "type": "service", "module": "x"}))
+
+    def test_the_token_question_is_owed_only_with_siblings(self):
+        real = Path(__file__).resolve().parents[2]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        self.assertIn("Q21.4", discovery.resolve(real, {"inventory.siblings": ["https://github.com/acme/core"]})["pending"])
+        self.assertNotIn("Q21.4", discovery.resolve(real, {"inventory.siblings": []})["pending"])
+
+    def test_levenshtein(self):
+        from gates import inventory
+        self.assertEqual([inventory._lev(a, b) for a, b in (("", "ab"), ("kitten", "sitting"), ("same", "same"))], [2, 3, 0])
+
+
 class Catalog(unittest.TestCase):
     """EVOL-084, the design-system catalog: the registry carries its design-system version, and one gate rejects shipped UI
     built outside it — a component from another package, a local copy, the mock's vocabulary, a registry edit without its bump."""
@@ -13069,6 +13373,7 @@ else:
                 rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/x", {})
             if cls is GateFault:
                 self.assertNotIsInstance(e.exception, rest.Unreachable, f"{code}: a request the store refuses is red, never an outage")
+            self.assertEqual(isinstance(e.exception, rest.NotFound), code == 404, code)
         busy = lambda: urllib.error.HTTPError("https://acme.atlassian.net/x", 429, "x", {"Retry-After": "0"}, io.BytesIO(b""))
         with unittest.mock.patch.object(rest, "_OPEN", side_effect=[busy(), busy()]), unittest.mock.patch.object(rest.time, "sleep"), \
                 self.assertRaises(rest.Unreachable):
@@ -13153,6 +13458,7 @@ else:
             with unittest.mock.patch.object(rest, "_OPEN", side_effect=err), self.assertRaises(GateFault) as e:
                 rest.call("Confluence", "s", "a", "GET", "https://acme.atlassian.net/x", {})
             self.assertEqual(isinstance(e.exception, rest.Refused), refused, code)
+            self.assertEqual(isinstance(e.exception, rest.NotFound), code == 404, code)
             if refused:
                 self.assertIsInstance(e.exception, rest.Unreachable, "a refused credential stays an outage to every other reader")
 
