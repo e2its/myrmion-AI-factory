@@ -10,6 +10,9 @@ match    CIP criteria 1 (EXACT: name, case-insensitive, and type), 2 (SAME_DOMAI
          Levenshtein < 3 and type); the best per entry. Criterion 3 (semantic) stays local: it would need the whole
          sibling inventory in the agent's context. A match carries the entry whole — every string cleaned and capped: another
          repository's data, never an instruction — with {source, sha}.
+token    one token, one platform (owner RDR «1», 2026-11-21): sent only to the project's own SCM — its origin host, or, when
+         that is a SaaS host, the same platform's SaaS host; a sibling anywhere else is named and not read. Bitbucket and
+         Azure DevOps are read on their SaaS API only.
 faults   fail-open: each sibling that yields nothing is one plain warning naming its URL (never a credential); the others
          are still read. A URL carrying a credential is refused, unread.
          Not a gate: no profile member, no CI step.
@@ -172,15 +175,33 @@ def _get(call, url: str, headers: dict):
                 f"docs/setup.md → {TOKEN_KEY}", "GET", url, headers)[1]
 
 
-def _platform(rm: dict, answers: dict) -> str | None:
-    host = rm["host"]
-    known = scm.KNOWN_HOSTS.get(host) or ("Azure DevOps" if host.endswith(".dev.azure.com") or host.endswith(".visualstudio.com") else None)
-    p = known or answers.get("scm.platform")
-    return p if p in READERS else None
+def _known(host: str | None) -> str | None:
+    """The SaaS platform a host belongs to, or None (a self-hosted server)."""
+    if not host:
+        return None
+    return scm.KNOWN_HOSTS.get(host) or ("Azure DevOps" if host.endswith(".dev.azure.com") or host.endswith(".visualstudio.com") else None)
 
 
-def siblings(repo, candidates: list[dict], env: dict | None = None, call=rest.call, answers: dict | None = None) -> dict:
-    """The siblings' matching entries and the plain warnings, never raising for a sibling (fail-open)."""
+def _platform(rm: dict, project: str | None, home: str | None) -> str:
+    """The reader for a sibling the token may reach, or the plain fault. One token, one platform: the project's origin host,
+    or the same platform's SaaS host when the origin is SaaS — never another host (owner RDR «1», ADR-EVOL-139)."""
+    host, known = rm["host"], _known(rm["host"])
+    if home is not None and host == home:
+        p = known or project
+        if p not in READERS or (not known and p in ("Bitbucket", "Azure DevOps")):
+            raise GateFault("its platform is not one this reader can read (GitHub, GitHub Enterprise, GitLab, self-managed GitLab, "
+                            "Bitbucket Cloud, Azure DevOps Services) — answer docs/setup.md → scm.platform, or remove the sibling")
+        return p
+    own = _known(home) if home is not None else project
+    if known and known == own:
+        return known
+    raise GateFault(f"it is not on the project's own SCM ({home or own or 'unknown'}) — the token is sent there only, never to "
+                    f"another host; read it with its own platform's project, or remove it from docs/setup.md → {SIBLINGS_KEY}")
+
+
+def siblings(repo, candidates: list[dict], env: dict | None = None, call=rest.call, answers: dict | None = None, home=...) -> dict:
+    """The siblings' matching entries and the plain warnings, never raising for a sibling (fail-open).
+    home: the project's origin host (default: read from `git remote get-url origin`; None when there is none)."""
     candidates = candidates_of(candidates)
     env = os.environ if env is None else env
     out = {"matches": [], "warnings": [], "siblings": 0}
@@ -202,6 +223,12 @@ def siblings(repo, candidates: list[dict], env: dict | None = None, call=rest.ca
         out["warnings"].append(f"{len(urls)} sibling repositories are declared and {TOKEN_ENV} is not set — export the read-only token "
                                f"from the vault entry named in docs/setup.md → {TOKEN_KEY}; no sibling was read")
         return out
+    if home is ...:
+        try:
+            home = scm.remote(repo)["host"]
+        except GateFault:
+            home = None   # no origin: the project's platform answer alone names the SaaS host the token may reach
+    project = answers.get("scm.platform")
     for url in urls:
         try:
             parts = urllib.parse.urlsplit(url)
@@ -216,10 +243,7 @@ def siblings(repo, candidates: list[dict], env: dict | None = None, call=rest.ca
             continue
         try:
             rm = scm.remote(repo, url)
-            platform = _platform(rm, answers)
-            if platform is None:
-                raise GateFault("its platform is not one this reader can read (GitHub, GitLab, Bitbucket, Azure DevOps) — "
-                                "answer docs/setup.md → scm.platform for a self-hosted server, or remove the sibling")
+            platform = _platform(rm, project, home)
             sha, inv = READERS[platform](rm, tok, call)
             arts = inv.get("artifacts") if isinstance(inv, dict) else None
             if not isinstance(arts, list):

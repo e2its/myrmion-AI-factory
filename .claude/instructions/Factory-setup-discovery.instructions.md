@@ -331,7 +331,7 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Persist:** `ci_cd.tier`
 
 #### Q21.3: Sibling repositories (EVOL-139)
-- **Type:** Free list — the clone URLs of the other repositories the product lives in (`https://github.com/acme/billing.git`, `git@gitlab.com:grp/web.git`); on the platforms Q21.2 offers.
+- **Type:** Free list — the clone URLs of the other repositories the product lives in (`https://github.com/acme/billing.git`, `git@github.com:acme/web.git`), on the project's own SCM (Q21.2): its server, or the same platform's SaaS host. The one token reaches no other host; a sibling elsewhere is named and not read.
 - **Simplified:** es: "¿El producto vive también en otros repositorios? Antes de crear un componente, el agente comprobará si ya existe en ellos." / en: "Does the product also live in other repositories? Before creating a component, the agent checks whether it already exists there."
 - **RDR Recommendation:** none (an empty list) — one repository is the common case, and then nothing changes. Name a sibling only when the product is split across repositories.
 - **Tier-filtered:** All tiers.

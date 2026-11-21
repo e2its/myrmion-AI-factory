@@ -94,6 +94,7 @@ Evidence (external, beat 0, the docs reader):
    - The candidates `[{name, type, module}]` come on stdin. It prints JSON `{matches: [{source, sha, criterion, entry}], warnings: [...]}`. It exits 0 whatever a sibling answers, and 2 on a bad call (no `--siblings`, candidates not JSON or malformed).
    - It reads `inventory.siblings` from `docs/setup.md`. With none declared, it reads nothing and says so.
    - Each sibling is parsed by `scm.remote(repo, url)`. Its platform comes from `scm.KNOWN_HOSTS`, or else from the project's `scm.platform` answer (a self-hosted host).
+   - **One token, one platform.** Owner RDR, 2026-11-21, on where the token may go. Three options were posed: the project's own SCM only, one token per platform, or one token to every sibling with the risk documented. The owner's choice, verbatim: **«1»**. The token is sent only to the project's origin host, or, when that host is SaaS, to the same platform's SaaS host. A self-managed server's token never leaves it, not even for the platform's SaaS host. Bitbucket and Azure DevOps are read on their SaaS API only. Any other sibling is one named warning, unread. A platform issues its own tokens, so a second platform could not be read with this token anyway.
    - The calls go through `rest.call`, which a test can replace. Per sibling, in order:
      1. the default branch;
      2. its head commit;
@@ -133,6 +134,7 @@ Evidence (external, beat 0, the docs reader):
   - Rate limits were not measured (ADR-EVOL-087).
   - A sibling that was never materialised has no inventory and is named as such.
   - An entry's strings are capped at 300 characters; a longer description is cut.
+  - A sibling on another platform or another server is not read: one token reaches one SCM.
 
 ## Verification
 
