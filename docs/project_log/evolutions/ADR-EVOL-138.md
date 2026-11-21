@@ -58,13 +58,14 @@ Evidence:
      - a name collides with a framework member or repeats;
      - a runner is not a list of strings.
    - `run` reports the fault as one RED row, `profile.members`, while the framework members still run: all-report, never a silent drop.
+   - A project row's runner is held at run: `bash` with no script is a RED row, a leading flag is never read as the script, and a missing script is «not found (profile.members)» — the sync hint is for framework members only.
 2. **The migration (EVOL-136 registry path).**
    - Registry row `profile members (EVOL-138)`: since 10.17.0, detected by `governance_features.project_members_v1`, with its anchor in `Factory-setup-upgrade`.
    - Sync overwrites `profile.py` before any migration, so the anchor reads the committed one (`git show HEAD:scripts/gates/profile.py`).
    - The pure function `profile.installed_members(text, known)` parses its `MEMBERS` with `ast` and returns each literal row whose name the delivered list lacks. A non-literal element is refused.
    - The anchor merges the rows into `profile.members` by name, add-only, and stamps the feature.
      - It refuses, humanised, on a git failure or a non-literal row, and nothing is stamped then.
-     - A second run changes nothing.
+     - Once the feature is stamped, the anchor reports nothing to do and writes nothing, whatever HEAD holds.
    - Materialisation stamps the feature from the start.
 3. **Documentation servers — the owner's RDR «1+» (2026-11-21).**
    - **Option 1 was chosen:** the project declares its servers and sync completes the reader. It was preferred over a project-owned second reader (a copy that drifts, eight spawn sites) and over a banner-only key (a source nobody reads).
@@ -79,6 +80,8 @@ Evidence:
    - **Sync** writes the reader through `agents.reader_tools(text, extra)`, which appends `mcp__<server>__<op>` per declared operation to its `tools:` line.
    - **The drift check** compares the landed reader after `agents.reader_unrender`, which strips exactly that suffix. So the render is not drift, and a hand edit still is.
    - **Unchanged:** `gate.py agents` still holds each operation to a read verb, an allowlisted server and no personal-data connector.
+   - **The key is held at its home:** a name outside the tool-id characters (letters, digits, `-`, a single inner `_`) or a `claude_ai_*` server is refused on `config/quality.json`, before anything reaches the reader.
+   - **Declared, not landed:** `gate.py agents` is red on the reader when the key declares servers its `tools:` line lacks, or when the reader cannot be read — «run scripts/factory-sync.sh».
    - **[LAW-10]:** the sentence is unchanged; its body and the skill name the key.
 4. **Turn caps.**
    - A definition's `maxTurns` is the framework's ceiling: the harness's stop. The project's key is the cap the agent is told.
@@ -112,14 +115,17 @@ Evidence:
   - the member list: merged, colliding, repeated, non-list, bad runner, and the RED row with the framework members still run;
   - a project member run by `profile --run`;
   - `owed` and `freeze._gates` naming it;
-  - `installed_members`: added, none, non-literal;
+  - `installed_members`: added, none, non-literal, a framework row in an older shape skipped, `MEMBERS` changed outside its list (append, extend, `+=`, slice or item store, re-assignment) refused;
+  - a project row's runner: `bash` alone red, a leading flag not read as the script, a missing script named for `profile.members`;
   - `reader_tools` and `reader_unrender`: round trip, idempotent; drift green on a rendered reader and red on a hand edit;
-  - the validator: a project server's read operation ok, a write operation red, a personal connector red, caps `≤` ok and `>` red;
+  - the validator: a project server's read operation ok, a write operation red, a personal connector red at the key, a name outside the tool-id characters red, declared-not-landed and an unreadable reader red on the reader, caps `≤` ok and `>` red;
+  - the upgrade's refresh and the drift check: a rendered reader is not owed a refresh, a hand edit is;
   - the registry row owed before the stamp and not after;
   - the DAST lane passing `-c` only when the rules file exists.
 - **Synthetic h138 on the default fixture:**
   - a committed `profile.py` with a member `ours`, then sync, then the anchor;
   - the config gains `ours`, `profile --run` names it, and a second run changes nothing;
+  - stamped and committed, the anchor is a no-op; unstamped with HEAD holding the delivered file, or with a non-literal member, it refuses and writes nothing;
   - with `agents.docs_servers` set, sync renders the reader, `gate.py agents` is green and the drift check is green.
 - **Fixtures** `default`, `bitbucket`, `upgrade-8.12` and `upgrade-8.12-api` with `--answers`.
 - **Gates:** lock-step, `manifest --check`, `manifest-parity`, `discovery`, `laws --parity`, `budget`, `profile --run`.

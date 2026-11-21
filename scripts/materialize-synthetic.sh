@@ -759,6 +759,14 @@ grep -q '^tools: .*, mcp__vendor-docs__search_vendor_docs$' "$Q/.claude/agents/f
   || bad "the project's documentation server (agents rc=$RCA, parity rc=$RCP)" "$OUT
 $OUT2
 $(grep '^tools:' "$Q/.claude/agents/factory-docs-reader.md")"
+# stamped, the sync result committed: the block is a no-op whatever HEAD holds
+git -C "$Q" add -A && git -C "$Q" -c user.name=t -c user.email=t@t commit -qm "the migrated project committed"
+SUM0=$(cd "$Q" && sha256sum config/quality.json docs/project_log/governance_versions.json)
+OUTC=$(cd "$Q" && bash "$Q.members.sh" 2>&1); RCC=$?
+SUMC=$(cd "$Q" && sha256sum config/quality.json docs/project_log/governance_versions.json)
+[ "$RCC" -eq 0 ] && grep -q "nothing to do" <<< "$OUTC" && [ "$SUM0" = "$SUMC" ] \
+  && ok "the members migration, stamped and committed, is a no-op — no refusal, nothing written (EVOL-138)" \
+  || bad "the stamped members migration (rc=$RCC, unchanged=$([ "$SUM0" = "$SUMC" ] && echo y || echo n))" "$OUTC"
 # the refusals write nothing: the sync result committed first (HEAD = the delivered file), then a non-literal member
 python3 - "$Q" <<'PY'
 import json, pathlib, sys

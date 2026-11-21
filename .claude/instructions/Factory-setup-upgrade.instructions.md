@@ -578,7 +578,7 @@ if not feats.get("claude_split_v1"):
 PY
 ```
 
-**profile members (EVOL-138).** Moves the gate members a project added to `scripts/gates/profile.py` into `config/quality.json → profile.members`, the project's home — the profile reads both as one list. Sync has already replaced `profile.py` with the framework's, so the block reads the committed one (`git show HEAD:scripts/gates/profile.py`) and moves each literal member whose name the delivered list lacks, add-only by name. It refuses, writing nothing, when `profile.py` is still the old one (run sync first), when HEAD already holds the delivered file (the sync result was committed: the installed one is in an earlier commit), and when a member is written as an expression or `MEMBERS` is changed outside its list: move it into `profile.members` by hand (`{name, runner, needs_build, needs_database, owner}`), then run the block again. It sets `governance_features.project_members_v1`; a second run changes nothing. Name the moved members in the upgrade report:
+**profile members (EVOL-138).** Moves the gate members a project added to `scripts/gates/profile.py` into `config/quality.json → profile.members`, the project's home — the profile reads both as one list. Sync has already replaced `profile.py` with the framework's, so the block reads the committed one (`git show HEAD:scripts/gates/profile.py`) and moves each literal member whose name the delivered list lacks, add-only by name. It refuses, writing nothing, when `profile.py` is still the old one (run sync first), when HEAD already holds the delivered file (the sync result was committed: the installed one is in an earlier commit), and when a member is written as an expression or `MEMBERS` is changed outside its list: move it into `profile.members` by hand (`{name, runner, needs_build, needs_database, owner}`), then run the block again. It sets `governance_features.project_members_v1`; once that is set the block reports nothing to do and writes nothing, whatever HEAD holds. Name the moved members in the upgrade report:
 
 ```bash
 python3 -I - <<'PY'
@@ -591,6 +591,10 @@ def git(*a):
 if not hasattr(profile, "installed_members"):
     sys.exit(f"refused: {rel} predates EVOL-138 — run scripts/factory-sync.sh first, then this block")
 try:
+    snap = json.loads(snap_p.read_text(encoding="utf-8"))
+    if (snap.get("governance_features") or {}).get("project_members_v1"):
+        print(json.dumps({"moved": [], "already": "governance_features.project_members_v1 is set — nothing to do"}))
+        sys.exit(0)
     if git("rev-parse", "--verify", "-q", "HEAD").returncode != 0:
         sys.exit("refused: no commit to read the installed profile.py from — commit the project's tree as it stood before the upgrade, then run this block again")
     shown = git("show", f"HEAD:{rel}") if git("cat-file", "-e", f"HEAD:{rel}").returncode == 0 else None
@@ -608,7 +612,6 @@ try:
     have = {m.get("name") for m in members if isinstance(m, dict)}
     moved = [r for r in rows if r["name"] not in have]
     profile.check_rows(members + moved)
-    snap = json.loads(snap_p.read_text(encoding="utf-8"))
 except (profile.GateFault, ValueError, OSError, RecursionError) as e:
     sys.exit(f"refused: {e} — nothing was written")
 print(json.dumps({"moved": [r["name"] for r in moved], "already": sorted(r["name"] for r in rows if r["name"] in have)}))

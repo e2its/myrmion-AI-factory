@@ -1013,7 +1013,7 @@
       "owner": "project"
     },
     "subproducts/measure/RUNBOOK.md": {
-      "version": "1.8.0",
+      "version": "1.8.1",
       "content_type": "universal",
       "target": "subproducts/measure/RUNBOOK.md",
       "role": "Operator runbook of the measurement subproduct: signal definitions, the before/after protocol as an obligation of the adopting project, options, config keys. Every flag it cites is closure-tested against the real parser.",

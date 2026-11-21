@@ -46,7 +46,7 @@ ALLOW_MCP = "docs_mcp_allowlist"
 PROJECT_DOCS_KEY = "agents.docs_servers"   # EVOL-138: the project's documentation servers {server: [read operations]} — a seam of config/quality.json
 READER = ".claude/agents/factory-docs-reader.md"   # the one reader sync completes with the project's servers' read operations
 TOOLS_LINE = re.compile(r"(?m)^tools:[^\n]*$")
-MCP_NAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]|_(?!_))*")   # a project server or operation: one token of a tool id — no `__`, space, comma or newline
+MCP_NAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]|_(?!_))*(?<!_)")   # a project server or operation: one token of a tool id — no `__`, no trailing `_`, space, comma or newline
 READ_VERBS = {"read", "get", "list", "search", "query", "resolve", "retrieve", "fetch", "describe", "lookup", "find", "show", "view"}
 WRITE_VERBS = {"create", "update", "delete", "put", "patch", "set", "write", "deploy", "up", "destroy", "send", "remove", "upload", "trash", "share",
                "apply", "import", "publish", "run", "execute", "refresh", "move", "copy", "label", "mark", "forward", "reply", "add", "insert",
@@ -154,7 +154,10 @@ def project_docs_servers(repo: Path) -> dict[str, list[str]]:
         raise GateFault(f"{PROJECT_DOCS_KEY} must map each server name to a non-empty list of its read operations")
     bad = [n for s, ops in v.items() for n in (s, *ops) if not MCP_NAME.fullmatch(n)]
     if bad:
-        raise GateFault(f"{PROJECT_DOCS_KEY}: {', '.join(repr(n) for n in bad)} is not a server or operation name — letters, digits, `-` and single `_` only, exactly as the tool id spells it")
+        raise GateFault(f"{PROJECT_DOCS_KEY}: {', '.join(repr(n) for n in bad)} is not a server or operation name — letters, digits, `-` and single inner `_` only, exactly as the tool id spells it")
+    personal = [s for s in v if s.lower().startswith(NEVER_SERVER_PREFIXES)]
+    if personal:
+        raise GateFault(f"{PROJECT_DOCS_KEY}: {', '.join(repr(s) for s in personal)} is a personal-data connector — never a documentation server")
     known = framework_docs_servers(repo)
     return {s: list(ops) for s, ops in v.items() if s not in known}
 
@@ -369,11 +372,16 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
         f.append({"path": "config/quality.json", "reason": f"agents.families: writer and critic resolve to the same alias `{families['writer']}` — a critic on the author's family inherits the author's blind spots; the separation is the invariant"})
     try:   # EVOL-138: the project's documentation servers — malformed admits nothing, and is said; declared but not landed is said too
         extra = project_docs_servers(repo)
-        rp = repo / READER
-        if extra and rp.is_file() and reader_tools(t := rp.read_text(encoding="utf-8"), extra) != t:
-            f.append({"path": READER, "reason": f"the project's documentation servers ({PROJECT_DOCS_KEY}) are not in the reader's tools — the banner lists them and the reader cannot call them; run scripts/factory-sync.sh"})
     except GateFault as e:
+        extra = {}
         f.append({"path": "config/quality.json", "reason": str(e)})
+    rp = repo / READER
+    if extra and rp.is_file():
+        try:
+            if reader_tools(t := rp.read_text(encoding="utf-8"), extra) != t:
+                f.append({"path": READER, "reason": f"the project's documentation servers ({PROJECT_DOCS_KEY}) are not in the reader's tools — the banner lists them and the reader cannot call them; run scripts/factory-sync.sh"})
+        except (GateFault, OSError, UnicodeDecodeError) as e:
+            f.append({"path": READER, "reason": f"the reader cannot be read for the project's documentation servers ({e}) — run scripts/factory-sync.sh"})
     # classes: a known family, and the family a class's tools imply
     for name, c in pol["classes"].items():
         if c["family"] not in families:

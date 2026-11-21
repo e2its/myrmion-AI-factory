@@ -1588,7 +1588,8 @@ class Profile(unittest.TestCase):
                 profile.installed_members(base + extra + "]\n", {"adr-sync"})
             self.assertIn("by hand", str(cm.exception))
         for grown in ('MEMBERS.append(("x", False, False, "p", None, False))\n', 'MEMBERS += [("x", False, False, "p", None, False)]\n',
-                      'MEMBERS = MEMBERS + []\n', 'MEMBERS.extend([])\n'):
+                      'MEMBERS = MEMBERS + []\n', 'MEMBERS.extend([])\n', 'MEMBERS[0:0] = [("x", False, False, "p", None, False)]\n',
+                      'MEMBERS[0] = ("x", False, False, "p", None, False)\n'):
             with self.assertRaisesRegex(profile.GateFault, "changed outside its list"):
                 profile.installed_members(base + "]\n" + grown, {"adr-sync"})
         self.assertEqual(profile.installed_members('MEMBERS = [\n    ("adr-sync", False, "older shape"),\n    ("adr-sync2", RUNNER),\n]\n', {"adr-sync", "adr-sync2"}), [],
@@ -2271,11 +2272,15 @@ class Agents(unittest.TestCase):
             declare({"vendor-docs": ["search_vendor_docs", "delete_page"]})
             write(repo / ".claude/agents/factory-docs-reader.md", agents.reader_tools(src, agents.project_docs_servers(repo)))
             self.assertTrue(any("write verb" in x["reason"] for x in agents.validate(repo, self.manifest)), "a project's mutator is still red")
-            declare({"claude_ai_Gmail": ["search_threads"]})
-            write(repo / ".claude/agents/factory-docs-reader.md", agents.reader_tools(src, agents.project_docs_servers(repo)))
-            self.assertTrue(any("personal-data connector" in x["reason"] for x in agents.validate(repo, self.manifest)), "a personal connector never, whoever lists it")
+            for personal in ("claude_ai_Gmail", "Claude_AI_Drive"):
+                declare({personal: ["search_threads"]})
+                with self.assertRaisesRegex(GateFault, "personal-data connector"):
+                    agents.project_docs_servers(repo)
+                self.assertTrue(any("personal-data connector" in x["reason"] and x["path"] == "config/quality.json" for x in agents.validate(repo, self.manifest)),
+                                "a personal connector never, whoever lists it — refused at the key, before the reader")
             for bad in (["vendor-docs"], {"vendor-docs": []}, {"vendor-docs": "search"}, {"": ["get"]}, {"v": ["get_page\npermissionMode: bypassPermissions"]},
-                        {"v": ["a, Bash"]}, {"v": ["a b"]}, {"v": ["a#b"]}, {"v": ["a:b"]}, {"v__x": ["get"]}, {" v": ["get"]}):
+                        {"v": ["a, Bash"]}, {"v": ["a b"]}, {"v": ["a#b"]}, {"v": ["a:b"]}, {"v__x": ["get"]}, {" v": ["get"]},
+                        {"v_": ["get"]}, {"v": ["get_"]}):
                 declare(bad)
                 with self.assertRaisesRegex(GateFault, "agents.docs_servers"):
                     agents.project_docs_servers(repo)
@@ -2287,6 +2292,11 @@ class Agents(unittest.TestCase):
             declare({"vendor-docs": ["search_vendor_docs"]})
             write(repo / ".claude/agents/factory-docs-reader.md", src)
             self.assertTrue(any("not in the reader's tools" in x["reason"] for x in agents.validate(repo, self.manifest)), "declared, not landed: said")
+            for broken in (b"\xff\xfe not utf-8", b"---\nname: x\n---\n"):
+                (repo / ".claude/agents/factory-docs-reader.md").write_bytes(broken)
+                self.assertTrue(any(x["path"] == ".claude/agents/factory-docs-reader.md" and "cannot be read" in x["reason"] for x in agents.validate(repo, self.manifest)),
+                                f"an unreadable reader is a finding on the reader, never a traceback: {broken!r}")
+            write(repo / ".claude/agents/factory-docs-reader.md", src)
             self.assertEqual(agents.landed_as_delivered(repo, ".claude/agents/factory-docs-reader.md"), src.encode())
             write(repo / ".claude/agents/factory-docs-reader.md", agents.reader_tools(src, agents.project_docs_servers(repo)))
             self.assertEqual(agents.landed_as_delivered(repo, ".claude/agents/factory-docs-reader.md"), src.encode(), "the landed reader, as delivered")

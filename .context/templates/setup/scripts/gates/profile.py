@@ -134,11 +134,12 @@ def installed_members(text: str, known: set[str]) -> list[dict]:
     node = next((n.value for n in tree.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "MEMBERS" for t in n.targets)), None)
     if not isinstance(node, ast.List):
         raise GateFault("the installed profile.py holds no `MEMBERS = [...]` list")
-    for st in tree.body:   # MEMBERS grown outside its literal (append, extend, +=, a re-assignment) would be lost silently
+    for st in tree.body:   # MEMBERS grown outside its literal (append, extend, +=, a slice or item store, a re-assignment) would be lost silently
         if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) or (isinstance(st, ast.Assign) and st.value is node):
             continue
         for n in ast.walk(st):
             if (isinstance(n, ast.Name) and n.id == "MEMBERS" and isinstance(n.ctx, ast.Store)) or \
+               (isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name) and n.value.id == "MEMBERS" and isinstance(n.ctx, (ast.Store, ast.Del))) or \
                (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "MEMBERS" and n.attr in ("append", "extend", "insert", "__iadd__")):
                 raise GateFault(f"line {st.lineno}: MEMBERS is changed outside its list — move those members into {PROJECT_KEY} by hand")
     out, taken = [], set(known)
