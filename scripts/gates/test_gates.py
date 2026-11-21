@@ -4550,10 +4550,15 @@ class Discovery(unittest.TestCase):
     def test_upgrade_guide_calls_functions_that_exist(self):
         guide = (Path(__file__).resolve().parents[2] / discovery.UPGRADE).read_text(encoding="utf-8")
         calls = re.findall(r"from gates import discovery; discovery\.(\w+)\(\)", guide)
-        self.assertEqual(len(calls), 6, calls)
+        self.assertEqual(sorted(calls), ["browser_mcp", "drop_history", "move_project_members", "notebook_migration", "refresh_templates",
+                                         "split_claude_md", "write_seams"])
         for name in calls:
             self.assertTrue(callable(getattr(discovery, name, None)), name)
-        self.assertNotIn("<<'PY'\nimport json, os, pathlib, shutil", guide, "an inline write program the guard cannot read")
+        from gates import writes
+        with tempfile.TemporaryDirectory() as d:
+            for block in re.findall(r"```bash\n(.*?)```", guide, re.S):   # every step the guide runs, judged before it runs
+                t = writes.targets(Path(d), {"tool_name": "Bash", "tool_input": {"command": block}}, {"HOME": d})
+                self.assertIsNone(t["unresolved"], block[:80])
 
     def test_refresh_templates_atomic_mode_kept_symlink_refused(self):
         with tempfile.TemporaryDirectory() as d:

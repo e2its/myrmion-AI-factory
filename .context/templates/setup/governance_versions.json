@@ -1439,7 +1439,7 @@
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/discovery.py",
-      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V15 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132).",
+      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V15 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132). The upgrade's write steps (#227): refresh_templates, write_seams, drop_history, notebook_migration, split_claude_md, move_project_members, browser_mcp — the upgrade guide calls them.",
       "owner": "framework"
     },
     "setup/discovery_registry.json": {
@@ -3165,7 +3165,7 @@
       "version": "2.8.0",
       "type": "script",
       "path": "scripts/gates/discovery.py",
-      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V15 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132)."
+      "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V15 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys, placeholder sources, migration and configures rows, the defect catalog, deliverable homes); reference products and their carry (EVOL-132). The upgrade's write steps (#227): refresh_templates, write_seams, drop_history, notebook_migration, split_claude_md, move_project_members, browser_mcp — the upgrade guide calls them."
     },
     "scripts/gates/writes.py": {
       "version": "2.0.1",
