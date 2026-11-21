@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "10.17.0",
+  "framework_version": "10.18.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-21",
   "governance_features": {
@@ -544,7 +544,7 @@
       "owner": "framework"
     },
     "setup/setup_master_template.md": {
-      "version": "3.6.0",
+      "version": "3.7.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "owner": "project"
@@ -1069,7 +1069,7 @@
       "owner": "project"
     },
     "scripts/gate.py": {
-      "version": "2.12.0",
+      "version": "2.13.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language.",
@@ -1117,7 +1117,7 @@
       "owner": "framework"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.52.0",
+      "version": "1.53.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
@@ -1443,7 +1443,7 @@
       "owner": "framework"
     },
     "setup/discovery_registry.json": {
-      "version": "2.12.0",
+      "version": "2.13.0",
       "content_type": "universal",
       "target": null,
       "role": "The SETUP discovery registry (EVOL-102) — consumed in place by SETUP and gate.py discovery, never copied: the questions, their tiers, keys, options and conditions; derived values never asked.",
@@ -1683,7 +1683,7 @@
       "owner": "framework"
     },
     "scripts/gates/rest.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/rest.py",
@@ -1702,6 +1702,13 @@
       "owner": "project",
       "target": "security/dast/rules.tsv",
       "role": "The project's ZAP packaged-scan rules (EVOL-138): security-scan.sh passes it as -c when present; lands holding only the format, as comments."
+    },
+    "scripts/gates/inventory.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "delivery": "both",
+      "owner": "framework",
+      "target": "scripts/gates/inventory.py"
     }
   },
   "agent_templates": {
@@ -1714,7 +1721,7 @@
       "owner": "framework"
     },
     "architect/design_template.md": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "content_type": "universal",
       "target": ".context/templates/architect/design_template.md",
       "owner": "framework"
@@ -1874,7 +1881,7 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing; their history lives in version control (EVOL-118).",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.33.5",
+      "version": "2.34.0",
       "path": "README.md"
     },
     "commands/audit.md": {
@@ -1938,7 +1945,7 @@
       "owner": "framework"
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.27.1",
+      "version": "3.28.0",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "delivery": "sync",
       "owner": "framework"
@@ -1950,7 +1957,7 @@
       "owner": "framework"
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.15.0",
+      "version": "2.16.0",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "delivery": "sync",
       "owner": "framework"
@@ -1986,7 +1993,7 @@
       "owner": "framework"
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.24.0",
+      "version": "2.25.0",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "delivery": "sync",
       "owner": "framework"
@@ -2022,7 +2029,7 @@
       "owner": "framework"
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "3.7.1",
+      "version": "3.8.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "delivery": "sync",
       "owner": "framework"
@@ -2083,7 +2090,7 @@
       "owner": "framework"
     },
     "skills/factory-codebase-inventory/SKILL.md": {
-      "version": "2.6.2",
+      "version": "2.7.0",
       "type": "skill",
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md",
       "delivery": "sync",
@@ -2487,7 +2494,7 @@
       "owner": "framework"
     },
     "workflows/governance-check.yml": {
-      "version": "1.24.2",
+      "version": "1.25.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates."
@@ -2812,7 +2819,7 @@
       "owner": "framework"
     },
     "scripts/gate.py": {
-      "version": "2.12.0",
+      "version": "2.13.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · notebook (EVOL-133) · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py"
@@ -2848,13 +2855,13 @@
       "path": "scripts/gates/retired.py"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.52.0",
+      "version": "1.53.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py"
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.49.0",
+      "version": "1.50.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh"
@@ -3136,7 +3143,7 @@
       "owner": "framework"
     },
     "scripts/fixtures/synthetic-answers/default.json": {
-      "version": "1.16.1",
+      "version": "1.17.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json",
@@ -3178,7 +3185,7 @@
       "path": "scripts/gates/frontmatter.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12.json": {
-      "version": "1.18.0",
+      "version": "1.19.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json",
@@ -3429,7 +3436,7 @@
       "path": "scripts/gates/data.py"
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json": {
-      "version": "1.13.0",
+      "version": "1.14.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json",
@@ -3501,7 +3508,7 @@
       "path": "scripts/gates/documents.py"
     },
     "scripts/gates/rest.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "path": "scripts/gates/rest.py"
     },
@@ -3601,6 +3608,18 @@
       "type": "utility",
       "path": "scripts/claude-md-sections.py",
       "role": "META-ONLY generator (EVOL-137) of templates claude/sections.json: the sha256 of every part and every heading of each committed CLAUDE.md monolith, renames followed; frozen at the split."
+    },
+    "scripts/gates/inventory.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "path": "scripts/gates/inventory.py"
+    },
+    "scripts/fixtures/synthetic-answers/siblings.json": {
+      "version": "1.0.0",
+      "delivery": "sync",
+      "type": "utility",
+      "owner": "framework",
+      "path": "scripts/fixtures/synthetic-answers/siblings.json"
     }
   },
   "runtime_artefacts": {

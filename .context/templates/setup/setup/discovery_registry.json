@@ -1501,6 +1501,27 @@
    }
   },
   {
+   "id": "Q21.3",
+   "tier": 2,
+   "since": "10.18.0",
+   "keys": {
+    "inventory.siblings": {
+     "free": "list"
+    }
+   }
+  },
+  {
+   "id": "Q21.4",
+   "tier": 2,
+   "since": "10.18.0",
+   "when": "inventory.siblings exists",
+   "keys": {
+    "inventory.siblings_token": {
+     "free": "vault_name"
+    }
+   }
+  },
+  {
    "id": "Q22",
    "tier": 2,
    "since": "1.0.0",

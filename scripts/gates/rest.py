@@ -29,6 +29,11 @@ class Refused(Unreachable):
     control point as wiring to fix (EVOL-080: the CI's credential is missing, expired or not allowed)."""
 
 
+class NotFound(GateFault):
+    """404: the resource is not there — or, on a server that hides what a token cannot see (GitHub, GitLab), not visible to it.
+    A GateFault like every other 4xx; a reader that tells «absent» from «broken» catches it (EVOL-139)."""
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -83,7 +88,7 @@ def call(service: str, site_hint: str, auth_hint: str, method: str, url: str, he
                 if e.code in (401, 403):
                     raise Refused(f"{service} refused {short} ({e.code}) — {auth_hint}") from None
                 why = _reason(e)
-                cls = Unreachable if e.code >= 500 else GateFault
+                cls = Unreachable if e.code >= 500 else NotFound if e.code == 404 else GateFault
                 raise cls(f"{service} answered {e.code} for {short}" + (f" ({clean(why, 300)})" if why else "")) from None
         except RecursionError:
             raise GateFault(f"{service} answered {short} with JSON nested too deep to read — refused") from None

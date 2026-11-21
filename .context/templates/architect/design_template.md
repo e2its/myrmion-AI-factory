@@ -59,6 +59,8 @@ pending_design_items: []
 | :--- | :--- | :--- | :--- |
 | {{COMPONENT}} | {{EXISTING_PATH}} ({{0.0-1.0}}) | REUSE / EXTEND / CREATE_NEW | — / ADR-NNN |
 
+> A sibling repository's match (EVOL-139) names its pin in the Match column: `{{SIBLING_URL}}@{{SHA}}:{{EXISTING_PATH}} ({{CRITERION}})`.
+
 ### Existing Contract Analysis
 > BLUEPRINT Step -1 (`rules/contract-first-policy.md` § Existing Endpoint Inventory): endpoints scanned, reused, extended, newly created; a new endpoint carries its justification.
 

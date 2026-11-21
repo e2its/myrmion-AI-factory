@@ -1,5 +1,5 @@
 ---
-version: 3.6.0
+version: 3.7.0
 date: 2026-04-21
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
@@ -39,6 +39,9 @@ scm:
   platform: null                      # Q21.2 — GitHub | GitLab | Bitbucket | Azure DevOps | Other, or the platform's own name → config/quality.json scm.platform; the runbook docs/scm/protection.md lands per platform (EVOL-054)
   approvals: null                     # Q21.2 — approvals a pull request needs (a project decision; 0 for a single author) → scm.approvals
   required_checks: null               # Q21.2 — the checks the server must require before merge → scm.required_checks
+inventory:
+  siblings: null                      # Q21.3 — the clone URLs of the product's other repositories; [] = none (EVOL-139) → gate.py inventory --siblings
+  siblings_token: null                # Q21.4, with siblings — the vault entry's NAME of the read-only token (exported as INVENTORY_SIBLINGS_TOKEN), never the value
 # answers (EVOL-102) — keys, options, conditions: .context/templates/setup/setup/discovery_registry.json
 project_name: null
 business_goal: null

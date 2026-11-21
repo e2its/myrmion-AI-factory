@@ -20,6 +20,13 @@ FUNCTION cip_consultation_gate(agent, proposed_artifacts):
   # This gate MUST execute before ANY agent creates a new service, entity,
   # utility, component, or significant code artifact. No exceptions.
 
+  # Step S: Siblings (EVOL-139) — only when docs/setup.md → inventory.siblings is a non-empty list
+  IF ANSWER("inventory.siblings") IS NON-EMPTY LIST:
+    out = BASH("echo '<proposed_artifacts as [{name, type, module}]>' | python3 scripts/gate.py inventory --siblings")
+    SHOW: out.warnings verbatim  # fail-open: a sibling that yields nothing is named; the check goes on
+    FOR EACH m IN out.matches:   # § Siblings — criteria 1, 2, 4 only
+      RDR (§ RDR Decision Protocol): REUSE / EXTEND / CREATE_NEW — source "{m.source}@{m.sha}", entry m.entry
+
   inventory_path = "config/codebase_inventory.json"
   IF NOT FILE_EXISTS(inventory_path):
     ⚠️ WARN: "Codebase inventory not found. DRY Gate degraded."
@@ -193,6 +200,14 @@ FUNCTION find_inventory_matches(planned_artifact, topology):
   
   RETURN candidates SORTED BY confidence DESC
 ```
+
+### Siblings (EVOL-139)
+
+A product split over several repositories names them at SETUP (`docs/setup.md → inventory.siblings`; none by default, then nothing runs). `gate.py inventory --siblings` reads each sibling's `config/codebase_inventory.json` at its main commit through the SCM API, token from `INVENTORY_SIBLINGS_TOKEN`, and returns only the matches, each entry whole with `{source, sha, criterion}`. Nothing cached, nothing copied.
+
+- Criteria 1, 2, 4 are computed by the script, the name compared case-insensitively. Criterion 3 is not checked across repositories: it would load a whole sibling inventory into context. No domain-isolation gate: a sibling's modules are its own.
+- Each match enters the same RDR. The decision records the pin `{source}@{sha}` in design.md § Reuse Analysis.
+- Every sibling that yields nothing (no token, refused, unreachable, no inventory, unknown platform) is one plain warning; the others are still read. Not a gate.
 
 ---
 

@@ -374,6 +374,10 @@ candidates = find_inventory_matches(planned_artifact, topology):
   2. SAME_DOMAIN: same module + same type (confidence: 0.8)
   3. NEAR_DUPLICATE: >60% responsibility overlap (confidence: overlap score)
   4. NAME_SIMILAR: Levenshtein distance <3, same type (confidence: 0.5)
+
+# Siblings (EVOL-139): with docs/setup.md → inventory.siblings declared, also
+#   echo '<planned artifacts as [{name, type, module}]>' | python3 scripts/gate.py inventory --siblings
+# each match → the same -2d RDR, pinned {source}@{sha} in § Reuse Analysis; warnings shown, never blocking
 ```
 
 **Sub-step -2d: RDR per Reuse Candidate (1-to-1, NEVER batch)**

@@ -161,6 +161,9 @@ FUNCTION cip_refine_artifact_recheck(refine_changes, FEATURE_ID):
       RDR: REUSE / EXTEND / CREATE_NEW
       overlaps += candidates.SAME_DOMAIN.length
 
+  # Siblings (EVOL-139): with inventory.siblings declared, the new artifacts also go through
+  #   python3 scripts/gate.py inventory --siblings  (factory-codebase-inventory § Siblings) — same RDR, pinned {source}@{sha}
+
   LOG: "CIP Refine Re-Check: {new_artifacts.length} new artifacts checked, {overlaps} overlaps resolved"
 ```
 
